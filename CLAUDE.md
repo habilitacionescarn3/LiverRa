@@ -385,11 +385,29 @@ If in doubt: ask. License mistakes + audit-trail gaps are expensive to fix later
 
 ---
 
+## 📚 Pre-Implementation Research Archive (READ THIS FIRST)
+
+Comprehensive research was completed BEFORE this scaffold was built. Consolidated findings live in `docs/research/`. Every Claude Code session in this repo should treat these as authoritative context for the product, technical, regulatory, and commercial strategy.
+
+**Read order:**
+1. `docs/research/00-executive-brief.md` — one-page verdict + go/no-go
+2. `docs/research/10-mvp-strategy.md` — zero-training cascaded pipeline plan
+3. `docs/research/11-model-and-dataset-choices.md` — exact Apache 2.0 model stack
+4. `docs/research/07-technical-architecture.md` — hybrid edge/cloud + AWS + stack
+
+**Full index:** `docs/README.md`
+
+**For the first `/speckit.specify`:** paste the prompt from `docs/research/12-spec-input-prompt.md`.
+**For `/speckit.constitution`:** reference answers in `docs/CONSTITUTION-DRAFT.md`.
+
+---
+
 ## 🎬 Next Steps (User Workflow After Scaffold)
 
 1. Open this folder in Claude Code
-2. Run `/speckit.constitution` — define LiverRa governing principles (HIPAA/GDPR, FHIR R4, DICOM, Apache 2.0 licensing, CE MDR Class IIb)
-3. Run `/speckit.specify "Zero-training MVP: cascaded pretrained liver AI pipeline with web viewer"` — first feature spec
-4. Follow plan → tasks → implement cycle
+2. Run `/speckit.constitution` — define LiverRa governing principles using `docs/CONSTITUTION-DRAFT.md` as reference
+3. Run `/speckit.specify` with the prompt from `docs/research/12-spec-input-prompt.md` — first feature spec
+4. Run `/upgradeSpec` to harden first draft with parallel analysis agents
+5. Follow plan → tasks → analyze → implement cycle
 
 **Remember:** First line of code gets written AFTER the constitution and the first feature spec are complete. Not before.
