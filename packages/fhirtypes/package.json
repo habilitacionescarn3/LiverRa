@@ -1,0 +1,15 @@
+{
+  "name": "@liverra/fhirtypes",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "FHIR R4 TypeScript types with LiverRa extensions (ImagingStudy, DiagnosticReport, etc.)",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --ext ts"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

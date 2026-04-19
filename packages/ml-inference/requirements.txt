@@ -1,0 +1,18 @@
+# LiverRa ML inference dependencies
+# To be populated by first implementation spec (feature 001)
+#
+# Core expected:
+# fastapi>=0.115
+# uvicorn[standard]>=0.32
+# pydantic>=2.9
+# monai>=1.4
+# torch>=2.3
+# nibabel>=5.3
+# pydicom>=3.0
+# highdicom>=0.24
+# SimpleITK>=2.4
+# numpy>=2.0
+# scipy>=1.14
+#
+# Model-specific (loaded lazily):
+# tritonclient[all]>=2.50

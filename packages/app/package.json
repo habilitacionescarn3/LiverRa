@@ -1,0 +1,16 @@
+{
+  "name": "@liverra/app",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "LiverRa frontend — Vite + React 19 + Mantine 7",
+  "scripts": {
+    "dev": "vite --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint . --ext ts,tsx"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

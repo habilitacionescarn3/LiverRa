@@ -1,0 +1,16 @@
+{
+  "name": "@liverra/imaging",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "LiverRa DICOM, Cornerstone3D, PACS client",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "eslint . --ext ts"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
