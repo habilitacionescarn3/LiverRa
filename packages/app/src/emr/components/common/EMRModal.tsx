@@ -5,7 +5,7 @@ import { Modal, Box, Group, Text, LoadingOverlay } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconX, IconDeviceFloppy } from '@tabler/icons-react';
 import type { ReactNode, ComponentType, CSSProperties } from 'react';
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { EMRButton } from './EMRButton';
 import { useTranslation } from '../../contexts/TranslationContext';
 
@@ -73,6 +73,8 @@ export interface EMRModalProps {
   trapFocus?: boolean;
   /** When set alongside submitLoading, shows a blurred overlay with this message over the body */
   processingMessage?: string;
+  /** Optional id for the modal title element; used to link aria-labelledby on the dialog */
+  titleId?: string;
 }
 
 /**
@@ -126,8 +128,12 @@ export function EMRModal({
   fullScreen: forceFullScreen,
   trapFocus = true,
   processingMessage,
+  titleId,
 }: EMRModalProps): React.ReactElement {
   const { t } = useTranslation();
+  // Stable fallback id so aria-labelledby always resolves to the visible title
+  const generatedTitleId = useId();
+  const resolvedTitleId = titleId ?? `emr-modal-title-${generatedTitleId}`;
   // Mobile detection for full-screen mode
   const isMobile = useMediaQuery('(max-width: 768px)');
   // Combine mobile and forced fullscreen for style calculations
@@ -308,6 +314,7 @@ export function EMRModal({
         content: mobileContentStyles,
         body: modalBodyStyles,
       }}
+      aria-labelledby={resolvedTitleId}
       data-testid={testId}
     >
       {/* ═══════════════════════════════════════════════════════════════
@@ -332,6 +339,7 @@ export function EMRModal({
             {/* Title & Subtitle */}
             <Box style={titleContainerStyles}>
               <Text
+                id={resolvedTitleId}
                 fw={500}
                 size="md"
                 c="var(--emr-modal-title-color)"

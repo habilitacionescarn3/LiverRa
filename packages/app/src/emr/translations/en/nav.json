@@ -17,5 +17,20 @@
   "erasure_requests": "Erasure",
   "help": "Help",
   "profile": "Profile",
-  "more": "More"
+  "more": "More",
+  "cta": {
+    "openCases": "Open cases",
+    "signIn": "Sign in",
+    "help": "Help & demo case"
+  },
+  "admin": {
+    "users": "User management",
+    "pacs": "PACS config",
+    "ops": "Ops queue",
+    "mbom": "MBoM",
+    "claimRegistry": "Claim registry",
+    "auditSummary": "Audit summary",
+    "ruoSpotcheck": "RUO spot-check",
+    "erasure": "Erasure (DPO)"
+  }
 }

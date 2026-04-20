@@ -1,1 +1,20 @@
-{}
+{
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "close": "Close",
+    "retry": "Retry",
+    "back": "Back",
+    "next": "Next"
+  },
+  "state": {
+    "loading": "Loading…",
+    "empty": "No results",
+    "error": "Something went wrong"
+  },
+  "ruo": {
+    "notice": "Research Use Only — not for clinical use"
+  },
+  "placeholder": "TODO: translation pending"
+}

@@ -1,0 +1,19 @@
+{
+  "online": "Online",
+  "offline": "Offline",
+  "syncing": "Syncing…",
+  "onlineWithQueue": "Online · {{count}} queued",
+  "offlineWithQueue": "Offline · {{count}} queued",
+  "pendingTitle": "Pending edits",
+  "noPending": "Nothing waiting to sync",
+  "moreCount": "+{{count}} more",
+  "lastSync": "Last synced at {{at}}",
+  "retryNow": "Retry now",
+  "editType": {
+    "mask_edit": "Mask edit",
+    "classification_override": "Classification override",
+    "plane_pose": "Plane pose",
+    "comment": "Comment",
+    "resection_plane": "Resection plane"
+  }
+}

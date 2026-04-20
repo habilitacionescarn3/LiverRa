@@ -38,7 +38,7 @@ import {
 } from '../../services/offline/offlineQueue';
 
 export function SyncIndicator(): ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { status, queueDepth, lastSyncAt, nudge } = useSync();
   const [open, setOpen] = useState<boolean>(false);
   const [pending, setPending] = useState<OfflineEdit[]>([]);
@@ -62,14 +62,14 @@ export function SyncIndicator(): ReactElement {
 
   const label =
     status === 'syncing'
-      ? t('sync.syncing')
+      ? t('sync:syncing')
       : status === 'offline'
         ? queueDepth > 0
-          ? t('sync.offlineWithQueue', { count: queueDepth })
-          : t('sync.offline')
+          ? t('sync:offlineWithQueue', { count: queueDepth })
+          : t('sync:offline')
         : queueDepth > 0
-          ? t('sync.onlineWithQueue', { count: queueDepth })
-          : t('sync.online');
+          ? t('sync:onlineWithQueue', { count: queueDepth })
+          : t('sync:online');
 
   return (
     <Popover
@@ -98,37 +98,37 @@ export function SyncIndicator(): ReactElement {
         <Stack gap="xs">
           <Group justify="space-between">
             <Text fw={600} size="sm">
-              {t('sync.pendingTitle')}
+              {t('sync:pendingTitle')}
             </Text>
             <IconCloud size={14} />
           </Group>
           {pending.length === 0 ? (
             <Text size="xs" c="dimmed">
-              {t('sync.noPending')}
+              {t('sync:noPending')}
             </Text>
           ) : (
             <Stack gap={4}>
               {pending.slice(0, 10).map((p) => (
                 <Group key={p.id} justify="space-between" gap="xs">
                   <Text size="xs">
-                    {t(`sync.editType.${p.edit_type}`)}
+                    {t(`sync:editType.${p.edit_type}`)}
                   </Text>
                   <Text size="xs" c="dimmed">
-                    {new Date(p.created_at).toLocaleTimeString()}
+                    {new Date(p.created_at).toLocaleTimeString(locale)}
                   </Text>
                 </Group>
               ))}
               {pending.length > 10 && (
                 <Text size="xs" c="dimmed">
-                  {t('sync.moreCount', { count: pending.length - 10 })}
+                  {t('sync:moreCount', { count: pending.length - 10 })}
                 </Text>
               )}
             </Stack>
           )}
           {lastSyncAt && (
             <Text size="xs" c="dimmed">
-              {t('sync.lastSync', {
-                at: new Date(lastSyncAt).toLocaleTimeString(),
+              {t('sync:lastSync', {
+                at: new Date(lastSyncAt).toLocaleTimeString(locale),
               })}
             </Text>
           )}
@@ -147,7 +147,7 @@ export function SyncIndicator(): ReactElement {
             }}
             data-testid="sync-indicator-nudge"
           >
-            {t('sync.retryNow')}
+            {t('sync:retryNow')}
           </button>
         </Stack>
       </Popover.Dropdown>

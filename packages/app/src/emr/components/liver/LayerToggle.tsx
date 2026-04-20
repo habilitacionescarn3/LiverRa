@@ -28,6 +28,7 @@ import { memo, useCallback, useEffect, useId, useMemo } from 'react';
 import { Box, Text, Stack } from '@mantine/core';
 
 import { EMRCheckbox } from '../shared/EMRFormFields/EMRCheckbox';
+import { useTranslation } from '../../contexts/TranslationContext';
 
 export interface LayerToggleState {
   parenchyma: boolean;
@@ -69,6 +70,7 @@ export const LayerToggle = memo(function LayerToggle({
   showLesions = true,
   'data-testid': dataTestId = 'layer-toggle',
 }: LayerToggleProps) {
+  const { t } = useTranslation();
   const headingId = useId();
 
   const nextInCycle = useMemo(() => {
@@ -126,27 +128,27 @@ export const LayerToggle = memo(function LayerToggle({
           marginBottom: 'var(--emr-space-sm, 8px)',
         }}
       >
-        Layers
+        {t('refine:layers.heading')}
       </Text>
 
       <Stack gap={6}>
         <EMRCheckbox
           name="layer-parenchyma"
-          label="Parenchyma"
+          label={t('refine:layers.parenchyma')}
           checked={state.parenchyma}
           onChange={() => toggle('parenchyma')}
           data-testid="layer-toggle-parenchyma"
         />
         <EMRCheckbox
           name="layer-segments"
-          label="Couinaud segments"
+          label={t('refine:layers.couinaudSegments')}
           checked={state.segments}
           onChange={() => toggle('segments')}
           data-testid="layer-toggle-segments"
         />
         <EMRCheckbox
           name="layer-vessels"
-          label="Vein trunks"
+          label={t('refine:layers.veinTrunks')}
           checked={state.vessels}
           onChange={() => toggle('vessels')}
           data-testid="layer-toggle-vessels"
@@ -154,7 +156,7 @@ export const LayerToggle = memo(function LayerToggle({
         {showLesions ? (
           <EMRCheckbox
             name="layer-lesions"
-            label="Lesions"
+            label={t('refine:layers.lesions')}
             checked={state.lesions}
             onChange={() => toggle('lesions')}
             data-testid="layer-toggle-lesions"
@@ -171,7 +173,7 @@ export const LayerToggle = memo(function LayerToggle({
             marginTop: 'var(--emr-space-sm, 8px)',
           }}
         >
-          Press <kbd>L</kbd> to cycle layer combos
+          {t('refine:layers.keyHint', { key: 'L' })}
         </Text>
       ) : null}
     </Box>

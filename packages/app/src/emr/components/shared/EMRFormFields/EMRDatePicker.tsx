@@ -139,6 +139,7 @@ export const EMRDatePicker = forwardRef<HTMLInputElement, EMRDatePickerProps>(
           shadow="lg"
           withinPortal
           radius={12}
+          trapFocus
         >
           <Popover.Target>
             <Box

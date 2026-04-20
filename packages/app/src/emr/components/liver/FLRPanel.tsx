@@ -100,7 +100,7 @@ export function FLRPanel({
   onRecompute,
   'data-testid': testId = 'flr-panel',
 }: FLRPanelProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const claim = ruoClaim ?? useRUOClaimStub();
 
   const [flrPct, setFlrPct] = useState<number | undefined>(initialFlrPct);
@@ -177,7 +177,7 @@ export function FLRPanel({
           <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
             {flrMl !== undefined && totalMl !== undefined
               ? t('analysis:flr.valueMl', {
-                  ml: flrMl.toLocaleString(),
+                  ml: flrMl.toLocaleString(locale),
                 }) +
                 ' • ' +
                 t('analysis:flr.valuePct', {

@@ -56,5 +56,13 @@
     "countdown": "{{seconds}} წმ დარჩა — დროის ამოწურვაზე შენარჩუნდება",
     "release": "გადაცემა",
     "keep": "შენარჩუნება"
+  },
+  "layers": {
+    "heading": "Layers",
+    "parenchyma": "Parenchyma",
+    "couinaudSegments": "Couinaud segments",
+    "veinTrunks": "Vein trunks",
+    "lesions": "Lesions",
+    "keyHint": "Press {{key}} to cycle layer combos"
   }
 }

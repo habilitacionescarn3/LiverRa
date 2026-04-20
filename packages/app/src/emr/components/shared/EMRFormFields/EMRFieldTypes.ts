@@ -643,6 +643,9 @@ export interface EMRFormRowProps {
  * EMRFormSection props (for collapsible sections)
  */
 export interface EMRFormSectionProps {
+  /** Optional section id; used to derive aria-controls target for the collapse trigger */
+  id?: string;
+
   /** Section title */
   title: string;
 

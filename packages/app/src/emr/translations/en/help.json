@@ -1,1 +1,48 @@
-{}
+{
+  "landing": {
+    "tagline": "AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
+    "sections": {
+      "v1": {
+        "title": "What v1 does",
+        "kicker": "Zero-training cascaded pipeline · Apache 2.0 model stack"
+      },
+      "admin": {
+        "title": "Admin & operator surfaces",
+        "kicker": "Internal tools for staff roles"
+      }
+    },
+    "features": {
+      "upload": {
+        "title": "Upload → 3D + FLR",
+        "body": "4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+      },
+      "lesionDetection": {
+        "title": "Lesion detection",
+        "body": "6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+      },
+      "refinement": {
+        "title": "Interactive refinement",
+        "body": "VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+      },
+      "finalize": {
+        "title": "Finalize & PACS",
+        "body": "DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+      },
+      "compliance": {
+        "title": "Compliance & audit",
+        "body": "Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+      },
+      "erasure": {
+        "title": "GDPR Art. 17 erasure",
+        "body": "Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+      }
+    },
+    "footer": {
+      "preview": "Design-partner preview build",
+      "ce": "CE MDR Class IIb track · 24–30 months",
+      "gdpr": "GDPR · eu-central-1 residency",
+      "ruo": "Research use only",
+      "brand": "liverra.ai"
+    }
+  }
+}

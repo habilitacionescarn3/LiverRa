@@ -23,6 +23,7 @@ import type { ComponentType, ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 
 import { LIVERRA_ROUTES } from '../constants/routes';
+import { useTranslation } from '../contexts/TranslationContext';
 
 import classes from './LandingView.module.css';
 
@@ -40,6 +41,7 @@ import classes from './LandingView.module.css';
  * and the future brand-ramp swap propagate automatically.
  */
 export default function LandingView(): ReactElement {
+  const { t } = useTranslation();
   return (
     <Box className={classes.root}>
       <Box className={classes.meshDecoration} aria-hidden="true" />
@@ -50,30 +52,29 @@ export default function LandingView(): ReactElement {
           <header className={classes.hero}>
             <span className={classes.ruoChip} role="status" aria-live="polite">
               <IconAlertTriangle size={14} stroke={2.2} aria-hidden="true" />
-              Research use only — not for clinical use
+              {t('common:ruo.notice')}
             </span>
 
             <h1 className={classes.wordmark}>LiverRa</h1>
 
             <p className={classes.tagline}>
-              AI-powered liver diagnostics and surgical planning for
-              hepatobiliary surgeons and abdominal radiologists.
+              {t('help:landing.tagline')}
             </p>
 
             <div className={classes.ctaRow}>
               <Link to={LIVERRA_ROUTES.CASES_LIST} className={classes.ctaPrimary}>
-                Open cases
+                {t('nav:cta.openCases')}
                 <IconArrowRight size={18} stroke={2} aria-hidden="true" />
               </Link>
 
               <Link to={LIVERRA_ROUTES.SIGNIN} className={classes.ctaSecondary}>
                 <IconLogin2 size={18} stroke={2} aria-hidden="true" />
-                Sign in
+                {t('nav:cta.signIn')}
               </Link>
 
               <Link to={LIVERRA_ROUTES.HELP} className={classes.tertiaryLink}>
                 <IconHelpHexagon size={16} stroke={2} aria-hidden="true" />
-                Help &amp; demo case
+                {t('nav:cta.help')}
               </Link>
             </div>
           </header>
@@ -82,10 +83,10 @@ export default function LandingView(): ReactElement {
           <section aria-labelledby="v1-features-heading">
             <div className={classes.sectionHead}>
               <h2 id="v1-features-heading" className={classes.sectionTitle}>
-                What v1 does
+                {t('help:landing.sections.v1.title')}
               </h2>
               <span className={classes.sectionKicker}>
-                Zero-training cascaded pipeline · Apache 2.0 model stack
+                {t('help:landing.sections.v1.kicker')}
               </span>
               <span className={classes.sectionRule} aria-hidden="true" />
             </div>
@@ -93,38 +94,38 @@ export default function LandingView(): ReactElement {
             <div className={classes.featureGrid}>
               <FeatureCard
                 icon={IconUpload}
-                title="Upload → 3D + FLR"
-                body="4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+                title={t('help:landing.features.upload.title')}
+                body={t('help:landing.features.upload.body')}
                 to={LIVERRA_ROUTES.CASES_LIST}
               />
               <FeatureCard
                 icon={IconTarget}
-                title="Lesion detection"
-                body="6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+                title={t('help:landing.features.lesionDetection.title')}
+                body={t('help:landing.features.lesionDetection.body')}
                 to={LIVERRA_ROUTES.CASES_LIST}
               />
               <FeatureCard
                 icon={IconBrush}
-                title="Interactive refinement"
-                body="VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+                title={t('help:landing.features.refinement.title')}
+                body={t('help:landing.features.refinement.body')}
                 to={LIVERRA_ROUTES.CASES_LIST}
               />
               <FeatureCard
                 icon={IconFileCertificate}
-                title="Finalize & PACS"
-                body="DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+                title={t('help:landing.features.finalize.title')}
+                body={t('help:landing.features.finalize.body')}
                 to={LIVERRA_ROUTES.CASES_LIST}
               />
               <FeatureCard
                 icon={IconShieldCheck}
-                title="Compliance & audit"
-                body="Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+                title={t('help:landing.features.compliance.title')}
+                body={t('help:landing.features.compliance.body')}
                 to={LIVERRA_ROUTES.COMPLIANCE_AUDIT_SUMMARY}
               />
               <FeatureCard
                 icon={IconEraser}
-                title="GDPR Art. 17 erasure"
-                body="Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+                title={t('help:landing.features.erasure.title')}
+                body={t('help:landing.features.erasure.body')}
                 to={LIVERRA_ROUTES.ERASURE}
               />
             </div>
@@ -134,10 +135,10 @@ export default function LandingView(): ReactElement {
           <section aria-labelledby="admin-surfaces-heading">
             <div className={classes.sectionHead}>
               <h2 id="admin-surfaces-heading" className={classes.sectionTitle}>
-                Admin &amp; operator surfaces
+                {t('help:landing.sections.admin.title')}
               </h2>
               <span className={classes.sectionKicker}>
-                Internal tools for staff roles
+                {t('help:landing.sections.admin.kicker')}
               </span>
               <span className={classes.sectionRule} aria-hidden="true" />
             </div>
@@ -145,42 +146,42 @@ export default function LandingView(): ReactElement {
             <div className={classes.adminGrid}>
               <AdminChip
                 icon={IconUsers}
-                label="User management"
+                label={t('nav:admin.users')}
                 to={LIVERRA_ROUTES.ADMIN_USERS}
               />
               <AdminChip
                 icon={IconServerCog}
-                label="PACS config"
+                label={t('nav:admin.pacs')}
                 to={LIVERRA_ROUTES.ADMIN_PACS_CONFIG}
               />
               <AdminChip
                 icon={IconTopologyStar3}
-                label="Ops queue"
+                label={t('nav:admin.ops')}
                 to={LIVERRA_ROUTES.OPS_QUEUE}
               />
               <AdminChip
                 icon={IconShieldCheck}
-                label="MBoM"
+                label={t('nav:admin.mbom')}
                 to={LIVERRA_ROUTES.COMPLIANCE_MBOM}
               />
               <AdminChip
                 icon={IconClipboardList}
-                label="Claim registry"
+                label={t('nav:admin.claimRegistry')}
                 to={LIVERRA_ROUTES.COMPLIANCE_CLAIM_REGISTRY}
               />
               <AdminChip
                 icon={IconClipboardCheck}
-                label="Audit summary"
+                label={t('nav:admin.auditSummary')}
                 to={LIVERRA_ROUTES.COMPLIANCE_AUDIT_SUMMARY}
               />
               <AdminChip
                 icon={IconShieldCheck}
-                label="RUO spot-check"
+                label={t('nav:admin.ruoSpotcheck')}
                 to={LIVERRA_ROUTES.COMPLIANCE_RUO_SPOT_CHECK}
               />
               <AdminChip
                 icon={IconEraser}
-                label="Erasure (DPO)"
+                label={t('nav:admin.erasure')}
                 to={LIVERRA_ROUTES.ERASURE}
               />
             </div>
@@ -189,14 +190,14 @@ export default function LandingView(): ReactElement {
           {/* ---------------------------------------- Meta footer */}
           <footer className={classes.footer}>
             <span className={classes.footerLeft}>
-              <span>Design-partner preview build</span>
+              <span>{t('help:landing.footer.preview')}</span>
               <span className={classes.footerDot} aria-hidden="true" />
-              <span>CE MDR Class IIb track · 24–30 months</span>
+              <span>{t('help:landing.footer.ce')}</span>
               <span className={classes.footerDot} aria-hidden="true" />
-              <span>GDPR · eu-central-1 residency</span>
+              <span>{t('help:landing.footer.gdpr')}</span>
             </span>
             <span className={classes.footerRight}>
-              <span className={classes.footerRuo}>Research use only</span>
+              <span className={classes.footerRuo}>{t('help:landing.footer.ruo')}</span>
               <span className={classes.footerDot} aria-hidden="true" />
               <a
                 href="https://liverra.ai"
@@ -204,7 +205,7 @@ export default function LandingView(): ReactElement {
                 rel="noreferrer"
                 className={classes.footerLink}
               >
-                liverra.ai
+                {t('help:landing.footer.brand')}
               </a>
             </span>
           </footer>

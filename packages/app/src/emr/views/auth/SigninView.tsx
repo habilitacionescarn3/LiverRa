@@ -22,12 +22,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../services/auth';
 import { LIVERRA_ROUTES } from '../../constants/routes';
 import { EMRButton } from '../../components/common';
+import { useTranslation } from '../../contexts/TranslationContext';
 
 function readMeta(): Record<string, string | undefined> {
   return (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
 }
 
 export default function SigninView(): JSX.Element {
+  const { t } = useTranslation();
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -56,14 +58,14 @@ export default function SigninView(): JSX.Element {
       <Paper withBorder p="xl" radius="md" shadow="sm">
         <Stack gap="md">
           <Stack gap={4}>
-            <Title order={2}>Sign in to LiverRa</Title>
+            <Title order={2}>{t('auth:signin.title')}</Title>
             <Text size="sm" c="dimmed">
-              Research Use Only — not for clinical use
+              {t('common:ruo.notice')}
             </Text>
           </Stack>
 
           <EMRButton size="md" onClick={handleSignIn} disabled={!oidcConfigured} fullWidth>
-            Sign in with Cognito
+            {t('auth:signin.cta')}
           </EMRButton>
 
           {isDev && !oidcConfigured && !devBypassActive && (

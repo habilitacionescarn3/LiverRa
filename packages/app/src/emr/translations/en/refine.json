@@ -55,5 +55,13 @@
     "countdown": "{{seconds}} s remaining — auto-keep on timeout",
     "release": "Release",
     "keep": "Keep"
+  },
+  "layers": {
+    "heading": "Layers",
+    "parenchyma": "Parenchyma",
+    "couinaudSegments": "Couinaud segments",
+    "veinTrunks": "Vein trunks",
+    "lesions": "Lesions",
+    "keyHint": "Press {{key}} to cycle layer combos"
   }
 }

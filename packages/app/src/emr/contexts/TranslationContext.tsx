@@ -59,7 +59,8 @@ export type TranslationNamespace =
   | 'help'
   | 'glossary'
   | 'errors'
-  | 'ruo';
+  | 'ruo'
+  | 'sync';
 
 export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
@@ -79,6 +80,7 @@ export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'glossary',
   'errors',
   'ruo',
+  'sync',
 ] as const;
 
 /** Recursive type for nested JSON translation values. */

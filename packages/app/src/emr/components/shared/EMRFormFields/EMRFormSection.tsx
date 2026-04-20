@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useId } from 'react';
 import { IconChevronDown } from '@tabler/icons-react';
 import type { EMRFormSectionProps } from './EMRFieldTypes';
 import './emr-fields.css';
@@ -15,6 +15,7 @@ import './emr-fields.css';
  */
 export function EMRFormSection(props: EMRFormSectionProps): React.JSX.Element {
   const {
+    id,
     title,
     icon: Icon,
     children,
@@ -30,6 +31,10 @@ export function EMRFormSection(props: EMRFormSectionProps): React.JSX.Element {
     hasContent = true,
     emptyStateMessage,
   } = props;
+  // Generate a stable fallback id so aria-controls always resolves
+  const generatedId = useId();
+  const sectionId = id ?? `emr-form-section-${generatedId}`;
+  const contentId = `${sectionId}-content`;
   // Internal state for uncontrolled mode
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
 
@@ -75,6 +80,7 @@ export function EMRFormSection(props: EMRFormSectionProps): React.JSX.Element {
           }
         }}
         aria-expanded={isOpen}
+        aria-controls={contentId}
       >
         <div className="emr-form-section-header-left" onClick={handleToggle}>
           <div className="emr-form-section-title-group">
@@ -104,7 +110,7 @@ export function EMRFormSection(props: EMRFormSectionProps): React.JSX.Element {
       </div>
 
       {/* Content */}
-      <div className="emr-form-section-content">
+      <div id={contentId} className="emr-form-section-content">
         {hasContent && children}
         {!hasContent && emptyStateMessage && (
           <div className="emr-form-section-empty">
