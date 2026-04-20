@@ -6,6 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>LiverRa — AI Liver Diagnostics & Surgical Planning</title>
     <meta name="description" content="AI-powered liver CT/MRI analysis for HPB surgeons" />
+
+    <!-- T079: Preload primary UI fonts so Georgian + Latin glyphs are
+         resolved before first paint. Font files are served from
+         /fonts/ in the Vite public dir (to be added by the theme agent). -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/fonts/NotoSans-Regular.woff2"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/fonts/NotoSansGeorgian-Regular.woff2"
+    />
   </head>
   <body>
     <div id="root"></div>

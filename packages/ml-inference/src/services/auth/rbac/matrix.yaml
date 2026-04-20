@@ -1,0 +1,285 @@
+# LiverRa RBAC Matrix
+# Source of truth for permissions + role assignments.
+# Consumed by generator.py to emit:
+#   - packages/app/src/emr/constants/permissions.gen.ts
+#   - packages/ml-inference/src/services/auth/rbac/permissions_registry.py
+#   - deploy/medplum/access-policies/<role>.json
+#
+# Changes to this file require second-reviewer approval (Constitution Code Review gate).
+# See: specs/001-zero-training-mvp/research.md §X.3
+
+permissions:
+  # --- Study lifecycle ------------------------------------------------------
+  - key: study.upload
+    description: Upload a DICOM study (creates Study + ImagingStudy resource)
+    step_up: false
+    tenant_scoped: true
+  - key: study.view
+    description: View a study's metadata + pixel data in the viewer
+    step_up: false
+    tenant_scoped: true
+  - key: study.delete
+    description: Request deletion of a case (admin approval required before hard delete)
+    step_up: false
+    tenant_scoped: true
+
+  # --- Analysis lifecycle ---------------------------------------------------
+  - key: analysis.view
+    description: View an analysis result (masks, classifications, FLR)
+    step_up: false
+    tenant_scoped: true
+  - key: analysis.retry
+    description: Retry a failed pipeline stage for an analysis
+    step_up: false
+    tenant_scoped: true
+  - key: analysis.cancel
+    description: Cancel an in-flight analysis
+    step_up: false
+    tenant_scoped: true
+
+  # --- Review & refinement --------------------------------------------------
+  - key: review.refine_mask
+    description: VISTA3D click-to-refine on parenchyma or lesion masks
+    step_up: false
+    tenant_scoped: true
+  - key: review.reprompt_lesion
+    description: MedSAM-2 one-prompt re-segmentation of a lesion
+    step_up: false
+    tenant_scoped: true
+  - key: review.override_classification
+    description: Override LiLNet tumor classification with clinician-provided label
+    step_up: false
+    tenant_scoped: true
+  - key: review.seat_takeover
+    description: Request takeover of a review seat held by another user
+    step_up: false
+    tenant_scoped: true
+  - key: review.flr_adjust
+    description: Adjust FLR calculation inputs (target segments, cut plane)
+    step_up: false
+    tenant_scoped: true
+
+  # --- Report lifecycle -----------------------------------------------------
+  - key: report.finalize
+    description: Finalize report producing SEG + SR + PDF
+    step_up: true
+    tenant_scoped: true
+  - key: report.retract
+    description: Retract a finalized report (supersedes with reason)
+    step_up: true
+    tenant_scoped: true
+  - key: report.view
+    description: View a report (draft or finalized)
+    step_up: false
+    tenant_scoped: true
+  - key: report.pacs_push
+    description: Push finalized report artifacts to configured PACS destination
+    step_up: false
+    tenant_scoped: true
+  - key: report.pacs_retry
+    description: Retry a failed PACS push
+    step_up: false
+    tenant_scoped: true
+  - key: report.download
+    description: Download report artifacts as manual fallback (PDF / SEG / SR)
+    step_up: false
+    tenant_scoped: true
+
+  # --- PACS configuration ---------------------------------------------------
+  - key: pacs.config_read
+    description: Read the tenant's PACS push destination configuration
+    step_up: false
+    tenant_scoped: true
+  - key: pacs.config_write
+    description: Create or modify the tenant's PACS push destination
+    step_up: false
+    tenant_scoped: true
+  - key: pacs.c_echo
+    description: Run a C-ECHO verification against the configured PACS destination
+    step_up: false
+    tenant_scoped: true
+
+  # --- Audit ----------------------------------------------------------------
+  - key: audit.view
+    description: Browse the tenant-scoped FHIR AuditEvent log
+    step_up: false
+    tenant_scoped: true
+  - key: audit.export
+    description: Export audit log (CSV / NDJSON) for compliance review
+    step_up: false
+    tenant_scoped: true
+  - key: audit.verify_chain
+    description: Verify chain-of-hashes integrity of the audit trail
+    step_up: false
+    tenant_scoped: true
+
+  # --- Admin ----------------------------------------------------------------
+  - key: admin.user_create
+    description: Invite a new user into the tenant
+    step_up: false
+    tenant_scoped: true
+  - key: admin.user_role_change
+    description: Change a user's role assignment
+    step_up: true
+    tenant_scoped: true
+  - key: admin.tenant_config
+    description: Modify tenant-level configuration (retention, coverage override, etc.)
+    step_up: false
+    tenant_scoped: true
+
+  # --- Model Bill of Materials ---------------------------------------------
+  - key: mbom.view
+    description: View the Model Bill of Materials (MBoM) for the current deployment
+    step_up: false
+    tenant_scoped: false
+  - key: mbom.upload
+    description: Upload a new MBoM.json to pin model versions for this deployment
+    step_up: true
+    tenant_scoped: false
+
+  # --- Regulatory claim registry -------------------------------------------
+  - key: claim_registry.view
+    description: View the per-claim RUO / cleared / under-assessment registry
+    step_up: false
+    tenant_scoped: false
+  - key: claim_registry.activate
+    description: Toggle a claim's regulatory status (RUO → cleared etc.)
+    step_up: true
+    tenant_scoped: false
+
+  # --- GDPR erasure ---------------------------------------------------------
+  - key: erasure.request
+    description: Submit a data-subject erasure request
+    step_up: false
+    tenant_scoped: true
+  - key: erasure.approve
+    description: Approve an erasure request (second-pair-of-eyes gate)
+    step_up: true
+    tenant_scoped: true
+  - key: erasure.execute
+    description: Execute crypto-shred of erasure-scoped resources
+    step_up: true
+    tenant_scoped: true
+
+  # --- Ops dashboard --------------------------------------------------------
+  - key: ops.queue_view
+    description: View cross-tenant queue depth + stuck-case list (no PHI)
+    step_up: false
+    tenant_scoped: false
+  - key: ops.case_unstick
+    description: Re-queue, cancel, or mark-blocked a stuck case
+    step_up: false
+    tenant_scoped: false
+  - key: ops.gpu_status
+    description: View GPU utilization + cold-start telemetry
+    step_up: false
+    tenant_scoped: false
+
+  # --- Compliance ----------------------------------------------------------
+  - key: compliance.view
+    description: Open the compliance dashboard (read-only cross-tenant view)
+    step_up: false
+    tenant_scoped: false
+  - key: compliance.sign_off
+    description: Sign-off on a periodic compliance review (MBoM, claim registry, audit summary)
+    step_up: true
+    tenant_scoped: false
+
+# ---------------------------------------------------------------------------
+# Roles
+# ---------------------------------------------------------------------------
+# Each role is a flat list of permission keys. Wildcards are NOT expanded by
+# the generator; list every permission explicitly so the emitted artifacts are
+# auditable.
+roles:
+  hpb_surgeon:
+    description: Hepatobiliary surgeon — primary finalizer of reports.
+    permissions:
+      - study.upload
+      - study.view
+      - analysis.view
+      - review.refine_mask
+      - review.reprompt_lesion
+      - review.override_classification
+      - review.flr_adjust
+      - report.finalize
+      - report.view
+      - report.download
+
+  radiologist:
+    description: Abdominal radiologist — full review + refinement; may finalize.
+    permissions:
+      - study.view
+      - analysis.view
+      - review.refine_mask
+      - review.reprompt_lesion
+      - review.override_classification
+      - review.seat_takeover
+      - review.flr_adjust
+      - report.view
+      - report.download
+
+  fellow:
+    description: >
+      Trainee fellow — read-only mask review. `review.refine_mask` is granted
+      with grant_type=view_only; server-side guard rejects write attempts.
+      No finalize, no PACS push, no report download.
+    permissions:
+      - study.view
+      - analysis.view
+      - review.refine_mask  # grant_type: view_only — enforced by server-side middleware
+      - report.view
+
+  admin:
+    description: Hospital admin — tenant administration; no clinical content authoring.
+    permissions:
+      - admin.user_create
+      - admin.user_role_change
+      - admin.tenant_config
+      - pacs.config_read
+      - pacs.config_write
+      - pacs.c_echo
+      - mbom.view
+      - mbom.upload
+      - claim_registry.view
+      - claim_registry.activate
+      - erasure.approve
+      - audit.view
+      - audit.export
+
+  ops:
+    description: Operations / on-call engineer — cross-tenant queue + GPU telemetry; never PHI.
+    permissions:
+      - ops.queue_view
+      - ops.case_unstick
+      - ops.gpu_status
+      - pacs.c_echo
+      - audit.view
+      - study.view  # metadata only — PHI stripped by server-side projection
+
+  compliance:
+    description: >
+      Compliance reviewer — read-only across tenants for MBoM, claim registry,
+      and audit summaries. `report.view` is granted but restricted to
+      non-PHI summaries by server-side projection.
+    permissions:
+      - compliance.view
+      - compliance.sign_off
+      - audit.view
+      - audit.export
+      - audit.verify_chain
+      - mbom.view
+      - claim_registry.view
+      - claim_registry.activate
+      - report.view  # read-only, cross-tenant, summary-only projection
+      - erasure.request
+
+  dpo:
+    description: Data Protection Officer — GDPR erasure executor + audit viewer.
+    permissions:
+      - erasure.request
+      - erasure.approve
+      - erasure.execute
+      - audit.view
+      - audit.export
+      - compliance.view

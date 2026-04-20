@@ -1,0 +1,12 @@
+name: pictorial-couinaud
+family: segmentation
+source_url: https://github.com/xukun-zhang/Couinaud-Segmentation
+pinned_commit_sha: def5678000000000000000000000000000000000
+license_file: LICENSE
+license: Apache-2.0
+integration_date: 2026-04-19
+approver: Levan Gogichaishvili
+tier: A
+triton_model_name: liverra-couinaud-segments
+triton_version: 1
+covers_frs: FR-008, FR-009

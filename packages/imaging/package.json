@@ -3,13 +3,36 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "LiverRa DICOM, Cornerstone3D, PACS client",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "description": "LiverRa DICOM + Cornerstone3D + highdicom-wrapper + OHIF viewer integration",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./dicom": {
+      "types": "./dist/dicom/index.d.ts",
+      "import": "./dist/dicom/index.js"
+    },
+    "./cornerstone": {
+      "types": "./dist/cornerstone/index.d.ts",
+      "import": "./dist/cornerstone/index.js"
+    },
+    "./highdicom-wrapper": {
+      "types": "./dist/highdicom-wrapper/index.d.ts",
+      "import": "./dist/highdicom-wrapper/index.js"
+    },
+    "./viewer": {
+      "types": "./dist/viewer/index.d.ts",
+      "import": "./dist/viewer/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
     "test": "vitest",
-    "lint": "eslint . --ext ts"
+    "lint": "eslint ."
   },
   "dependencies": {},
   "devDependencies": {}

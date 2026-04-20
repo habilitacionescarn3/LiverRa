@@ -1,0 +1,486 @@
+/* EMRProgressStepper - Premium Progress stepper with state indicators */
+/* Enhanced design for XXL modals with gradient styling and premium effects */
+
+.container {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(
+    135deg,
+    var(--emr-bg-card) 0%,
+    var(--emr-accent-alpha-02) 100%
+  );
+  border-radius: 12px;
+  border: 1px solid var(--emr-border-color);
+  box-shadow: 0 2px 8px var(--emr-black-alpha-04);
+}
+
+.stepsContainer {
+  position: relative;
+  width: 100%;
+  justify-content: space-between;
+  padding: 8px 0 12px;
+}
+
+.stepWrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.step {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 160px;
+  padding: 10px 8px;
+  background: var(--emr-bg-card);
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+}
+
+/* Hover state for step cards */
+.step:hover {
+  background: linear-gradient(
+    135deg,
+    var(--emr-bg-card) 0%,
+    var(--emr-accent-alpha-04) 100%
+  );
+  border-color: var(--emr-border-color);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--emr-secondary-alpha-08);
+}
+
+/* Icon Circle - Compact 48px design */
+.iconCircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Glow ring behind active icon */
+.iconCircle::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: transparent;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+}
+
+.iconCircle.completed {
+  background: var(--emr-gradient-success);
+  color: var(--emr-text-inverse);
+  box-shadow: var(--emr-shadow-video-success);
+}
+
+.iconCircle.completed::before {
+  background: radial-gradient(
+    circle,
+    var(--emr-success-alpha-20) 0%,
+    transparent 70%
+  );
+  opacity: 1;
+}
+
+.iconCircle.active {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  box-shadow:
+    0 6px 24px var(--emr-secondary-alpha-50),
+    0 0 0 4px var(--emr-accent-transparent);
+  animation: activeGlow 2.5s ease-in-out infinite;
+}
+
+.iconCircle.active::before {
+  background: radial-gradient(
+    circle,
+    var(--emr-secondary-alpha-25) 0%,
+    transparent 70%
+  );
+  opacity: 1;
+  animation: pulseRing 2.5s ease-in-out infinite;
+}
+
+.iconCircle.pending {
+  background: linear-gradient(
+    135deg,
+    var(--emr-secondary-alpha-08) 0%,
+    var(--emr-secondary-alpha-05) 100%
+  );
+  color: var(--emr-secondary);
+  border: 2px solid var(--emr-secondary-alpha-30);
+  box-shadow: 0 2px 8px var(--emr-black-alpha-05);
+}
+
+.iconCircle.error {
+  background: var(--emr-gradient-error);
+  color: var(--emr-text-inverse);
+  box-shadow:
+    0 4px 16px var(--emr-error-alpha-40),
+    0 0 0 4px var(--emr-error-alpha-15);
+}
+
+@keyframes activeGlow {
+  0%, 100% {
+    box-shadow:
+      0 6px 24px var(--emr-secondary-alpha-50),
+      0 0 0 4px var(--emr-secondary-alpha-20);
+  }
+  50% {
+    box-shadow:
+      0 8px 32px var(--emr-secondary-alpha-60),
+      0 0 0 6px var(--emr-secondary-alpha-25);
+  }
+}
+
+@keyframes pulseRing {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* Label - Enhanced typography */
+.label {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-primary);
+  line-height: var(--emr-line-height-tight);
+  margin-top: 8px;
+  letter-spacing: var(--emr-letter-spacing-tight);
+}
+
+/* Description */
+.description {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  line-height: var(--emr-line-height-base);
+  margin-top: 4px;
+}
+
+/* Connector Line - Enhanced with gradient for completed */
+.connector {
+  position: absolute;
+  top: calc(50% - 2px);
+  left: calc(50% + 32px);
+  right: calc(-50% + 32px);
+  height: 3px;
+  z-index: 1;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 2px;
+}
+
+.connectorCompleted {
+  background: var(--emr-gradient-success);
+  box-shadow: var(--emr-shadow-success);
+}
+
+.connectorPending {
+  background: var(--emr-secondary-alpha-20);
+}
+
+/* Progress Bar - Compact design */
+.progressContainer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.progressBar {
+  flex: 1;
+  height: 10px;
+  background: linear-gradient(
+    180deg,
+    var(--emr-bg-hover) 0%,
+    var(--emr-bg-input) 100%
+  );
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 2px var(--emr-black-alpha-10),
+    0 1px 2px var(--emr-glass-white-50);
+  position: relative;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--emr-gradient-primary);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 8px var(--emr-secondary-alpha-40),
+    0 1px 2px var(--emr-black-alpha-10);
+}
+
+/* Animated shimmer effect on progress fill */
+.progressFill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--emr-glass-white-30) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 200%;
+  }
+}
+
+.progressBadge {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  padding: 5px 12px;
+  border-radius: 16px;
+  box-shadow: var(--emr-shadow-primary-sm);
+  min-width: 52px;
+  text-align: center;
+  letter-spacing: var(--emr-letter-spacing-wide);
+}
+
+/* Error Container */
+.errorContainer {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(
+    135deg,
+    var(--emr-error-alpha-10) 0%,
+    var(--emr-error-alpha-05) 100%
+  );
+  border: 1px solid var(--emr-error);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.errorBadge {
+  background: var(--emr-gradient-error);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: 12px;
+  box-shadow: var(--emr-shadow-error);
+}
+
+.errorMessage {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-error-text);
+  line-height: var(--emr-line-height-base);
+}
+
+/* Tablet - Same compact sizes */
+@media (max-width: 992px) {
+  .container {
+    padding: 10px 12px;
+  }
+
+  .step {
+    padding: 8px 6px;
+    max-width: 140px;
+  }
+
+  .iconCircle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .iconCircle::before {
+    inset: -3px;
+  }
+
+  .connector {
+    top: calc(50% - 2px);
+    left: calc(50% + 28px);
+    right: calc(-50% + 28px);
+    height: 2px;
+  }
+
+  .label {
+    font-size: var(--emr-font-xs);
+    margin-top: 6px;
+  }
+
+  .progressBar {
+    height: 8px;
+  }
+
+  .progressBadge {
+    padding: 4px 10px;
+    min-width: 48px;
+  }
+}
+
+/* Mobile Responsive - Stack vertically on small screens */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .stepsContainer {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px 0;
+    gap: 6px;
+  }
+
+  .stepWrapper {
+    margin-bottom: 0;
+  }
+
+  .step {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--emr-border-color);
+    border-radius: 10px;
+  }
+
+  .step:hover {
+    transform: translateX(2px);
+  }
+
+  .iconCircle {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .iconCircle::before {
+    inset: -3px;
+  }
+
+  .label {
+    margin-top: 0;
+    text-align: left;
+    font-size: var(--emr-font-sm);
+  }
+
+  .description {
+    text-align: left;
+  }
+
+  .connector {
+    display: none;
+  }
+
+  .progressContainer {
+    margin-top: 10px;
+    gap: 10px;
+  }
+
+  .progressBar {
+    height: 8px;
+    border-radius: 4px;
+  }
+
+  .progressFill {
+    border-radius: 4px;
+  }
+
+  .progressBadge {
+    font-size: var(--emr-font-xs);
+    padding: 4px 10px;
+    min-width: 48px;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 576px) {
+  .container {
+    padding: 8px;
+  }
+
+  .step {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+
+  .iconCircle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .iconCircle::before {
+    inset: -2px;
+  }
+
+  .label {
+    font-size: var(--emr-font-xs);
+  }
+
+  .description {
+    font-size: var(--emr-font-xs);
+  }
+
+  .progressBadge {
+    padding: 3px 8px;
+    min-width: 44px;
+    font-size: var(--emr-font-xs);
+  }
+}
+
+/* Accessibility - reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .iconCircle,
+  .iconCircle::before,
+  .step,
+  .connector,
+  .progressFill {
+    transition: none;
+    animation: none;
+  }
+
+  .progressFill::after {
+    animation: none;
+    display: none;
+  }
+}
+
+/* Touch-friendly targets */
+@media (hover: none) and (pointer: coarse) {
+  .step {
+    min-height: 56px;
+  }
+
+  .iconCircle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

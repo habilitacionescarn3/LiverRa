@@ -1,0 +1,131 @@
+{
+  "_meta": {
+    "reviewStatus": "needs-medical-terminology-review",
+    "reviewers": "@liverra/clinical-reviewers (per CODEOWNERS)",
+    "notes": "Georgian clinical terminology — international abbreviations (HCC/ICC/MET/FNH) retained in Latin script per DACH + EU radiology convention; long forms mix native Georgian script for common terms with transliteration for compound Latin-origin medical terms."
+  },
+  "classes": {
+    "HCC": {
+      "name": "HCC",
+      "long": "ჰეპატოცელულარული კარცინომა",
+      "malignancy": "malignant"
+    },
+    "ICC": {
+      "name": "ICC",
+      "long": "ინტრაჰეპატური ქოლანგიოკარცინომა",
+      "malignancy": "malignant"
+    },
+    "MET": {
+      "name": "MET",
+      "long": "მეტასტაზი",
+      "malignancy": "malignant"
+    },
+    "FNH": {
+      "name": "FNH",
+      "long": "ფოკალური ნოდულარული ჰიპერპლაზია",
+      "malignancy": "benign"
+    },
+    "HEM": {
+      "name": "HEM",
+      "long": "ჰემანგიომა",
+      "malignancy": "benign"
+    },
+    "CYST": {
+      "name": "CYST",
+      "long": "ღვიძლის კისტა",
+      "malignancy": "benign"
+    }
+  },
+  "abstention": {
+    "label": "გაურკვეველი",
+    "help": "AI-მ ვერ შეძლო ამ ლეზიის საიმედო კლასიფიკაცია. რეკომენდებულია რადიოლოგის განხილვა.",
+    "tooltip": "გაურკვეველი — რეკომენდებულია რადიოლოგის განხილვა",
+    "reviewCta": "გადახედვისთვის მონიშვნა",
+    "badgeAria": "გაურკვეველი კლასიფიკაცია, რეკომენდებულია რადიოლოგის განხილვა"
+  },
+  "list": {
+    "heading": "აღმოჩენილი ლეზიები",
+    "columns": {
+      "thumbnail": "ესკიზი",
+      "location": "სეგმენტი",
+      "diameter": "დიამეტრი",
+      "class": "კლასი",
+      "confidence": "ნდობა",
+      "source": "წყარო"
+    },
+    "source": {
+      "ai_detected": "AI",
+      "reviewer_prompted": "ექიმი"
+    },
+    "rowAria": "ლეზია {{index}} / {{total}}, სეგმენტი {{segment}}, {{diameter}} მმ, შემოთავაზებული: {{className}}, ნდობა {{confidence}}%",
+    "emptyState": {
+      "title": "ლეზიები არ აღმოჩნდა",
+      "body": "AI-მ ფოკალური ლეზიები ვერ გამოავლინა. გთხოვთ, შეამოწმოთ ხელით — AI-მ შეიძლება გამოტოვოს პატარა ან ატიპური ლეზიები."
+    },
+    "loading": "ლეზიები იტვირთება…",
+    "filters": {
+      "heading": "ლეზიების ფილტრი",
+      "confidence": "მინ. ნდობა",
+      "confidenceValue": "{{value}}% ან მეტი",
+      "class": "კლასი",
+      "classAll": "ყველა კლასი",
+      "size": "ზომა",
+      "sizeAll": "ნებისმიერი ზომა",
+      "sizeSmall": "< 10 მმ",
+      "sizeMedium": "10–30 მმ",
+      "sizeLarge": "> 30 მმ",
+      "segment": "სეგმენტი",
+      "segmentAll": "ყველა სეგმენტი",
+      "clear": "ფილტრის გასუფთავება",
+      "resultCount": "{{count}} / {{total}} ლეზია"
+    },
+    "aiSuggestionSuffix": "(AI-შემოთავაზება)"
+  },
+  "detail": {
+    "heading": "ლეზია #{{index}}",
+    "close": "ლეზიის დეტალის დახურვა",
+    "sections": {
+      "location": "ლოკალიზაცია",
+      "size": "ზომა",
+      "classification": "კლასიფიკაცია",
+      "visualization": "ვიზუალიზაცია",
+      "actions": "მოქმედებები"
+    },
+    "location": {
+      "segment": "Couinaud სეგმენტი",
+      "multiSegment": "რამდენიმე სეგმენტზე ვრცელდება",
+      "description": "ანატომიური აღწერა"
+    },
+    "size": {
+      "axial": "აქსიალური დიამეტრი",
+      "coronal": "კორონარული დიამეტრი",
+      "sagittal": "საგიტალური დიამეტრი",
+      "volume": "მოცულობა",
+      "mm": "მმ",
+      "ml": "მლ"
+    },
+    "classification": {
+      "distribution": "ალბათობის განაწილება",
+      "highest": "ყველაზე მაღალი ალბათობის კლასი",
+      "temperature": "კალიბრაციის ტემპერატურა: {{value}}",
+      "abstained": "AI-მ თავი აიცილა — ზღურბლზე ({{threshold}}) მაღალი კლასი ვერ მოიძებნა"
+    },
+    "visualization": {
+      "axial": "აქსიალური",
+      "coronal": "კორონარული",
+      "sagittal": "საგიტალური",
+      "watermark": "მხოლოდ კვლევითი გამოყენებისთვის"
+    },
+    "actions": {
+      "override": "კლასიფიკაციის გადაწერა",
+      "overrideHelp": "გადაწერა რადიოლოგის მიერ არჩეული კლასით (აუდიტის ჟურნალში ფიქსირდება).",
+      "reReview": "განმეორებითი განხილვისთვის მონიშვნა",
+      "reReviewHelp": "ამ ლეზიის მონიშვნა მეორე მკითხველის განხილვისთვის."
+    }
+  },
+  "layer": {
+    "title": "ლეზიების ფენები",
+    "hiddenCount": "{{count}} ლეზია დამალულია",
+    "focusAria": "ფოკუსი ლეზიაზე {{index}}: {{className}} სეგმენტში {{segment}}"
+  }
+}

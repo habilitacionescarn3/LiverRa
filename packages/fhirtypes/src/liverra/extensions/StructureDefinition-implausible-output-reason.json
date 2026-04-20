@@ -1,0 +1,51 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/implausible-output-reason",
+  "name": "LiverRaImplausibleOutputReason",
+  "title": "LiverRa — Implausible Output Reason",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Structured reason code emitted by LiverRa's end-of-pipeline sanity validator (research §C.7) when an analysis output fails aggregate plausibility checks. Attached to the Observation that carries the implausible measurement so downstream reviewers can triage the root cause.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "Observation"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "Why the sanity validator rejected this output",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/implausible-output-reason"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "Reason code from the implausible-output-reason ValueSet",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "code"
+          }
+        ],
+        "binding": {
+          "strength": "required",
+          "valueSet": "http://liverra.ai/fhir/ValueSet/implausible-output-reason",
+          "description": "Permitted values: sum_mismatch | segment_zero_volume | flr_negative | classification_nonnormal"
+        }
+      }
+    ]
+  }
+}

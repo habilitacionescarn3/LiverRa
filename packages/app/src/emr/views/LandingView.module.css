@@ -1,0 +1,460 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * LandingView styles.
+ *
+ * All color/shadow/radius values are var(--emr-*) tokens from
+ * packages/app/src/emr/styles/theme.css so dark mode and brand
+ * rebrand propagate automatically.
+ */
+
+/* -------------------------------------------------- root canvas */
+.root {
+  position: relative;
+  min-height: 100%;
+  padding: clamp(32px, 6vw, 72px) 0 clamp(40px, 6vw, 80px);
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      var(--emr-primary-alpha-08) 0%,
+      transparent 65%
+    ),
+    var(--emr-bg-page);
+  overflow: hidden;
+}
+
+/* subtle anatomical grid-mesh decoration behind the hero — purely
+   cosmetic, skipped for reduced-motion and pointer-events:none so it
+   never blocks interaction. */
+.meshDecoration {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 420px;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(var(--emr-primary-alpha-04) 1px, transparent 1px),
+    linear-gradient(90deg, var(--emr-primary-alpha-04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, #000 0%, transparent 75%);
+}
+
+/* -------------------------------------------------- hero */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 8px;
+}
+
+.ruoChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 12px 6px 10px;
+  border-radius: 999px;
+  background: var(--emr-warning-bg);
+  color: var(--emr-warning-text);
+  border: 1px solid var(--emr-warning-border);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  flex-shrink: 0;
+  white-space: nowrap;
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.ruoChip svg {
+  flex-shrink: 0;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: clamp(44px, 6.5vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 700;
+  color: var(--emr-text-primary);
+  background-image: linear-gradient(
+    135deg,
+    var(--emr-text-primary) 0%,
+    var(--emr-secondary) 60%,
+    var(--emr-accent) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+.tagline {
+  margin: 0;
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.45;
+  font-weight: 400;
+  color: var(--emr-text-secondary);
+  max-width: 720px;
+}
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* Primary CTA link — visually matches EMRButton variant="primary" (gradient + shadow).
+   We use a styled <Link> instead of EMRButton because EMRButton doesn't expose the
+   Mantine `component` prop, and wrapping a <Link> inside a <button> would produce
+   invalid HTML and break router navigation. */
+.ctaPrimary,
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: var(--emr-border-radius);
+  font-size: var(--emr-font-base);
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.ctaPrimary {
+  background: var(--emr-gradient-add-button);
+  color: var(--emr-text-white);
+  border: none;
+  box-shadow:
+    0 2px 4px var(--emr-secondary-alpha-20),
+    0 4px 12px var(--emr-secondary-alpha-15),
+    inset 0 1px 0 var(--emr-glass-white-10);
+}
+
+.ctaPrimary:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    0 4px 8px var(--emr-secondary-alpha-25),
+    0 8px 16px var(--emr-secondary-alpha-20);
+}
+
+.ctaPrimary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 2px 4px var(--emr-secondary-alpha-20),
+    0 4px 12px var(--emr-secondary-alpha-15),
+    0 0 0 3px var(--emr-form-accent-blue-alpha-40);
+}
+
+.ctaPrimary:active {
+  filter: brightness(0.98);
+}
+
+.ctaSecondary {
+  background: var(--emr-btn-secondary-bg);
+  border: 1px solid var(--emr-btn-secondary-border);
+  color: var(--emr-btn-secondary-text);
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.ctaSecondary:hover {
+  background: var(--emr-btn-secondary-hover-bg);
+  border-color: var(--emr-btn-secondary-hover-border);
+  box-shadow: var(--emr-shadow-md);
+}
+
+.ctaSecondary:focus-visible {
+  outline: none;
+  box-shadow: var(--emr-shadow-sm), var(--emr-focus-ring);
+}
+
+.tertiaryLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  min-height: 44px;
+  border-radius: var(--emr-border-radius);
+  color: var(--emr-text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tertiaryLink:hover {
+  color: var(--emr-text-primary);
+  background: var(--emr-bg-hover);
+}
+
+.tertiaryLink:focus-visible {
+  outline: 2px solid var(--emr-secondary);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------- section heading */
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sectionRule {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(
+    90deg,
+    var(--emr-border-color) 0%,
+    transparent 100%
+  );
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--emr-text-primary);
+  text-transform: uppercase;
+}
+
+.sectionKicker {
+  color: var(--emr-text-secondary);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/* -------------------------------------------------- feature grid */
+.featureGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 992px) {
+  .featureGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .featureGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.featureCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 22px 24px;
+  min-height: 168px;
+  border-radius: 12px;
+  border: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  color: inherit;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease;
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.featureCard::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--emr-secondary) 0%,
+    var(--emr-accent) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--emr-shadow-md);
+  border-color: var(--emr-border-secondary);
+}
+
+.featureCard:hover::before,
+.featureCard:focus-visible::before {
+  opacity: 1;
+}
+
+.featureCard:focus-visible {
+  outline: none;
+  border-color: var(--emr-secondary);
+  box-shadow: var(--emr-shadow-md), 0 0 0 3px var(--emr-secondary-alpha-15);
+}
+
+.featureIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--emr-bg-accent-primary);
+  color: var(--emr-secondary);
+  flex-shrink: 0;
+}
+
+.featureTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--emr-text-primary);
+  letter-spacing: -0.005em;
+}
+
+.featureBody {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--emr-text-secondary);
+  min-width: 0;
+}
+
+/* -------------------------------------------------- admin rail */
+.adminGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 992px) {
+  .adminGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .adminGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.adminChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  color: var(--emr-text-primary);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    transform 0.15s ease;
+  min-width: 0;
+}
+
+.adminChip:hover {
+  background: var(--emr-bg-hover);
+  border-color: var(--emr-border-secondary);
+}
+
+.adminChip:focus-visible {
+  outline: none;
+  border-color: var(--emr-secondary);
+  box-shadow: 0 0 0 3px var(--emr-secondary-alpha-15);
+}
+
+.adminChipIcon {
+  display: inline-flex;
+  color: var(--emr-text-tertiary);
+  flex-shrink: 0;
+}
+
+.adminChipLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* -------------------------------------------------- footer */
+.footer {
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--emr-border-color);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--emr-text-tertiary);
+}
+
+.footerLeft,
+.footerRight {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.footerDot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--emr-border-color);
+  flex-shrink: 0;
+}
+
+.footerRuo {
+  color: var(--emr-warning-text);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.footerLink {
+  color: var(--emr-secondary);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  text-decoration: underline;
+}
+
+/* -------------------------------------------------- reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .featureCard,
+  .adminChip,
+  .tertiaryLink {
+    transition: none;
+  }
+
+  .featureCard:hover {
+    transform: none;
+  }
+}

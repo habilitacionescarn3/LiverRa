@@ -1,0 +1,42 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-fellow",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "fellow",
+        "display": "Trainee fellow \u2014 read-only mask review. `review.refine_mask` is granted with grant_type=view_only; server-side guard rejects write attempts. No finalize, no PACS push, no report download."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "DiagnosticReport",
+      "readonly": true
+    },
+    {
+      "resourceType": "ImagingStudy",
+      "readonly": true
+    },
+    {
+      "resourceType": "Media",
+      "readonly": false
+    },
+    {
+      "resourceType": "Observation",
+      "readonly": false
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": true
+    },
+    {
+      "resourceType": "Task",
+      "readonly": true
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

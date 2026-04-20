@@ -1,0 +1,63 @@
+{
+  "page": {
+    "title": "Ops queue",
+    "subtitle": "Cross-tenant pipeline health. No patient data is shown here.",
+    "no_phi_badge": "No PHI"
+  },
+  "gauges": {
+    "queued": "Queued",
+    "running": "Running",
+    "stuck": "Stuck >15 min",
+    "gpu_utilization": "GPU utilization",
+    "cold_starts": "Cold-starts / hour"
+  },
+  "sections": {
+    "stuck_cases": "Stuck cases"
+  },
+  "table": {
+    "analysis_id": "Analysis",
+    "status": "Status",
+    "last_stage": "Last stage",
+    "stuck_for": "Stuck for",
+    "error_slug": "Error",
+    "empty": "No stuck cases in the last 15 minutes."
+  },
+  "detail": {
+    "title": "Case detail",
+    "analysis_id": "Analysis ID",
+    "study_id": "Study ID",
+    "tenant_id": "Tenant ID",
+    "pipeline_version": "Pipeline version",
+    "last_stage": "Last stage",
+    "error_slug": "Error slug",
+    "model_versions": "Model versions",
+    "stuck_minutes": "{{minutes}} min stuck",
+    "load_failed_title": "Could not load case",
+    "load_failed_body": "Please retry or pick a different case."
+  },
+  "actions": {
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "mark_blocked": "Mark blocked"
+  },
+  "confirm": {
+    "retry_title": "Retry this analysis?",
+    "retry_body": "Re-queue from the last successful checkpoint. The submitter will be notified on completion.",
+    "cancel_title": "Cancel this analysis?",
+    "cancel_body": "This will stop the job gracefully. It can be retried later.",
+    "mark_blocked_title": "Mark blocked?",
+    "mark_blocked_body": "Terminal state — the submitting clinician will receive an actionable notification.",
+    "mark_blocked_note_label": "Internal note (optional)",
+    "mark_blocked_note_help": "Scrubbed for PHI before storage — keep it free of patient details.",
+    "mark_blocked_note_placeholder": "e.g., upstream inference service down; retry after 14:00"
+  },
+  "severity": {
+    "ok": "OK",
+    "warn": "Warn",
+    "alarm": "Alarm"
+  },
+  "errors": {
+    "load_title": "Could not load queue",
+    "load_body": "The ops endpoint is unreachable. Retrying automatically."
+  }
+}

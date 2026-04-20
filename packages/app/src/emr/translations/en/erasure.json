@@ -1,0 +1,70 @@
+{
+  "status": {
+    "requested": "Requested",
+    "executing": "Executing",
+    "completed": "Completed",
+    "rolled_back": "Rolled back"
+  },
+  "list": {
+    "title": "GDPR erasure requests",
+    "subtitle": "Article 17 of the GDPR. All actions on this page are audited.",
+    "new_request": "New erasure request",
+    "empty": "No erasure requests yet.",
+    "error_title": "Could not load requests",
+    "download_pdf": "PDF",
+    "case_not_found": "Case not found.",
+    "col": {
+      "request_id": "Request",
+      "study_id": "Study",
+      "status": "Status",
+      "requested_at": "Requested",
+      "tombstone": "Tombstone",
+      "pdf": "PDF"
+    }
+  },
+  "wizard": {
+    "title": "New GDPR erasure request",
+    "irreversible_warning": "Erasure is irreversible. Once executed, the case and its derived artefacts cannot be recovered.",
+    "step": {
+      "select_label": "Select",
+      "select_desc": "Target study",
+      "justify_label": "Justify",
+      "justify_desc": "Art. 17 grounds",
+      "mfa_label": "MFA",
+      "mfa_desc": "Step-up auth",
+      "review_label": "Review",
+      "review_desc": "Confirm details",
+      "execute_label": "Execute",
+      "execute_desc": "Running…"
+    },
+    "study_id_label": "Study ID",
+    "study_id_help": "Paste the UUID of the study to erase. The study must belong to your tenant.",
+    "justification_label": "Justification (Art. 17 grounds)",
+    "justification_help": "Documented reason. Minimum 10 characters. Will appear on the confirmation PDF.",
+    "justification_placeholder": "e.g., Data subject request received 2025-04-10 — Art. 17(1)(a) consent withdrawn.",
+    "mfa_body": "Confirm your identity. You will be prompted for a fresh multi-factor check before submission.",
+    "mfa_help": "If step-up is required, a secure prompt will appear at submission time.",
+    "review_study_id": "Study to erase:",
+    "review_justification": "Justification:",
+    "review_irreversible": "After submission the case, its segmentations, lesions, reports, and deliveries will be permanently removed. Audit events are retained but residual identifiers are hashed.",
+    "confirm_phrase_label": "Type to confirm",
+    "confirm_phrase_help": "Type {{phrase}} (all caps) to unlock the Execute button.",
+    "execute_cta": "Execute erasure",
+    "next_cta": "Next",
+    "executing_body": "Running the erasure pipeline. This usually finishes within 60 seconds.",
+    "error_title": "Erasure failed",
+    "step_up_required": "Fresh multi-factor authentication required. Please retry after re-authenticating.",
+    "timeout_body": "The erasure did not complete within 90 seconds. Check the ops dashboard or retry."
+  },
+  "confirmation": {
+    "title": "Erasure completed",
+    "body": "The case and its derived artefacts have been erased. A confirmation PDF has been generated.",
+    "elapsed": "in {{seconds}} s",
+    "erasure_request_id": "Erasure request ID",
+    "tombstone_hash": "Tombstone hash (SHA-256)",
+    "tombstone_help": "Cryptographic anchor linking this confirmation PDF to the audit log entry. Keep with your compliance records.",
+    "download_pdf": "Download confirmation PDF",
+    "pdf_pending": "PDF render pending — refresh in a moment",
+    "back_to_list": "Back to requests"
+  }
+}

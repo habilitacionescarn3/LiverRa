@@ -1,0 +1,109 @@
+/* ============================================================================
+   EMRAlert - Standardized Alert Component
+   Uses ONLY theme colors from theme.css
+   ============================================================================ */
+
+.emr-alert {
+  border-width: 1px;
+  border-style: solid;
+}
+
+/* Error variant */
+.emr-alert-error {
+  background: var(--emr-bg-accent-error) !important;
+  border-color: var(--emr-error) !important;
+  color: var(--emr-error) !important;
+}
+
+.emr-alert-error .mantine-Alert-icon {
+  color: var(--emr-error) !important;
+}
+
+.emr-alert-error .mantine-Alert-title {
+  color: var(--emr-error) !important;
+}
+
+.emr-alert-error .mantine-Alert-message {
+  color: var(--emr-text-primary) !important;
+}
+
+/* Warning variant */
+.emr-alert-warning {
+  background: var(--emr-bg-accent-warning) !important;
+  border-color: var(--emr-warning) !important;
+  color: var(--emr-warning) !important;
+}
+
+.emr-alert-warning .mantine-Alert-icon {
+  color: var(--emr-warning) !important;
+}
+
+.emr-alert-warning .mantine-Alert-title {
+  color: var(--emr-warning) !important;
+}
+
+.emr-alert-warning .mantine-Alert-message {
+  color: var(--emr-text-primary) !important;
+}
+
+/* Success variant */
+.emr-alert-success {
+  background: var(--emr-bg-accent-success) !important;
+  border-color: var(--emr-success) !important;
+  color: var(--emr-success) !important;
+}
+
+.emr-alert-success .mantine-Alert-icon {
+  color: var(--emr-success) !important;
+}
+
+.emr-alert-success .mantine-Alert-title {
+  color: var(--emr-success) !important;
+}
+
+.emr-alert-success .mantine-Alert-message {
+  color: var(--emr-text-primary) !important;
+}
+
+/* Info variant */
+.emr-alert-info {
+  background: var(--emr-bg-accent-secondary) !important;
+  border-color: var(--emr-info) !important;
+  color: var(--emr-info) !important;
+}
+
+.emr-alert-info .mantine-Alert-icon {
+  color: var(--emr-info) !important;
+}
+
+.emr-alert-info .mantine-Alert-title {
+  color: var(--emr-info) !important;
+}
+
+.emr-alert-info .mantine-Alert-message {
+  color: var(--emr-text-primary) !important;
+}
+
+/* ============================================================================
+   Dark Mode
+   ============================================================================ */
+
+:root[data-mantine-color-scheme="dark"] .emr-alert-error {
+  background: var(--emr-bg-accent-error) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .emr-alert-warning {
+  background: var(--emr-bg-accent-warning) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .emr-alert-success {
+  background: var(--emr-bg-accent-success) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .emr-alert-info {
+  background: var(--emr-bg-accent-secondary) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .emr-alert .mantine-Alert-message {
+  color: var(--emr-text-primary) !important;
+}

@@ -1,0 +1,10 @@
+name: medsam2-track
+family: tracking
+source_url: https://github.com/MedicineToken/Medical-SAM2
+pinned_commit_sha: abc1234000000000000000000000000000000000
+license_file: LICENSE
+integration_date: 2026-04-19
+approver: Levan Gogichaishvili
+tier: B
+triton_model_name: liverra-medsam2-track
+triton_version: 1

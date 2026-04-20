@@ -1,0 +1,93 @@
+{
+  "status": {
+    "draft": "Draft",
+    "finalizing": "Finalizing",
+    "finalized": "Finalized",
+    "superseded": "Superseded",
+    "retracted": "Retracted"
+  },
+  "finalize": {
+    "title": "Finalize Report",
+    "submit": "Finalize now",
+    "step": {
+      "check": "Pre-flight",
+      "checkDesc": "Verify all inputs",
+      "watermark": "RUO watermark",
+      "watermarkDesc": "Research Use Only",
+      "pacs": "PACS targets",
+      "pacsDesc": "Optional SEG/SR push",
+      "review": "Review",
+      "reviewDesc": "Measurements + FLR",
+      "ship": "Finalize",
+      "shipDesc": "Requires step-up MFA"
+    },
+    "check": {
+      "body": "Confirm all measurements, lesions, and the FLR plane have been reviewed."
+    },
+    "watermark": {
+      "heading": "RESEARCH USE ONLY — NOT FOR CLINICAL DECISIONS",
+      "body": "This report is informational only. Clinical judgment rests with a qualified physician.",
+      "ack": "I acknowledge the RUO scope."
+    },
+    "pacs": {
+      "enable": "Push SEG + SR to configured PACS destinations",
+      "hint": "You can also skip now and push manually from the Report page later."
+    },
+    "review": {
+      "notesLabel": "Notes for the report (optional)",
+      "hint": "Full preview available on the Report page once finalize completes."
+    },
+    "ship": {
+      "body": "Finalizing requires a step-up MFA challenge."
+    }
+  },
+  "pdf": {
+    "iframeTitle": "Finalized Report PDF",
+    "loading": "Loading report…",
+    "error": "PDF preview unavailable.",
+    "finalizing": "The PDF is still being built; this panel will refresh automatically.",
+    "claimHidden": "PDF preview is restricted for the current RUO claim scope.",
+    "ruoBadge": "RESEARCH USE ONLY"
+  },
+  "pacs": {
+    "title": "PACS Delivery",
+    "start": "Start push",
+    "loading": "Loading deliveries…",
+    "empty": "No PACS destinations pushed yet. Click \"Start push\" to fan out to configured destinations.",
+    "aria": "Delivery timeline",
+    "nextAttempt": "Next attempt:",
+    "retry": "Retry",
+    "manualFallback": "Download for manual push",
+    "demoBlocked": "Sample-data reports cannot be pushed to a real PACS destination.",
+    "status": {
+      "pending": "Pending",
+      "sending": "Sending",
+      "acknowledged": "Acknowledged",
+      "failed": "Failed",
+      "manual_fallback": "Manual fallback"
+    }
+  },
+  "retract": {
+    "title": "Retract Report",
+    "body": "Retraction is audit-preserving: the report row is kept and flagged. Downstream viewers will see a \"Retracted\" banner.",
+    "reasonLabel": "Reason for retraction",
+    "reasonPlaceholder": "Explain why this report is being retracted…",
+    "confirm": "Retract"
+  },
+  "view": {
+    "title": "Report",
+    "loading": "Loading report…",
+    "error": "Unable to load this report.",
+    "finalizedAt": "Finalized at:",
+    "supersededBy": "Superseded by",
+    "retracted": "This report has been retracted.",
+    "retract": "Retract",
+    "sampleData": "SAMPLE DATA",
+    "noId": "No report id in URL."
+  },
+  "artifact": {
+    "seg": "DICOM-SEG (liver + segments + lesions)",
+    "sr": "DICOM-SR (measurement report)",
+    "pdf": "PDF report"
+  }
+}

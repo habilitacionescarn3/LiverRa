@@ -1,0 +1,210 @@
+/* SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMRFAB - Floating Action Button Component
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.animated {
+  animation: fabEnter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes fabEnter {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN FAB BUTTON
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  box-shadow:
+    0 6px 20px var(--emr-black-alpha-15),
+    0 3px 6px var(--emr-black-alpha-10);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.fab:hover {
+  transform: scale(1.05);
+  box-shadow:
+    0 8px 24px var(--emr-black-alpha-20),
+    0 4px 8px var(--emr-black-alpha-10);
+}
+
+.fab:active {
+  transform: scale(0.95) !important;
+  box-shadow:
+    0 4px 12px var(--emr-black-alpha-15),
+    0 2px 4px var(--emr-black-alpha-10);
+}
+
+.fab:focus-visible {
+  outline: 3px solid var(--emr-accent-transparent-strong);
+  outline-offset: 2px;
+}
+
+.fabExpanded {
+  background: var(--emr-text-secondary) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ICON
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.iconRotated {
+  transform: rotate(45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXTENDED FAB
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.extendedLabel {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-white);
+  white-space: nowrap;
+  letter-spacing: var(--emr-letter-spacing-medium);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MINI ACTIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.actionsContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.miniAction {
+  opacity: 0;
+  transform: scale(0) translateY(20px);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.miniActionVisible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+.miniFab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow:
+    0 4px 12px var(--emr-black-alpha-15),
+    0 2px 4px var(--emr-black-alpha-10);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.miniFab:hover {
+  transform: scale(1.1);
+  box-shadow:
+    0 6px 16px var(--emr-black-alpha-20),
+    0 3px 6px var(--emr-black-alpha-10);
+}
+
+.miniFab:active {
+  transform: scale(0.95);
+}
+
+.miniFab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.miniFab:focus-visible {
+  outline: 2px solid var(--emr-accent-transparent-strong);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BACKDROP
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--emr-black-alpha-30);
+  animation: backdropFadeIn 0.2s ease-out;
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE ADJUSTMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 576px) {
+  .container {
+    gap: 12px;
+  }
+
+  .actionsContainer {
+    gap: 10px;
+  }
+
+  .extendedLabel {
+    font-size: var(--emr-font-base);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .animated {
+    animation: none;
+  }
+
+  .fab,
+  .miniFab,
+  .iconWrapper,
+  .miniAction {
+    transition: none;
+  }
+}

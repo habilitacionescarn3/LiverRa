@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "users": "Users",
+    "pacs": "PACS destination",
+    "audit": "Audit log"
+  },
+  "users": {
+    "title": "User management",
+    "subtitle": "Invite, suspend, and manage clinicians for your tenant.",
+    "invite": "Invite user",
+    "suspend": "Suspend",
+    "error": "Failed to load users",
+    "empty": {
+      "title": "No users yet",
+      "description": "Send your first invite to bring a clinician onto your tenant."
+    },
+    "status": {
+      "active": "Active",
+      "suspended": "Suspended"
+    },
+    "col": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "status": "Status",
+      "actions": "Actions"
+    }
+  },
+  "invite": {
+    "title": "Invite user",
+    "submit": "Send invite",
+    "error": "Invite failed",
+    "email": "Email",
+    "displayName": "Display name",
+    "role": "Role",
+    "locale": "Locale"
+  },
+  "role": {
+    "hpb_surgeon": "HPB surgeon",
+    "radiologist": "Radiologist",
+    "fellow": "Fellow",
+    "ops": "Ops",
+    "compliance": "Compliance",
+    "dpo": "DPO"
+  },
+  "pacs": {
+    "title": "PACS destination",
+    "subtitle": "Configure where finalized studies are pushed.",
+    "aeTitle": "AE title",
+    "host": "Host / IP",
+    "port": "Port",
+    "useTls": "Use DICOM-TLS",
+    "certFingerprint": "Cert fingerprint",
+    "testEcho": "Test with C-ECHO",
+    "echoOk": "C-ECHO succeeded",
+    "echoFail": "C-ECHO failed",
+    "roundTrip": "Round-trip",
+    "saved": "PACS destination saved."
+  },
+  "audit": {
+    "title": "Audit browser",
+    "subtitle": "PHI-free chain-of-hashes audit events for this tenant.",
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "category": "Category",
+      "all": "All"
+    },
+    "empty": {
+      "title": "No events",
+      "description": "No audit events match the current filters."
+    },
+    "col": {
+      "seq": "#",
+      "recorded": "Recorded",
+      "category": "Category",
+      "actor": "Actor",
+      "outcome": "Outcome",
+      "summary": "Summary"
+    }
+  },
+  "deleteRequest": {
+    "title": "Case deletion request",
+    "studyId": "Study ID",
+    "requestedBy": "Requested by",
+    "approve": "Approve (soft delete)",
+    "reject": "Reject"
+  },
+  "coverageOverride": {
+    "title": "Coverage override (FR-006a)",
+    "noPermission": "Insufficient permission",
+    "noPermissionBody": "You do not have the admin.coverage_override permission.",
+    "warning": "Overrides weaken phase-coverage safety checks. Every override is audited and stamped on downstream FHIR events.",
+    "tenantFlag": "Allow partial-coverage override (tenant-wide)",
+    "perCase": "Per-analysis override",
+    "reason": "Reason (min 10 chars)",
+    "submit": "Override with step-up MFA",
+    "flagSaved": "Tenant flag updated.",
+    "analysisSaved": "Analysis override applied."
+  }
+}

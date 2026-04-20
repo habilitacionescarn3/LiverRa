@@ -1,0 +1,78 @@
+{
+  "title": "LiverRa — Audit chain",
+  "uid": "liverra-audit-chain",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "1m",
+  "tags": ["liverra", "compliance"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_audit_event_total, tenant_id)",
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "category",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_audit_event_total, category)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Audit event rate by category",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (category) (rate(liverra_audit_event_total{tenant_id=~\"$tenant\", category=~\"$category\"}[5m]))",
+          "legendFormat": "{{category}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Chain-sequence gaps (24h)",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "increase(liverra_audit_chain_gap_total[24h])", "refId": "A" }
+      ],
+      "options": { "colorMode": "background" }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Fail-closed writes (24h)",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "increase(audit_chain_fail_closed_total[24h])", "refId": "A" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Tampering-attempt events",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (tenant_id) (increase(liverra_audit_tampering_attempt_total{tenant_id=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{tenant_id}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

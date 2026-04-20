@@ -1,0 +1,110 @@
+/* EMRButton variant styles with pseudo-selectors */
+
+.primaryButton {
+  background: var(--emr-gradient-add-button);
+  border: none;
+  color: var(--emr-text-white);
+  box-shadow: 0 2px 4px var(--emr-secondary-alpha-20), 0 4px 12px var(--emr-secondary-alpha-15), inset 0 1px 0 var(--emr-glass-white-10);
+}
+
+.primaryButton:hover:not(:disabled) {
+  box-shadow: 0 4px 8px var(--emr-secondary-alpha-25), 0 8px 16px var(--emr-secondary-alpha-20), inset 0 1px 0 var(--emr-glass-white-15);
+  filter: brightness(1.05);
+}
+
+.primaryButton:active:not(:disabled) {
+  box-shadow: 0 1px 2px var(--emr-secondary-alpha-20), inset 0 1px 2px var(--emr-black-alpha-10);
+}
+
+.primaryButton:focus-visible {
+  outline: none;
+  box-shadow: 0 2px 4px var(--emr-secondary-alpha-20), 0 4px 12px var(--emr-secondary-alpha-15), 0 0 0 3px var(--emr-form-accent-blue-alpha-40);
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  background: var(--emr-gradient-add-button);
+}
+
+.secondaryButton {
+  background: var(--emr-btn-secondary-bg);
+  border: 1px solid var(--emr-btn-secondary-border);
+  color: var(--emr-btn-secondary-text);
+  box-shadow: var(--emr-shadow-sm);
+  position: relative;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--emr-btn-secondary-hover-bg);
+  border-color: var(--emr-btn-secondary-hover-border);
+  box-shadow: var(--emr-shadow-md);
+}
+
+.secondaryButton:active:not(:disabled) {
+  background: var(--emr-btn-secondary-hover-bg);
+  filter: brightness(0.95);
+}
+
+.secondaryButton:focus-visible {
+  outline: none;
+  box-shadow: var(--emr-shadow-sm), var(--emr-focus-ring);
+}
+
+.secondaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dangerButton {
+  background: var(--emr-error);
+  border: none;
+  color: var(--emr-text-white);
+  box-shadow: var(--emr-shadow-error);
+}
+
+.dangerButton:hover:not(:disabled) {
+  box-shadow: var(--emr-shadow-error), var(--emr-shadow-md);
+  filter: brightness(1.1);
+}
+
+.dangerButton:active:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.dangerButton:focus-visible {
+  outline: none;
+  box-shadow: var(--emr-shadow-error), 0 0 0 3px var(--emr-bg-accent-error);
+}
+
+.dangerButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ghostButton {
+  background: transparent;
+  border: none;
+  color: var(--emr-text-secondary);
+}
+
+.ghostButton:hover:not(:disabled) {
+  background: var(--emr-hover-bg);
+  color: var(--emr-text-primary);
+}
+
+.ghostButton:active:not(:disabled) {
+  background: var(--emr-selected-bg);
+}
+
+.ghostButton:focus-visible {
+  outline: none;
+  box-shadow: var(--emr-focus-ring);
+}
+
+.ghostButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

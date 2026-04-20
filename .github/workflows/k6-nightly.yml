@@ -1,0 +1,79 @@
+name: k6 load test (nightly)
+
+# T375 — Nightly k6 load run against staging. Asserts:
+#   - SC-002 : P95 end-to-end analysis ≤ 8 min at steady-state load
+#   - FR-013 : Viewer resection-plane drag P95 ≤ 1 s under concurrent read
+#
+# Staging target is declared via the STAGING_BASE_URL secret. The k6
+# script at tests/load/staging-sc-002-fr-013.js defines the scenarios.
+
+on:
+  schedule:
+    # 03:30 UTC — after e2e-gpu nightly finishes
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: k6-nightly
+  cancel-in-progress: false
+
+jobs:
+  k6-load:
+    name: k6 load — staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      K6_STAGING_URL: ${{ secrets.STAGING_BASE_URL }}
+      K6_STAGING_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+      # SC-002 / FR-013 SLO thresholds are declared in-script but mirrored
+      # here so ops can tune without editing the test file.
+      K6_SC002_P95_MS: '480000'
+      K6_FR013_P95_MS: '1000'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+            --keyserver hkp://keyserver.ubuntu.com:80 \
+            --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+            | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+      - name: Preflight — staging health
+        run: |
+          curl -fsS "${K6_STAGING_URL}/system/health" >/dev/null
+      - name: Run k6 scenario
+        run: |
+          k6 run \
+            --out json=k6-summary.json \
+            --summary-export k6-summary-export.json \
+            tests/load/staging-sc-002-fr-013.js
+      - name: Assert SC-002 + FR-013 thresholds
+        run: node scripts/k6-assert-thresholds.mjs k6-summary-export.json
+      - name: Upload k6 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-nightly-summary
+          path: |
+            k6-summary.json
+            k6-summary-export.json
+          if-no-files-found: ignore
+      - name: Alert on threshold breach
+        if: failure()
+        env:
+          PD_ROUTING_KEY: ${{ secrets.PAGERDUTY_K6_ROUTING_KEY }}
+        run: |
+          if [ -n "${PD_ROUTING_KEY:-}" ]; then
+            curl -X POST https://events.pagerduty.com/v2/enqueue \
+              -H 'Content-Type: application/json' \
+              -d "{\"routing_key\":\"${PD_ROUTING_KEY}\",\"event_action\":\"trigger\",\"payload\":{\"summary\":\"k6 nightly breach — SC-002 or FR-013 threshold exceeded\",\"severity\":\"warning\",\"source\":\"github-actions\"}}"
+          fi

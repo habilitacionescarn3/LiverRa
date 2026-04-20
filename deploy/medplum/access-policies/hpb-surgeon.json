@@ -1,0 +1,50 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-hpb-surgeon",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "hpb_surgeon",
+        "display": "Hepatobiliary surgeon \u2014 primary finalizer of reports."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "Binary",
+      "readonly": true
+    },
+    {
+      "resourceType": "DiagnosticReport",
+      "readonly": false
+    },
+    {
+      "resourceType": "DocumentReference",
+      "readonly": false
+    },
+    {
+      "resourceType": "ImagingStudy",
+      "readonly": false
+    },
+    {
+      "resourceType": "Media",
+      "readonly": false
+    },
+    {
+      "resourceType": "Observation",
+      "readonly": false
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": false
+    },
+    {
+      "resourceType": "Task",
+      "readonly": true
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

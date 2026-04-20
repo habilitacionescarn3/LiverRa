@@ -1,0 +1,62 @@
+{
+  "title": "Welcome to LiverRa",
+  "subtitle": "Complete these 5 steps to activate your account (approx 15 min).",
+  "privacyNote": "This wizard collects no patient information. Every step is auditable.",
+  "steps": {
+    "password": "Password",
+    "mfa": "MFA",
+    "ruo": "RUO",
+    "tour": "Tour",
+    "sample": "Demo"
+  },
+  "password": {
+    "title": "Set your password",
+    "subtitle": "Choose a strong password (min 12 chars) or link your hospital single sign-on.",
+    "new": "New password",
+    "confirm": "Confirm password",
+    "tooShort": "Password must be at least 12 characters.",
+    "mismatch": "Passwords do not match.",
+    "useSso": "Use hospital SSO"
+  },
+  "mfa": {
+    "title": "Set up multi-factor authentication",
+    "subtitle": "Scan the QR code with your authenticator app, save the backup codes, then enter a code to confirm.",
+    "qrAlt": "MFA QR code",
+    "secretLabel": "Or enter this secret manually:",
+    "downloadBackup": "Download backup codes",
+    "enterCode": "Enter 6-digit code",
+    "loading": "Generating secret and backup codes…"
+  },
+  "ruo": {
+    "title": "Research Use Only — accept the terms",
+    "body": "LiverRa is classified as Research Use Only. Outputs are not a medical device and must not be used as the sole basis for clinical decisions. You remain the responsible clinician. All analyses are logged to an immutable audit trail.",
+    "checkbox": "I have read and accept the Research Use Only terms.",
+    "version": "Version",
+    "accept": "Accept and continue"
+  },
+  "tour": {
+    "title": "Quick tour",
+    "skip": "Skip tour",
+    "next": "Next",
+    "s1": "Drop a DICOM archive here to start a new analysis.",
+    "s2": "Watch the per-stage status — each checkpoint is audited.",
+    "s3": "Drag the resection plane to see FLR update live.",
+    "s4": "Append or refine lesions with the AI assistant.",
+    "s5": "Finalize when ready — the PDF + DICOM-SEG are saved to PACS."
+  },
+  "sample": {
+    "title": "Run a demo case",
+    "subtitle": "Open a pre-seeded demo analysis to explore the viewer, FLR calculator, and finalize flow. This is synthetic data.",
+    "ready": "Demo ready",
+    "redirecting": "Redirecting you to the demo case…",
+    "run": "Run demo case",
+    "badge": "Sample data — not real patient"
+  },
+  "demo": {
+    "title": "Demo case",
+    "subtitle": "Explore the full pipeline on synthetic data. Re-open any time from the Help menu.",
+    "body": "The demo case has no real patient data. PACS push is disabled; outputs are watermarked \"Sample data\".",
+    "open": "Open demo case",
+    "navLabel": "Demo case"
+  }
+}

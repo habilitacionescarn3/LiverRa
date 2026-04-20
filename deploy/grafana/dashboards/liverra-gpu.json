@@ -1,0 +1,52 @@
+{
+  "title": "LiverRa — GPU",
+  "uid": "liverra-gpu",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["liverra", "gpu"],
+  "templating": {
+    "list": [
+      {
+        "name": "gpu",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(nvidia_gpu_utilization, gpu)",
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "GPU utilization (%)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "nvidia_gpu_utilization{gpu=~\"$gpu\"}", "legendFormat": "gpu {{gpu}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "GPU memory used (MiB)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "nvidia_gpu_memory_used_bytes{gpu=~\"$gpu\"} / 1048576", "legendFormat": "gpu {{gpu}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Triton model load/unload events",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "increase(nv_model_load_events_total[5m])", "legendFormat": "{{model}} load", "refId": "A" },
+        { "expr": "increase(nv_model_unload_events_total[5m])", "legendFormat": "{{model}} unload", "refId": "B" }
+      ]
+    }
+  ]
+}

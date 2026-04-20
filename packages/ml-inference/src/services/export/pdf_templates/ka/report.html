@@ -1,0 +1,116 @@
+{# SPDX-FileCopyrightText: Copyright LiverRa contributors #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{# LiverRa surgeon-facing report — Georgian (T260). Georgian text        #}
+{# requires Noto Sans Georgian at the PDF renderer level; the font       #}
+{# binding lives in pdf_builder._base_css().                              #}
+<!doctype html>
+<html lang="ka">
+  <head>
+    <meta charset="utf-8" />
+    <title>LiverRa-ს ანგარიში {{ report_id }}</title>
+  </head>
+  <body>
+    {% if sample_case_flag %}
+      <div class="sample-banner">
+        სადემონსტრაციო მონაცემები — არ არის ნამდვილი პაციენტი. არ გამოიყენოთ კლინიკურად.
+      </div>
+    {% endif %}
+
+    <h1 style="margin-bottom: 2mm;">
+      LiverRa — ღვიძლის ანალიზის ანგარიში
+      <span style="font-size: 9pt; color: #b91c1c;">(მხოლოდ კვლევითი გამოყენება)</span>
+    </h1>
+    <p style="color: #4b5563;">
+      <strong>ანგარიშის ID:</strong> {{ report_id }}<br />
+      <strong>ანალიზის ID:</strong> {{ analysis_id }}<br />
+      <strong>დაწესებულება:</strong> {{ tenant_display_name or "—" }}<br />
+      <strong>დაასრულა:</strong> {{ finalized_by_display }}<br />
+      <strong>დასრულების დრო (UTC):</strong> {{ finalized_at }}
+    </p>
+
+    <h2>მოცულობითი შემაჯამებელი</h2>
+    <table class="volumes">
+      <thead><tr><th>სტრუქტურა</th><th>მოცულობა (მლ)</th></tr></thead>
+      <tbody>
+        <tr><td>ღვიძლის მთლიანი პარენქიმა</td><td>{{ parenchyma_volume_ml }}</td></tr>
+        {% for roman in ['I','II','III','IV','V','VI','VII','VIII'] %}
+          <tr><td>კუინოს სეგმენტი {{ roman }}</td>
+            <td>{{ "%.1f"|format(couinaud_volumes.get(roman, 0)) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if flr_remnant_volume_ml is not none %}
+      <h2>ღვიძლის მომავალი ნარჩენი (FLR)</h2>
+      <p>
+        <strong>ნარჩენი მოცულობა:</strong> {{ flr_remnant_volume_ml }} მლ<br />
+        <strong>ფუნქციური ნარჩენი:</strong> {{ flr_remnant_pct_functional }} %<br />
+        <strong>ადეკვატურობა:</strong>
+        <span style="font-weight: 700;">{{ flr_adequacy_label or "—" }}</span>
+        <span style="color: #6b7280; font-size: 7.5pt;">
+          (ზღურბლები: &lt;25 % არასაკმარისი · 25–30 % საზღვრული · ≥30 % საკმარისი)
+        </span>
+      </p>
+    {% endif %}
+
+    {% if lesions %}
+      <h2>ლეზიები</h2>
+      <table class="volumes">
+        <thead>
+          <tr>
+            <th>#</th><th>კლასი</th><th>ყველაზე დიდი დიამეტრი (მმ)</th>
+            <th>მოცულობა (მლ)</th><th>ნდობა</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lesion in lesions %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ lesion.class_label_localised }}</td>
+              <td>{{ "%.1f"|format(lesion.diameter_mm) }}</td>
+              <td>{{ "%.1f"|format(lesion.volume_ml) }}</td>
+              <td>{{ "%.0f"|format(lesion.confidence_pct) }} %</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if screenshots %}
+      <h2>3D ეკრანის ანაბეჭდები</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;">
+        {% for src in screenshots %}
+          <img src="{{ src }}" alt="3D გამოსახულება" style="width: 100%; border: 0.5pt solid #cbd5f5;" />
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <h2>მოდელის ატრიბუცია</h2>
+    <table class="volumes">
+      <thead><tr><th>მოდელი</th><th>ვერსია</th><th>ლიცენზია</th></tr></thead>
+      <tbody>
+        {% for row in model_summary %}
+          <tr><td>{{ row.name }}</td><td>{{ row.version }}</td><td>{{ row.license }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>RUO-ის კლეიმ-რეესტრის სურათი</h2>
+    {% if claim_registry %}
+      <ul>
+        {% for claim in claim_registry %}
+          <li><strong>{{ claim.key }}</strong> — {{ claim.status }} ({{ claim.watermark_variant or "default" }})</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color: #6b7280;">ამ ანგარიშისთვის ცალკეული კლეიმ-ის გადაფარვა არ არის ჩაწერილი.</p>
+    {% endif %}
+
+    <hr style="margin-top: 8mm; border: none; border-top: 0.5pt solid #cbd5f5;" />
+    <p style="font-size: 7.5pt; color: #991b1b;">
+      <strong>{{ watermark_text }}</strong><br />
+      პროგრამული უზრუნველყოფა: LiverRa v1 MVP · {{ software_versions }}<br />
+      ეს ანგარიში მხოლოდ საინფორმაციო ხასიათისაა. კლინიკური შეფასება რჩება დამკრძალავი კვალიფიცირებული ექიმის პასუხისმგებლობად.
+    </p>
+  </body>
+</html>

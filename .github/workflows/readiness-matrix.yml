@@ -1,0 +1,137 @@
+name: Readiness matrix (nightly)
+
+# T397 — nightly job that queries the GitHub Actions API for the status
+# of every CI workflow backing SC-001..SC-016 + T469 upgraded gates,
+# regenerates the Status + Evidence columns of
+# `docs/runbooks/readiness-matrix.md`, and commits the refreshed file
+# via a bot PR when anything changed.
+#
+# Plain-English summary: this is the scoreboard refresher. Every night
+# at 03:00 UTC we ask GitHub "what's the latest conclusion of each CI
+# job?", paste that into the readiness matrix, and open a PR if the
+# scoreboard changed.
+#
+# Security note: this workflow consumes only static workflow filenames
+# and the implicit github.token — no untrusted event payload strings are
+# interpolated into shell commands.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: readiness-matrix
+  cancel-in-progress: false
+
+jobs:
+  regenerate:
+    name: Regenerate readiness matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MATRIX_PATH: docs/runbooks/readiness-matrix.md
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Collect workflow conclusions
+        id: collect
+        run: |
+          set -euo pipefail
+          mkdir -p .tmp
+          declare -A MAP=(
+            ["SC-001"]="ci.yml"
+            ["SC-002"]="k6-nightly.yml"
+            ["SC-003"]="ci.yml"
+            ["SC-004"]="ci.yml"
+            ["SC-005"]="ci.yml"
+            ["SC-006"]="k6-nightly.yml"
+            ["SC-007"]="ci.yml"
+            ["SC-008"]="e2e-cpu.yml"
+            ["SC-009"]="ci.yml"
+            ["SC-010"]="e2e-cpu.yml"
+            ["SC-011"]="e2e-cpu.yml"
+            ["SC-012"]="cost-budget.yml"
+            ["SC-013"]="ci.yml"
+            ["SC-014"]="ci.yml"
+            ["SC-015"]="ci.yml"
+            ["SC-016"]="ci.yml"
+          )
+          UPGRADED_JOBS=(
+            "ci-palette-cvd-check"
+            "e2e-gpu"
+            "ci-alembic-migrations"
+            "ci-dicom-uid-present"
+            "ci-bundle-check"
+          )
+          echo "{" > .tmp/status.json
+          FIRST=1
+          for key in "${!MAP[@]}"; do
+            wf="${MAP[$key]}"
+            run=$(gh run list --workflow "$wf" --branch main --limit 1 \
+              --json conclusion,status,databaseId,url 2>/dev/null \
+              --jq '.[0] // {}' || echo '{}')
+            if [ "$FIRST" -eq 0 ]; then echo "," >> .tmp/status.json; fi
+            FIRST=0
+            printf '  "%s": %s' "$key" "$run" >> .tmp/status.json
+          done
+          for job in "${UPGRADED_JOBS[@]}"; do
+            if [ "$job" = "e2e-gpu" ]; then
+              wf="e2e-gpu.yml"
+            else
+              wf="ci.yml"
+            fi
+            run=$(gh run list --workflow "$wf" --branch main --limit 1 \
+              --json conclusion,status,databaseId,url 2>/dev/null \
+              --jq '.[0] // {}' || echo '{}')
+            echo "," >> .tmp/status.json
+            printf '  "GATE-%s": %s' "$job" "$run" >> .tmp/status.json
+          done
+          echo "" >> .tmp/status.json
+          echo "}" >> .tmp/status.json
+          cat .tmp/status.json
+
+      - name: Rewrite Status + Evidence columns
+        run: |
+          set -euo pipefail
+          python3 scripts/ops/update_readiness_matrix.py \
+            --status-json .tmp/status.json \
+            --matrix-path "${MATRIX_PATH}"
+
+      - name: Detect diff
+        id: diff
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "${MATRIX_PATH}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit + PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          STAMP: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          BRANCH="chore/readiness-matrix-$(date -u +%Y%m%d-%H%M%S)-${STAMP}"
+          git config user.name "liverra-readiness-bot"
+          git config user.email "liverra-readiness-bot@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git add "${MATRIX_PATH}"
+          git commit -m "chore(readiness): nightly refresh $(date -u +%Y-%m-%d)"
+          git push origin "${BRANCH}"
+          gh pr create \
+            --title "chore(readiness): nightly matrix refresh" \
+            --body "Automated refresh of readiness matrix status columns from CI conclusions. Source workflow: readiness-matrix.yml." \
+            --label "automation,readiness" \
+            --base main \
+            --head "${BRANCH}"

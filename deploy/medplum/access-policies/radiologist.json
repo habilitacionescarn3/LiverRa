@@ -1,0 +1,50 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-radiologist",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "radiologist",
+        "display": "Abdominal radiologist \u2014 full review + refinement; may finalize."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "Binary",
+      "readonly": true
+    },
+    {
+      "resourceType": "DiagnosticReport",
+      "readonly": true
+    },
+    {
+      "resourceType": "DocumentReference",
+      "readonly": true
+    },
+    {
+      "resourceType": "ImagingStudy",
+      "readonly": true
+    },
+    {
+      "resourceType": "Media",
+      "readonly": false
+    },
+    {
+      "resourceType": "Observation",
+      "readonly": false
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": true
+    },
+    {
+      "resourceType": "Task",
+      "readonly": false
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

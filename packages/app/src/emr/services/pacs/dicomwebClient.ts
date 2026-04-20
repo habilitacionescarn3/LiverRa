@@ -1,0 +1,738 @@
+// SPDX-FileCopyrightText: Copyright LiverRa contributors
+// SPDX-License-Identifier: Apache-2.0
+
+// ============================================================================
+// DICOMweb Client (LiverRa)
+// ============================================================================
+// HTTP client for the clean-side Orthanc PACS via DICOMweb APIs:
+//   - QIDO-RS: Search studies / series / instances (search engine)
+//   - WADO-RS: Retrieve study metadata + image URLs (download links)
+//   - STOW-RS: Store uploaded DICOM instances (filing cabinet)
+//
+// All requests go through an nginx proxy that validates the Cognito JWT and
+// injects tenant context. Orthanc itself sits behind nginx and uses basic
+// auth on its internal loopback.
+//
+// Ported from MediMind `services/pacs/dicomwebClient.ts` with auth swapped
+// from Medplum JWT → Cognito JWT and the base URL driven by
+// `import.meta.env.VITE_DICOM_WEB_BASE` (default
+// http://localhost:8042/dicom-web). A tenant-id header is added for
+// multi-tenant routing in the edge proxy.
+// ============================================================================
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+export class DicomWebError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly endpoint: string
+  ) {
+    super(message);
+    this.name = 'DicomWebError';
+  }
+}
+
+export class DicomWebAuthError extends DicomWebError {
+  constructor(endpoint: string) {
+    super(
+      'Authentication failed — token may be expired. Please log in again.',
+      401,
+      endpoint
+    );
+    this.name = 'DicomWebAuthError';
+  }
+}
+
+export class DicomWebNotFoundError extends DicomWebError {
+  constructor(endpoint: string) {
+    super('The requested DICOM resource was not found.', 404, endpoint);
+    this.name = 'DicomWebNotFoundError';
+  }
+}
+
+export class DicomWebUnavailableError extends DicomWebError {
+  constructor(endpoint: string, statusCode = 503) {
+    super('PACS server is unavailable. Please try again later.', statusCode, endpoint);
+    this.name = 'DicomWebUnavailableError';
+  }
+}
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/** DICOM JSON is an array of tag objects. Typed loosely — callers cast. */
+export type DicomJsonObject = Record<string, DicomJsonTag>;
+export interface DicomJsonTag {
+  vr: string;
+  Value?: Array<string | number | DicomJsonObject>;
+}
+
+export interface StudySearchParams {
+  /** DICOM PatientID */
+  patientId?: string;
+  /** Accession number (ACC-YYYY-NNNNNN in LiverRa) */
+  accessionNumber?: string;
+  /** Study date or date range (YYYYMMDD or YYYYMMDD-YYYYMMDD) */
+  studyDate?: string;
+  /** Modality filter (e.g., 'CT', 'MR') */
+  modalitiesInStudy?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface SeriesSearchParams {
+  modality?: string;
+}
+
+export interface StowResult {
+  successCount: number;
+  failedCount: number;
+  failures: string[];
+}
+
+/**
+ * Options for creating a DicomWebClient.
+ */
+export interface DicomWebClientOptions {
+  /**
+   * Base URL for DICOMweb — e.g. `http://localhost:8042/dicom-web` in local
+   * dev, or `https://pacs.liverra.ai/dicom-web` in cloud. Defaults to
+   * `import.meta.env.VITE_DICOM_WEB_BASE` or `/dicom-web`.
+   */
+  baseUrl?: string;
+  /**
+   * Callback that returns the current Cognito JWT access token, or null if
+   * the user is signed out. Called on every request so the token stays
+   * fresh across silent refreshes.
+   */
+  getAccessToken: () => string | null;
+  /**
+   * Callback that returns the current tenant ID (LiverRa is multi-tenant
+   * per hospital). Added as the `X-LiverRa-Tenant` header so the edge
+   * proxy can route to the correct Orthanc partition. Optional — if
+   * omitted or returning null, the header is not sent and the proxy
+   * falls back to the tenant claim on the JWT.
+   */
+  getTenantId?: () => string | null;
+}
+
+// ============================================================================
+// UID Validation (security: prevents path traversal via crafted UIDs)
+// ============================================================================
+
+/**
+ * DICOM UIDs (UI Value Representation) must contain only digits and dots,
+ * and be at most 64 characters. A malicious UID like "1.2.3/../admin" could
+ * let an attacker traverse paths on the server. This function blocks that.
+ */
+export function validateDicomUid(uid: string, fieldName: string): void {
+  if (!uid) {
+    throw new Error(`${fieldName} is required and cannot be empty`);
+  }
+  if (uid.length > 64) {
+    throw new Error(
+      `${fieldName} exceeds maximum DICOM UID length of 64 characters`
+    );
+  }
+  if (!/^[\d.]+$/.test(uid)) {
+    throw new Error(
+      `${fieldName} contains invalid characters — DICOM UIDs may only contain digits and dots`
+    );
+  }
+}
+
+// ============================================================================
+// Default base URL — read at module init from Vite env.
+// ============================================================================
+
+/**
+ * Default DICOMweb base URL read from Vite env. Can be overridden per
+ * client via `DicomWebClientOptions.baseUrl`.
+ */
+function resolveDefaultBaseUrl(): string {
+  try {
+    const envBase = (import.meta as unknown as {
+      env?: { VITE_DICOM_WEB_BASE?: string };
+    }).env?.VITE_DICOM_WEB_BASE;
+    if (envBase && envBase.trim().length > 0) {
+      return envBase.trim();
+    }
+  } catch {
+    // import.meta.env not available (e.g., during SSR/tests) — fall through
+  }
+  return 'http://localhost:8042/dicom-web';
+}
+
+// ============================================================================
+// DICOMweb Client
+// ============================================================================
+
+/**
+ * Client for DICOMweb QIDO-RS (search), WADO-RS (retrieve), and STOW-RS
+ * (store) operations against LiverRa's clean-side Orthanc.
+ *
+ * Construct via the {@link createDicomWebClient} factory so the plumbing
+ * (auth callback + tenant callback) is supplied explicitly — services are
+ * non-React, so the calling hook (`useDicomWebClient`) injects the live
+ * Cognito session.
+ */
+export class DicomWebClient {
+  private readonly baseUrl: string;
+  private readonly getAccessToken: () => string | null;
+  private readonly getTenantId: () => string | null;
+  /**
+   * In-flight request cache for deduplication — if two components request
+   * the same URL simultaneously, we reuse the same Promise instead of
+   * making two identical HTTP calls.
+   */
+  private readonly inflightRequests = new Map<string, Promise<DicomJsonObject[]>>();
+
+  constructor(options: DicomWebClientOptions) {
+    const base = options.baseUrl ?? resolveDefaultBaseUrl();
+    this.baseUrl = base.replace(/\/+$/, '');
+    this.getAccessToken = options.getAccessToken;
+    this.getTenantId = options.getTenantId ?? (() => null);
+  }
+
+  // ==========================================================================
+  // QIDO-RS — Search
+  // ==========================================================================
+
+  /**
+   * Search for studies matching the given criteria.
+   * Maps to: GET /studies?PatientID=...&AccessionNumber=...
+   */
+  async qidoStudies(
+    params: StudySearchParams = {},
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]> {
+    const queryParams = new URLSearchParams();
+
+    if (params.patientId) queryParams.set('PatientID', params.patientId);
+    if (params.accessionNumber) queryParams.set('AccessionNumber', params.accessionNumber);
+    if (params.studyDate) queryParams.set('StudyDate', params.studyDate);
+    if (params.modalitiesInStudy) queryParams.set('ModalitiesInStudy', params.modalitiesInStudy);
+    if (params.limit !== undefined) queryParams.set('limit', String(params.limit));
+    if (params.offset !== undefined) queryParams.set('offset', String(params.offset));
+
+    const query = queryParams.toString();
+    const url = `${this.baseUrl}/studies${query ? `?${query}` : ''}`;
+    return this.fetchJson(url, signal);
+  }
+
+  /**
+   * Search for series within a specific study.
+   * Maps to: GET /studies/{studyUID}/series
+   */
+  async qidoSeries(
+    studyInstanceUID: string,
+    params?: SeriesSearchParams,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]> {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    const queryParams = new URLSearchParams();
+    if (params?.modality) queryParams.set('Modality', params.modality);
+
+    const query = queryParams.toString();
+    const url = `${this.baseUrl}/studies/${studyInstanceUID}/series${query ? `?${query}` : ''}`;
+    return this.fetchJson(url, signal);
+  }
+
+  /**
+   * Search for instances within a specific series.
+   * Maps to: GET /studies/{studyUID}/series/{seriesUID}/instances
+   */
+  async qidoInstances(
+    studyInstanceUID: string,
+    seriesInstanceUID: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]> {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    validateDicomUid(seriesInstanceUID, 'seriesInstanceUID');
+    const url = `${this.baseUrl}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/instances`;
+    return this.fetchJson(url, signal);
+  }
+
+  // ==========================================================================
+  // WADO-RS — Retrieve
+  // ==========================================================================
+
+  /**
+   * Retrieve metadata for all series/instances in a study.
+   * Maps to: GET /studies/{studyUID}/metadata
+   */
+  async retrieveStudyMetadata(
+    studyInstanceUID: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]> {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    const url = `${this.baseUrl}/studies/${studyInstanceUID}/metadata`;
+    return this.fetchJson(url, signal);
+  }
+
+  /**
+   * Retrieve metadata for all instances in a series.
+   * Maps to: GET /studies/{studyUID}/series/{seriesUID}/metadata
+   */
+  async retrieveSeriesMetadata(
+    studyInstanceUID: string,
+    seriesInstanceUID: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]> {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    validateDicomUid(seriesInstanceUID, 'seriesInstanceUID');
+    const url = `${this.baseUrl}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/metadata`;
+    return this.fetchJson(url, signal);
+  }
+
+  /**
+   * Build the URL for retrieving a specific DICOM instance frame.
+   * Used by Cornerstone3D image loader to fetch pixel data.
+   *
+   * Returns: `wadors:{baseUrl}/studies/{study}/series/{series}/instances/{sop}/frames/{frame}`
+   * The `wadors:` prefix tells Cornerstone3D to use its WADO-RS loader.
+   *
+   * @param frame - Frame number (1-based). Default 1 for single-frame.
+   */
+  wadoInstance(
+    studyInstanceUID: string,
+    seriesInstanceUID: string,
+    sopInstanceUID: string,
+    frame = 1
+  ): string {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    validateDicomUid(seriesInstanceUID, 'seriesInstanceUID');
+    validateDicomUid(sopInstanceUID, 'sopInstanceUID');
+    return `wadors:${this.baseUrl}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/instances/${sopInstanceUID}/frames/${frame}`;
+  }
+
+  /** Backward-compatible alias for wadoInstance(). */
+  getInstanceUrl = this.wadoInstance.bind(this);
+
+  /**
+   * Build the URL for a JPEG thumbnail of a specific instance.
+   */
+  getThumbnailUrl(
+    studyInstanceUID: string,
+    seriesInstanceUID: string,
+    sopInstanceUID: string
+  ): string {
+    validateDicomUid(studyInstanceUID, 'studyInstanceUID');
+    validateDicomUid(seriesInstanceUID, 'seriesInstanceUID');
+    validateDicomUid(sopInstanceUID, 'sopInstanceUID');
+    return `${this.baseUrl}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/instances/${sopInstanceUID}/rendered`;
+  }
+
+  /**
+   * Get the current access token for use in custom fetch headers.
+   * Useful when Cornerstone3D image loader needs auth headers.
+   */
+  getAuthToken(): string | null {
+    return this.getAccessToken();
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  // ==========================================================================
+  // STOW-RS — Store
+  // ==========================================================================
+
+  /**
+   * Upload DICOM files to the PACS server via STOW-RS (multipart/related POST).
+   * Like putting a stack of X-ray films into a filing cabinet — each file is
+   * wrapped in its own envelope and sent in one big package.
+   */
+  async stowInstances(files: File[], signal?: AbortSignal): Promise<StowResult> {
+    if (files.length === 0) {
+      return { successCount: 0, failedCount: 0, failures: [] };
+    }
+
+    const result: StowResult = { successCount: 0, failedCount: 0, failures: [] };
+
+    for (const file of files) {
+      try {
+        const singleResult = await this.storeSingleInstance(file, signal);
+        result.successCount += singleResult.successCount;
+        result.failedCount += singleResult.failedCount;
+        result.failures.push(...singleResult.failures);
+      } catch (err) {
+        if (err instanceof DicomWebAuthError) throw err;
+        if (signal?.aborted) throw err;
+        result.failedCount++;
+        result.failures.push(
+          `${file.name}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Upload a single DICOM file. Exposed at the factory level as
+   * `stowInstance(file)` for convenience.
+   */
+  async stowInstance(file: File, signal?: AbortSignal): Promise<StowResult> {
+    return this.storeSingleInstance(file, signal);
+  }
+
+  private async storeSingleInstance(file: File, signal?: AbortSignal): Promise<StowResult> {
+    const boundary = `----DICOMweb-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const encoder = new TextEncoder();
+
+    const header = encoder.encode(`\r\n--${boundary}\r\nContent-Type: application/dicom\r\n\r\n`);
+    const footer = encoder.encode(`\r\n--${boundary}--\r\n`);
+    const fileData = new Uint8Array(await file.arrayBuffer());
+
+    const body = new Uint8Array(header.length + fileData.length + footer.length);
+    body.set(header, 0);
+    body.set(fileData, header.length);
+    body.set(footer, header.length + fileData.length);
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/studies`, {
+        method: 'POST',
+        headers: this.buildHeaders({
+          'Content-Type': `multipart/related; type="application/dicom"; boundary=${boundary}`,
+        }),
+        body,
+        signal,
+      });
+    } catch {
+      throw new DicomWebUnavailableError(`${this.baseUrl}/studies`);
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new DicomWebAuthError(`${this.baseUrl}/studies`);
+      }
+      throw new DicomWebError(
+        `STOW-RS failed with status ${response.status}`,
+        response.status,
+        `${this.baseUrl}/studies`
+      );
+    }
+
+    return this.parseStowResponse(response, 1);
+  }
+
+  /**
+   * Parse a STOW-RS response. Supports JSON (application/dicom+json) and
+   * XML (application/dicom+xml). Falls back to assuming success if the
+   * body is empty (some servers do that on 200).
+   */
+  private async parseStowResponse(response: Response, totalFiles: number): Promise<StowResult> {
+    try {
+      const contentType = response.headers.get('Content-Type') || '';
+      const responseText = await response.text();
+
+      if (!responseText.trim()) {
+        return { successCount: totalFiles, failedCount: 0, failures: [] };
+      }
+
+      if (contentType.includes('json')) {
+        return this.parseStowJsonResponse(responseText, totalFiles);
+      }
+      if (contentType.includes('xml')) {
+        return this.parseStowXmlResponse(responseText, totalFiles);
+      }
+
+      try {
+        return this.parseStowJsonResponse(responseText, totalFiles);
+      } catch {
+        return this.parseStowXmlResponse(responseText, totalFiles);
+      }
+    } catch (err) {
+      console.error('[STOW-RS] Failed to parse response — treating as upload failure:', err);
+      return {
+        successCount: 0,
+        failedCount: totalFiles,
+        failures: [
+          `Response parsing failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+        ],
+      };
+    }
+  }
+
+  private parseStowJsonResponse(text: string, totalFiles: number): StowResult {
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      const preview = text.slice(0, 500);
+      console.error('[STOW-RS] Invalid JSON response:', preview);
+      if (text.trimStart().startsWith('<')) {
+        throw new Error(
+          'Server returned an error page instead of data. Contact your administrator.'
+        );
+      }
+      throw new Error('Received invalid response from imaging server.');
+    }
+    const dataset = Array.isArray(json) ? json[0] : json;
+
+    // Tag 00081199 = ReferencedSOPSequence (successful)
+    const referenced = dataset?.['00081199']?.Value || [];
+    // Tag 00081198 = FailedSOPSequence (failed)
+    const failed = dataset?.['00081198']?.Value || [];
+
+    const failures = failed.map((item: DicomJsonObject) => {
+      // Tag 00081197 = FailureReason
+      const reasonCode = item?.['00081197']?.Value?.[0];
+      return mapStowFailureReason(reasonCode as number | undefined);
+    });
+
+    const successCount = referenced.length || totalFiles - failed.length;
+    return { successCount, failedCount: failed.length, failures };
+  }
+
+  private parseStowXmlResponse(text: string, totalFiles: number): StowResult {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/xml');
+
+    const referencedElements = doc.querySelectorAll(
+      'DicomAttribute[keyword="ReferencedSOPSequence"] > Item, [tag="00081199"] > Item'
+    );
+    const failedElements = doc.querySelectorAll(
+      'DicomAttribute[keyword="FailedSOPSequence"] > Item, [tag="00081198"] > Item'
+    );
+
+    const failures: string[] = [];
+    failedElements.forEach((item) => {
+      const reasonEl = item.querySelector(
+        'DicomAttribute[keyword="FailureReason"] > Value, [tag="00081197"] > Value'
+      );
+      const reasonCode = reasonEl?.textContent
+        ? parseInt(reasonEl.textContent, 10)
+        : undefined;
+      failures.push(mapStowFailureReason(reasonCode));
+    });
+
+    const successCount =
+      referencedElements.length || totalFiles - failedElements.length;
+    return { successCount, failedCount: failedElements.length, failures };
+  }
+
+  // ==========================================================================
+  // Private Helpers
+  // ==========================================================================
+
+  /**
+   * Build request headers with auth + tenant context.
+   * Always sends `Authorization: Bearer <cognito-jwt>` and, when a tenant
+   * id is available, `X-LiverRa-Tenant: <tenant-id>`.
+   */
+  private buildHeaders(extra: Record<string, string> = {}): HeadersInit {
+    const headers: Record<string, string> = { ...extra };
+    const token = this.getAccessToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const tenant = this.getTenantId();
+    if (tenant) {
+      headers['X-LiverRa-Tenant'] = tenant;
+    }
+    return headers;
+  }
+
+  private async fetchJson(url: string, signal?: AbortSignal): Promise<DicomJsonObject[]> {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+
+    const inflight = this.inflightRequests.get(url);
+    if (inflight) {
+      return inflight;
+    }
+
+    const fetchPromise = this.doFetch(url, signal);
+
+    this.inflightRequests.set(url, fetchPromise);
+    fetchPromise
+      .finally(() => {
+        this.inflightRequests.delete(url);
+      })
+      .catch(() => {
+        /* rejection handled by caller */
+      });
+
+    return fetchPromise;
+  }
+
+  private async doFetch(url: string, signal?: AbortSignal): Promise<DicomJsonObject[]> {
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        headers: this.buildHeaders({ Accept: 'application/dicom+json' }),
+        signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw err;
+      }
+      throw new DicomWebUnavailableError(url);
+    }
+
+    if (response.ok) {
+      if (response.status === 204) {
+        return [];
+      }
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        return [];
+      }
+      try {
+        return JSON.parse(text) as DicomJsonObject[];
+      } catch {
+        const preview = text.slice(0, 500);
+        console.error('[DICOMweb] Invalid JSON response from', url, ':', preview);
+        if (text.trimStart().startsWith('<')) {
+          throw new DicomWebError(
+            'Server returned an error page instead of imaging data.',
+            response.status,
+            url
+          );
+        }
+        throw new DicomWebError(
+          'Received invalid response from imaging server.',
+          response.status,
+          url
+        );
+      }
+    }
+
+    switch (response.status) {
+      case 401:
+        throw new DicomWebAuthError(url);
+      case 404:
+        throw new DicomWebNotFoundError(url);
+      case 500:
+        throw new DicomWebUnavailableError(url, 500);
+      case 503:
+        throw new DicomWebUnavailableError(url);
+      default:
+        throw new DicomWebError(
+          `DICOMweb request failed with status ${response.status}`,
+          response.status,
+          url
+        );
+    }
+  }
+}
+
+// ============================================================================
+// Factory (task T119 public surface)
+// ============================================================================
+
+/**
+ * Shape returned by {@link createDicomWebClient}. Services/hooks consume this
+ * as an opaque handle — the underlying `DicomWebClient` class is exported
+ * too, but the factory keeps the call sites short and locks down the auth /
+ * tenant-context wiring at construction time.
+ */
+export interface DicomWebClientHandle {
+  qidoStudies(
+    params?: StudySearchParams,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  qidoSeries(
+    studyUid: string,
+    params?: SeriesSearchParams,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  qidoInstances(
+    studyUid: string,
+    seriesUid: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  wadoInstance(
+    studyUid: string,
+    seriesUid: string,
+    instanceUid: string,
+    frame?: number
+  ): string;
+  retrieveStudyMetadata(
+    studyUid: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  retrieveSeriesMetadata(
+    studyUid: string,
+    seriesUid: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  stowInstance(file: File, signal?: AbortSignal): Promise<StowResult>;
+  stowInstances(files: File[], signal?: AbortSignal): Promise<StowResult>;
+  getThumbnailUrl(studyUid: string, seriesUid: string, instanceUid: string): string;
+  getAuthToken(): string | null;
+  getBaseUrl(): string;
+}
+
+/**
+ * Create a DICOMweb client bound to the caller-supplied auth + tenant
+ * callbacks. Services are non-React so this factory is how the React hook
+ * layer (`useDicomWebClient`) wires in the live Cognito session.
+ */
+export function createDicomWebClient(options: DicomWebClientOptions): DicomWebClientHandle {
+  const client = new DicomWebClient(options);
+
+  return {
+    qidoStudies: (params, signal) => client.qidoStudies(params, signal),
+    qidoSeries: (studyUid, params, signal) => client.qidoSeries(studyUid, params, signal),
+    qidoInstances: (studyUid, seriesUid, signal) =>
+      client.qidoInstances(studyUid, seriesUid, signal),
+    wadoInstance: (studyUid, seriesUid, instanceUid, frame) =>
+      client.wadoInstance(studyUid, seriesUid, instanceUid, frame),
+    retrieveStudyMetadata: (studyUid, signal) =>
+      client.retrieveStudyMetadata(studyUid, signal),
+    retrieveSeriesMetadata: (studyUid, seriesUid, signal) =>
+      client.retrieveSeriesMetadata(studyUid, seriesUid, signal),
+    stowInstance: (file, signal) => client.stowInstance(file, signal),
+    stowInstances: (files, signal) => client.stowInstances(files, signal),
+    getThumbnailUrl: (studyUid, seriesUid, instanceUid) =>
+      client.getThumbnailUrl(studyUid, seriesUid, instanceUid),
+    getAuthToken: () => client.getAuthToken(),
+    getBaseUrl: () => client.getBaseUrl(),
+  };
+}
+
+// ============================================================================
+// STOW-RS Failure Reason Mapping
+// ============================================================================
+
+/**
+ * Map DICOM STOW-RS failure reason codes to human-readable messages.
+ * Codes defined in DICOM PS3.4 Table GG.4-1.
+ */
+function mapStowFailureReason(code: number | undefined): string {
+  switch (code) {
+    case 0x0110:
+      return 'Processing failure — the PACS server could not process this file';
+    case 0x0112:
+      return 'Duplicate instance — this image already exists on the server';
+    case 0x0122:
+      return 'Missing required attribute — the DICOM file is incomplete';
+    case 0x0124:
+      return 'Unsupported attribute — the DICOM file contains unsupported data';
+    case 0x0131:
+      return 'Storage quota exceeded — the PACS server is out of storage space';
+    case 0x0211:
+      return 'Unrecognized operation — unsupported transfer syntax or format';
+    case 0xa700:
+      return 'Out of resources — the server ran out of memory or disk space';
+    case 0xa900:
+      return 'Data set does not match SOP class — wrong file type for this upload';
+    case 0xc000:
+      return 'Cannot understand — the DICOM file format is corrupted or invalid';
+    default:
+      return code
+        ? `Upload failed (reason code: 0x${code.toString(16).toUpperCase().padStart(4, '0')})`
+        : 'Upload failed (unknown reason)';
+  }
+}

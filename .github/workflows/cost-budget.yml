@@ -1,0 +1,142 @@
+name: AWS cost budget
+
+# Monthly AWS Cost Explorer check (plan §Production-Readiness Matrix SC-012,
+# NFR-008 envelope). Queries month-to-date unblended costs for the LiverRa
+# account and alarms at 70% and 90% of the configured monthly budget.
+# Default budget: $5,000 USD. Override via workflow_dispatch input.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'    # 06:00 UTC on the 1st (final roll-up for prior month)
+    - cron: '0 6 15 * *'   # 06:00 UTC on the 15th (mid-month pacing check)
+  workflow_dispatch:
+    inputs:
+      budget_usd:
+        description: 'Monthly AWS budget in USD'
+        required: false
+        default: '5000'
+
+permissions:
+  contents: read
+  id-token: write   # OIDC to AWS
+  issues: write     # Open alarm issue on threshold breach
+
+concurrency:
+  group: cost-budget
+  cancel-in-progress: false
+
+jobs:
+  check-budget:
+    name: Cost Explorer budget check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: 'eu-central-1'
+      MONTHLY_BUDGET_USD: ${{ github.event.inputs.budget_usd || vars.MONTHLY_BUDGET_USD || '5000' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_COST_EXPLORER_ROLE_ARN }}
+          aws-region: us-east-1   # Cost Explorer is us-east-1 only
+
+      - name: Query month-to-date unblended cost
+        id: cost
+        env:
+          BUDGET_USD: ${{ env.MONTHLY_BUDGET_USD }}
+        run: |
+          set -euo pipefail
+          START=$(date -u +%Y-%m-01)
+          END=$(date -u +%Y-%m-%d)
+          # If today is the 1st, the roll-up run should cover last month.
+          if [ "$START" = "$END" ]; then
+            START=$(date -u -d "$START -1 month" +%Y-%m-01 2>/dev/null || python3 -c "import datetime,sys;d=datetime.date.today().replace(day=1);p=(d - datetime.timedelta(days=1)).replace(day=1);print(p.isoformat())")
+          fi
+          echo "Window: $START -> $END (budget \$$BUDGET_USD)"
+
+          MTD=$(aws ce get-cost-and-usage \
+            --time-period Start="$START",End="$END" \
+            --granularity MONTHLY \
+            --metrics UnblendedCost \
+            --query 'ResultsByTime[0].Total.UnblendedCost.Amount' \
+            --output text)
+          MTD=${MTD:-0}
+          echo "MTD cost (USD): $MTD"
+
+          WARN_THRESHOLD=$(python3 -c "print(${BUDGET_USD} * 0.70)")
+          CRIT_THRESHOLD=$(python3 -c "print(${BUDGET_USD} * 0.90)")
+
+          {
+            echo "mtd=$MTD"
+            echo "budget=$BUDGET_USD"
+            echo "warn_threshold=$WARN_THRESHOLD"
+            echo "crit_threshold=$CRIT_THRESHOLD"
+          } >> "$GITHUB_OUTPUT"
+
+          STATUS="ok"
+          if python3 -c "import sys;sys.exit(0 if float('$MTD') >= float('$CRIT_THRESHOLD') else 1)"; then
+            STATUS="critical"
+          elif python3 -c "import sys;sys.exit(0 if float('$MTD') >= float('$WARN_THRESHOLD') else 1)"; then
+            STATUS="warning"
+          fi
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "Status: $STATUS"
+
+      - name: Write summary
+        env:
+          MTD: ${{ steps.cost.outputs.mtd }}
+          BUDGET: ${{ steps.cost.outputs.budget }}
+          WARN: ${{ steps.cost.outputs.warn_threshold }}
+          CRIT: ${{ steps.cost.outputs.crit_threshold }}
+          STATUS: ${{ steps.cost.outputs.status }}
+        run: |
+          {
+            echo "## AWS cost budget check"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---:|"
+            echo "| Month-to-date unblended | \$$MTD |"
+            echo "| Monthly budget | \$$BUDGET |"
+            echo "| 70% warn threshold | \$$WARN |"
+            echo "| 90% critical threshold | \$$CRIT |"
+            echo "| Status | \`$STATUS\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open alarm issue (warning)
+        if: steps.cost.outputs.status == 'warning'
+        uses: actions/github-script@v7
+        env:
+          MTD: ${{ steps.cost.outputs.mtd }}
+          BUDGET: ${{ steps.cost.outputs.budget }}
+        with:
+          script: |
+            const mtd = process.env.MTD;
+            const budget = process.env.BUDGET;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `AWS cost: 70% of monthly budget reached ($${mtd} / $${budget})`,
+              labels: ['ops', 'cost-alarm', 'severity:warning'],
+              body: `Month-to-date unblended cost has reached **$${mtd}** vs monthly budget **$${budget}** (>=70%).\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+      - name: Open alarm issue (critical) and fail
+        if: steps.cost.outputs.status == 'critical'
+        uses: actions/github-script@v7
+        env:
+          MTD: ${{ steps.cost.outputs.mtd }}
+          BUDGET: ${{ steps.cost.outputs.budget }}
+        with:
+          script: |
+            const mtd = process.env.MTD;
+            const budget = process.env.BUDGET;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `AWS cost CRITICAL: 90% of monthly budget reached ($${mtd} / $${budget})`,
+              labels: ['ops', 'cost-alarm', 'severity:critical'],
+              body: `Month-to-date unblended cost has reached **$${mtd}** vs monthly budget **$${budget}** (>=90%).\n\nImmediate action required per plan §Production-Readiness Matrix SC-012.\n\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+            core.setFailed(`Cost budget critical: $${mtd} / $${budget}`);

@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "users": "მომხმარებლები",
+    "pacs": "PACS დანიშნულება",
+    "audit": "აუდიტის ჟურნალი"
+  },
+  "users": {
+    "title": "მომხმარებლების მართვა",
+    "subtitle": "კლინიცისტების მოწვევა, შეჩერება და მართვა თქვენი ტენანტისთვის.",
+    "invite": "მომხმარებლის მოწვევა",
+    "suspend": "შეჩერება",
+    "error": "მომხმარებლების ჩატვირთვა ვერ მოხერხდა",
+    "empty": {
+      "title": "ჯერ კიდევ არ გყავთ მომხმარებლები",
+      "description": "გაგზავნეთ პირველი მოწვევა, რათა კლინიცისტი შემოუერთდეს თქვენს ტენანტს."
+    },
+    "status": {
+      "active": "აქტიური",
+      "suspended": "შეჩერებული"
+    },
+    "col": {
+      "name": "სახელი",
+      "email": "ელ. ფოსტა",
+      "role": "როლი",
+      "status": "სტატუსი",
+      "actions": "მოქმედებები"
+    }
+  },
+  "invite": {
+    "title": "მომხმარებლის მოწვევა",
+    "submit": "მოწვევის გაგზავნა",
+    "error": "მოწვევა ვერ გაიგზავნა",
+    "email": "ელ. ფოსტა",
+    "displayName": "სახელი",
+    "role": "როლი",
+    "locale": "ენა"
+  },
+  "role": {
+    "hpb_surgeon": "HPB ქირურგი",
+    "radiologist": "რადიოლოგი",
+    "fellow": "ფელოუ",
+    "ops": "ოპერაციები",
+    "compliance": "Compliance",
+    "dpo": "DPO"
+  },
+  "pacs": {
+    "title": "PACS დანიშნულება",
+    "subtitle": "სად იგზავნება დასრულებული კვლევები.",
+    "aeTitle": "AE Title",
+    "host": "ჰოსტი / IP",
+    "port": "პორტი",
+    "useTls": "DICOM-TLS-ის გამოყენება",
+    "certFingerprint": "სერტიფიკატის ანაბეჭდი",
+    "testEcho": "C-ECHO-ს შემოწმება",
+    "echoOk": "C-ECHO წარმატებულია",
+    "echoFail": "C-ECHO ჩავარდა",
+    "roundTrip": "დაყოვნება",
+    "saved": "PACS დანიშნულება შენახულია."
+  },
+  "audit": {
+    "title": "აუდიტის ბრაუზერი",
+    "subtitle": "PHI-ისგან თავისუფალი chain-of-hashes აუდიტ-მოვლენები ამ ტენანტისთვის.",
+    "filters": {
+      "from": "დან",
+      "to": "მდე",
+      "category": "კატეგორია",
+      "all": "ყველა"
+    },
+    "empty": {
+      "title": "მოვლენები არ არის",
+      "description": "მოცემულ ფილტრებთან შესაბამისი აუდიტ-მოვლენები არ მოიძებნა."
+    },
+    "col": {
+      "seq": "#",
+      "recorded": "დაფიქსირდა",
+      "category": "კატეგორია",
+      "actor": "აქტორი",
+      "outcome": "შედეგი",
+      "summary": "რეზიუმე"
+    }
+  },
+  "deleteRequest": {
+    "title": "ქეისის წაშლის მოთხოვნა",
+    "studyId": "კვლევის ID",
+    "requestedBy": "მოითხოვა",
+    "approve": "დამტკიცება (soft-delete)",
+    "reject": "უარყოფა"
+  },
+  "coverageOverride": {
+    "title": "Coverage Override (FR-006a)",
+    "noPermission": "უფლება არასაკმარისია",
+    "noPermissionBody": "თქვენ არ გაქვთ admin.coverage_override უფლება.",
+    "warning": "Override-ები ასუსტებს ფაზების დაფარვის უსაფრთხოებას. ყოველი override აუდიტდება და აისახება ქვემდინარე FHIR მოვლენებზე.",
+    "tenantFlag": "ნაწილობრივი დაფარვის override-ის დაშვება (მთელი ტენანტისთვის)",
+    "perCase": "Override თითო ანალიზზე",
+    "reason": "მიზეზი (მინ. 10 სიმბოლო)",
+    "submit": "Override step-up MFA-ით",
+    "flagSaved": "ტენანტის ფლაგი განახლდა.",
+    "analysisSaved": "ანალიზის override გამოყენდა."
+  }
+}

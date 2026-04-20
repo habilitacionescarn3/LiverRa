@@ -1,0 +1,21 @@
+{
+  "cases": "Cases",
+  "my_cases": "My Cases",
+  "all_cases": "All Cases",
+  "upload": "Upload",
+  "demo": "Demo",
+  "ops_queue": "Ops Queue",
+  "administration": "Administration",
+  "admin_users": "Users",
+  "admin_pacs": "PACS Config",
+  "admin_audit": "Audit",
+  "compliance": "Compliance",
+  "compliance_mbom": "Model BoM",
+  "compliance_audit": "Audit Summary",
+  "compliance_spotcheck": "RUO Spot-check",
+  "compliance_claim_registry": "Claim Registry",
+  "erasure_requests": "Erasure",
+  "help": "Help",
+  "profile": "Profile",
+  "more": "More"
+}

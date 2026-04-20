@@ -1,0 +1,63 @@
+{
+  "page": {
+    "title": "ოპერ. რიგი",
+    "subtitle": "მრავალ-ტენანტიანი pipeline-ის მდგომარეობა. პაციენტის მონაცემები ამ ეკრანზე არ ჩანს.",
+    "no_phi_badge": "PHI არ არის"
+  },
+  "gauges": {
+    "queued": "რიგში",
+    "running": "მიმდინარე",
+    "stuck": "გაჭედილი >15 წთ",
+    "gpu_utilization": "GPU-ის დატვირთვა",
+    "cold_starts": "ცივი გაშვებები / საათში"
+  },
+  "sections": {
+    "stuck_cases": "გაჭედილი ქეისები"
+  },
+  "table": {
+    "analysis_id": "ანალიზი",
+    "status": "სტატუსი",
+    "last_stage": "ბოლო ეტაპი",
+    "stuck_for": "გაჭედილია",
+    "error_slug": "შეცდომა",
+    "empty": "ბოლო 15 წუთში გაჭედილი ქეისები არ არის."
+  },
+  "detail": {
+    "title": "ქეისის დეტალები",
+    "analysis_id": "ანალიზის ID",
+    "study_id": "კვლევის ID",
+    "tenant_id": "ტენანტის ID",
+    "pipeline_version": "Pipeline-ის ვერსია",
+    "last_stage": "ბოლო ეტაპი",
+    "error_slug": "შეცდომის slug",
+    "model_versions": "მოდელის ვერსიები",
+    "stuck_minutes": "გაჭედილია {{minutes}} წთ",
+    "load_failed_title": "ქეისის ჩატვირთვა ვერ მოხერხდა",
+    "load_failed_body": "გთხოვთ სცადოთ თავიდან ან აირჩიოთ სხვა ქეისი."
+  },
+  "actions": {
+    "retry": "თავიდან",
+    "cancel": "გაუქმება",
+    "mark_blocked": "დაბლოკვა"
+  },
+  "confirm": {
+    "retry_title": "თავიდან გავუშვათ ეს ანალიზი?",
+    "retry_body": "ბოლო წარმატებული checkpoint-იდან გაშვება. ავტორი შედეგის შემდეგ შეტყობინებას მიიღებს.",
+    "cancel_title": "გავაუქმოთ ეს ანალიზი?",
+    "cancel_body": "დავალება შეწყდება. მოგვიანებით შესაძლებელია ხელახლა გაშვება.",
+    "mark_blocked_title": "დაიბლოკოს?",
+    "mark_blocked_body": "ტერმინალური მდგომარეობა — დამნიშნავ ექიმს გაეგზავნება შეტყობინება.",
+    "mark_blocked_note_label": "შიდა შენიშვნა (არასავალდებულო)",
+    "mark_blocked_note_help": "შენახვამდე PHI იწმინდება — პაციენტის მონაცემები არ ჩასვათ.",
+    "mark_blocked_note_placeholder": "მაგ.: inference სერვისი გათიშულია; სცადეთ 14:00 შემდეგ"
+  },
+  "severity": {
+    "ok": "წესრიგშია",
+    "warn": "გაფრთხილება",
+    "alarm": "ტრევოგა"
+  },
+  "errors": {
+    "load_title": "რიგის ჩატვირთვა ვერ მოხერხდა",
+    "load_body": "Ops endpoint მიუწვდომელია. ავტომატური თავიდან ცდა."
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "title": "Willkommen bei LiverRa",
+  "subtitle": "Schließen Sie diese 5 Schritte ab, um Ihr Konto zu aktivieren (ca. 15 Min).",
+  "privacyNote": "Dieser Assistent erhebt keine Patientendaten. Jeder Schritt ist auditierbar.",
+  "steps": {
+    "password": "Passwort",
+    "mfa": "MFA",
+    "ruo": "RUO",
+    "tour": "Tour",
+    "sample": "Demo"
+  },
+  "password": {
+    "title": "Passwort festlegen",
+    "subtitle": "Wählen Sie ein starkes Passwort (mind. 12 Zeichen) oder verknüpfen Sie das Krankenhaus-SSO.",
+    "new": "Neues Passwort",
+    "confirm": "Passwort bestätigen",
+    "tooShort": "Das Passwort muss mindestens 12 Zeichen haben.",
+    "mismatch": "Passwörter stimmen nicht überein.",
+    "useSso": "Krankenhaus-SSO verwenden"
+  },
+  "mfa": {
+    "title": "Multi-Faktor-Authentifizierung einrichten",
+    "subtitle": "Scannen Sie den QR-Code mit Ihrer Authenticator-App, speichern Sie die Backup-Codes und geben Sie einen Code zur Bestätigung ein.",
+    "qrAlt": "MFA-QR-Code",
+    "secretLabel": "Oder geben Sie dieses Geheimnis manuell ein:",
+    "downloadBackup": "Backup-Codes herunterladen",
+    "enterCode": "6-stelligen Code eingeben",
+    "loading": "Geheimnis und Backup-Codes werden erzeugt…"
+  },
+  "ruo": {
+    "title": "Research Use Only — Bedingungen akzeptieren",
+    "body": "LiverRa ist als Research Use Only klassifiziert. Die Ausgaben sind kein Medizinprodukt und dürfen nicht als alleinige Grundlage für klinische Entscheidungen verwendet werden. Die verantwortliche Kliniker:in bleiben Sie. Alle Analysen werden in einem unveränderlichen Audit-Trail protokolliert.",
+    "checkbox": "Ich habe die Research-Use-Only-Bedingungen gelesen und akzeptiere sie.",
+    "version": "Version",
+    "accept": "Akzeptieren und fortfahren"
+  },
+  "tour": {
+    "title": "Kurz-Tour",
+    "skip": "Tour überspringen",
+    "next": "Weiter",
+    "s1": "Legen Sie hier ein DICOM-Archiv ab, um eine neue Analyse zu starten.",
+    "s2": "Beobachten Sie den Phasenstatus — jeder Checkpoint wird auditiert.",
+    "s3": "Ziehen Sie die Resektionsebene, um die FLR live zu sehen.",
+    "s4": "Läsionen mit dem KI-Assistenten ergänzen oder verfeinern.",
+    "s5": "Abschließen — PDF + DICOM-SEG werden ins PACS gespeichert."
+  },
+  "sample": {
+    "title": "Demo-Fall ausführen",
+    "subtitle": "Eröffnen Sie eine vorab eingespielte Demo-Analyse, um Viewer, FLR-Rechner und Finalisierungs-Flow zu erkunden. Synthetische Daten.",
+    "ready": "Demo bereit",
+    "redirecting": "Sie werden zum Demo-Fall weitergeleitet…",
+    "run": "Demo-Fall ausführen",
+    "badge": "Musterdaten — kein echter Patient"
+  },
+  "demo": {
+    "title": "Demo-Fall",
+    "subtitle": "Erkunden Sie die gesamte Pipeline mit synthetischen Daten. Jederzeit erneut über das Hilfe-Menü aufrufbar.",
+    "body": "Der Demo-Fall enthält keine echten Patientendaten. PACS-Push ist deaktiviert; Ausgaben tragen das Wasserzeichen \"Musterdaten\".",
+    "open": "Demo-Fall öffnen",
+    "navLabel": "Demo-Fall"
+  }
+}

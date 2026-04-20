@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 180" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Case erased">
+  <title>Case erased</title>
+  <path d="M80 28h64l16 16v100a8 8 0 0 1-8 8H80a8 8 0 0 1-8-8V36a8 8 0 0 1 8-8z" opacity="0.55"/>
+  <path d="M144 28v16h16" opacity="0.55"/>
+  <g opacity="0.35">
+    <line x1="72" y1="60" x2="168" y2="156"/>
+    <line x1="80" y1="52" x2="168" y2="140"/>
+    <line x1="72" y1="84" x2="168" y2="180" clip-path="inset(0 0 32px 0)"/>
+    <line x1="72" y1="108" x2="144" y2="180" clip-path="inset(0 0 32px 0)"/>
+    <line x1="72" y1="132" x2="120" y2="180" clip-path="inset(0 0 32px 0)"/>
+  </g>
+  <circle cx="120" cy="92" r="22" opacity="0.85"/>
+  <line x1="108" y1="80" x2="132" y2="104" stroke-width="2"/>
+  <line x1="132" y1="80" x2="108" y2="104" stroke-width="2"/>
+</svg>

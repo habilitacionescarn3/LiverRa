@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8">
+<title>Einladung zu LiverRa</title></head>
+<body style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a202c">
+  <h1 style="font-size:22px;margin:0 0 16px">Willkommen bei LiverRa</h1>
+  <p>Hallo {{ display_name }},</p>
+  <p>Ihr Mandanten-Administrator hat Sie zu LiverRa eingeladen — der KI-gestützten Plattform für die Leberchirurgieplanung. Diese Einladung ist gültig bis <strong>{{ expires_at }}</strong>.</p>
+  <p style="margin:24px 0"><a href="{{ accept_url }}" style="background:#1a365d;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Einladung annehmen</a></p>
+  <p style="font-size:12px;color:#718096">Falls die Schaltfläche nicht funktioniert, fügen Sie diese URL in Ihren Browser ein:<br><span style="word-break:break-all">{{ accept_url }}</span></p>
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
+  <p style="font-size:12px;color:#718096">Diese E-Mail enthält keine Patientendaten. LiverRa ist ausschließlich für Forschungszwecke (Research Use Only) – kein Medizinprodukt.</p>
+</body></html>

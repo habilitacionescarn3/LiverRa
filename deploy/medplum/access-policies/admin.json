@@ -1,0 +1,58 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-admin",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "admin",
+        "display": "Hospital admin \u2014 tenant administration; no clinical content authoring."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "AuditEvent",
+      "readonly": true
+    },
+    {
+      "resourceType": "Basic",
+      "readonly": false
+    },
+    {
+      "resourceType": "Binary",
+      "readonly": false
+    },
+    {
+      "resourceType": "DocumentReference",
+      "readonly": false
+    },
+    {
+      "resourceType": "Endpoint",
+      "readonly": false
+    },
+    {
+      "resourceType": "Organization",
+      "readonly": false
+    },
+    {
+      "resourceType": "Parameters",
+      "readonly": false
+    },
+    {
+      "resourceType": "Practitioner",
+      "readonly": false
+    },
+    {
+      "resourceType": "PractitionerRole",
+      "readonly": false
+    },
+    {
+      "resourceType": "Task",
+      "readonly": false
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

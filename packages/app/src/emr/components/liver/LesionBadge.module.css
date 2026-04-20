@@ -1,0 +1,135 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * LesionBadge styles (T218).
+ * All colours pulled from var(--liverra-*) + var(--emr-*) tokens. No hex.
+ */
+
+.root {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--emr-font-xs, 11px);
+  font-weight: var(--emr-font-semibold, 600);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  border: 1px solid transparent;
+  color: var(--liverra-overlay-text);
+  /* Min tap target for mobile: 44x44 achieved via container focus ring */
+  min-height: 20px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+/* Malignant (HCC / ICC / MET) — red family */
+.malignant {
+  background: var(--liverra-lesion-marker);
+  border-color: var(--liverra-lesion-marker);
+}
+
+/* Benign (FNH / HEM / CYST) — green family */
+.benign {
+  background: var(--liverra-lesion-benign);
+  border-color: var(--liverra-lesion-benign);
+}
+
+/* Abstained (FR-011) — gray + italic + dashed border */
+.abstained {
+  background: transparent;
+  color: var(--liverra-lesion-abstain);
+  border: 1px dashed var(--liverra-lesion-abstain);
+  font-style: italic;
+}
+
+/* Reviewer-overridden — solid border ring in accent tone */
+.overridden {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 1px;
+}
+
+.suffix {
+  font-size: var(--emr-font-xs, 11px);
+  font-weight: var(--emr-font-normal, 400);
+  opacity: 0.85;
+  margin-left: 4px;
+}
+
+/* Confidence bar */
+.barTrack {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: var(--emr-gray-200, #e5e7eb);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.barFill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.barFillMalignant {
+  background: var(--liverra-lesion-marker);
+}
+
+.barFillBenign {
+  background: var(--liverra-lesion-benign);
+}
+
+.barFillAbstained {
+  background: var(--liverra-lesion-abstain);
+}
+
+.barLabel {
+  font-size: var(--emr-font-xs, 11px);
+  font-weight: var(--emr-font-medium, 500);
+  color: var(--emr-text-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+/* Dark-mode overrides — pick the `*-dark` tokens defined in theme.css */
+:global([data-mantine-color-scheme='dark']) .malignant {
+  background: var(--liverra-lesion-marker-dark);
+  border-color: var(--liverra-lesion-marker-dark);
+}
+:global([data-mantine-color-scheme='dark']) .benign {
+  background: var(--liverra-lesion-benign-dark);
+  border-color: var(--liverra-lesion-benign-dark);
+}
+:global([data-mantine-color-scheme='dark']) .abstained {
+  color: var(--liverra-lesion-abstain-dark);
+  border-color: var(--liverra-lesion-abstain-dark);
+}
+:global([data-mantine-color-scheme='dark']) .barFillMalignant {
+  background: var(--liverra-lesion-marker-dark);
+}
+:global([data-mantine-color-scheme='dark']) .barFillBenign {
+  background: var(--liverra-lesion-benign-dark);
+}
+:global([data-mantine-color-scheme='dark']) .barFillAbstained {
+  background: var(--liverra-lesion-abstain-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .barFill {
+    transition: none;
+  }
+}

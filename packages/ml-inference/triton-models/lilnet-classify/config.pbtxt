@@ -1,0 +1,73 @@
+# LiverRa — Triton model configuration for LiLNet 6-class tumor
+# classification (per-lesion).
+# Spec: specs/001-zero-training-mvp/contracts/triton-stages.md §Stage 4
+# Research: research.md §C.1 (Tier-B VRAM policy — lazy-loaded)
+#          research.md §C.7 (temperature scaling applied task-side)
+# License: Apache 2.0 (upstream: https://github.com/yangmeiyi/Liver)
+#
+# Tier: B (lazy-loaded; evicted after 10 min idle).
+#
+# Shape convention: one lesion at a time — 4 contrast phases × 96³
+# isotropic crop centered on the lesion centroid. Channel order
+# matches Stage 1 / Stage 2:
+#   0 = non_contrast
+#   1 = arterial
+#   2 = portal_venous
+#   3 = delayed
+#
+# Output is raw pre-softmax logits over 6 classes in this fixed order:
+#   [hcc, icc, metastasis, fnh, hemangioma, cyst]
+# Temperature scaling + softmax + abstention are performed in the task
+# layer (src/tasks/classification.py) so per-tenant calibration can be
+# hot-swapped without rebuilding the Triton model repository.
+
+name: "liverra-lilnet-classify"
+platform: "pytorch_libtorch"
+max_batch_size: 1
+
+input [
+  {
+    name: "INPUT__0"
+    data_type: TYPE_FP32
+    dims: [ 4, 96, 96, 96 ]
+  }
+]
+
+output [
+  {
+    name: "OUTPUT__0"
+    data_type: TYPE_FP32
+    dims: [ 6 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]
+
+# Tier-B: no warmup block. First per-session call pays the cold-load
+# cost (research §C.1 allots 15 s for the first LiLNet call vs. 10 s
+# steady-state per-lesion budget).
+
+optimization {
+  execution_accelerators {
+    gpu_execution_accelerator : [
+      {
+        name : "tensorrt"
+        parameters { key: "precision_mode" value: "FP16" }
+      }
+    ]
+  }
+}
+
+model_transaction_policy {
+  decoupled: False
+}
+
+parameters {
+  key: "INFERENCE_MODE"
+  value: { string_value: "true" }
+}

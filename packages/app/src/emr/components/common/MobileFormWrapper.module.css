@@ -1,0 +1,95 @@
+/* MobileFormWrapper - Mobile-optimized form container */
+
+/* Base mobile form wrapper - enforces 16px minimum font size */
+.mobileFormWrapper {
+  /* 16px minimum prevents iOS auto-zoom on input focus */
+  font-size: max(16px, var(--emr-font-lg));
+
+  /* Touch-friendly spacing */
+  --mobile-form-input-min-height: 48px;
+  --mobile-form-tap-target: 44px;
+}
+
+/* Ensure all inputs have minimum font size on mobile */
+.mobileFormWrapper :global(input),
+.mobileFormWrapper :global(textarea),
+.mobileFormWrapper :global(select) {
+  font-size: var(--emr-font-lg)!important; /* Prevents iOS zoom */
+  min-height: var(--mobile-form-input-min-height);
+}
+
+/* Touch-friendly labels */
+.mobileFormWrapper :global(label) {
+  font-size: var(--emr-font-md);
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* Touch-friendly buttons */
+.mobileFormWrapper :global(button) {
+  min-height: var(--mobile-form-tap-target);
+  min-width: var(--mobile-form-tap-target);
+}
+
+/* Gap sizes */
+.gapSm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gapMd {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gapLg {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  .mobileFormWrapper {
+    /* Extra padding for touch friendliness */
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  /* Larger gaps on mobile for better touch separation */
+  .gapSm {
+    gap: 14px;
+  }
+
+  .gapMd {
+    gap: 18px;
+  }
+
+  .gapLg {
+    gap: 28px;
+  }
+
+  /* Ensure select dropdowns are touch-friendly */
+  .mobileFormWrapper :global(.mantine-Select-input) {
+    min-height: 48px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  /* Ensure checkbox/radio are touch-friendly */
+  .mobileFormWrapper :global(.mantine-Checkbox-root),
+  .mobileFormWrapper :global(.mantine-Radio-root) {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .mobileFormWrapper :global(.mantine-Checkbox-body),
+  .mobileFormWrapper :global(.mantine-Radio-body) {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}

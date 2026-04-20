@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/partial-coverage-flag",
+  "name": "LiverRaPartialCoverageFlag",
+  "title": "LiverRa — Partial Coverage Flag",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Boolean flag set when the source CT did not fully cover the liver (cranial or caudal clipping). Downstream FLR calculations MUST be treated as lower-bound estimates when true.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "Observation"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "True if the CT crops the liver at the edges",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/partial-coverage-flag"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "True iff the liver is cropped in the CT field of view",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "boolean"
+          }
+        ]
+      }
+    ]
+  }
+}

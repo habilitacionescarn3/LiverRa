@@ -19,6 +19,14 @@ dev = [
     "pytest-asyncio",
     "ruff",
     "mypy",
+    "pyyaml",
+    "httpx",
+    "pytesseract",
+    "testcontainers>=4.0",
+    "testcontainers[postgres]>=4.0",
+    "fakeboto",
+    "alembic",
+    "sqlalchemy",
 ]
 
 [build-system]

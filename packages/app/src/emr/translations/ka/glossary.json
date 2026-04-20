@@ -1,0 +1,17 @@
+{
+  "__reviewers": "@georgian-hpb-reviewer — გთხოვთ გადაამოწმოთ ტერმინოლოგია (Couinaud სეგმენტები; HPB ქირურგიის ნომენკლატურა). Latin transliteration kept alongside the Georgian script so terminology lookups remain interoperable.",
+  "couinaud": {
+    "I":    { "name": "სეგმენტი I",    "latin": "Lobus caudatus",                                       "role": "კუდიანი წილი (Lobus caudatus)" },
+    "II":   { "name": "სეგმენტი II",   "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",    "role": "მარცხენა ლატერალური ზედა" },
+    "III":  { "name": "სეგმენტი III",  "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",   "role": "მარცხენა ლატერალური ქვედა" },
+    "IV":   { "name": "სეგმენტი IV",   "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",             "role": "მარცხენა მედიალური" },
+    "V":    { "name": "სეგმენტი V",    "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",      "role": "მარჯვენა წინა ქვედა" },
+    "VI":   { "name": "სეგმენტი VI",   "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",    "role": "მარჯვენა უკანა ქვედა" },
+    "VII":  { "name": "სეგმენტი VII",  "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",   "role": "მარჯვენა უკანა ზედა" },
+    "VIII": { "name": "სეგმენტი VIII", "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",   "role": "მარჯვენა წინა ზედა" }
+  },
+  "vessels": {
+    "portal":  { "name": "კარიბჭის ვენა",    "latin": "Vena portae hepatis", "role": "შემოსადინებელი ვენური ღერო — ნაწლავებიდან და ელენთიდან" },
+    "hepatic": { "name": "ღვიძლის ვენები",   "latin": "Venae hepaticae",     "role": "გამომყოფი ვენური ღერო — ქვედა ღრუ ვენისკენ" }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "status": {
+    "requested": "Beantragt",
+    "executing": "Wird ausgeführt",
+    "completed": "Abgeschlossen",
+    "rolled_back": "Zurückgerollt"
+  },
+  "list": {
+    "title": "DSGVO-Löschanträge",
+    "subtitle": "Artikel 17 DSGVO. Alle Aktionen werden protokolliert.",
+    "new_request": "Neuer Löschantrag",
+    "empty": "Noch keine Löschanträge.",
+    "error_title": "Anträge konnten nicht geladen werden",
+    "download_pdf": "PDF",
+    "case_not_found": "Fall nicht gefunden.",
+    "col": {
+      "request_id": "Antrag",
+      "study_id": "Studie",
+      "status": "Status",
+      "requested_at": "Beantragt",
+      "tombstone": "Tombstone",
+      "pdf": "PDF"
+    }
+  },
+  "wizard": {
+    "title": "Neuer DSGVO-Löschantrag",
+    "irreversible_warning": "Die Löschung ist unumkehrbar. Einmal ausgeführt, kann der Fall nicht wiederhergestellt werden.",
+    "step": {
+      "select_label": "Auswahl",
+      "select_desc": "Zielstudie",
+      "justify_label": "Begründung",
+      "justify_desc": "Art.-17-Grundlage",
+      "mfa_label": "MFA",
+      "mfa_desc": "Erweiterte Auth.",
+      "review_label": "Prüfung",
+      "review_desc": "Details bestätigen",
+      "execute_label": "Ausführen",
+      "execute_desc": "Läuft…"
+    },
+    "study_id_label": "Studien-ID",
+    "study_id_help": "UUID der zu löschenden Studie. Die Studie muss zu Ihrem Mandanten gehören.",
+    "justification_label": "Begründung (Art. 17-Grundlage)",
+    "justification_help": "Dokumentierter Grund. Mindestens 10 Zeichen. Erscheint auf der Bestätigungs-PDF.",
+    "justification_placeholder": "z. B., Antrag betroffener Person eingegangen am 2025-04-10 — Art. 17(1)(a) Einwilligung widerrufen.",
+    "mfa_body": "Bestätigen Sie Ihre Identität. Vor der Übermittlung wird eine aktuelle Multi-Faktor-Prüfung angefordert.",
+    "mfa_help": "Falls erforderlich, erscheint ein sicherer Prompt bei der Übermittlung.",
+    "review_study_id": "Zu löschende Studie:",
+    "review_justification": "Begründung:",
+    "review_irreversible": "Nach der Übermittlung werden der Fall, dessen Segmentierungen, Läsionen, Berichte und Auslieferungen dauerhaft entfernt. Audit-Ereignisse bleiben erhalten, Restidentifikatoren werden gehasht.",
+    "confirm_phrase_label": "Zur Bestätigung tippen",
+    "confirm_phrase_help": "Tippen Sie {{phrase}} (Großbuchstaben), um die Ausführen-Schaltfläche freizuschalten.",
+    "execute_cta": "Löschung ausführen",
+    "next_cta": "Weiter",
+    "executing_body": "Die Löschpipeline läuft. Normalerweise innerhalb von 60 Sekunden abgeschlossen.",
+    "error_title": "Löschung fehlgeschlagen",
+    "step_up_required": "Aktuelle Multi-Faktor-Authentifizierung erforderlich. Bitte nach erneuter Authentifizierung wiederholen.",
+    "timeout_body": "Die Löschung wurde nicht innerhalb von 90 Sekunden abgeschlossen. Bitte Ops-Dashboard prüfen oder erneut versuchen."
+  },
+  "confirmation": {
+    "title": "Löschung abgeschlossen",
+    "body": "Der Fall und seine abgeleiteten Artefakte wurden gelöscht. Ein Bestätigungs-PDF wurde erstellt.",
+    "elapsed": "in {{seconds}} s",
+    "erasure_request_id": "Löschantrag-ID",
+    "tombstone_hash": "Tombstone-Hash (SHA-256)",
+    "tombstone_help": "Kryptografischer Anker, der diese Bestätigungs-PDF mit dem Audit-Log-Eintrag verbindet. Für Ihre Compliance-Unterlagen aufbewahren.",
+    "download_pdf": "Bestätigungs-PDF herunterladen",
+    "pdf_pending": "PDF-Rendering läuft — in Kürze aktualisieren",
+    "back_to_list": "Zurück zu den Anträgen"
+  }
+}

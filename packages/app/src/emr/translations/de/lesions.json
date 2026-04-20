@@ -1,0 +1,131 @@
+{
+  "_meta": {
+    "reviewStatus": "needs-medical-terminology-review",
+    "reviewers": "@liverra/clinical-reviewers (per CODEOWNERS)",
+    "notes": "German clinical terminology — abbreviations (HCC/ICC/MET/FNH) are international and retained verbatim. Long forms use standard DACH radiology terminology."
+  },
+  "classes": {
+    "HCC": {
+      "name": "HCC",
+      "long": "Hepatozelluläres Karzinom",
+      "malignancy": "maligne"
+    },
+    "ICC": {
+      "name": "ICC",
+      "long": "Intrahepatisches Cholangiokarzinom",
+      "malignancy": "maligne"
+    },
+    "MET": {
+      "name": "MET",
+      "long": "Metastase",
+      "malignancy": "maligne"
+    },
+    "FNH": {
+      "name": "FNH",
+      "long": "Fokale noduläre Hyperplasie",
+      "malignancy": "benigne"
+    },
+    "HEM": {
+      "name": "HEM",
+      "long": "Hämangiom",
+      "malignancy": "benigne"
+    },
+    "CYST": {
+      "name": "CYST",
+      "long": "Leberzyste",
+      "malignancy": "benigne"
+    }
+  },
+  "abstention": {
+    "label": "Unsicher",
+    "help": "Die KI konnte diese Läsion nicht mit ausreichender Sicherheit klassifizieren. Eine radiologische Begutachtung wird empfohlen.",
+    "tooltip": "Unsicher — radiologische Begutachtung empfohlen",
+    "reviewCta": "Zur Begutachtung markieren",
+    "badgeAria": "Unsichere Klassifikation, radiologische Begutachtung empfohlen"
+  },
+  "list": {
+    "heading": "Erkannte Läsionen",
+    "columns": {
+      "thumbnail": "Vorschau",
+      "location": "Segment",
+      "diameter": "Durchmesser",
+      "class": "Klasse",
+      "confidence": "Konfidenz",
+      "source": "Quelle"
+    },
+    "source": {
+      "ai_detected": "KI",
+      "reviewer_prompted": "Befunder"
+    },
+    "rowAria": "Läsion {{index}} von {{total}}, Segment {{segment}}, {{diameter}} mm, {{className}} vorgeschlagen, {{confidence}}% Konfidenz",
+    "emptyState": {
+      "title": "Keine Läsionen erkannt",
+      "body": "Die KI hat keine fokalen Läsionen identifiziert. Bitte manuell prüfen — die KI kann kleine oder atypische Läsionen übersehen."
+    },
+    "loading": "Läsionen werden geladen…",
+    "filters": {
+      "heading": "Läsionen filtern",
+      "confidence": "Min. Konfidenz",
+      "confidenceValue": "{{value}}% oder höher",
+      "class": "Klasse",
+      "classAll": "Alle Klassen",
+      "size": "Größe",
+      "sizeAll": "Beliebige Größe",
+      "sizeSmall": "< 10 mm",
+      "sizeMedium": "10–30 mm",
+      "sizeLarge": "> 30 mm",
+      "segment": "Segment",
+      "segmentAll": "Alle Segmente",
+      "clear": "Filter zurücksetzen",
+      "resultCount": "{{count}} von {{total}} Läsionen"
+    },
+    "aiSuggestionSuffix": "(KI-Vorschlag)"
+  },
+  "detail": {
+    "heading": "Läsion #{{index}}",
+    "close": "Läsionsdetail schließen",
+    "sections": {
+      "location": "Lokalisation",
+      "size": "Größe",
+      "classification": "Klassifikation",
+      "visualization": "Visualisierung",
+      "actions": "Aktionen"
+    },
+    "location": {
+      "segment": "Couinaud-Segment",
+      "multiSegment": "Erstreckt sich über mehrere Segmente",
+      "description": "Anatomische Beschreibung"
+    },
+    "size": {
+      "axial": "Axialer Durchmesser",
+      "coronal": "Koronarer Durchmesser",
+      "sagittal": "Sagittaler Durchmesser",
+      "volume": "Volumen",
+      "mm": "mm",
+      "ml": "mL"
+    },
+    "classification": {
+      "distribution": "Wahrscheinlichkeitsverteilung",
+      "highest": "Klasse mit höchster Wahrscheinlichkeit",
+      "temperature": "Kalibrierungstemperatur: {{value}}",
+      "abstained": "KI hat sich enthalten — keine Klasse über dem Schwellenwert {{threshold}}"
+    },
+    "visualization": {
+      "axial": "Axial",
+      "coronal": "Koronar",
+      "sagittal": "Sagittal",
+      "watermark": "Nur zu Forschungszwecken"
+    },
+    "actions": {
+      "override": "Klassifikation überschreiben",
+      "overrideHelp": "Überschreiben mit radiologisch gewählter Klasse (auditiert protokolliert).",
+      "reReview": "Zur Nachbegutachtung markieren",
+      "reReviewHelp": "Diese Läsion für eine Zweitbefundung kennzeichnen."
+    }
+  },
+  "layer": {
+    "title": "Läsionsüberlagerungen",
+    "hiddenCount": "{{count}} Läsionen ausgeblendet",
+    "focusAria": "Fokus auf Läsion {{index}}: {{className}} in Segment {{segment}}"
+  }
+}

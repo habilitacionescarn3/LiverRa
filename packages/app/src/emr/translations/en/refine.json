@@ -1,0 +1,59 @@
+{
+  "tools": {
+    "heading": "Refine",
+    "addMask": "Add Mask",
+    "subtractMask": "Subtract Mask",
+    "lesionPrompt": "Lesion Prompt",
+    "addLesion": "Add Lesion",
+    "shortcutHint": "B brush  E erase  P prompt  M marker",
+    "acquireSeatTooltip": "Acquire seat to refine",
+    "readOnlyTooltip": "Read-only view — another reviewer holds this case"
+  },
+  "classification": {
+    "title": "Override AI classification",
+    "subtitle": "Replace the AI-predicted tumor class with a manual one",
+    "classLabel": "New tumor class",
+    "classPlaceholder": "Select a tumor class",
+    "reasonLabel": "Reason for override",
+    "reasonPlaceholder": "Explain why the AI class is being overridden (required for audit)",
+    "submit": "Record override",
+    "classes": {
+      "hcc": "Hepatocellular carcinoma (HCC)",
+      "icc": "Intrahepatic cholangiocarcinoma (ICC)",
+      "metastasis": "Metastasis",
+      "fnh": "Focal nodular hyperplasia (FNH)",
+      "hemangioma": "Hemangioma",
+      "cyst": "Cyst"
+    }
+  },
+  "conflict": {
+    "title": "Offline edit conflict",
+    "subtitle": "The case was modified on the server after your offline edit",
+    "body": "Choose how to resolve the conflict. Your choice is recorded in the audit log.",
+    "keepMine": "Keep mine",
+    "keepMineDescription": "Your local edit wins. The server version is overwritten.",
+    "keepTheirs": "Keep theirs",
+    "keepTheirsDescription": "Discard your local edit and accept the server version.",
+    "manualMerge": "Manual merge",
+    "manualMergeDescription": "Open a side-by-side diff (coming soon).",
+    "mergeStub": "Merge tool in development"
+  },
+  "sync": {
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Syncing",
+    "queued": "{{count}} queued",
+    "panel": {
+      "title": "Pending sync entries",
+      "empty": "Nothing is waiting to sync",
+      "pendingSince": "Queued {{ago}} ago"
+    }
+  },
+  "takeover": {
+    "title": "Release review seat?",
+    "body": "Another reviewer is requesting this case.",
+    "countdown": "{{seconds}} s remaining — auto-keep on timeout",
+    "release": "Release",
+    "keep": "Keep"
+  }
+}

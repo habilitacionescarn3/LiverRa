@@ -1,0 +1,60 @@
+{
+  "_codeowners": "// CODEOWNERS: @liverra/de-medical-translators — DE clinical copy must be reviewed by native-speaker HPB surgeon before pilot (Constitution X, NFR-003).",
+  "tools": {
+    "heading": "Feinschliff",
+    "addMask": "Maske hinzufügen",
+    "subtractMask": "Maske subtrahieren",
+    "lesionPrompt": "Läsions-Prompt",
+    "addLesion": "Läsion hinzufügen",
+    "shortcutHint": "B Pinsel  E radieren  P Prompt  M Marker",
+    "acquireSeatTooltip": "Bearbeitungsplatz übernehmen, um zu ändern",
+    "readOnlyTooltip": "Nur-Lese-Ansicht — ein anderer Prüfer bearbeitet diesen Fall"
+  },
+  "classification": {
+    "title": "KI-Klassifikation überschreiben",
+    "subtitle": "Die vorhergesagte Tumorklasse manuell ersetzen",
+    "classLabel": "Neue Tumorklasse",
+    "classPlaceholder": "Tumorklasse wählen",
+    "reasonLabel": "Grund der Überschreibung",
+    "reasonPlaceholder": "Begründung für die Überschreibung eingeben (Pflichtangabe für Audit)",
+    "submit": "Überschreibung speichern",
+    "classes": {
+      "hcc": "Hepatozelluläres Karzinom (HCC)",
+      "icc": "Intrahepatisches Cholangiokarzinom (ICC)",
+      "metastasis": "Metastase",
+      "fnh": "Fokale noduläre Hyperplasie (FNH)",
+      "hemangioma": "Hämangiom",
+      "cyst": "Zyste"
+    }
+  },
+  "conflict": {
+    "title": "Konflikt bei Offline-Bearbeitung",
+    "subtitle": "Der Fall wurde nach Ihrer Offline-Änderung auf dem Server geändert",
+    "body": "Wählen Sie, wie der Konflikt gelöst werden soll. Ihre Wahl wird im Audit-Log erfasst.",
+    "keepMine": "Meine behalten",
+    "keepMineDescription": "Ihre lokale Änderung gewinnt. Die Server-Version wird überschrieben.",
+    "keepTheirs": "Server-Version behalten",
+    "keepTheirsDescription": "Lokale Änderung verwerfen und Server-Version übernehmen.",
+    "manualMerge": "Manueller Merge",
+    "manualMergeDescription": "Seiten-an-Seiten-Vergleich öffnen (in Entwicklung).",
+    "mergeStub": "Merge-Werkzeug in Entwicklung"
+  },
+  "sync": {
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Synchronisiert",
+    "queued": "{{count}} in Warteschlange",
+    "panel": {
+      "title": "Ausstehende Einträge",
+      "empty": "Nichts wartet auf Synchronisation",
+      "pendingSince": "Seit {{ago}} in Warteschlange"
+    }
+  },
+  "takeover": {
+    "title": "Bearbeitungsplatz freigeben?",
+    "body": "Ein anderer Prüfer möchte diesen Fall übernehmen.",
+    "countdown": "Noch {{seconds}} s — bei Zeitüberschreitung wird behalten",
+    "release": "Freigeben",
+    "keep": "Behalten"
+  }
+}

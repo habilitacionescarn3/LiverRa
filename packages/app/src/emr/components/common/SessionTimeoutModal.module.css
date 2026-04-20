@@ -1,0 +1,175 @@
+/* SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/**
+ * Session Timeout Modal Styles
+ *
+ * Premium, urgent styling for session timeout warnings.
+ * Follows EMR theme system with CSS variables.
+ */
+
+/* Screen reader only - hidden visually but accessible */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Modal root */
+.modalRoot {
+  z-index: 10000 !important;
+}
+
+/* Modal overlay - slightly darker for urgency */
+.modalOverlay {
+  background-color: var(--emr-black-alpha-60);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* Modal content */
+.modalContent {
+  background: var(--emr-bg-modal);
+  border: 1px solid var(--emr-warning);
+  box-shadow: 0 0 0 3px var(--emr-warning-alpha-20),
+    var(--emr-shadow-xl);
+}
+
+/* Modal body */
+.modalBody {
+  padding: var(--emr-spacing-xl, 24px);
+}
+
+/* Icon container */
+.iconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    var(--emr-warning-alpha-15) 0%,
+    var(--emr-warning-alpha-15) 100%
+  );
+  animation: pulse 2s infinite;
+}
+
+/* Pulsing animation for urgency */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--emr-warning-alpha-40);
+  }
+  50% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Icon styling */
+.icon {
+  color: var(--emr-warning);
+}
+
+/* Title */
+.title {
+  color: var(--emr-text-primary);
+}
+
+/* Countdown container */
+.countdownContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--emr-spacing-md, 16px) var(--emr-spacing-xl, 24px);
+  background: linear-gradient(
+    135deg,
+    var(--emr-bg-input) 0%,
+    var(--emr-bg-hover) 100%
+  );
+  border-radius: var(--emr-radius-lg, 12px);
+  border: 1px solid var(--emr-border-color);
+  min-width: 140px;
+}
+
+/* Countdown timer display */
+.countdown {
+  font-size: var(--emr-font-3xl, 24px);
+  font-weight: var(--emr-font-bold, 700);
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  color: var(--emr-text-primary);
+  letter-spacing: var(--emr-letter-spacing-wider);
+}
+
+/* Description text */
+.description {
+  max-width: 340px;
+  line-height: var(--emr-line-height-1-6);
+}
+
+/* Logout button */
+.logoutButton {
+  min-width: 130px;
+}
+
+/* Extend session button - primary action */
+.extendButton {
+  min-width: 160px;
+  background: var(--emr-gradient-primary);
+}
+
+.extendButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--emr-secondary-alpha-40);
+}
+
+/* HIPAA note */
+.hipaaNote {
+  margin-top: var(--emr-spacing-sm, 8px);
+  opacity: 0.7;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .iconContainer {
+    animation: none;
+  }
+
+  .extendButton:hover {
+    transform: none;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .modalBody {
+    padding: var(--emr-spacing-lg, 20px);
+  }
+
+  .iconContainer {
+    width: 64px;
+    height: 64px;
+  }
+
+  .icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .countdown {
+    font-size: var(--emr-font-2xl, 20px);
+  }
+
+  .description {
+    font-size: var(--emr-font-xs, 11px);
+  }
+}

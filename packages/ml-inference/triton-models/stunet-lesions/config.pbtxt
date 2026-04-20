@@ -1,0 +1,71 @@
+# LiverRa — Triton model configuration for STU-Net lesion detection
+# Spec: specs/001-zero-training-mvp/contracts/triton-stages.md §Stage 2
+# Research: research.md §C.1 (Tier-B VRAM policy — lazy-loaded)
+# License: Apache 2.0 (upstream: https://github.com/uni-medical/STU-Net)
+#
+# Tier: B (lazy-loaded on first use; evicted after 10 min idle).
+# The checkpoint is a refactored sibling of stunet-parenchyma, tuned
+# for focal-lesion segmentation inside an already-masked liver.
+#
+# Shape convention: 4 contrast phases × 128³ volume cropped to the
+# parenchyma bounding box (task-side pre-processing in
+# tasks/lesion_detection.py). Channel order matches Stage 1:
+#   0 = non_contrast
+#   1 = arterial
+#   2 = portal_venous
+#   3 = delayed
+#
+# Output is an instance-indexed uint8 mask where each connected
+# component is labeled 1..L (0 = background). The task layer converts
+# this into per-lesion bboxes and per-lesion binary masks.
+
+name: "liverra-stunet-lesions"
+platform: "pytorch_libtorch"
+max_batch_size: 1
+
+input [
+  {
+    name: "INPUT__0"
+    data_type: TYPE_FP16
+    dims: [ 4, 128, 128, 128 ]
+  }
+]
+
+output [
+  {
+    name: "OUTPUT__0"
+    data_type: TYPE_UINT8
+    dims: [ 1, 128, 128, 128 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]
+
+# Tier-B models are lazy-loaded; no model_warmup block here. The first
+# clinical case pays the cold-start cost (research §C.1 budgets an extra
+# 15 s for lazy-load on the first call of the session).
+
+optimization {
+  execution_accelerators {
+    gpu_execution_accelerator : [
+      {
+        name : "tensorrt"
+        parameters { key: "precision_mode" value: "FP16" }
+      }
+    ]
+  }
+}
+
+model_transaction_policy {
+  decoupled: False
+}
+
+parameters {
+  key: "INFERENCE_MODE"
+  value: { string_value: "true" }
+}

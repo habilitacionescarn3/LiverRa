@@ -1,0 +1,17 @@
+{
+  "__reviewers": "@german-hpb-reviewer — please verify HPB terminology against Siewert/Rothmund Chirurgie (Lebersegmente nach Couinaud).",
+  "couinaud": {
+    "I":    { "name": "Segment I",     "latin": "Lobus caudatus",                                      "role": "Lobus caudatus (Spigeli-Lappen)" },
+    "II":   { "name": "Segment II",    "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",   "role": "Links-lateral kranial" },
+    "III":  { "name": "Segment III",   "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",  "role": "Links-lateral kaudal" },
+    "IV":   { "name": "Segment IV",    "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",            "role": "Links-medial (IVa/IVb)" },
+    "V":    { "name": "Segment V",     "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",     "role": "Rechts-anterior kaudal" },
+    "VI":   { "name": "Segment VI",    "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",   "role": "Rechts-posterior kaudal" },
+    "VII":  { "name": "Segment VII",   "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",  "role": "Rechts-posterior kranial" },
+    "VIII": { "name": "Segment VIII",  "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",  "role": "Rechts-anterior kranial" }
+  },
+  "vessels": {
+    "portal":  { "name": "Pfortader",   "latin": "Vena portae hepatis", "role": "Zuführender Venenstamm — Zufluss aus Darm und Milz" },
+    "hepatic": { "name": "Lebervenen",  "latin": "Venae hepaticae",     "role": "Abführender Venenstamm — Abfluss zur Vena cava inferior" }
+  }
+}

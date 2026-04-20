@@ -1,0 +1,17 @@
+{
+  "version": 5,
+  "area": "platform-wide",
+  "branch": "001-zero-training-mvp",
+  "commitHash": "369cdf96356891bd0419b08dfb1e42ecf813c57b",
+  "startedAt": "2026-04-20T08:50:28Z",
+  "targetDirs": "packages/app/src,packages/core/src,packages/imaging/src,packages/fhirtypes/src,packages/ml-inference/src",
+  "iteration": 1,
+  "phase": "baseline",
+  "failedAgents": [],
+  "findings": [],
+  "fixBatches": [],
+  "agentInvocations": 0,
+  "playwrightAvailable": false,
+  "quickMode": true,
+  "reason": "LiverRa has no scripts/playwright/server.ts harness; Wave 2 auto-skipped"
+}

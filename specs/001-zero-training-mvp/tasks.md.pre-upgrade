@@ -1,0 +1,803 @@
+---
+description: "LiverRa v1 MVP — Zero-Training Cascaded Pretrained Liver AI Pipeline — implementation tasks"
+---
+
+# Tasks: Zero-Training Cascaded Pretrained Liver AI Pipeline (v1 MVP)
+
+**Input**: Design documents from `/specs/001-zero-training-mvp/`
+**Prerequisites**: [`spec.md`](./spec.md) (564 lines, 47 FRs / 10 NFRs / 10 user stories / 16 SCs) · [`plan.md`](./plan.md) (1,114 lines, 10 new architecture/testing sections) · [`research.md`](./research.md) (22+ Phase-0 decisions) · [`data-model.md`](./data-model.md) (21 entities) · [`contracts/`](./contracts/) (OpenAPI + Triton + DICOM schemas) · [`quickstart.md`](./quickstart.md)
+
+**Format**: `[ID] [P?] [W?] [Story?] Description with file path + spec/FR/NFR/SC ref`
+
+- **[P]** — parallel-safe (different files, no dependency on an in-flight task)
+- **[W]** — integration wire task (imports a created artifact into its consumer; never `[P]` with its producer)
+- **[USn]** — user-story phase tasks only
+
+**Execution agents** (per CLAUDE.md):
+- UI work (anything under `packages/app/src/emr/components/**` or CSS) — **MUST** go through the `frontend-designer` agent
+- FHIR work — invoke the `fhir-developer` skill first
+- Everything else — `coder` agent
+
+**Constraints** (Constitution + CLAUDE.md):
+- Max 3 files per batch (No Bulk File Edits — MediMind 377-file regex incident)
+- No hardcoded FHIR URLs (use `packages/app/src/emr/constants/fhir-systems.ts`)
+- No hardcoded colors (forbidden: `#3b82f6`, `#60a5fa`, `#2563eb`, `#4267B2`)
+- No Russian translation keys (only en/de/ka)
+- Every FHIR/DICOM/ML task emits a FHIR AuditEvent via the chain-of-hashes writer
+- Every state-changing task includes its matching wiring
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Repo baseline, tooling, local + cloud infra, CI scaffolding. No business logic.
+
+- [ ] T001 Create root `.gitignore` entries for `.env`, `.env.*`, `node_modules/`, `dist/`, `.turbo/`, `*.log`, `packages/ml-inference/.venv/`, `packages/ml-inference/triton-models/**/weights.bin`, `packages/app/dist/`, `coverage/`, `.research/`, `.upgrade-parts/`
+- [ ] T002 Create `.env.example` covering all required env vars from plan §Technical Context + research §A (Cognito, Medplum, RDS, Elasticache, S3, KMS, SES, Sentry, PostHog, OTel, `LIVERRA_UID_ROOT`) per quickstart.md
+- [ ] T003 [P] Create `.pre-commit-config.yaml` with `gitleaks`, `ruff`, `mypy` (py), `eslint` (ts), `prettier`, custom `no-bulk-regex-touch` hook (rejects diffs >3 files with identical line-level edits)
+- [ ] T004 [P] Update root `package.json` workspaces to declare `packages/{app,core,imaging,fhirtypes}` (not `ml-inference` — Python)
+- [ ] T005 [P] Update root `turbo.json` pipeline with tasks: `check-types`, `generate:openapi-client`, `generate:fhir-types`, `generate:permissions`, `model-bom`, `license-check`, `bundle-analyze`, `palette-cvd-check`, `i18n-check` per plan §Monorepo & Guardrails
+- [ ] T006 [P] Scaffold `packages/core/eslint-plugin-liverra/` with plugin skeleton + placeholder rules (11 rules per plan §Guardrail lint rules)
+- [ ] T007 [P] Create root `.eslintrc.cjs` with `eslint-plugin-boundaries` enforcing: `app→{core,imaging,fhirtypes}`, `imaging→{core,fhirtypes}`, `fhirtypes→∅`, `core→∅` per plan §Import graph rules
+- [ ] T008 Create `deploy/local/docker-compose.yml` with services: postgres:16, redis:7, orthanc:1.12, medplum-server, triton-cpu-stub, minio, mailhog per quickstart §3
+- [ ] T009 Create `deploy/production/docker-compose.yml` referencing managed AWS services (RDS, Elasticache, S3) per research §A.7
+- [ ] T010 Create `scripts/switch-env.sh` supporting `local|production|onprem` targets; symlinks `.env` + selects docker-compose file
+- [ ] T011 Create `scripts/seed-demo-case.sh` (stub for FR-042 — full impl in Phase 9)
+- [ ] T012 Create `scripts/model-bom.sh` stub (reads `triton-models/*`, `requirements.txt` → `MBoM.json` per FR-038; full logic in Phase 2)
+- [ ] T013 Create `scripts/gdpr-erasure-sim.sh` stub (full impl in Phase 11)
+- [ ] T014 Create `scripts/dr-restore-dryrun.sh` stub (full impl in Phase 13)
+- [ ] T015 [P] Provision AWS Cognito user pool in `eu-central-1` via Terraform at `deploy/terraform/cognito.tf` (TOTP MFA + required `custom:tenant_id`) per research §A.1
+- [ ] T016 [P] Provision RDS Postgres 16 Multi-AZ + 5-min PITR + Elasticache Redis Multi-AZ via Terraform at `deploy/terraform/{rds,elasticache}.tf` per research §A.7
+- [ ] T017 [P] Provision S3 buckets `liverra-imaging-eu-central-1` (Versioning+SRR) + `liverra-audit-anchors-eu-central-1` (Object Lock, compliance mode, 6-yr retention) via `deploy/terraform/s3.tf` per research §A.3/§A.7
+- [ ] T018 [P] Provision KMS alias template `alias/liverra/case/*` + Secrets Manager entries for `LIVERRA_UID_ROOT`, `MEDPLUM_CLIENT_SECRET`, `COGNITO_CLIENT_SECRET` via `deploy/terraform/kms.tf`
+- [ ] T019 [P] Provision SES sending identity `notifications@liverra.ai` + DKIM/SPF/DMARC Route 53 records via `deploy/terraform/ses.tf` per research §A.5
+- [ ] T020 Create `.github/workflows/ci.yml` skeleton with jobs `ci-unit-ts`, `ci-unit-py`, `ci-lint`, `ci-typecheck`, `ci-contract`, `ci-bundle-check`, `ci-i18n`, `ci-forbidden-colors`, `ci-ui-agent-check` per plan §Testing Strategy
+- [ ] T021 [P] Create `.github/workflows/security.yml` with `zap-baseline`, `gitleaks`, `trivy-image`, `trivy-config`, `npm-audit`, `pip-audit`, `semgrep-ts`, `semgrep-py`, `bandit`, `testssl` per plan §Security scanning
+- [ ] T022 [P] Create `.github/workflows/dr-drill.yml` (scheduled monthly; runs `scripts/dr-restore-dryrun.sh`; blocks release if stale >90 days) per plan §DR & Ops Drills
+- [ ] T023 [P] Create `.github/workflows/cost-budget.yml` (monthly AWS Cost Explorer alarm check vs NFR-008 envelope, 70% + 90% thresholds) per plan §Production-Readiness Matrix SC-012
+- [ ] T024 [P] Create `.github/CODEOWNERS` declaring medical-terminology reviewers: `packages/app/src/emr/translations/de/glossary.medical.json @german-hpb-reviewer`, `packages/app/src/emr/translations/ka/glossary.medical.json @georgian-hpb-reviewer` per plan §i18n wiring
+- [ ] T025 Create `docs/runbooks/` directory with stub README + placeholder files `dr-restore.md`, `erasure-execution.md`, `breach-tabletop-2026.md`, `phi-incident-response.md`
+
+**Checkpoint 1**: Setup done — repo + infra + CI scaffolding ready. Team can clone + `npm install` + bring up local stack.
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Everything required BEFORE any user story can be implemented. MediMind → LiverRa ports, FHIR constants, Postgres schema, RBAC generator, audit chain, PHI scrubber, API codegen, translation system, theme, EMR library.
+
+**⚠️ CRITICAL**: No US work starts until Checkpoint 2.
+
+### Sub-2a: Core packages scaffolding
+
+- [ ] T026 Create `packages/core/src/{types,fhir,hash,i18n}/` barrel + `tsconfig.json` (strict ESM) + `package.json` per plan §Project Structure
+- [ ] T027 [P] Create `packages/core/src/types/analysis.ts` with domain types `Analysis`, `PipelineCheckpoint`, `AnalysisStatus` enum matching data-model §5/§6
+- [ ] T028 [P] Create `packages/core/src/types/segmentation.ts` (`Segmentation`, `Lesion`, `Classification`, `FLRCalculation`) matching data-model §7-10
+- [ ] T029 [P] Create `packages/core/src/types/report.ts` (`SurgeonReview`, `Report`, `ReportDelivery`) matching data-model §11-13
+- [ ] T030 [P] Create `packages/core/src/types/audit.ts` (`AuditEvent`, `AuditEventChain`, `AuditCategory` enum of 24 categories) matching data-model §14
+- [ ] T031 [P] Create `packages/core/src/types/tenant.ts` (`Tenant`, `User`, `Role` enum, `PermissionGrant`, `NotificationPreference`, `ComplianceAssignment`) matching data-model §1/§2/§15/§20/§21
+- [ ] T032 [P] Create `packages/core/src/types/regulatory.ts` (`ModelBillOfMaterials`, `RegulatoryClaimRegistry`, `ClaimKey` enum, `ErasureRequest`, `DemoCase`) matching data-model §16-19
+- [ ] T033 Create `packages/core/src/hash/chainOfHashes.ts` — pure helpers: `canonicalJson(obj)` (RFC 8785 JCS), `sha256(bytes)`, `leafHash(prev, canonical, tenantId, seqNo)` per research §A.3
+- [ ] T034 [P] Scaffold `packages/fhirtypes/src/{r4,liverra}/` + generator script `scripts/generate-fhir-types.ts` that consumes FHIR R4 JSON schema → TS types
+- [ ] T035 [P] Scaffold `packages/imaging/src/{dicom,cornerstone,highdicom-wrapper,viewer}/` + `tsconfig.json` (strict ESM) + `package.json`
+
+### Sub-2b: FHIR constants + Medplum bootstrap
+
+- [ ] T036 Create `packages/app/src/emr/constants/fhir-systems.ts` — all identifier systems + code systems under `http://liverra.ai/fhir/sid/*` per Constitution IV (reference MediMind pattern at `/Users/toko/Desktop/medplum_medimind/packages/app/src/emr/constants/fhir-systems.ts`)
+- [ ] T037 [P] Create `packages/app/src/emr/constants/fhir-extensions.ts` — LiverRa StructureDefinition URLs under `http://liverra.ai/fhir/StructureDefinition/*` (audit-permission-checked, audit-model-version, audit-chain-sequence-no, audit-chain-leaf-hash, ruo-claim-key, ruo-watermark-present, atypical-anatomy-flags, implausible-output-reason)
+- [ ] T038 [P] Create `packages/app/src/emr/constants/fhir-identifiers.ts` — tenant, study-uid, analysis-id, report-id, user-cognito-sub naming systems
+- [ ] T039 [P] Create `packages/app/src/emr/constants/fhir-codesystems.ts` — all SNOMED-CT codes from contracts/dicom-artifacts.md (10200004 liver, 245302009..245309003 Couinaud I-VIII, 32764006 portal vein, 8887007 hepatic vein, 109841003 HCC, 312104005 ICC, 62129009 FNH, 235857004 hemangioma, 235866006 cyst, 94381002 metastasis)
+- [ ] T040 Create `packages/fhirtypes/src/liverra/extensions/StructureDefinition-audit-*.json` files (4 StructureDefinitions for the 4 LiverRa AuditEvent extensions in T037)
+- [ ] T041 [P] Create `packages/fhirtypes/src/liverra/extensions/StructureDefinition-analysis-*.json` (implausible-output-reason, atypical-anatomy-flags, partial-coverage-flag)
+- [ ] T042 Create `packages/ml-inference/scripts/bootstrap-medplum-project.py` — registers a Medplum `Project` per tenant, POSTs all StructureDefinitions from T040-T041 at first boot per research §A.2
+- [ ] T043 [W] Wire `fhir-systems.ts` / `fhir-extensions.ts` / `fhir-identifiers.ts` / `fhir-codesystems.ts` into a single re-export — create `packages/app/src/emr/constants/index.ts` with `export * from './fhir-*'`
+
+### Sub-2c: Cognito identity + OIDC client
+
+- [ ] T044 Create `packages/ml-inference/src/lambda/cognito-backup-codes.py` Lambda trigger (generates + hashes 10 argon2id codes on MFA enrolment, stores in Postgres `user_backup_codes`) per research §A.1
+- [ ] T045 Wire Cognito pool → Lambda triggers in `deploy/terraform/cognito.tf` (Pre-Sign-Up: tenant assignment; Post-Authentication: audit event; Define Auth Challenge: backup codes)
+- [ ] T046 [P] Create `packages/app/src/emr/services/auth/oidcClient.ts` using `oidc-client-ts` with silent-renew iframe + `auth_time` claim extraction for step-up
+- [ ] T047 [P] Create `packages/ml-inference/src/services/auth/jwks_validator.py` using `python-jose` + `aws-jwt-verify` equivalent per research §A.1
+- [ ] T048 Create `packages/app/src/emr/services/auth/index.ts` barrel + `useAuth()` hook returning `{user, tenant, permissions, signIn, signOut, refresh, challengeStepUp}`
+- [ ] T049 Create `packages/ml-inference/src/middleware/auth_middleware.py` — FastAPI dependency validating Cognito JWT, setting `request.state.tenant_id` + `request.state.user` + `request.state.auth_time`
+- [ ] T050 [W] Wire `jwks_validator.py` into FastAPI app factory — add `app.add_middleware(AuthMiddleware)` in `packages/ml-inference/src/main.py`
+
+### Sub-2d: Postgres schema + Alembic migrations
+
+- [ ] T051 Create `packages/ml-inference/alembic.ini` + `packages/ml-inference/src/db/alembic/env.py` configured for `DATABASE_URL` env var
+- [ ] T052 Create Alembic migration `20260419_0001_tenant_user.py` — tables `tenant`, `user`, `notification_preference`, `compliance_assignment` per data-model §1/§2/§20/§21 with RLS policies on `tenant`-scoped tables
+- [ ] T053 Create Alembic migration `20260419_0002_study_series_analysis.py` — tables `study`, `series`, `analysis`, `pipeline_checkpoint` per data-model §3-6 with indexes `(tenant_id, study_instance_uid)`, `(tenant_id, status, queued_at)`, `(analysis_id, stage_no)` PK
+- [ ] T054 Create Alembic migration `20260419_0003_segmentation_lesion.py` — tables `segmentation`, `lesion`, `classification`, `flr_calculation` per data-model §7-10 with invariant CHECK constraints (FLR sum ±0.5%, classification vector sum 1.0 ±0.01)
+- [ ] T055 Create Alembic migration `20260419_0004_review_report.py` — tables `surgeon_review` (with UNIQUE partial index `(analysis_id) WHERE finalized_at IS NULL`), `report`, `report_delivery` per data-model §11-13
+- [ ] T056 Create Alembic migration `20260419_0005_audit_chain.py` — table `audit_event_chain` partitioned by `tenant_id`, UNIQUE `(tenant_id, sequence_no)`, trigger function `raise_tampering_attempt()` on UPDATE/DELETE per research §A.3
+- [ ] T057 Create Alembic migration `20260419_0006_rbac_mbom_claims.py` — tables `permission_grant`, `model_bill_of_materials`, `regulatory_claim_registry` (seeded with 7 claim rows per tenant, all `status=ruo`)
+- [ ] T058 Create Alembic migration `20260419_0007_erasure_democase.py` — tables `erasure_request`, `demo_case`
+- [ ] T059 Create `packages/ml-inference/src/db/session.py` — SQLAlchemy 2 engine + async session factory + RLS-aware context manager that sets `SET LOCAL app.tenant_id = '...'` per request
+
+### Sub-2e: RBAC matrix + generator
+
+- [ ] T060 Create `packages/ml-inference/src/services/auth/rbac/matrix.yaml` with full permission enum (30+ permissions) + 7 roles per research §X.3 (draft in research.md §Cross-cutting)
+- [ ] T061 Create `packages/ml-inference/src/services/auth/rbac/generator.py` — consumes `matrix.yaml` → emits (a) `packages/app/src/emr/constants/permissions.gen.ts` (string-literal union type), (b) `permissions_registry.py` (Python enum), (c) Medplum AccessPolicy JSON per role × tenant under `deploy/medplum/access-policies/`
+- [ ] T062 Create `packages/ml-inference/src/middleware/require_permission.py` — FastAPI decorator `@require_permission(perm, step_up=False)` checking `request.state.user.permissions`, `auth_time` freshness for step-up, tenant scoping, emitting `permission_check` AuditEvent with outcome
+- [ ] T063 Create Turbo task `generate:permissions` in root `turbo.json` invoking `python -m src.services.auth.rbac.generator` with outputs `permissions.gen.ts` + `permissions_registry.py` + `access-policies/*.json`
+- [ ] T064 Run `npm run generate:permissions` once + commit outputs (populates `permissions.gen.ts` before downstream tasks consume it)
+
+### Sub-2f: Audit chain-of-hashes (backend)
+
+- [ ] T065 Create `packages/ml-inference/src/services/audit/chain_of_hashes.py` — `AuditChainWriter.write(event_dict, tenant_id)`: canonicalize → compute `leaf_hash` → INSERT `audit_event_chain` row in same Postgres txn as caller's business row per research §A.3
+- [ ] T066 Create `packages/ml-inference/src/services/fhir/audit_event_emitter.py` — converts domain event to FHIR `AuditEvent` resource with LiverRa extensions → POSTs to Medplum → calls `chain_of_hashes.write()` in the same txn (fail-closed per FR-029b)
+- [ ] T067 Create `packages/ml-inference/src/tasks/daily_merkle_root.py` Celery-beat task — runs 02:00 UTC per tenant, computes Merkle root of prior day's leaves, writes to `s3://liverra-audit-anchors-eu-central-1/<tenant>/<yyyy-mm-dd>.json` with Object Lock compliance mode
+- [ ] T068 [W] Wire `AuditChainWriter` into FastAPI app lifespan — instantiate singleton + inject via `Depends()` in `packages/ml-inference/src/main.py`
+
+### Sub-2g: PHI scrubber
+
+- [ ] T069 Create `packages/ml-inference/src/observability/phi_scrubber.py` — rules-based scrubber (DICOM UID regex, MRN patterns per tenant, German + Georgian name lists via Aho-Corasick, email, allow-list for safe fields) with fail-closed on ambiguity + `phi_scrubber_failed_total` Prometheus counter per NFR-007
+- [ ] T070 [P] Create `packages/app/src/emr/services/observability/phiScrubber.ts` — TS mirror of T069 rules for Sentry/PostHog `before_send` hooks
+- [ ] T071 Create `packages/ml-inference/tests/observability/test_phi_scrubber.py` — 100+ fixtures (real anonymized DICOM headers, German + Georgian names, PACS AE titles) asserting zero leakage + fail-closed on scrubber-crash
+
+### Sub-2h: OpenAPI codegen + API client
+
+- [ ] T072 Add Turbo task `generate:openapi-client` invoking `openapi-typescript contracts/api-openapi.yaml -o packages/app/src/emr/services/api-schema.gen.ts`
+- [ ] T073 Run `npm run generate:openapi-client` + commit generated file
+- [ ] T074 Create `packages/app/src/emr/services/api-client.ts` — `openapi-fetch` typed client wrapper injecting `Authorization: Bearer {cognito_access_token}` + `X-LiverRa-Tenant: {tenant_id}` headers + TanStack Query adapter per plan §Contract-first codegen
+- [ ] T075 Create pre-commit hook in `.pre-commit-config.yaml` rejecting hand edits to `*.gen.ts` files (detects `contracts/api-openapi.yaml` diff without `.gen.ts` diff)
+
+### Sub-2i: Translation system + Georgian font
+
+- [ ] T076 Port `packages/app/src/emr/contexts/TranslationContext.tsx` from MediMind — **re-wire** to replace `{ka, en, ru}` locale set with `{en, de, ka}`; lazy-load domain bundles; fallback chain `de→en`, `ka→en`
+- [ ] T077 Port `packages/app/src/emr/services/localeService.ts` — replace ka/en/ru with en/de/ka; add OS-preference detection via `matchMedia`
+- [ ] T078 Create locale directory scaffold `packages/app/src/emr/translations/{en,de,ka}/{common,auth,nav,upload,analysis,lesions,refine,report,admin,onboarding,compliance,ops,erasure,help,glossary,errors,ruo}.json` with empty `{}` files (17 namespaces × 3 locales = 51 files; batch in 3 tasks of ~17 files each is OK since empty files don't risk regex corruption)
+- [ ] T079 [W] Wire `TranslationContext` into `packages/app/src/main.tsx` — wrap `<App />` in `<TranslationProvider>` + preload Noto Sans + Noto Sans Georgian via `<link rel="preload" as="font">` in `packages/app/index.html`
+
+### Sub-2j: Theme + EMR common library port (frontend-designer)
+
+> All tasks in Sub-2j and Sub-2k are `[frontend-designer]` — delegate UI work to the frontend-designer agent per CLAUDE.md.
+
+- [ ] T080 Port `packages/app/src/emr/styles/theme.css` from MediMind — preserve `--emr-font-*` + `--emr-spacing-*` + `--emr-bg-*` tokens; rebrand `--emr-primary-*` ramp to placeholder neutral warm-gray pending brand decision (§Brand Rebrand)
+- [ ] T081 Add 16 overlay tokens to `theme.css`: `--liverra-seg-couinaud-{I..VIII}`, `--liverra-lesion-marker`, `--liverra-plane-handle`, `--liverra-overlay-text`, `--liverra-vessel-portal`, `--liverra-vessel-hepatic` (+ `-dark` variants each)
+- [ ] T082 [P] Port EMR common batch 1: `packages/app/src/emr/components/common/{EMRModal,EMRButton,EMRCard}.tsx` + matching `.module.css` + `.test.tsx` from MediMind (drop-in + rebrand color refs)
+- [ ] T083 [P] Port EMR common batch 2: `{EMRConfirmationModal,EMRPageHeader,EMRErrorBoundary}.tsx`
+- [ ] T084 [P] Port EMR common batch 3: `{EMREmptyState,EMRSkeleton,EMRAlert}.tsx` + illustration asset directory `packages/app/src/emr/assets/empty-states/`
+- [ ] T085 [P] Port EMR common batch 4: `{EMRTableSkeleton,EMRTableEmptyState,EMRToast}.tsx`
+- [ ] T086 [P] Port EMR common batch 5: `{EMRProgressStepper,EMRWizardStepper,EMRDropzone}.tsx`
+- [ ] T087 [P] Port EMR common batch 6: `{EMRBreadcrumbs,EMRFAB,EMRNotificationCenter}.tsx`
+- [ ] T088 [P] Port EMR common batch 7: `{SessionTimeoutModal,FailClosedErrorStates,FormLoadingSkeleton}.tsx`
+- [ ] T089 [P] Port EMR common batch 8: `{FormErrorBoundary,EMRBottomSheet,MobileFormWrapper}.tsx`
+- [ ] T090 Create `packages/app/src/emr/components/common/index.ts` barrel exporting all 24 ported components
+
+### Sub-2k: EMR form fields port (frontend-designer)
+
+- [ ] T091 [P] Port form fields batch 1: `packages/app/src/emr/components/shared/EMRFormFields/{EMRTextInput,EMRSelect,EMRDatePicker}.tsx`
+- [ ] T092 [P] Port form fields batch 2: `{EMRCheckbox,EMRNumberInput,EMRTextarea}.tsx`
+- [ ] T093 [P] Port form fields batch 3: `{EMRSwitch,EMRMultiSelect,EMRRadioGroup}.tsx`
+- [ ] T094 [P] Port form fields batch 4: `{EMRAutocomplete,EMRColorInput,EMRDateTimePicker}.tsx`
+- [ ] T095 [P] Port form fields batch 5: `{EMRTimeInput,EMRVirtualSelect,EMRFormRow}.tsx`
+- [ ] T096 [P] Port form fields batch 6: `{EMRFormSection,EMRFormActions,EMRFieldWrapper}.tsx` + `EMRFieldTypes.ts`
+- [ ] T097 Create `packages/app/src/emr/components/shared/EMRFormFields/index.ts` barrel exporting all 18 fields
+
+### Sub-2l: Access-control port
+
+- [ ] T098 [P] Port `packages/app/src/emr/components/access-control/{RequirePermission,PermissionButton,PermissionGate}.tsx` from MediMind — re-wire to read from `PermissionContext` (defined in T099)
+- [ ] T099 Port `packages/app/src/emr/contexts/PermissionContext.tsx` + `useHasPermission` hook — reads permissions from `AuthContext`, exposes typed `useHasPermission(perm: LiverraPermission)` using `permissions.gen.ts`
+- [ ] T100 [P] Port `packages/app/src/emr/components/access-control/{SensitiveDataGate,RecordLockBanner}.tsx`
+- [ ] T101 Port `packages/app/src/emr/components/access-control/EmergencyAccessModal.tsx` → rename to `StepUpAuthModal.tsx`; re-wire to Cognito `prompt=login max_age=0` flow per plan §Frontend RBAC
+- [ ] T102 Port `packages/app/src/emr/components/ProtectedRoute/ProtectedRoute.tsx` — re-wire to `<ProtectedRoute requires={['perm.key']}>` that redirects to 404 (not 403) per FR-032a
+- [ ] T103 [W] Wire `PermissionContext` into app root — wrap `<App />` inside `<TranslationProvider>` + `<AuthProvider>` + `<PermissionProvider>` in `packages/app/src/main.tsx`
+
+### Sub-2m: Routes + navigation port (frontend-designer)
+
+- [ ] T104 Create `packages/app/src/emr/constants/routes.ts` with typed `LIVERRA_ROUTES` constant covering all 25 routes from plan §Route registration table
+- [ ] T105 Create `packages/app/src/AppRoutes.tsx` using React Router v7 `createBrowserRouter` + `lazy()` per plan §Route-level lazy-loading policy (every admin/compliance/ops/erasure route lazy; auth + cases list eager)
+- [ ] T106 Create `packages/app/src/emr/constants/nav-registry.ts` — per-role nav items (HPB surgeon / radiologist / fellow / admin / ops / compliance / dpo) per plan §Navigation port
+- [ ] T107 [P] Port `packages/app/src/emr/components/nav/EMRMainMenu.tsx` from MediMind — re-wire to `nav-registry.ts` + `useHasPermission`
+- [ ] T108 [P] Port `packages/app/src/emr/components/nav/HorizontalSubMenu.tsx` from MediMind
+- [ ] T109 Create `packages/app/src/emr/components/nav/Breadcrumbs.tsx` — derives from React Router `useMatches()` + each route's `handle.breadcrumb` function
+- [ ] T110 Create `packages/app/src/emr/components/nav/SessionRecoveryBanner.tsx` — reads pending drafts from IndexedDB + `SurgeonReview.seat_held_until` (stub until US4 impl)
+- [ ] T111 [W] Wire `AppRoutes` into app entry — replace stub content in `packages/app/src/main.tsx` with `<RouterProvider router={appRouter} />`
+- [ ] T112 [W] Wire `EMRMainMenu` + `Breadcrumbs` + `SessionRecoveryBanner` into app shell — add to `packages/app/src/emr/EMRPage.tsx` (port layout shell pattern from MediMind)
+
+### Sub-2n: Core contexts
+
+- [ ] T113 [P] Create `packages/app/src/emr/contexts/ThemeContext.tsx` — reads `User.theme_preference` + OS fallback via `matchMedia('(prefers-color-scheme: dark)')` + toggles `<html data-mantine-color-scheme={mode}>`
+- [ ] T114 [P] Create `packages/app/src/emr/contexts/MobileContext.tsx` — exposes `breakpoint: 'xs'|'sm'|'md'|'lg'|'xl'` + `isTouch: boolean`
+- [ ] T115 [P] Create `packages/app/src/emr/contexts/AccessibilityContext.tsx` — exposes `prefersReducedMotion` + `announceToSR(text)` live-region router
+- [ ] T116 [P] Create `packages/app/src/emr/contexts/AuthContext.tsx` — fetches `/auth/me` on session start; exposes `{user, tenant, permissions, signIn, signOut}`
+- [ ] T117 [W] Wire `ThemeContext`, `MobileContext`, `AccessibilityContext`, `AuthContext` into app root — add providers to `packages/app/src/main.tsx` in correct nesting order (Auth → Permission → Theme → Mobile → A11y → Router)
+
+### Sub-2o: Cornerstone3D initialization
+
+- [ ] T118 Port `packages/app/src/emr/services/pacs/cornerstoneInit.ts` from MediMind — re-wire tools; add touch gesture bindings (PinchGesture, TwoFingerRotateGesture, DragGesture, TapGesture) per plan §Mobile & touch strategy
+- [ ] T119 [P] Port `packages/app/src/emr/services/pacs/dicomwebClient.ts` from MediMind — swap auth from Medplum JWT to Cognito JWT; target `/dicom-web/` on clean-side Orthanc
+- [ ] T120 [P] Port `packages/app/src/emr/services/pacs/dicomParserService.ts` from MediMind (drop-in)
+- [ ] T121 [P] Port `packages/app/src/emr/services/pacs/progressiveLoader.ts` from MediMind (drop-in)
+
+### Sub-2p: ESLint guardrail rules
+
+- [ ] T122 Implement `packages/core/eslint-plugin-liverra/rules/no-hardcoded-fhir-url.ts` + `no-forbidden-hex.ts` + `no-russian-locale.ts`
+- [ ] T123 Implement `packages/core/eslint-plugin-liverra/rules/{no-hardcoded-color,no-hardcoded-font-size,require-emr-button,no-raw-mantine-inputs}.ts`
+- [ ] T124 Implement `packages/core/eslint-plugin-liverra/rules/{no-any-without-justification,mantine-button-padding-check,require-state-triplet}.ts`
+- [ ] T125 [W] Wire `eslint-plugin-liverra` into root `.eslintrc.cjs` — add plugin + enable all 11 rules + per-rule configuration
+
+### Sub-2q: Observability SDK init + Grafana scaffold
+
+- [ ] T126 [P] Create `packages/ml-inference/src/observability/sentry_init.py` — EU region, `before_send` wrapping `phi_scrubber.py`, `phi_scrubber_failed_total` counter
+- [ ] T127 [P] Create `packages/app/src/emr/services/observability/sentryInit.ts` — EU region, `beforeSend` wrapping `phiScrubber.ts`
+- [ ] T128 [P] Create `packages/app/src/emr/services/telemetry/events.ts` — string-literal union type for all PostHog event names per plan §Telemetry event catalog
+- [ ] T129 [P] Create `packages/app/src/emr/services/telemetry/postHogClient.ts` — EU host, anonymous events, PHI-scrubber-wrapped
+- [ ] T130 [P] Create `packages/ml-inference/src/observability/otel_init.py` — OTel SDK with OTLP exporter targeting in-VPC collector
+- [ ] T131 Create `deploy/grafana/dashboards/` with 8 JSON files: `liverra-queue.json`, `liverra-latency.json`, `liverra-gpu.json`, `liverra-errors.json`, `liverra-users.json`, `liverra-audit-chain.json`, `liverra-cost.json`, `liverra-health.json`
+
+### Sub-2r: FastAPI app factory + health endpoint
+
+- [ ] T132 Create `packages/ml-inference/src/main.py` — FastAPI app with middleware stack (CORS, AuthMiddleware, RLS session, Sentry, OTel)
+- [ ] T133 Create `packages/ml-inference/src/api/system.py` — `/api/v1/system/health` aggregator (postgres + redis + triton + medplum + orthanc + per-tenant PACS C-ECHO) + `/api/v1/system/version` (app_version, pipeline_version, mbom_hash, commit_sha, built_at) per plan §Health aggregator
+- [ ] T134 [W] Wire `system.py` router into app — include router in `main.py`
+
+### Sub-2s: Model Bill of Materials + license-drift check
+
+- [ ] T135 Implement `scripts/model-bom.sh` — reads `packages/ml-inference/triton-models/*/model.info` + `requirements.txt` → generates `MBoM.json` at repo root with `{build_sha, model_name, model_family, source_url, pinned_commit_sha, license_text_hash, license_name, integration_date, approver}` per FR-038
+- [ ] T136 Implement `scripts/license-check.sh` — fetches each model's upstream LICENSE, computes SHA-256, compares against `MBoM.json.license_text_hash`; exits non-zero on drift
+- [ ] T137 [W] Wire `license-check` into `.github/workflows/ci.yml` as blocking job `ci-license-check`
+
+### Sub-2t: Quickstart bootstrap
+
+- [ ] T138 Create `npm run bootstrap:dev` script in root `package.json` — runs `alembic upgrade head` + `bootstrap-medplum-project.py` + `seed-demo-case.sh` + creates dev user with pre-enrolled MFA token per quickstart §4
+- [ ] T139 Create `packages/app/src/main.tsx` final version — wires all providers (Translation, Auth, Permission, Theme, Mobile, A11y, Router) in correct nesting order
+
+**Checkpoint 2**: Foundational done. All user stories (US1-US10) can now proceed in parallel. **No business logic yet — only infrastructure, ports, and gates.**
+
+---
+
+## Phase 3: User Story 1 — Upload → FLR (Priority: P1) 🎯 MVP
+
+**Goal**: HPB surgeon uploads 4-phase contrast liver CT, receives 3D parenchyma + interactive resection plane + live FLR readout within 5 minutes. This is the MVP slice — demoable alone.
+
+**Independent Test**: Surgeon uploads valid CT, drags resection plane, reads FLR% — must complete ≤5 min on warm infra (SC-002), FLR within ±5% expert volumetry on 20-scan set (SC-003), RUO disclaimer visible at all times (SC-009).
+
+**Spec refs**: US1, FR-001..FR-014b (core pipeline), FR-022/028/028a (viewer + RUO), FR-032/032a (tenant isolation), NFR-001 (perf), NFR-007 (observability).
+
+### Ingestion + anonymization
+
+- [ ] T140 [US1] Create `pacs/orthanc/orthanc.json` edge-appliance config per research §B.3 (DIMSE :4242, DICOMweb `/dicom-web/`, Postgres backend, DICOM-TLS enabled)
+- [ ] T141 [US1] Create `pacs/orthanc/liverra-hooks.lua` Lua `ReceivedInstanceFilter` hook that POSTs new instances to anonymization sidecar webhook at `http://localhost:7070/orthanc-webhook`
+- [ ] T142 [US1] Create `pacs/ctp/pipeline.xml` — RSNA CTP DICOM anonymization profile per PS3.15; **disable** CTP's default "sanitize to ASCII" filter per research §B.8 UTF-8
+- [ ] T143 [US1] Create `pacs/anon-sidecar/main.py` FastAPI sidecar — implements 3-gate pipeline: UTF-8 NFC normalize + CTP call + Presidio burned-in pixel PHI scan (corners + bottom strip on triage-positive slices) per research §B.1/§B.2
+- [ ] T144 [US1] Create `pacs/anon-sidecar/presidio_recognizers.py` — per-image custom recognizers built from DICOM metadata (PatientName, PatientID, PatientBirthDate, InstitutionName, ReferringPhysicianName) per research §B.2
+- [ ] T145 [P] [US1] Create `packages/ml-inference/src/services/anon/triage.py` — SOPClass-based triage filter (Secondary Capture / US / CR / DX → full-image scan; primary CT liver → corner-strip scan)
+- [ ] T146 [US1] Create `packages/ml-inference/src/services/erasure/crypto_shred.py` — per-case KMS envelope key create at ingest, `kms:ScheduleKeyDeletion` synchronous with p99 <60 s alarm per research §X.1 + FR-002a
+- [ ] T147 [W] [US1] Wire `crypto_shred` into ingest flow — call `create_case_key(study_id, tenant_id)` in `pacs/anon-sidecar/main.py` before writing to S3
+
+### Ingest API + study validation
+
+- [ ] T148 [US1] Create `packages/ml-inference/src/api/ingest.py` — `POST /api/v1/ingest/uploads` (tus-style resumable upload init), `GET /api/v1/ingest/studies` (list), `GET /api/v1/ingest/studies/{id}` per contracts/api-openapi.yaml
+- [ ] T149 [US1] Create `packages/ml-inference/src/services/ingest/phase_detection.py` — per-series heuristic (contrast-uptake timing windows) returning phase_coverage map; rejects if portal-venous missing per FR-003
+- [ ] T150 [US1] Create `packages/ml-inference/src/services/ingest/uid_consistency.py` — validates Patient ID + Study Instance UID + acquisition-date window (all phases within 24 h) per FR-003a
+- [ ] T151 [US1] Create `packages/ml-inference/src/services/ingest/coverage_check.py` — liver superior-inferior extent check per FR-006/006a (with admin override path)
+- [ ] T152 [US1] Create `packages/ml-inference/src/services/ingest/zip_safety.py` — reject malformed/encrypted archives; sanitize DICOM tag values per FR-001a/001c
+- [ ] T153 [W] [US1] Wire `AuditChainWriter` into `ingest.py` — emit `study_upload` + `anonymization_passed/failed` AuditEvents at each ingestion state transition
+- [ ] T154 [W] [US1] Wire `require_permission` decorator into all ingest routes — `study.upload` on POST, `study.upload` on GETs
+
+### Stage-1 STU-Net parenchyma + pipeline orchestration
+
+- [ ] T155 [US1] Create `packages/ml-inference/triton-models/stunet-parenchyma/config.pbtxt` — Triton model config per contracts/triton-stages.md §Stage 1 (fp16, GPU instance count 1, explicit load mode)
+- [ ] T156 [US1] Create `packages/ml-inference/triton-models/stunet-parenchyma/1/model.pt` — TorchScript export of STU-Net-Huge parenchyma checkpoint (downloaded from upstream; Apache 2.0)
+- [ ] T157 [US1] Create `packages/ml-inference/src/services/triton/client.py` — tritonclient gRPC wrapper with per-stage inference wrappers + load/unload control (explicit mode) + Tier-A/B policy per research §C.1
+- [ ] T158 [US1] Create `packages/ml-inference/src/orchestrator/cascade.py` — Celery task graph: `anonymization → parenchyma → vessels → couinaud → lesion_detection → classification → flr_init`; per-stage timeout budgets summing ≤120s; partial-result preservation per FR-014a/b + research §C.2
+- [ ] T159 [US1] Create `packages/ml-inference/src/orchestrator/sanity.py` — Pydantic + numeric bounds per FR-007a (total 300–3500 mL, non-zero segments, FLR ≥0 etc.); on failure sets `implausible_output_reason`
+- [ ] T160 [US1] Create `packages/ml-inference/src/orchestrator/checkpoint.py` — writes `pipeline_checkpoint` row after each stage in same txn as GPU-release per research §X.2 + NFR-009
+- [ ] T161 [P] [US1] Create `packages/ml-inference/src/tasks/anonymization.py` Celery task wrapping the anon-sidecar webhook flow
+- [ ] T162 [P] [US1] Create `packages/ml-inference/src/tasks/parenchyma.py` Celery task calling Triton `liverra-stunet-parenchyma`
+- [ ] T163 [P] [US1] Create `packages/ml-inference/src/tasks/flr_default.py` Celery task computing default resection plane (axial mid-hepatic-vein heuristic) + initial FLR
+- [ ] T164 [US1] Create `packages/ml-inference/src/workers/app.py` Celery app config with Redis broker + Postgres result backend + retry policy per NFR-009
+- [ ] T165 [W] [US1] Wire `checkpoint.write` into every cascade task — at end of each Celery task, call `checkpoint.write(analysis_id, stage_no, output_uri)` before returning
+- [ ] T166 [W] [US1] Wire `sanity.check` + `AuditChainWriter` into `cascade.py` — sanity at stage boundary, audit event on every start/end/fail
+
+### Analysis API + SSE streaming
+
+- [ ] T167 [US1] Create `packages/ml-inference/src/api/analysis.py` — `POST /api/v1/analyses`, `GET /api/v1/analyses/{id}`, `GET /api/v1/analyses/{id}/results`, `POST /api/v1/analyses/{id}/cancel`, `POST /api/v1/analyses/{id}/retry` per contracts/api-openapi.yaml §analysis
+- [ ] T168 [US1] Create `packages/ml-inference/src/api/analysis_stream.py` — `GET /api/v1/analyses/{id}/stream` Server-Sent Events endpoint yielding stage-complete events from `pipeline_checkpoint` writes per plan §Data Fetching Strategy
+- [ ] T169 [W] [US1] Wire `@require_permission('study.upload')` onto all analysis routes
+- [ ] T170 [W] [US1] Wire `AuditChainWriter` into cancel/retry endpoints — emit `analysis_cancel`/`analysis_retry` AuditEvents
+
+### Frontend: upload + cases list + viewer shell (frontend-designer)
+
+- [ ] T171 [US1] [frontend-designer] Create `packages/app/src/emr/components/upload/DicomDropzone.tsx` — drag-drop zone, file-type validation, tus-style chunked upload to `/api/v1/ingest/uploads`, progress bar, PHI-detect warning surface per FR-001/005
+- [ ] T172 [US1] [frontend-designer] Create `packages/app/src/emr/components/upload/UploadProgress.tsx` — multi-stage indicator (uploading → anonymizing → queued → running) driven by SSE stream
+- [ ] T173 [US1] [frontend-designer] Create `packages/app/src/emr/views/cases/CasesListView.tsx` — `EMRTable`-based list of the tenant's analyses with status, timestamps, thumbnails; empty state `no-cases.svg` illustration; skeleton loading
+- [ ] T174 [US1] [frontend-designer] Create `packages/app/src/emr/views/cases/AnalysisDetailView.tsx` — **mirror MediMind `ImagingTabView.tsx` pattern** per plan §Reference Architecture: lazy-load `LiverViewer3D`, Suspense + `PACSErrorBoundary` port (→ `LiverErrorBoundary`), resizable drawer pattern
+- [ ] T175 [US1] [frontend-designer] Create `packages/app/src/emr/components/liver/LiverViewer3D.tsx` — Cornerstone3D shell with parenchyma layer only (segments/vessels/lesions added in later stories), toggle layers, ARIA role=application per NFR-002
+- [ ] T176 [US1] [frontend-designer] Create `packages/app/src/emr/components/liver/ResectionPlaneTool.tsx` — WebGPU voxel-counting implementation; sub-20 ms update per FR-013; ARIA slider with value/min/max/orientation per NFR-002 per research §C.5
+- [ ] T177 [US1] [frontend-designer] Create `packages/app/src/emr/components/liver/FLRPanel.tsx` — live FLR mL + % readout, updates during plane drag via `useRUOClaim()` hook (disclaimer variant) + `aria-live=polite` per NFR-002
+- [ ] T178 [US1] [frontend-designer] Create `packages/app/src/emr/components/ruo/RUODisclaimer.tsx` — persistent, un-dismissable overlay + 5-layer pixel-burn canvas util per FR-028/028a + research §B.7
+- [ ] T179 [US1] Create `packages/imaging/src/watermark.ts` — shared canvas `burnWatermark(canvas, opts)` util used by viewer + PDF export per plan §UI Conventions
+- [ ] T180 [US1] Create `packages/app/src/emr/contexts/AnalysisContext.tsx` — selected analysis + partial-results SSE stream handle per plan §Contexts graph
+- [ ] T181 [US1] Create `packages/app/src/emr/contexts/ViewerStateContext.tsx` — camera, layers, plane pose, tool mode
+- [ ] T182 [P] [US1] Create `packages/app/src/emr/hooks/useAnalysis.ts` — TanStack Query hook keyed `['analysis', analysisId]` with SSE-driven invalidation per plan §Data Fetching Strategy
+- [ ] T183 [P] [US1] Create `packages/app/src/emr/hooks/useCasesList.ts` — TanStack Query keyed `['tenant', tenantId, 'analyses', filters]`
+- [ ] T184 [P] [US1] Create `packages/app/src/emr/hooks/useRUOClaim.ts` — reads `RegulatoryClaimRegistry` via `/api/v1/compliance/claim-registry`, returns `{status, disclaimerVariant, watermark, uiGate}` per plan §Claim Registry as feature-flag source
+- [ ] T185 [US1] Create `packages/app/src/emr/contexts/RUOClaimRegistryContext.tsx` — provider for `useRUOClaim`
+- [ ] T186 [W] [US1] Wire `AnalysisContext` + `ViewerStateContext` + `RUOClaimRegistryContext` into `AnalysisDetailView` — add providers scoped to the route + consume in child panels
+- [ ] T187 [W] [US1] Wire `DicomDropzone` → `useAnalysis` → `AnalysisDetailView` — on upload-complete navigate to `/cases/:id`; `useAnalysis` auto-subscribes to SSE stream
+- [ ] T188 [W] [US1] Wire `RUODisclaimer` into app shell — add to `EMRPage.tsx` so it renders on every authenticated view + `burnWatermark` applied in `LiverViewer3D` + `FLRPanel` frame renders
+- [ ] T189 [W] [US1] Wire `api-client` typed endpoints into `useAnalysis`, `useCasesList` — import from `api-client.ts` and use `client.GET('/api/v1/analyses/{id}')`
+
+### Tests for US1
+
+- [ ] T190 [P] [US1] Create `packages/ml-inference/tests/integration/test_ingest_flow.py` — happy path: valid 4-phase CT → phases detected → UID-consistent → accepted → Analysis row created; failure: missing portal-venous → rejected with correct `ingestion_rejection_reason`; PHI-contamination race → FR-002a 60-s crypto-shred path
+- [ ] T191 [P] [US1] Create `packages/ml-inference/tests/regression/test_parenchyma_dice.py` — golden `ct-001..005` fixtures; asserts Dice ≥0.92 per SC-003 threshold
+- [ ] T192 [P] [US1] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us1-upload-flr.ts` — 3 Playwright scenarios (happy upload-to-FLR ≤5 min, failure on missing phase, edge cold-start indicator distinct from error)
+- [ ] T193 [P] [US1] Create `packages/imaging/src/__tests__/watermark.test.ts` — canvas burn-in test via headless Chromium screenshot diff asserting RUO text pixels present at zoom 50%/100%/300%
+- [ ] T194 [P] [US1] Create `packages/ml-inference/tests/security/test_step_up_on_finalize.py` — placeholder for Phase 7 finalize (asserts middleware scaffold exists)
+
+**Checkpoint 3**: User Story 1 fully functional. **MVP demoable**: surgeon uploads a CT, sees 3D liver, drags resection plane, reads FLR%. Deploy / screen-record demo video per SC-013.
+
+---
+
+## Phase 4: User Story 2 — Couinaud segments & vessels (Priority: P2)
+
+**Goal**: Surgeon sees 8 Couinaud segments + portal/hepatic vein trunks overlaid on parenchyma; click per-segment volume; synchronized 3D + axial/coronal/sagittal views.
+
+**Independent Test**: HPB surgeon reviewers rate segmentation "surgically usable without re-segmentation" on ≥80% of 20-scan set (SC-004).
+
+**Spec refs**: US2, FR-008, FR-009, FR-019, FR-020.
+
+- [ ] T195 [US2] Create `packages/ml-inference/triton-models/couinaud-segments/config.pbtxt` per contracts/triton-stages.md §Stage 3
+- [ ] T196 [US2] Create `packages/ml-inference/triton-models/couinaud-segments/1/model.pt` (Pictorial Couinaud upstream Apache 2.0 export)
+- [ ] T197 [US2] Create `packages/ml-inference/src/tasks/couinaud.py` Celery task — calls Triton `liverra-couinaud-segments` with parenchyma mask from Stage 1
+- [ ] T198 [US2] Create `packages/ml-inference/src/tasks/vessels.py` Celery task — vessel-trunk segmentation (portal + hepatic) as part of Couinaud model output
+- [ ] T199 [US2] Extend `cascade.py` graph — add `couinaud` + `vessels` after `parenchyma`; sanity: sum of 8 segments ≈ parenchyma ±2%; vessels ≥90% contained in parenchyma
+- [ ] T200 [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/SegmentsLayer.tsx` — 8 Couinaud color-coded overlays using `--liverra-seg-couinaud-{I..VIII}` tokens; CVD-safe palette verified
+- [ ] T201 [P] [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/VesselsLayer.tsx` — portal + hepatic vein trunk overlays using `--liverra-vessel-portal` / `-hepatic` tokens
+- [ ] T202 [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/LayerToggle.tsx` — toggle parenchyma/segments/vessels/lesions layers with keyboard shortcut `L`
+- [ ] T203 [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/CouinaudLegend.tsx` — 8 swatches with `aria-label` per NFR-002, hover tooltip with segment name per FR-045
+- [ ] T204 [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/MultiPlanarViews.tsx` — axial/coronal/sagittal slice views with synchronized click-to-recenter per FR-020
+- [ ] T205 [US2] [frontend-designer] Create `packages/app/src/emr/components/liver/SegmentVolumeCard.tsx` — clicked-segment detail panel (volume mL, % of total)
+- [ ] T206 [US2] Add translation keys for 8 Couinaud names + vessel labels to `translations/{en,de,ka}/glossary.json` (medical-terminology-lock-gated per plan §i18n wiring)
+- [ ] T207 [W] [US2] Wire `SegmentsLayer` + `VesselsLayer` + `MultiPlanarViews` into `LiverViewer3D` — add as children conditionally rendered via `ViewerStateContext.activeLayers`
+- [ ] T208 [W] [US2] Wire `useAnalysis` SSE → Couinaud result — consume stage-complete event with `stage: 'couinaud'`, populate segments into viewer
+- [ ] T209 [P] [US2] Create `packages/ml-inference/tests/regression/test_couinaud_iou.py` — asserts mean IoU ≥0.70 per SC-004 threshold
+- [ ] T210 [P] [US2] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us2-couinaud.ts` — 3 scenarios (happy 8-segment display + toggle, failure cirrhotic degraded flag, edge view-sync across 3D/axial/coronal/sagittal)
+
+**Checkpoint 4**: US2 done. Surgeon can see segments + vessels + per-segment volumes.
+
+---
+
+## Phase 5: User Story 3 — Lesion detection & classification (Priority: P3)
+
+**Goal**: Lesion list with Couinaud location, diameter, AI-suggested class (HCC/ICC/MET/FNH/HEM/CYST), confidence, abstention when uncertain.
+
+**Independent Test**: Lesion detection ≥78% sensitivity @ ≥10 mm on 20-scan set (SC-005); abstention fires on low-confidence cases.
+
+**Spec refs**: US3, FR-010, FR-011.
+
+- [ ] T211 [US3] Create `packages/ml-inference/triton-models/stunet-lesions/{config.pbtxt,1/model.pt}` per contracts/triton-stages.md §Stage 2 (fp16, Apache 2.0)
+- [ ] T212 [US3] Create `packages/ml-inference/triton-models/lilnet-classify/{config.pbtxt,1/model.pt}` per contracts/triton-stages.md §Stage 4 (Tier-B lazy-load)
+- [ ] T213 [US3] Create `packages/ml-inference/src/tasks/lesion_detection.py` Celery task — calls Triton `liverra-stunet-lesions` cropped to parenchyma, emits N bboxes + binary lesion mask per lesion
+- [ ] T214 [US3] Create `packages/ml-inference/src/tasks/classification.py` Celery task — for each lesion, calls Triton `liverra-lilnet-classify` on 4-phase 96³ crop; applies temperature scaling; fires abstention if `max(probs) < tenant.abstention_threshold` per research §C.7
+- [ ] T215 [US3] Create `packages/ml-inference/src/services/calibration/temperature_scaling.py` — per-tenant learned temperature calibration param; default T=1.5 until per-tenant fit available
+- [ ] T216 [US3] Extend `cascade.py` — add `lesion_detection` + `classification` (once per lesion); sanity: lesion masks ≥95% inside parenchyma; classification vector sums 1.0 ±0.01
+- [ ] T217 [US3] [frontend-designer] Create `packages/app/src/emr/components/liver/LesionList.tsx` — virtualized `EMRTable` with columns thumbnail/Couinaud/diameter/class/confidence; paginate beyond 50 entries per NFR-001; screen-reader `role=grid` with row announcement per NFR-002
+- [ ] T218 [US3] [frontend-designer] Create `packages/app/src/emr/components/liver/LesionBadge.tsx` — class badge with tenant-color, confidence bar, "Uncertain — radiologist review recommended" state per FR-011
+- [ ] T219 [US3] [frontend-designer] Create `packages/app/src/emr/components/liver/LesionDetailPanel.tsx` — click-lesion centres 3D + all slice views per FR-010 + FR-020
+- [ ] T220 [US3] [frontend-designer] Create `packages/app/src/emr/components/liver/LesionLayer.tsx` — lesion mask overlays with class-colored outlines using `--liverra-lesion-marker` token
+- [ ] T221 [P] [US3] Create `packages/app/src/emr/hooks/useLesions.ts` — TanStack Query keyed `['analysis', analysisId, 'lesions']`
+- [ ] T222 [US3] Add translation keys for 6 tumor classes + "Uncertain" state + abstention help text to `translations/{en,de,ka}/lesions.json` (medical-term-locked)
+- [ ] T223 [W] [US3] Wire `LesionLayer` into `LiverViewer3D` — conditionally render via `ViewerStateContext.activeLayers.lesions`
+- [ ] T224 [W] [US3] Wire `LesionList` + `LesionDetailPanel` into `AnalysisDetailView` drawer — tab in the resizable drawer alongside Segments
+- [ ] T225 [W] [US3] Wire `useLesions` into `LesionList` + `useAnalysis` SSE → invalidates `['analysis', id, 'lesions']` on `stage: 'classification'` complete
+- [ ] T226 [P] [US3] Create `packages/ml-inference/tests/regression/test_lesion_sens.py` — asserts sensitivity ≥0.78 on lesions ≥10 mm + Dice ≥0.65 per SC-005
+- [ ] T227 [P] [US3] Create `packages/ml-inference/tests/regression/test_lilnet_accuracy.py` — asserts Top-1 accuracy ≥0.82 on `ct-lesions-labeled-pack` per plan §ML regression gate
+- [ ] T228 [P] [US3] Create `packages/ml-inference/tests/unit/test_temperature_scaling.py` — verifies softmax sum invariant + abstention trigger at threshold
+- [ ] T229 [P] [US3] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us3-lesions.ts` — 3 scenarios (happy list + class + confidence, failure low-confidence abstention, edge reviewer-prompt appends lesion — partially tested here; fully in US4)
+
+**Checkpoint 5**: US3 done. Lesion detection + classification + abstention working.
+
+---
+
+## Phase 6: User Story 4 — Interactive refinement (Priority: P4)
+
+**Goal**: VISTA3D click-to-refine any mask; MedSAM-2 one-prompt tumor re-seg; reviewer-seat lock; offline-durable edits with conflict resolution.
+
+**Independent Test**: Median time-to-acceptable-mask reduced ≥50% vs full manual re-seg (SC-006).
+
+**Spec refs**: US4, FR-015, FR-016, FR-017/017a/017b, FR-018/018a/018b/018c.
+
+- [ ] T230 [US4] Create `packages/ml-inference/triton-models/vista3d-refine/{config.pbtxt,1/model.pt}` per contracts/triton-stages.md §Stage 5 (Tier-B)
+- [ ] T231 [US4] Create `packages/ml-inference/triton-models/medsam2-track/{config.pbtxt,1/model.pt}` per contracts/triton-stages.md §Stage 6 (Tier-B)
+- [ ] T232 [US4] Create `packages/ml-inference/src/api/review.py` — `POST /api/v1/reviews` (seat acquire), `POST /api/v1/reviews/{id}/heartbeat`, `POST /api/v1/reviews/{id}/mask-refine` (VISTA3D call), `POST /api/v1/reviews/{id}/lesion-prompt` (MedSAM-2), `POST /api/v1/reviews/{id}/classification-override`, `POST /api/v1/reviews/{id}/flr` per contracts/api-openapi.yaml §review
+- [ ] T233 [US4] Create `packages/ml-inference/src/services/review/seat_manager.py` — seat TTL 60s, heartbeat extension, `SurgeonReview` UNIQUE partial idx enforcement, takeover-request flow per FR-017a
+- [ ] T234 [US4] Create `packages/ml-inference/src/services/review/refinement_local_recompute.py` — composites VISTA3D 128³ crop output back into full-res mask, writes new `Segmentation` row with `generation_source=reviewer_edited` + `parent_segmentation_id`; target ≤30s per FR-015
+- [ ] T235 [W] [US4] Wire `@require_permission('review.refine_mask')` + `review.reprompt_lesion` + `review.override_classification` onto review routes
+- [ ] T236 [W] [US4] Wire `AuditChainWriter` into every review endpoint — emit `mask_edit`, `lesion_reprompt`, `classification_override`, `review.seat_taken`, `review.seat_released`
+- [ ] T237 [US4] [frontend-designer] Create `packages/app/src/emr/components/liver/RefineTools.tsx` — click-tool palette (add/subtract/lesion-prompt), bound to Cornerstone3D tool modes from `cornerstoneInit.ts`
+- [ ] T238 [US4] [frontend-designer] Create `packages/app/src/emr/components/liver/ClassificationOverride.tsx` — dropdown to override AI class with reason textarea per spec edge case
+- [ ] T239 [US4] Create `packages/app/src/emr/contexts/ReviewSeatContext.tsx` — encapsulates seat acquire + 20s heartbeat + release on unmount per plan §Review seat concurrency
+- [ ] T240 [US4] Create `packages/app/src/emr/contexts/RefinementUndoContext.tsx` — per-click undo stack mirrored to IndexedDB `offline_reviewer_edits` per research §C.6
+- [ ] T241 [P] [US4] Create `packages/app/src/emr/hooks/useReviewSeat.ts` — wraps `ReviewSeatContext` + takeover-request toast flow
+- [ ] T242 [P] [US4] Create `packages/app/src/emr/services/offline/offlineQueue.ts` — IndexedDB schema `{id ULID, analysis_id, edit_type, payload, created_at, client_version, attempt_count, last_error}` per plan §Offline durability
+- [ ] T243 [P] [US4] Create `packages/app/src/emr/services/offline/conflictResolver.ts` — server-wins default, opens merge modal on 409 per plan §Offline
+- [ ] T244 [US4] Create `packages/app/src/emr/services/offline/syncWorker.ts` — plain-JS periodic flush every 15s when online + immediate on `online` event
+- [ ] T245 [US4] [frontend-designer] Create `packages/app/src/emr/components/offline/ConflictResolutionModal.tsx` — keep-mine / keep-theirs / manual-merge choices (audited)
+- [ ] T246 [US4] [frontend-designer] Create `packages/app/src/emr/components/nav/SyncIndicator.tsx` — top-bar pill (online/offline/syncing/queue-depth-N) + click opens pending-entries panel
+- [ ] T247 [US4] Create `packages/app/src/emr/contexts/SyncContext.tsx` — exposes online status + queue depth
+- [ ] T248 [W] [US4] Wire `RefineTools` + `ClassificationOverride` into `AnalysisDetailView` — render in Review drawer tab; read-only gate via `useReviewSeat().hasSeat`
+- [ ] T249 [W] [US4] Wire `RefinementUndoContext` + `offlineQueue` + `syncWorker` into `AnalysisDetailView` — dispatch refine actions through undo stack → queue → POST to `/mask-refine`; optimistic update
+- [ ] T250 [W] [US4] Wire `SyncIndicator` + `SyncContext` into app shell — add to `EMRPage.tsx` top bar
+- [ ] T251 [W] [US4] Wire `RecordLockBanner` into `AnalysisDetailView` — render when seat held by another user per plan §Review seat concurrency
+- [ ] T252 [P] [US4] Create `packages/ml-inference/tests/regression/test_vista3d_delta_dice.py` — asserts Δ-Dice ≥+0.05 after 3 clicks per SC-006 threshold
+- [ ] T253 [P] [US4] Create `packages/ml-inference/tests/regression/test_medsam2_iou.py` — asserts slice-to-slice IoU ≥0.85 per plan §ML regression
+- [ ] T254 [P] [US4] Create `packages/app/src/emr/hooks/__tests__/useReviewSeat.test.ts` — concurrent-edit collision returns merge-UI state
+- [ ] T255 [P] [US4] Create `packages/app/src/emr/services/offline/__tests__/conflictResolver.test.ts` — induced 409 from MockClient triggers modal
+- [ ] T256 [P] [US4] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us4-refinement.ts` — 3 scenarios (happy click-to-refine ≤30 s, failure empty-region click rejected cleanly, edge offline→reconnect auto-sync)
+
+**Checkpoint 6**: US4 done. Reviewer can refine masks + handle concurrent edits + survive offline.
+
+---
+
+## Phase 7: User Story 5 — Finalize + export + PACS push (Priority: P5)
+
+**Goal**: Finalize Report → PDF + DICOM-SEG + DICOM-SR with RUO watermark → optional PACS push with retry state machine.
+
+**Independent Test**: SC-009 RUO on every artifact (0/20 spot-check misses); PACS push transactional per artifact; re-finalize produces new SOP UIDs.
+
+**Spec refs**: US5, FR-023..027, FR-026a/b/c, FR-027a, FR-028a.
+
+- [ ] T257 [US5] Create `packages/ml-inference/src/services/seg_sr/seg_builder.py` — `highdicom.seg.Segmentation` MULTI_SEGMENT_BINARY (parenchyma + 8 Couinaud + 2 vessels + N lesions), SNOMED codes from `fhir-codesystems.ts` ported Python-side, fresh SOP Instance UID per finalize (FR-026b) per contracts/dicom-artifacts.md
+- [ ] T258 [US5] Create `packages/ml-inference/src/services/seg_sr/sr_builder.py` — `highdicom.sr` TID 1500 Measurement Report referencing SEG (no duplicated geometry), RUO disclaimer as leading `TextContentItem`, qualitative FLR adequacy (25/30/40% thresholds) per contracts/dicom-artifacts.md
+- [ ] T259 [US5] Create `packages/ml-inference/src/services/export/pdf_builder.py` — WeasyPrint rendering with Noto Sans + Noto Sans Georgian embedded; `@page` + `::before` RUO watermark; OCR-verified per T275 test
+- [ ] T260 [US5] Create `packages/ml-inference/src/services/export/pdf_templates/{en,de,ka}/report.html` — surgeon-facing report with 3D screenshots, volumes table, FLR summary, lesion list
+- [ ] T261 [US5] Create `packages/ml-inference/src/services/pacs_push/storescu.py` — `pynetdicom` C-STORE client; transactional per-artifact delivery per research §B.6
+- [ ] T262 [US5] Create `packages/ml-inference/src/services/pacs_push/retry_state_machine.py` — pending→sending→acknowledged/failed→manual-fallback with exponential backoff 1→32 min ×6 attempts; PHI-scrubbed `last_error` per FR-026a/c
+- [ ] T263 [US5] Create `packages/ml-inference/src/services/pacs_push/cecho.py` — pre-flight C-ECHO for PACS config save (US6 consumer) per FR-039
+- [ ] T264 [US5] Create `packages/ml-inference/src/tasks/push_to_pacs.py` Celery task — idempotency key `(report_id, destination_id, attempt_n)`, invokes `retry_state_machine`
+- [ ] T265 [US5] Create `packages/ml-inference/src/api/export.py` — `POST /api/v1/reviews/{id}/finalize` (step-up), `GET /api/v1/reports/{id}`, `POST /api/v1/reports/{id}/pacs-push`, `POST /api/v1/reports/{id}/pacs-push/{delivery_id}/retry`, `POST /api/v1/reports/{id}/retract` per contracts/api-openapi.yaml §export
+- [ ] T266 [W] [US5] Wire `@require_permission('report.finalize', step_up=True)` on finalize + `report.retract` (step-up) + `report.pacs_push` + `report.pacs_retry`
+- [ ] T267 [W] [US5] Wire `AuditChainWriter` into finalize/retract/push — emit `report_finalize`, `report_retract`, `pacs_push_attempt/success/failure`, `artifact_export` with chain sequence
+- [ ] T268 [US5] [frontend-designer] Create `packages/app/src/emr/components/report/FinalizeWizard.tsx` — 5-step `EMRWizardStepper` (check → watermark → pacs → review → ship); step-up MFA on submit via `<PermissionButton stepUp />`
+- [ ] T269 [US5] [frontend-designer] Create `packages/app/src/emr/components/report/PDFPreview.tsx` — iframe-embed of server-rendered PDF with `frame-ancestors 'none'` CSP per FR-028a
+- [ ] T270 [US5] [frontend-designer] Create `packages/app/src/emr/components/report/PACSPushPanel.tsx` — delivery-state timeline with per-artifact status + retry button + "Download for manual push" fallback per FR-026c
+- [ ] T271 [US5] [frontend-designer] Create `packages/app/src/emr/components/report/RetractModal.tsx` — confirmation + reason textarea + step-up
+- [ ] T272 [US5] [frontend-designer] Create `packages/app/src/emr/views/reports/ReportView.tsx` — finalized-report landing page with "Superseded by Report X" banner if retracted
+- [ ] T273 [P] [US5] Create `packages/app/src/emr/hooks/useFinalize.ts` + `useReport.ts` + `usePacsDelivery.ts` — TanStack Query + invalidation matrix per plan §Data Fetching
+- [ ] T274 [W] [US5] Wire finalize invalidation — on successful `finalizeReport`, invalidate `['analysis', id]`, `['analysis', id, 'report']`, `['reports', id]`, `['audit', tenantId, '*']`
+- [ ] T275 [P] [US5] Create `packages/ml-inference/src/services/export/tests/test_pdf_watermark.py` — WeasyPrint render + OCR extract via pytesseract; asserts "Research Use Only" text present on every page + every sample language
+- [ ] T276 [P] [US5] Create `packages/ml-inference/tests/integration/test_pacs_push_retry.py` — induces failures at sending state; asserts exponential backoff; asserts `last_error` PHI-scrubbed
+- [ ] T277 [P] [US5] Create `packages/ml-inference/tests/integration/test_seg_sr_roundtrip.py` — generated SEG+SR loads in ephemeral Orthanc; asserts all SNOMED codes present + `AlgorithmIdentificationSequence.name` prefixed `liverra-`
+- [ ] T278 [P] [US5] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us5-export.ts` — 3 scenarios (happy finalize + 3 artifacts RUO-watermarked, failure PACS push retry succeeds, edge superseded-report banner on older view)
+
+**Checkpoint 7**: US5 done. Full clinical workflow demoable: upload → view → refine → finalize → PDF/SEG/SR → PACS.
+
+---
+
+## Phase 8: User Story 6 — Hospital admin onboarding (Priority: P2)
+
+**Goal**: Admin self-serve tenant onboarding: invite users, assign roles, configure + C-ECHO-test PACS, suspend users, approve deletions, review tenant-scoped audit log.
+
+**Independent Test**: Three DPAs signed + MFA-active per site (SC-007); red-team admin-view-PHI denied (SC-015).
+
+**Spec refs**: US6, FR-039, FR-046, FR-047.
+
+- [ ] T279 [US6] Create `packages/ml-inference/src/api/admin.py` — `GET /api/v1/admin/tenants/me`, `GET /api/v1/admin/users`, `POST /api/v1/admin/users/invite`, `POST /api/v1/admin/users/{id}/suspend`, `PUT /api/v1/admin/pacs-destination`, `POST /api/v1/admin/pacs-destination/echo`, `POST /api/v1/admin/studies/{id}/delete-request`, `GET /api/v1/admin/audit` per contracts/api-openapi.yaml §admin
+- [ ] T280 [US6] Create `packages/ml-inference/src/services/admin/invite_service.py` — 72-hour signed JWT invite token; email via SES (Jinja2 template `notifications/templates/{en,de,ka}/invite.html`)
+- [ ] T281 [US6] Create `packages/ml-inference/src/services/notifications/ses_adapter.py` — boto3 SES client, DKIM-signed, PHI-clean templates per research §A.5
+- [ ] T282 [US6] Create email Jinja2 templates `packages/ml-inference/src/services/notifications/templates/{en,de,ka}/{invite,analysis_complete,analysis_failed,queued_long,pacs_failed,mfa_reset,invite_accepted,erasure_confirmed,phi_incident}.html` (9 templates × 3 locales = 27 files; batch 9 tasks of 3 files — too many; collapse to 3 tasks of 9 files each since templates have no regex-touchable structure)
+- [ ] T283 [US6] Create `packages/ml-inference/src/services/admin/case_deletion.py` — user-submitted deletion requires admin approval; soft-delete only; hard-delete reserved to DPO per FR-046
+- [ ] T284 [W] [US6] Wire `@require_permission` on admin routes — `admin.invite_user`, `admin.assign_role`, `admin.suspend_user`, `admin.configure_pacs`, `admin.cecho_pacs`, `admin.approve_deletion`, `admin.view_audit`
+- [ ] T285 [W] [US6] Wire `AuditChainWriter` into admin routes — emit `admin_invite`, `admin_suspend_user`, `admin_configure_pacs`, `admin_approve_deletion`
+- [ ] T286 [US6] [frontend-designer] Create `packages/app/src/emr/views/admin/UserManagementView.tsx` — `EMRTable` with invite button + per-row suspend
+- [ ] T287 [US6] [frontend-designer] Create `packages/app/src/emr/components/admin/UserInviteModal.tsx` — `EMRFormFields` form (email + role + display_name + locale) inside `EMRModal`
+- [ ] T288 [US6] [frontend-designer] Create `packages/app/src/emr/views/admin/PacsConfigView.tsx` — `EMRFormFields` form (ae_title, host, port, use_tls, cert_fingerprint) + "Test with C-ECHO" button showing round_trip_ms
+- [ ] T289 [US6] [frontend-designer] Create `packages/app/src/emr/views/admin/AuditBrowserView.tsx` — filterable `EMRTable` of AuditEvents (date range + category + actor) with PHI-free summaries
+- [ ] T290 [US6] [frontend-designer] Create `packages/app/src/emr/components/admin/DeleteRequestApprovalPanel.tsx` — approve/reject user-submitted deletion
+- [ ] T291 [P] [US6] Create `packages/app/src/emr/hooks/{useAdminUsers,usePacsConfig,useAdminAudit}.ts` — TanStack Query hooks
+- [ ] T292 [W] [US6] Wire admin views into routes + nav registry — `/admin/users`, `/admin/pacs-config`, `/admin/audit` visible only to admin role per plan §Route registration
+- [ ] T293 [P] [US6] Create `packages/ml-inference/tests/integration/test_admin_cecho.py` — mock PACS → C-ECHO success/fail + sanitized error
+- [ ] T294 [P] [US6] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us6-admin-onboarding.ts` — 3 scenarios (happy invite+role+pacs+audit, failure C-ECHO rejected with technician-friendly error, edge suspended user preserves historical attribution)
+
+**Checkpoint 8**: US6 done. Admin can self-serve tenant onboarding end-to-end.
+
+---
+
+## Phase 9: User Story 7 — First-time clinician onboarding (Priority: P2)
+
+**Goal**: Mandatory wizard: password/SSO → MFA enrol + backup codes → RUO terms acceptance (signed) → guided tour → optional sample case. Cannot upload real patient studies until complete.
+
+**Independent Test**: ≤15 min completion, ≥80% first-invite completion via PostHog funnel (SC-014).
+
+**Spec refs**: US7, FR-041, FR-042, FR-031.
+
+- [ ] T295 [US7] Create `packages/ml-inference/src/api/onboarding.py` — `POST /auth/ruo-accept` (records RUO acceptance with signed event per FR-031), `POST /auth/mfa-enrol` (wraps Cognito TOTP + backup-codes Lambda), `GET /auth/me/onboarding-status`
+- [ ] T296 [US7] Create `packages/ml-inference/src/services/onboarding/signed_ruo.py` — HMAC-SHA256 signature `(user_id, timestamp, tenant_genesis)` per data-model §2
+- [ ] T297 [US7] Create `packages/ml-inference/src/services/onboarding/sample_case_runner.py` — invokes `bootstrap-medplum-project.py` demo-seed for the user's tenant if not already seeded per FR-042
+- [ ] T298 [W] [US7] Wire `AuditChainWriter` into onboarding endpoints — emit `ruo_acceptance`, `mfa_challenge`, `onboarding_completed`
+- [ ] T299 [US7] [frontend-designer] Create `packages/app/src/emr/views/onboarding/OnboardingWizard.tsx` — 5-step `EMRWizardStepper`: password/SSO, MFA, RUO, tour, sample case
+- [ ] T300 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/PasswordStep.tsx` — password form OR hospital SSO link button
+- [ ] T301 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/MFAEnrolStep.tsx` — TOTP QR code + backup-codes download + confirmation
+- [ ] T302 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/RUOAcceptStep.tsx` — multilingual RUO text (read locale from `User.locale_preference`) + explicit accept button with signed submission
+- [ ] T303 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/GuidedTourStep.tsx` — 5-tooltip walkthrough over upload/viewer/finalize; skip + replay support
+- [ ] T304 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/SampleCaseStep.tsx` — "Run demo case" button → monitors analysis → "Sample data — not real patient" badge throughout
+- [ ] T305 [US7] [frontend-designer] Create `packages/app/src/emr/views/demo/DemoCaseRunner.tsx` — re-runnable demo from Help menu per SC-013
+- [ ] T306 [P] [US7] Create `packages/app/src/emr/hooks/useOnboardingStatus.ts` — gates access across app: if `ruo_accepted_at IS NULL` OR `mfa_enrolled_at IS NULL`, redirect to `/onboarding` (except `/onboarding/*` + `/auth/*`)
+- [ ] T307 [W] [US7] Wire `useOnboardingStatus` into `ProtectedRoute` — redirect incomplete-onboarding users
+- [ ] T308 [W] [US7] Wire PostHog events `onboarding.*` into each wizard step — fires `onboarding_step_started` + `onboarding_step_completed` per plan §Telemetry event catalog
+- [ ] T309 [US7] Implement `scripts/seed-demo-case.sh` full version — copies fixture CT `ct-demo-rh.dcm` + pre-computed masks into tenant's demo case, marks `DemoCase.sample_case_flag=true`
+- [ ] T310 [US7] [frontend-designer] Create `packages/app/src/emr/components/onboarding/SampleDataBadge.tsx` — persistent banner + watermark when viewing a `DemoCase`-derived analysis; blocks PACS push per FR-042 invariant
+- [ ] T311 [P] [US7] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us7-clinician-onboarding.ts` — 3 scenarios (happy ≤15 min completion, failure MFA-browser-close resumes at MFA step, edge demo case outputs cannot push to real PACS)
+
+**Checkpoint 9**: US7 done. Every new clinician passes through onboarding; RUO + MFA enforced before first upload.
+
+---
+
+## Phase 10: User Story 8 — Ops stuck-case recovery (Priority: P3)
+
+**Goal**: Ops engineer monitors cross-tenant queue, identifies stuck cases, re-queues/cancels/marks-blocked. Never sees PHI.
+
+**Independent Test**: Recovery action audited + no PHI visible at any point (SC-010 + SC-015).
+
+**Spec refs**: US8, FR-033a/b/c.
+
+- [ ] T312 [US8] Create `packages/ml-inference/src/api/ops.py` — `GET /api/v1/ops/queue`, `POST /api/v1/ops/analyses/{id}/mark-blocked` per contracts/api-openapi.yaml §ops
+- [ ] T313 [US8] Create `packages/ml-inference/src/services/ops/queue_aggregator.py` — cross-tenant view with `{queued, running, stuck_over_15min, gpu_utilization_pct, cold_start_rate_last_hour}` from Postgres + Prometheus
+- [ ] T314 [W] [US8] Wire `@require_permission('ops.view_queue'|'ops.cancel_analysis'|'ops.retry_analysis'|'ops.mark_blocked')` on ops routes; AccessPolicy **MUST hide all PHI fields** per plan §RBAC
+- [ ] T315 [W] [US8] Wire `AuditChainWriter` into ops mutations — `ops_retry`, `ops_cancel`, `ops_mark_blocked`
+- [ ] T316 [US8] [frontend-designer] Create `packages/app/src/emr/views/ops/OpsQueueView.tsx` — live dashboard with queue depth, GPU panel, p50/p95 latencies, stuck-case table
+- [ ] T317 [US8] [frontend-designer] Create `packages/app/src/emr/components/ops/StuckCasePanel.tsx` — per-case detail (case_id, model_versions, stage timings, error signatures — NO PHI) + Retry / Cancel / Mark-Blocked actions
+- [ ] T318 [US8] [frontend-designer] Create `packages/app/src/emr/components/ops/QueueDepthGauge.tsx` — visual gauge per tenant + alarm coloring above threshold
+- [ ] T319 [P] [US8] Create `packages/app/src/emr/hooks/{useOpsQueue,useOpsAnalysis}.ts`
+- [ ] T320 [W] [US8] Wire Ops view into routes (`/ops/queue` lazy) + nav-registry (visible only to `ops` role)
+- [ ] T321 [P] [US8] Create `packages/ml-inference/tests/integration/test_ops_no_phi.py` — asserts every field in `/api/v1/ops/queue` responses passes PHI scrubber (no names, no MRNs, no study UIDs in free text)
+- [ ] T322 [P] [US8] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us8-ops-stuck-case.ts` — 3 scenarios (happy identify+requeue completes, failure requeue-still-broken → mark-blocked notifies clinician, edge no PHI visible anywhere)
+
+**Checkpoint 10**: US8 done. Ops role can unblock the pipeline without ever touching PHI.
+
+---
+
+## Phase 11: User Story 9 — GDPR erasure (Priority: P3)
+
+**Goal**: DPO executes Art. 17 erasure: ≤60 s crypto-shred, audit residual-identifier rewrite, confirmation PDF, subsequent 404 (not 403) per FR-032a.
+
+**Independent Test**: p99 ≤60 s, 404-on-search verified (SC-016), clinician cannot initiate.
+
+**Spec refs**: US9, FR-040, FR-002a fallback.
+
+- [ ] T323 [US9] Create `packages/ml-inference/src/api/erasure.py` — `POST /api/v1/erasure/requests` (DPO, step-up), `GET /api/v1/erasure/requests/{id}` per contracts/api-openapi.yaml §erasure
+- [ ] T324 [US9] Create `packages/ml-inference/src/services/erasure/orchestrator.py` — erasure flow: validate DPO + justification + fresh MFA → crypto-shred via `kms:ScheduleKeyDeletion` synchronous → hard-delete Postgres rows (Study/Series/Analysis/Segmentation/Lesion/Classification/FLR/Review/Report/Delivery) → AuditEvent residual-identifier rewrite → generate confirmation PDF → persist tombstone per research §X.1
+- [ ] T325 [US9] Create `packages/ml-inference/src/services/erasure/audit_rewriter.py` — walks AuditEvents referencing erased case; substitutes residual identifiers with `sha256(orig || tombstone_hash)` placeholders **without rewriting hashed rows** (chain integrity preserved per research §A.3)
+- [ ] T326 [US9] Create `packages/ml-inference/src/services/erasure/confirmation_pdf.py` — WeasyPrint render with justification + DPO + timestamp + tombstone hash
+- [ ] T327 [W] [US9] Wire `@require_permission('erasure.execute', step_up=True)` on erasure endpoints
+- [ ] T328 [W] [US9] Wire `AuditChainWriter` into erasure — emit `erasure_requested` + `tenant_data_deletion` with `rbac.denied=true` tag on any unauthorized attempt
+- [ ] T329 [US9] [frontend-designer] Create `packages/app/src/emr/views/erasure/ErasureRequestList.tsx` — DPO-only list of erasure requests with status
+- [ ] T330 [US9] [frontend-designer] Create `packages/app/src/emr/views/erasure/ErasureWizard.tsx` — 5-step wizard (select → justify → MFA → review → confirm) with step-up gate
+- [ ] T331 [US9] [frontend-designer] Create `packages/app/src/emr/components/erasure/ErasureConfirmation.tsx` — confirmation PDF download + tombstone reference
+- [ ] T332 [W] [US9] Wire `/erasure/*` routes into router + nav-registry (DPO role only)
+- [ ] T333 [US9] Implement `scripts/gdpr-erasure-sim.sh` full version — provisions disposable tenant, runs erasure, asserts ≤60 s + 404 on subsequent search
+- [ ] T334 [P] [US9] Create `packages/ml-inference/src/services/erasure/tests/test_crypto_shred.py` — mock KMS, assert `ScheduleKeyDeletion` called + p99 <60 s over 100 iterations
+- [ ] T335 [P] [US9] Create `packages/ml-inference/src/services/erasure/tests/test_audit_rewriter.py` — verifies chain integrity preserved post-erasure + residual identifiers hashed
+- [ ] T336 [P] [US9] Create `packages/ml-inference/tests/integration/test_erasure_404_disclosure.py` — post-erasure clinician search returns 404 not 403 per FR-032a
+- [ ] T337 [P] [US9] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us9-gdpr-erasure.ts` — 3 scenarios (happy ≤60 s + confirmation PDF, failure clinician attempt blocked, edge compliance reviewer sees erasure + hashed prior identifiers)
+
+**Checkpoint 11**: US9 done. GDPR Art. 17 workflow operational end-to-end.
+
+---
+
+## Phase 12: User Story 10 — Compliance reviewer (Priority: P3)
+
+**Goal**: Read-only compliance dashboard: MBoM viewer, audit summary (chain-validated), RUO spot-check tool, RegulatoryClaimRegistry toggle (step-up).
+
+**Independent Test**: Compliance can complete SC-009 (20-artifact RUO audit) + SC-010 (chain reconciliation) without DB access.
+
+**Spec refs**: US10, FR-028b, FR-038.
+
+- [ ] T338 [US10] Create `packages/ml-inference/src/api/compliance.py` — `GET /api/v1/compliance/mbom`, `GET /api/v1/compliance/audit-summary`, `POST /api/v1/compliance/ruo-spot-check`, `GET`+`PUT /api/v1/compliance/claim-registry` per contracts/api-openapi.yaml §compliance
+- [ ] T339 [US10] Create `packages/ml-inference/src/services/compliance/chain_verifier.py` — walks audit chain for a window, recomputes leaf hashes, returns `{chain_valid, first_invalid_sequence_no, merkle_root_for_window, s3_anchor_uris}` per research §A.3
+- [ ] T340 [US10] Create `packages/ml-inference/src/services/compliance/mbom_reader.py` — reads current build's `MBoM.json` + historical rows from `model_bill_of_materials` table
+- [ ] T341 [US10] Create `packages/ml-inference/src/services/compliance/ruo_spot_check.py` — samples N random exported artifacts (PDF, SEG, SR); renders PDF pages + OCRs watermark region; marks pass/fail
+- [ ] T342 [US10] Create `packages/ml-inference/src/services/compliance/claim_registry.py` — CRUD on `RegulatoryClaimRegistry` with step-up enforcement on `PUT`
+- [ ] T343 [W] [US10] Wire `@require_permission` on compliance routes — `compliance.view_mbom`, `compliance.generate_audit_summary`, `compliance.spot_check_ruo`, `compliance.toggle_claim_registry` (step-up)
+- [ ] T344 [W] [US10] Wire `AuditChainWriter` into claim-registry writes — emit `model_version_update` on toggle
+- [ ] T345 [US10] [frontend-designer] Create `packages/app/src/emr/views/compliance/MBoMView.tsx` — read-only table of integrated models with license hash, source URL, commit, approver
+- [ ] T346 [US10] [frontend-designer] Create `packages/app/src/emr/views/compliance/AuditSummaryView.tsx` — date-range picker, tenant selector (from `ComplianceAssignment`), chain-verification badge, downloadable tamper-evident report
+- [ ] T347 [US10] [frontend-designer] Create `packages/app/src/emr/components/compliance/AuditChainVerifier.tsx` — renders first-invalid event highlight on chain break + links to adjacent S3 Merkle anchor
+- [ ] T348 [US10] [frontend-designer] Create `packages/app/src/emr/views/compliance/RUOSpotCheckView.tsx` — runs sample + renders per-artifact thumbnail with watermark region highlighted + pass/fail marker
+- [ ] T349 [US10] [frontend-designer] Create `packages/app/src/emr/views/compliance/ClaimRegistryView.tsx` — 7 rows per tenant; each with status toggle (`<PermissionButton stepUp>`), effective-from timestamp, regulatory reference
+- [ ] T350 [P] [US10] Create `packages/app/src/emr/hooks/{useMBoM,useAuditSummary,useRUOSpotCheck,useClaimRegistry}.ts`
+- [ ] T351 [W] [US10] Wire compliance views into routes + nav-registry (compliance role only) + ComplianceAssignment scope filter
+- [ ] T352 [US10] [frontend-designer] Refactor `RUODisclaimer` + `burnWatermark` to consume `useRUOClaim` — disclaimer scope narrows when `RegulatoryClaimRegistry.status='cleared'` per plan §Claim Registry as feature-flag source + FR-028b
+- [ ] T353 [P] [US10] Create `packages/app/src/emr/components/compliance/__tests__/AuditChainVerifier.test.tsx` — feed synthetic corrupted chains; assert UI highlights first invalid event
+- [ ] T354 [P] [US10] Create `packages/ml-inference/tests/integration/test_compliance_audit_window.py` — 7-day window returns chain-valid + matches S3 Merkle anchor
+- [ ] T355 [P] [US10] Create `packages/app/src/emr/views/__e2e__/liver-ai-pipeline/test-us10-compliance.ts` — 3 scenarios (happy audit summary + chain valid + RUO spot-check pass 20/20, failure simulated tampered chain breaks at first invalid event, edge claim toggle narrows disclaimer)
+
+**Checkpoint 12**: US10 done. Compliance officer can sign off SC-009 + SC-010 + prep for partial CE clearance via claim registry.
+
+---
+
+## Phase 13: Polish & Cross-Cutting Concerns
+
+**Purpose**: Testing pyramid completion, CI gate wiring, production-readiness verification, docs, brand, performance.
+
+### Testing strategy completion
+
+- [ ] T356 [P] Create `packages/ml-inference/tests/regression/fixtures/` with `ct-001-normal`, `ct-002-cirrhotic`, `ct-003-post-resection`, `ct-004-tumor-replacement`, `ct-005-partial-coverage` fixture CT + GT mask sets
+- [ ] T357 [P] Create `packages/ml-inference/tests/regression/thresholds.yaml` per plan §ML regression gate (maps each stage to Dice/IoU/sensitivity threshold + MBoM version binding)
+- [ ] T358 [P] Create `packages/ml-inference/tests/contracts/test_triton_stage_shapes.py` — per-stage tensor shape/dtype/axis-order assertions vs `contracts/triton-stages.md`
+- [ ] T359 [P] Create `packages/ml-inference/tests/rbac/fixtures/role_crossing_catalog.yaml` — 15 canonical named role-crossing actions per plan §RBAC red-team
+- [ ] T360 [P] Create `packages/ml-inference/tests/rbac/test_role_crossing.py` — parametrized on (role × permission) cartesian from `matrix.yaml`; asserts 404 + `liverra:not-found` type + audit written + no PHI per SC-015
+- [ ] T361 [P] Create `packages/ml-inference/src/services/audit/tests/test_chain_of_hashes.py` — tamper-detection at start/middle/end positions of chain
+- [ ] T362 [P] Create `packages/ml-inference/src/services/anon/tests/test_presidio_fixtures.py` — 10 FP + 10 FN fixtures
+- [ ] T363 [P] Create `packages/app/src/emr/services/__tests__/fhir-integration.test.ts` — MockClient FHIR roundtrips (AuditEvent chain, Bundle transaction rollback, tenant 404 non-disclosure, AccessPolicy matrix)
+- [ ] T364 [P] Create `packages/ml-inference/tests/integration/fhir/test_tenant_isolation.py` — search in tenant A returns 0 hits for tenant B resource
+- [ ] T365 [P] Create `packages/app/lighthouse.config.js` — budgets LCP ≤2.5 s, TBT ≤300 ms, CLS ≤0.1, TTI ≤4 s per plan §Load & performance
+- [ ] T366 [P] Create `packages/ml-inference/tests/load/k6-pipeline.js` — 3 tenants × 5 users × 5 studies/week; p95 e2e ≤300 s (SC-002); p99 ≤600 s
+- [ ] T367 [P] Create `packages/app/tests/performance/viewer-fps.spec.ts` — Playwright+CDP recorded FPS during 3D rotation asserts ≥30 desktop / ≥20 tablet per NFR-001
+- [ ] T368 [P] Create `packages/app/tests/performance/slice-scroll-latency.spec.ts` — keydown-to-paint ≤100 ms p95
+- [ ] T369 [P] Create `packages/app/tests/visual/locales.spec.ts` — i18n visual-diff across en/de/ka at mobile+desktop per plan §i18n wiring
+- [ ] T370 [P] Create `packages/app/tests/visual/mobile-smoke.spec.ts` — 390×844 smoke-run every route, asserts no horizontal scrollbar
+- [ ] T371 [P] Create `packages/app/tests/a11y/axe-sweep.spec.ts` — `@axe-core/playwright` every route in light+dark; WCAG 2.1 AA violations fail per NFR-002
+
+### CI job wiring
+
+- [ ] T372 Update `.github/workflows/ci.yml` — enable all CI jobs: `ci-unit-ts`, `ci-unit-py`, `ci-lint`, `ci-typecheck`, `ci-contract`, `ci-ml-regression`, `ci-rbac-red-team`, `ci-fhir-integration`, `ci-bundle-check`, `ci-i18n`, `ci-i18n-visual`, `ci-forbidden-colors`, `ci-palette-cvd-check`, `ci-ui-agent-check`, `ci-lighthouse`, `ci-viewer-fps`
+- [ ] T373 [P] Create `.github/workflows/e2e-cpu.yml` — runs 27 parallelizable E2E scenarios (`test-us2/us3/us5/us6/us7/us9/us10`) blocking on main PRs
+- [ ] T374 [P] Create `.github/workflows/e2e-gpu.yml` — runs 3 GPU-serial scenarios (`test-us1/us4/us8`) blocking on release branches + nightly on main
+- [ ] T375 [P] Create `.github/workflows/k6-nightly.yml` — runs k6 load test against staging with SC-002 + FR-013 assertions
+- [ ] T376 [P] Create `scripts/i18n-check.ts` — AST walk for `t('...')` calls, asserts every key in `{en,de,ka}.json`
+- [ ] T377 [W] Wire `i18n-check` into CI `ci-i18n` job
+- [ ] T378 [P] Create `scripts/forbidden-colors-scan.sh` — grep `#(3b82f6|60a5fa|2563eb|4267B2)` across `.ts,.tsx,.css,.module.css` → fail on any hit
+- [ ] T379 [W] Wire `forbidden-colors-scan` into CI `ci-forbidden-colors` job
+
+### Observability + DR completion
+
+- [ ] T380 [P] Implement `scripts/dr-restore-dryrun.sh` full version — restores latest RDS PITR + S3 snapshot into sandbox VPC, runs chain verifier, asserts RTO <8 h
+- [ ] T381 [P] Create `deploy/grafana/dashboards/` JSON fully populated (fill T131 stubs with queries against CloudWatch + Prometheus + Tempo)
+- [ ] T382 [P] Create PagerDuty escalation policy + alert routing in `deploy/terraform/pagerduty.tf` per plan §Alerts
+- [ ] T383 [P] Write `docs/runbooks/dr-restore.md` — step-by-step DR playbook
+- [ ] T384 [P] Write `docs/runbooks/erasure-execution.md` — DPO operational guide
+- [ ] T385 [P] Write `docs/runbooks/phi-incident-response.md` — FR-002a incident playbook (detect → quarantine → notify DPO → crypto-shred → post-mortem)
+- [ ] T386 [P] Write `docs/runbooks/breach-tabletop-2026.md` — annual tabletop template per NFR-009
+
+### Brand rebrand + documentation
+
+- [ ] T387 Create `specs/001-zero-training-mvp/brand-tokens.md` — `status: pending` artifact blocking pilot release until founder + design lead sign off per plan §Brand rebrand deliverables
+- [ ] T388 Create `specs/001-zero-training-mvp/a11y-matrix.md` — per-component ARIA matrix from plan §Accessibility matrix (14 components)
+- [ ] T389 Create `packages/app/ResponsiveMatrix.md` — per-screen breakpoint behavior table per plan §Mobile & touch strategy
+- [ ] T390 [P] Create `docs/architecture/overview.md` — high-level architecture diagram + ADR index
+- [ ] T391 [P] Create `docs/architecture/adr/0001-cascaded-not-ensemble.md` — ADR for rejecting Triton ensemble (research §C.2)
+- [ ] T392 [P] Create `docs/architecture/adr/0002-medplum-self-hosted.md` — ADR per research §A.2
+- [ ] T393 [P] Create `docs/architecture/adr/0003-per-tenant-linear-hash-chain.md` — ADR per research §A.3
+- [ ] T394 [P] Create `docs/architecture/adr/0004-custom-cornerstone3d-not-ohif.md` — ADR per research §C.4
+- [ ] T395 [P] Create `docs/architecture/adr/0005-per-case-kms-crypto-shred.md` — ADR per research §X.1
+
+### Production-readiness verification
+
+- [ ] T396 Create `docs/runbooks/readiness-matrix.md` — live-tracking version of plan §Production-Readiness Matrix; regenerated from CI artifacts nightly
+- [ ] T397 Create `.github/workflows/readiness-matrix.yml` — nightly job aggregating CI-job outcomes → updates `readiness-matrix.md` status column
+- [ ] T398 Create `.github/workflows/release-gate.yml` — blocks release tag creation if any of: (a) `ci-dr-drill` >90 days old, (b) breach-tabletop-YYYY.md missing for current year, (c) SC-001..SC-016 row red
+- [ ] T399 Run `npm run bootstrap:dev` on fresh clone; validate quickstart.md end-to-end per quickstart §1-8
+- [ ] T400 Execute `scripts/verify-ruo-watermark.py` against all demo case artifacts; assert all carry watermark per SC-009
+- [ ] T401 Execute `scripts/verify-audit-chain.py` against each tenant's chain; assert chain integrity per SC-010
+- [ ] T402 Assemble release-readiness report mapping every SC-001..SC-016 to its CI-green evidence; archive to `docs/releases/v1.0.0/readiness.md`
+
+**Checkpoint 13**: All stories complete, all gates green. Ready for design-partner pilot deployment + SC-007 DPA signing + SC-008 tumor-board use + SC-011 conference abstract.
+
+---
+
+## Dependencies & Execution Order
+
+### Phase dependencies
+
+- **Phase 1 (Setup)**: no deps — start immediately (25 tasks, mostly parallel)
+- **Phase 2 (Foundational)**: depends on Phase 1 — BLOCKS all user stories (114 tasks, ~60% parallel)
+- **Phase 3 (US1 P1)**: depends on Phase 2 complete — MVP slice
+- **Phases 4-12 (US2-US10)**: depend on Phase 2; once Phase 2 done, all stories can proceed in parallel if staffed
+- **Phase 13 (Polish)**: depends on all desired stories
+
+### User story dependencies
+
+- **US1 (P1)** — no deps on other stories (standalone MVP)
+- **US2 (P2)** — depends on US1 parenchyma output (stage 3 consumes stage 1 mask); can proceed in parallel with US1 development after T162 stub shipped
+- **US3 (P3)** — depends on US1 parenchyma + US2 Couinaud (for lesion Couinaud-location); can begin model-integration in parallel
+- **US4 (P4)** — depends on US1-US3 outputs to have something to refine; model work parallelizable
+- **US5 (P5)** — depends on US1-US4 to have Report content; export services parallelizable
+- **US6 (P2)** — depends on Phase 2 auth + Cognito; independent of US1-US5 clinical flow
+- **US7 (P2)** — depends on Phase 2 + US6 invite flow; otherwise independent
+- **US8 (P3)** — depends on US1 cascade existing (there must be queued analyses to recover); ops UI parallelizable
+- **US9 (P3)** — depends on Phase 2 KMS + Phase 12 compliance audit rewriter for chain integrity; otherwise standalone
+- **US10 (P3)** — depends on Phase 2 audit chain + US9 erasure events existing; dashboard UI standalone
+
+### Within each user story
+
+- Triton model + orchestrator Celery task → service layer → API endpoint → `@require_permission` wiring → `AuditChainWriter` wiring → Frontend hook + view → integration wiring → tests
+- **Every Create task has a matching [W] wire task** in the consumer phase — see Wiring Checklist below
+
+### Parallel opportunities summary
+
+- Phase 1: ~17 of 25 tasks `[P]`
+- Phase 2: ~70 of 114 tasks `[P]` (port batches, context scaffolding, FHIR constants)
+- Each US phase: ~40% `[P]` typical
+- Phase 13: ~30 of 47 tasks `[P]`
+- **Max wall-clock reduction**: 3-dev team can complete in ~55% of serial time (per-phase bottlenecks are the [W] wire tasks + tests that depend on producers)
+
+---
+
+## Parallel Example: US1 kickoff
+
+After Phase 2 checkpoint, a 3-developer team could start US1 with these parallel batches:
+
+```bash
+# Backend dev A — ingestion + anonymization stack
+Task: "T140 Create pacs/orthanc/orthanc.json"
+Task: "T142 Create pacs/ctp/pipeline.xml"
+Task: "T143 Create pacs/anon-sidecar/main.py"
+
+# Backend dev B — Triton + orchestrator
+Task: "T155 Create triton-models/stunet-parenchyma/config.pbtxt"
+Task: "T157 Create services/triton/client.py"
+Task: "T159 Create orchestrator/sanity.py"
+
+# Frontend dev C (frontend-designer agent)
+Task: "T171 [frontend-designer] Create upload/DicomDropzone.tsx"
+Task: "T173 [frontend-designer] Create views/cases/CasesListView.tsx"
+Task: "T180 Create contexts/AnalysisContext.tsx"
+```
+
+Wire tasks (T147, T153, T154, T165, T166, T169, T170, T186-T189) come after their producers.
+
+---
+
+## Wiring Checklist *(verify each phase before checkpoint)*
+
+- [ ] Every `Create [service]` task has a `[W] Wire` task in a consumer phase
+- [ ] Every `Create [hook]` task is called by at least one component task
+- [ ] Every `Create [component]` task is referenced by a route or parent component task
+- [ ] Every `@require_permission`-protected endpoint has a matching wire task
+- [ ] Every `AuditEvent`-emitting endpoint has a chain-writer wire task
+- [ ] Every new Context has a wire task adding provider to `main.tsx` or parent view
+- [ ] Orphan detection: grep `T0?(\d+) Create` against `T0?(\d+).*Wire .*T0?(\d+)` — every create should have a matching wire reference
+
+---
+
+## Implementation Strategy
+
+### MVP First (US1 only)
+
+1. **Week 0-1**: Phase 1 Setup (parallel across team)
+2. **Week 1-2**: Phase 2 Foundational — **CRITICAL blocker** for everything
+3. **Week 2-3**: Phase 3 US1 only
+4. **STOP**: Demo US1 at `app.liverra.ai` to design-partner surgeons (SC-013 recording)
+5. Validate SC-002 + SC-003 on real-ish data
+
+### Incremental delivery (6-week sprint per plan.md + mvp-strategy)
+
+- **Week 1**: Phase 1 + 60% of Phase 2 (ports in parallel)
+- **Week 2**: Phase 2 complete + Phase 3 US1 started
+- **Week 3**: US1 finalized + US2 Couinaud started (stage 3 model)
+- **Week 4**: US2 + US3 Lesion done + US6 admin parallel track
+- **Week 5**: US4 refinement + US5 export + US7 onboarding
+- **Week 6**: US8 ops + US9 erasure + US10 compliance + Phase 13 polish + SC-013 demo recording
+
+### Parallel team strategy (recommended staffing)
+
+- **Backend ML engineer** (1): Phase 2 Triton + all cascade stages (US1/US2/US3/US4 model integration)
+- **Backend platform engineer** (1): Phase 2 Medplum + Cognito + RBAC + audit + Phase 8 admin + Phase 11 erasure + Phase 12 compliance
+- **Full-stack engineer** (1): Phase 2 ports + Phase 3 viewer shell + Phase 6 refinement frontend + Phase 9 onboarding
+- **Clinical validator + QA** (shared): Phase 13 regression fixtures + E2E + ML thresholds + SC-007 DPA + SC-008 tumor-board case
+- **frontend-designer agent** (on-demand): all UI tasks marked `[frontend-designer]` — delegated per-task by humans above
+
+---
+
+## Notes
+
+- `[P]` = different files, no cross-task dependencies
+- `[W]` = integration wiring; MUST run after producer task completes; specifies exact import + call site
+- `[USn]` = maps task to user story for traceability + SC coverage
+- Tests are REQUIRED for this feature (Class IIb SaMD; IEC 62304 verification evidence requires 1:1 spec→test trace)
+- Commit after each task or logical group
+- Checkpoint after each phase to validate independence
+- **Never batch >3 files in one PR** (Constitution §No Bulk File Edits)
+- **UI work MUST use frontend-designer agent** (CLAUDE.md)
+- **FHIR work MUST invoke fhir-developer skill first**
+- **Chain-of-hashes + audit writes must be in same Postgres txn as business action** (FR-029b fail-closed)
+- **Cross-tenant resource access returns 404, not 403** (FR-032a)
+- **Every exported artifact MUST carry RUO watermark** (SC-009)
+
+**Total tasks: 402** · **User story phases: 10** · **Wire tasks: 51** · **Parallel-safe tasks: ~175** · **Orphan check: all Create tasks matched to a Wire task**

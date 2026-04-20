@@ -1,0 +1,126 @@
+{
+  "classes": {
+    "HCC": {
+      "name": "HCC",
+      "long": "Hepatocellular carcinoma",
+      "malignancy": "malignant"
+    },
+    "ICC": {
+      "name": "ICC",
+      "long": "Intrahepatic cholangiocarcinoma",
+      "malignancy": "malignant"
+    },
+    "MET": {
+      "name": "MET",
+      "long": "Metastasis",
+      "malignancy": "malignant"
+    },
+    "FNH": {
+      "name": "FNH",
+      "long": "Focal nodular hyperplasia",
+      "malignancy": "benign"
+    },
+    "HEM": {
+      "name": "HEM",
+      "long": "Hemangioma",
+      "malignancy": "benign"
+    },
+    "CYST": {
+      "name": "CYST",
+      "long": "Hepatic cyst",
+      "malignancy": "benign"
+    }
+  },
+  "abstention": {
+    "label": "Uncertain",
+    "help": "The AI could not confidently classify this lesion. Radiologist review is recommended.",
+    "tooltip": "Uncertain — radiologist review recommended",
+    "reviewCta": "Mark for review",
+    "badgeAria": "Uncertain classification, radiologist review recommended"
+  },
+  "list": {
+    "heading": "Detected lesions",
+    "columns": {
+      "thumbnail": "Preview",
+      "location": "Segment",
+      "diameter": "Diameter",
+      "class": "Class",
+      "confidence": "Confidence",
+      "source": "Source"
+    },
+    "source": {
+      "ai_detected": "AI",
+      "reviewer_prompted": "Reviewer"
+    },
+    "rowAria": "Lesion {{index}} of {{total}}, Segment {{segment}}, {{diameter}} mm, {{className}} suggested, {{confidence}}% confidence",
+    "emptyState": {
+      "title": "No lesions detected",
+      "body": "The AI did not identify any focal lesions. Please review manually — AI may miss small or atypical lesions."
+    },
+    "loading": "Loading lesions…",
+    "filters": {
+      "heading": "Filter lesions",
+      "confidence": "Min confidence",
+      "confidenceValue": "{{value}}% or higher",
+      "class": "Class",
+      "classAll": "All classes",
+      "size": "Size",
+      "sizeAll": "Any size",
+      "sizeSmall": "< 10 mm",
+      "sizeMedium": "10–30 mm",
+      "sizeLarge": "> 30 mm",
+      "segment": "Segment",
+      "segmentAll": "All segments",
+      "clear": "Clear filters",
+      "resultCount": "{{count}} of {{total}} lesions"
+    },
+    "aiSuggestionSuffix": "(AI suggestion)"
+  },
+  "detail": {
+    "heading": "Lesion #{{index}}",
+    "close": "Close lesion detail",
+    "sections": {
+      "location": "Location",
+      "size": "Size",
+      "classification": "Classification",
+      "visualization": "Visualization",
+      "actions": "Actions"
+    },
+    "location": {
+      "segment": "Couinaud segment",
+      "multiSegment": "Spans multiple segments",
+      "description": "Anatomical description"
+    },
+    "size": {
+      "axial": "Axial diameter",
+      "coronal": "Coronal diameter",
+      "sagittal": "Sagittal diameter",
+      "volume": "Volume",
+      "mm": "mm",
+      "ml": "mL"
+    },
+    "classification": {
+      "distribution": "Probability distribution",
+      "highest": "Highest-probability class",
+      "temperature": "Calibration temperature: {{value}}",
+      "abstained": "AI abstained — no class above threshold {{threshold}}"
+    },
+    "visualization": {
+      "axial": "Axial",
+      "coronal": "Coronal",
+      "sagittal": "Sagittal",
+      "watermark": "Research Use Only"
+    },
+    "actions": {
+      "override": "Override classification",
+      "overrideHelp": "Override with a radiologist-chosen class (logged for audit).",
+      "reReview": "Mark for re-review",
+      "reReviewHelp": "Flag this lesion for a second-reader review."
+    }
+  },
+  "layer": {
+    "title": "Lesion overlays",
+    "hiddenCount": "{{count}} lesions hidden",
+    "focusAria": "Focus on lesion {{index}}: {{className}} in segment {{segment}}"
+  }
+}

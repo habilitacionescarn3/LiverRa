@@ -1,0 +1,190 @@
+# 15 canonical role-crossing actions for RBAC red-team test (SC-015)
+# Plan reference: specs/001-zero-training-mvp/plan.md §RBAC red-team test
+# Consumed by: packages/ml-inference/tests/rbac/test_role_crossing.py
+#
+# Every entry exercises a known impersonation / privilege-escalation vector.
+# For each, the server MUST return 404 + liverra:not-found + audit `rbac.denied=true`
+# with zero PHI in the response body (FR-032a: existence non-disclosure).
+
+version: 1
+actions:
+  - id: fellow_finalize
+    description: "Fellow attempts report.finalize (attending-only)"
+    actor_role: fellow
+    target_permission: report.finalize
+    target_resource: Report
+    method: POST
+    path_template: /api/v1/reports/{report_id}/finalize
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: admin_view_phi
+    description: "Admin attempts to read clinical content (clinician-only)"
+    actor_role: admin
+    target_permission: analysis.view
+    target_resource: Analysis
+    method: GET
+    path_template: /api/v1/analyses/{analysis_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: ops_view_phi
+    description: "Ops attempts to read clinical content (operational role should NOT see PHI)"
+    actor_role: ops
+    target_permission: analysis.view
+    target_resource: Analysis
+    method: GET
+    path_template: /api/v1/analyses/{analysis_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: clinician_execute_erasure
+    description: "Clinician attempts GDPR erasure (admin-only + step-up)"
+    actor_role: radiologist
+    target_permission: gdpr.erase
+    target_resource: Patient
+    method: POST
+    path_template: /api/v1/gdpr/erasure
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: radiologist_approve_deletion
+    description: "Non-admin attempts case deletion approval"
+    actor_role: radiologist
+    target_permission: study.delete.approve
+    target_resource: Study
+    method: POST
+    path_template: /api/v1/studies/{study_id}/deletion/approve
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: compliance_modify_claim_registry_unauth
+    description: "Compliance role toggles claim registry without fresh MFA (step-up required)"
+    actor_role: compliance
+    target_permission: compliance.claim_registry.modify
+    target_resource: ClaimRegistry
+    method: PATCH
+    path_template: /api/v1/compliance/claim-registry/{id}
+    expected_status: 401
+    expected_error_type: "liverra:step-up-required"
+    audit_outcome: minor-failure
+    notes: "Failure mode is step-up not 404 because authz succeeds but auth_time stale."
+
+  - id: cross_tenant_study_access
+    description: "User of tenant A attempts to read study in tenant B"
+    actor_role: radiologist
+    actor_tenant: tenant-a
+    resource_tenant: tenant-b
+    target_permission: study.view
+    target_resource: Study
+    method: GET
+    path_template: /api/v1/studies/{study_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: cross_tenant_report_access
+    description: "User of tenant A attempts to read report in tenant B"
+    actor_role: radiologist
+    actor_tenant: tenant-a
+    resource_tenant: tenant-b
+    target_permission: report.view
+    target_resource: Report
+    method: GET
+    path_template: /api/v1/reports/{report_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: cross_tenant_audit_access
+    description: "User of tenant A attempts to read audit event in tenant B"
+    actor_role: compliance
+    actor_tenant: tenant-a
+    resource_tenant: tenant-b
+    target_permission: audit.view
+    target_resource: AuditEvent
+    method: GET
+    path_template: /api/v1/audit/{event_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: deep_link_across_tenants
+    description: "Shareable deep-link from tenant A is opened by a user of tenant B"
+    actor_role: radiologist
+    actor_tenant: tenant-b
+    resource_tenant: tenant-a
+    target_permission: study.view
+    target_resource: Study
+    method: GET
+    path_template: /cases/{study_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+
+  - id: unguessable_id_brute_force
+    description: "Sequential ID probing attempts to enumerate resources cross-tenant"
+    actor_role: radiologist
+    target_permission: study.view
+    target_resource: Study
+    method: GET
+    path_template: /api/v1/studies/{guessed_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+    rate_limit_trigger: true
+
+  - id: step_up_bypass_finalize
+    description: "Attending attempts finalize without fresh MFA (auth_time > 5min)"
+    actor_role: attending
+    target_permission: report.finalize
+    target_resource: Report
+    method: POST
+    path_template: /api/v1/reports/{report_id}/finalize
+    expected_status: 401
+    expected_error_type: "liverra:step-up-required"
+    audit_outcome: minor-failure
+    auth_time_staleness_minutes: 6
+
+  - id: step_up_bypass_erasure
+    description: "Admin attempts GDPR erasure without fresh MFA"
+    actor_role: admin
+    target_permission: gdpr.erase
+    target_resource: Patient
+    method: POST
+    path_template: /api/v1/gdpr/erasure
+    expected_status: 401
+    expected_error_type: "liverra:step-up-required"
+    audit_outcome: minor-failure
+    auth_time_staleness_minutes: 6
+
+  - id: suspended_user_login
+    description: "Suspended Cognito user attempts to sign in"
+    actor_role: radiologist
+    actor_status: suspended
+    target_permission: study.view
+    target_resource: Study
+    method: GET
+    path_template: /api/v1/studies/{study_id}
+    expected_status: 401
+    expected_error_type: "liverra:unauthenticated"
+    audit_outcome: minor-failure
+
+  - id: tenant_idp_impersonation
+    description: "SAML assertion carries wrong custom:tenant_id claim"
+    actor_role: radiologist
+    actor_claim_tenant_id: tenant-b
+    resource_tenant: tenant-a
+    target_permission: study.view
+    target_resource: Study
+    method: GET
+    path_template: /api/v1/studies/{study_id}
+    expected_status: 404
+    expected_error_type: "liverra:not-found"
+    audit_outcome: minor-failure
+    notes: "Assertion must be rejected at the IdP verifier OR result in 404 at API."

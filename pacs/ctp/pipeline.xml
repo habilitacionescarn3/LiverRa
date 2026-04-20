@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  LiverRa CTP profile — PS3.15 basic + UTF-8 preservation.
+
+  Plain-English:
+    The RSNA Clinical Trials Processor (CTP) is the industry-standard
+    open-source tool for scrubbing PHI from DICOM *headers* per
+    PS3.15 Basic Application Confidentiality Profile. LiverRa pairs CTP
+    with Presidio for *pixel* PHI (burned-in text). This file is the
+    CTP stage configuration that the anonymization sidecar invokes.
+
+  Why we disable CTP's default "sanitize to ASCII" behaviour:
+    CTP ships with an @sanitize-like filter that strips non-ASCII bytes
+    out of PN (Person Name) VR fields "for interoperability". For a
+    Georgian / German user base that step is destructive — it would
+    turn "Müller" into "Mller" and Mkhedruli into empty strings. We
+    require ISO_IR 192 (UTF-8) everywhere (research §B.8) so names
+    survive through to the hashed-token replacement. Hence every PN /
+    LO / SH / UT VR is rewritten via @hashuid/@hashtext, never through
+    the ASCII sanitizer. The built-in <sa> (sanitize-ASCII) filter stage
+    is intentionally OMITTED below.
+
+  References:
+    - specs/001-zero-training-mvp/research.md §B.1, §B.2, §B.8
+    - spec.md §FR-002, §FR-002b (Unicode)
+    - DICOM PS3.15 Basic Application Confidentiality Profile (Table E.1-1)
+-->
+<DicomAnonymizer name="liverra-basic-utf8">
+
+  <!-- ===== Header-level PHI (PS3.15 basic profile) ====================== -->
+
+  <!-- Patient identity: hash to stable token so cross-series linkage is
+       preserved inside a study without exposing identity. -->
+  <e en="T" t="00100010" n="PatientName">@hashtext(this,ptname_salt)</e>
+  <e en="T" t="00100020" n="PatientID">@hashtext(this,ptid_salt)</e>
+
+  <!-- Birth date: collapse to year-only (01-01-YYYY). Meets both
+       GDPR minimisation and our clinical sanity-check needs
+       (pediatric vs adult classification). -->
+  <e en="T" t="00100030" n="PatientBirthDate">@param(@DATEYEAR)</e>
+  <e en="T" t="00100032" n="PatientBirthTime">@remove()</e>
+  <e en="T" t="00100040" n="PatientSex">@keep()</e>
+  <e en="T" t="00101010" n="PatientAge">@keep()</e>
+
+  <e en="T" t="00101000" n="OtherPatientIDs">@remove()</e>
+  <e en="T" t="00101001" n="OtherPatientNames">@remove()</e>
+  <e en="T" t="00101040" n="PatientAddress">@remove()</e>
+  <e en="T" t="00102154" n="PatientTelephoneNumbers">@remove()</e>
+  <e en="T" t="00104000" n="PatientComments">@remove()</e>
+
+  <!-- Referring / reading physicians (PHI on the clinician side). -->
+  <e en="T" t="00080090" n="ReferringPhysicianName">@hashtext(this,ref_salt)</e>
+  <e en="T" t="00081048" n="PhysiciansOfRecord">@remove()</e>
+  <e en="T" t="00081050" n="PerformingPhysicianName">@remove()</e>
+  <e en="T" t="00081060" n="NameOfPhysiciansReadingStudy">@remove()</e>
+  <e en="T" t="00081070" n="OperatorsName">@remove()</e>
+
+  <!-- Institution (tenant-configurable: default hash; consortium opt-in
+       preserves for research attribution). -->
+  <e en="T" t="00080080" n="InstitutionName">@hashtext(this,inst_salt)</e>
+  <e en="T" t="00080081" n="InstitutionAddress">@remove()</e>
+  <e en="T" t="00081010" n="StationName">@remove()</e>
+  <e en="T" t="00081040" n="InstitutionalDepartmentName">@remove()</e>
+
+  <!-- Study / series identifiers: regenerate under the LiverRa UID root.
+       @hashuid salts with the root so reruns are deterministic. -->
+  <e en="T" t="0020000D" n="StudyInstanceUID">@hashuid(@UIDROOT,this)</e>
+  <e en="T" t="0020000E" n="SeriesInstanceUID">@hashuid(@UIDROOT,this)</e>
+  <e en="T" t="00080018" n="SOPInstanceUID">@hashuid(@UIDROOT,this)</e>
+  <e en="T" t="00080050" n="AccessionNumber">@hashtext(this,acc_salt)</e>
+  <e en="T" t="00200010" n="StudyID">@hashtext(this,sid_salt)</e>
+  <e en="T" t="00080096" n="ReferencedPhysicianNameSequence">@remove()</e>
+
+  <!-- Dates — shift by tenant-configured delta to preserve intervals. -->
+  <e en="T" t="00080020" n="StudyDate">@incrementdate(this,@DATEINC)</e>
+  <e en="T" t="00080021" n="SeriesDate">@incrementdate(this,@DATEINC)</e>
+  <e en="T" t="00080022" n="AcquisitionDate">@incrementdate(this,@DATEINC)</e>
+  <e en="T" t="00080023" n="ContentDate">@incrementdate(this,@DATEINC)</e>
+  <e en="T" t="00080030" n="StudyTime">@keep()</e>
+  <e en="T" t="00080031" n="SeriesTime">@keep()</e>
+  <e en="T" t="00080032" n="AcquisitionTime">@keep()</e>
+  <e en="T" t="00080033" n="ContentTime">@keep()</e>
+
+  <!-- Private-tag forest: remove unless on our allow-list (vendor QC
+       metadata we actually need — e.g., Siemens reconstruction kernel). -->
+  <e en="T" t="privategroups" n="private">@remove()</e>
+
+  <!-- Comments / free-text where clinicians occasionally paste PHI. -->
+  <e en="T" t="00081080" n="AdmittingDiagnosesDescription">@keep()</e>
+  <e en="T" t="00204000" n="ImageComments">@remove()</e>
+  <e en="T" t="00324000" n="StudyComments">@remove()</e>
+  <e en="T" t="00380004" n="ReferencedPatientAliasSequence">@remove()</e>
+  <e en="T" t="00380010" n="AdmissionID">@remove()</e>
+  <e en="T" t="00400253" n="PerformedProcedureStepID">@remove()</e>
+
+  <!-- ===== Character-set policy (research §B.8) ========================= -->
+  <!--
+    Force ISO_IR 192 (UTF-8) on every anonymized instance. We deliberately
+    set SpecificCharacterSet even when the source was ISO_IR 100 etc., so
+    Presidio NFC normalisation + downstream PDF rendering are consistent.
+
+    The `filter` attribute below lists the stages CTP runs in order. We
+    OMIT `sa` (sanitize-ASCII). DO NOT re-add it — Georgian + German
+    survival is a spec requirement (FR-002b).
+  -->
+  <e en="T" t="00080005" n="SpecificCharacterSet">@param(ISO_IR 192)</e>
+  <filter>nb dm</filter>
+
+  <!-- ===== Required per PS3.15 basic — stamp the profile & method ======= -->
+  <e en="T" t="00120062" n="PatientIdentityRemoved">@param(YES)</e>
+  <e en="T" t="00120063" n="DeidentificationMethod">@param(LiverRa PS3.15 basic + UTF-8; CTP {version}; pixel PHI handled out-of-band by Presidio)</e>
+
+</DicomAnonymizer>

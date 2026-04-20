@@ -1,0 +1,348 @@
+# Implementation Plan: Zero-Training Cascaded Pretrained Liver AI Pipeline (v1 MVP)
+
+**Branch**: `001-zero-training-mvp` | **Date**: 2026-04-19 | **Spec**: [`spec.md`](./spec.md)
+**Input**: Feature specification at `/Users/toko/Desktop/LiverRa/specs/001-zero-training-mvp/spec.md`
+
+---
+
+## Summary
+
+Deliver the LiverRa v1 MVP — a web application at `app.liverra.ai` where HPB surgeons at three design-partner hospitals (Regensburg, Potsdam, Geo Hospitals) upload a 4-phase contrast liver CT and, within 5 minutes, obtain a 3D interactive view with parenchyma + 8 Couinaud segments + vessel trunks + lesion list + FLR calculator + finalized PDF/DICOM-SEG/DICOM-SR exports.
+
+The pipeline is a **cascaded orchestration of five Apache-2.0 pretrained models** (STU-Net → Pictorial Couinaud → LiLNet → VISTA3D → MedSAM-2) — **no custom training in v1**. The platform around the AI is full-featured: auth + MFA + RBAC + admin onboarding + clinician onboarding + compliance dashboard + ops dashboard + GDPR erasure + chain-of-hashes audit + PACS push + i18n (en/de/ka) + WCAG 2.1 AA + dark mode + mobile-responsive. Research Use Only disclaimer is a first-class regulatory primitive (per-claim registry, pixel-burn watermarking, fail-closed audit).
+
+The plan deliberately decouples the **AI stages behind versioned Triton contracts** so that later work only needs to swap model weights behind the same I/O shape — frontend, audit, review, and export flows do not need to change.
+
+---
+
+## Technical Context
+
+**Language/Version**:
+- Frontend: TypeScript 5.x strict ESM + React 19 (Vite 7)
+- Backend API: Python 3.11 (FastAPI)
+- Background workers: Python 3.11 (Celery)
+- ML inference: Python 3.11 + NVIDIA Triton 24.x
+
+**Primary Dependencies**:
+- UI: Mantine UI 7.x, OHIF Viewer 3.9+, Cornerstone3D 2.0, React Router 7, TanStack Query 5
+- API: FastAPI, Pydantic 2, SQLAlchemy 2, Alembic
+- ML: MONAI 1.4+, PyTorch 2.3, Triton Inference Server 24.x
+- DICOM: `pydicom`, `highdicom` (DICOM-SEG + DICOM-SR), Orthanc, CTP anonymizer
+- FHIR: generated types from `packages/fhirtypes` (R4)
+- Auth: OAuth 2.0 / OIDC (specific provider — see research)
+
+**Storage**:
+- PostgreSQL 16 — domain (Analyses, Segmentations, SurgeonReviews, Reports, AuditEvents)
+- Redis 7 — Celery queue + per-session cache + rate limits
+- S3 (eu-central-1) — DICOM (encrypted with per-case KMS keys), derived masks, exported artifacts
+- Orthanc — transient DICOM staging + DIMSE endpoints
+- FHIR server (see research — Medplum self-hosted vs HAPI FHIR vs native Postgres)
+
+**Testing**:
+- Frontend: Vitest (unit) + Playwright (E2E per spec §End-to-End Test Scenarios)
+- Backend: pytest + pytest-asyncio + httpx; schema tests with `schemathesis`
+- ML regression: pytest with golden CT fixtures; Dice/IoU thresholds block merge (constitution testing gate)
+- Contract tests: OpenAPI schema conformance + Triton model I/O schema validation
+
+**Target Platform**:
+- Web browser (Chrome/Edge 120+, Safari 17+, Firefox 121+)
+- Mobile-responsive down to 390 px wide
+- Backend + Triton: Linux containers on AWS (eu-central-1)
+- GPU: NVIDIA L4 24 GB (g5.xlarge) for production inference, on-demand start/stop
+- Deployment: Docker Compose for MVP; Amazon EKS deferred to Phase 2
+
+**Project Type**: Web application (monorepo) + ML inference service + DICOM edge appliance
+
+**Performance Goals**:
+- End-to-end pipeline ≤5 min on warm infra (SC-002)
+- Inference stage total ≤2 min on L4 (FR-014)
+- FLR readout ≤1 s during plane drag (FR-013)
+- 3D view ≥30 fps on workstation, ≥20 fps on tablet (NFR-001)
+- Slice scroll response ≤100 ms (NFR-001)
+- Queue 1–3 concurrent analyses on MVP hardware (FR-036)
+
+**Constraints**:
+- Data residency AWS eu-central-1 Frankfurt (Constitution VII)
+- Apache 2.0 licensing for all integrated ML models (Constitution II)
+- TLS 1.3 in transit, AES-256 at rest, KMS-managed keys
+- PHI never leaves hospital network un-anonymized (FR-002)
+- Audit writes MUST fail-closed (FR-029b)
+- RUO disclaimer mandatory on every AI-derived output (Constitution VI + FR-028)
+- Cost envelope €800–€1,500 / month pilot (NFR-008)
+
+**Scale/Scope**:
+- v1: 3 tenants × ~5 clinicians each × 1–5 studies/week ≈ 75 studies/month
+- Storage: raw DICOM ~500 MB–2 GB per study × 90-day retention ≈ 150 GB active
+- Frontend screens: ~25 (upload, viewer, lesions, refine, finalize, cases list, admin, onboarding, compliance, ops, help, glossary, erasure, settings, notifications, profile, audit log, user management, PACS config, demo case runner, etc.)
+- ~47 FRs + 10 NFRs + 10 user stories + 18 key entities
+
+---
+
+## Constitution Check *(GATE — must pass before Phase 0)*
+
+Evaluated against `.specify/memory/constitution.md` v2.0.0. All ten principles assessed.
+
+| # | Principle | Gate | Plan Status |
+|---|-----------|------|------------|
+| I | Spec-Driven Development (NON-NEGOTIABLE) | Spec artifacts exist | ✅ `spec.md` upgraded (v2); `plan.md` = this file; `tasks.md` produced in Phase 2 |
+| II | Apache 2.0 Model Licensing (NON-NEGOTIABLE) | All models verified Apache 2.0 | ✅ STU-Net, Pictorial Couinaud, LiLNet, VISTA3D, MedSAM-2 all Apache 2.0; MBoM automation planned (FR-038) |
+| III | Cascaded Inference Architecture | Pipeline cascaded, not end-to-end; each stage versioned contract | ✅ 5-stage cascade; per-stage Triton endpoints + OpenAPI contracts in `/contracts` |
+| IV | FHIR-First Healthcare Data | FHIR R4; central constants file; `http://liverra.ai/fhir/...` URLs | ✅ `packages/fhirtypes`; `packages/app/src/emr/constants/fhir-systems.ts` (port from MediMind) |
+| V | Auditability & Regulatory Traceability | Every ML run + DICOM txn + PHI touch logged; chain-of-hashes; MBoM + DBoM | ✅ FHIR AuditEvent FR-029a; chain-of-hashes research task; MBoM build step FR-038 |
+| VI | Research Use Only Until CE Mark | RUO disclaimer on every AI output; per-claim registry | ✅ FR-028 + FR-028a + FR-028b pixel-burn + per-claim RUO registry |
+| VII | Security, Privacy & Data Residency | OAuth/OIDC; MFA; AccessPolicy / RBAC; Frankfurt residency; secrets in AWS SM | ✅ OIDC (provider decided in research); MFA + step-up (NFR-006); eu-central-1; AWS Secrets Manager |
+| VIII | Type Safety & Strict Mode | TS strict, Python type hints + mypy strict, Pydantic at FastAPI boundary | ✅ TS strict in all packages; `mypy --strict` on Python; Pydantic v2 models |
+| IX | Unified Design System | theme.css + EMR component library; mobile-first; tap targets 44×44; `frontend-designer` only | ✅ Port theme.css + EMR lib from MediMind; NFR-002 + NFR-004 + NFR-005; all UI via `frontend-designer` |
+| X | Internationalization | en / de / ka translations; native-speaker review | ✅ NFR-003 + translation system port from MediMind |
+
+**Gate outcome**: PASS (no violations to justify; Complexity Tracking section empty).
+
+Additional compliance hooks:
+- **Healthcare standards**: IEC 62304 software-lifecycle documentation flows from spec → plan → tasks → implement; ISO 14971 risk management addressed via edge-cases + NFR-009; ISO 13485 QMS scaffolding begins with the Compliance Dashboard (US10).
+- **Spec-Driven Workflow Gate**: every code-producing PR references this spec; `/speckit.analyze` run before `/speckit.implement`.
+- **Model Licensing Discipline**: FR-038 MBoM + license-hash drift detection operationalizes Constitution II.
+- **GDPR Art. 17**: FR-040 erasure workflow + FR-032a existence-disclosure hardening.
+
+---
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-zero-training-mvp/
+├── spec.md                   # Feature specification (upgraded)
+├── plan.md                   # This file
+├── research.md               # Phase 0 — resolved unknowns
+├── data-model.md             # Phase 1 — entity ERD + field specs
+├── quickstart.md             # Phase 1 — dev bootstrap
+├── contracts/                # Phase 1 — OpenAPI + Triton I/O + DICOM-SEG/SR schemas
+│   ├── api-ingest.yaml
+│   ├── api-analysis.yaml
+│   ├── api-review.yaml
+│   ├── api-export.yaml
+│   ├── api-admin.yaml
+│   ├── api-ops.yaml
+│   ├── api-compliance.yaml
+│   ├── api-auth.yaml
+│   ├── triton-stu-net.md
+│   ├── triton-couinaud.md
+│   ├── triton-lilnet.md
+│   ├── triton-vista3d.md
+│   ├── triton-medsam2.md
+│   ├── dicom-seg-schema.md
+│   └── dicom-sr-tid1500.md
+├── checklists/
+│   └── requirements.md       # Spec quality checklist (already present)
+└── tasks.md                  # Phase 2 — /speckit.tasks output (NOT created here)
+```
+
+### Source Code (repository root)
+
+The repository is a **Turborepo monorepo**. Two execution domains: the web platform (TypeScript) and the ML inference service (Python). DICOM edge appliance sits between them.
+
+```text
+LiverRa/
+├── packages/
+│   ├── app/                          # Web frontend — Vite + React 19 + Mantine 7
+│   │   └── src/
+│   │       ├── emr/                  # Naming convention ported from MediMind
+│   │       │   ├── components/
+│   │       │   │   ├── common/       # EMRModal, EMRButton, EMRCard …
+│   │       │   │   ├── shared/       # EMRFormFields, EMRTable, EMRRichText …
+│   │       │   │   ├── pacs/         # Viewer, StudyList, Comparison, WindowPresets
+│   │       │   │   ├── liver/        # Parenchyma3DView, SegmentsLayer, VesselsLayer,
+│   │       │   │   │                 # LesionList, FLRPanel, ResectionPlane, RefineTools
+│   │       │   │   ├── upload/       # DicomDropzone, UploadProgress, PHIDetectWarning
+│   │       │   │   ├── report/       # FinalizeWizard, PDFPreview, PACSPushPanel
+│   │       │   │   ├── admin/        # UserInvite, RoleAssign, PacsConfig, AuditBrowser
+│   │       │   │   ├── onboarding/   # MFAEnrol, RUOAccept, Tour, SampleCaseRunner
+│   │       │   │   ├── compliance/   # MBoMView, AuditSummary, RUOWatermarkSpotCheck,
+│   │       │   │   │                 # ClaimRegistryEditor
+│   │       │   │   ├── ops/          # StuckCases, QueueDepth, RetryPanel
+│   │       │   │   ├── erasure/      # DPOErasureWizard, ErasureConfirmation
+│   │       │   │   └── nav/          # MainMenu, Breadcrumbs, SessionRecoveryBanner
+│   │       │   ├── routes/           # React Router 7 route table (to be created)
+│   │       │   ├── contexts/         # Auth, Translation, Theme, RUOClaimRegistry
+│   │       │   ├── services/
+│   │       │   │   ├── auth/         # OIDC client + MFA + step-up
+│   │       │   │   ├── pacs/         # Cornerstone3D init, DICOMweb client,
+│   │       │   │   │                 # DICOM-SR service, annotation, audit, hanging protocols
+│   │       │   │   ├── analysis/     # API clients for ingest/analysis/review/export
+│   │       │   │   ├── admin/
+│   │       │   │   ├── compliance/
+│   │       │   │   ├── ops/
+│   │       │   │   └── notifications/
+│   │       │   ├── hooks/            # useAnalysis, useReviewSeat, useRUOClaim …
+│   │       │   ├── translations/     # en.json / de.json / ka.json
+│   │       │   ├── styles/
+│   │       │   │   └── theme.css     # Design-system CSS variables (port + rebrand)
+│   │       │   └── constants/
+│   │       │       ├── fhir-systems.ts
+│   │       │       ├── fhir-extensions.ts
+│   │       │       ├── fhir-identifiers.ts
+│   │       │       └── routes.ts
+│   │       └── main.tsx              # Already exists as stub
+│   ├── core/                         # Cross-package utilities + types
+│   ├── imaging/                      # DICOM + Cornerstone3D wrappers
+│   ├── fhirtypes/                    # FHIR R4 TypeScript types + LiverRa extensions
+│   └── ml-inference/                 # Python — FastAPI orchestrator + Triton configs
+│       ├── src/
+│       │   ├── main.py               # FastAPI app
+│       │   ├── api/                  # ingest / analysis / review / export / admin / ops routers
+│       │   ├── orchestrator/         # Cascaded pipeline; stage queue; partial-results;
+│       │   │                         # sanity checks; timeout; cold-start detector
+│       │   ├── models/               # SQLAlchemy ORM + Pydantic schemas
+│       │   ├── services/
+│       │   │   ├── dicom/            # Orthanc client; DICOMweb; anonymization pipeline
+│       │   │   ├── anon/             # CTP wrapper + pixel-PHI detector
+│       │   │   ├── triton/           # Triton client; per-stage inference wrappers
+│       │   │   ├── seg_sr/           # highdicom DICOM-SEG / DICOM-SR generation
+│       │   │   ├── fhir/             # FHIR AuditEvent emitter + chain-of-hashes
+│       │   │   ├── audit/            # Audit log writer (fail-closed)
+│       │   │   ├── export/           # PDF builder (WeasyPrint); PACS C-STORE
+│       │   │   ├── erasure/          # GDPR Art. 17 workflow
+│       │   │   ├── notifications/    # Email (SES / Postmark) adapter
+│       │   │   └── ruo/              # Per-claim registry + disclaimer assembler
+│       │   ├── tasks/                # Celery task definitions per stage
+│       │   └── workers/              # Celery worker entry points
+│       ├── triton-models/            # Triton repo layout (weights + config.pbtxt)
+│       │   ├── stunet-parenchyma/
+│       │   ├── stunet-lesions/
+│       │   ├── couinaud-segments/
+│       │   ├── lilnet-classify/
+│       │   ├── vista3d-refine/
+│       │   └── medsam2-track/
+│       ├── tests/                    # pytest + golden CT fixtures
+│       └── pyproject.toml
+├── pacs/                             # Orthanc + CTP anonymizer + nginx edge appliance
+│   ├── orthanc/orthanc.json
+│   ├── ctp/pipeline.xml
+│   ├── nginx/nginx.conf
+│   └── bridge/                       # Webhook sync (port pattern from MediMind)
+├── deploy/
+│   ├── local/docker-compose.yml      # Dev stack
+│   ├── production/docker-compose.yml # Single-node AWS production
+│   └── onprem/docker-compose.yml     # Future on-prem edge deployment
+├── scripts/
+│   ├── careful-guard.sh              # Already present
+│   ├── switch-env.sh
+│   ├── seed-demo-case.sh             # Provision FR-042 demo fixture per tenant
+│   ├── model-bom.sh                  # FR-038 MBoM generator + license hash check
+│   └── gdpr-erasure-sim.sh           # Test erasure flows against a fixture
+├── specs/                            # Feature specs (auto-populated)
+├── tasks/                            # Task collections (auto-populated)
+├── docs/
+│   ├── research/                     # Strategic research (already present)
+│   ├── architecture/                 # Generated architecture overview
+│   └── runbooks/                     # Ops runbooks (incident response, erasure, retrain)
+├── .claude/                          # Agents, skills, commands
+└── .specify/                         # Speckit (templates, bash scripts, memory)
+```
+
+**Structure Decision**: Monorepo with **web-frontend + ml-inference** execution domains, plus **DICOM edge appliance** (Orthanc + CTP) and **infra-as-code** in `deploy/`. This matches Constitution III (cascaded, independently deployable stages), Constitution IV (FHIR types centralized in `packages/fhirtypes`), and Constitution IX (UI unified in `packages/app`). The MediMind → LiverRa port is realized inside `packages/app/src/emr/**` preserving the original component naming so ported code works drop-in; new LiverRa-specific surfaces (`liver/`, `admin/`, `compliance/`, `ops/`, `erasure/`, `onboarding/`) are added as distinct directories.
+
+---
+
+## Phase 0: Research *(resolve all NEEDS CLARIFICATION)*
+
+Unknowns extracted from the spec's "Clarifications Needed" and the Technical Context. Each is dispatched to a parallel research agent; outputs consolidated into `research.md`.
+
+### Research task map
+
+1. **Identity / auth stack**: OIDC provider choice (AWS Cognito vs Supabase Auth vs self-hosted Keycloak); MFA + backup codes + step-up re-auth; per-tenant IdP vs shared IdP; hospital SSO integration pattern.
+2. **FHIR server**: Medplum self-hosted vs HAPI FHIR vs native Postgres schema; AuditEvent ingestion rate; multi-tenant isolation; LiverRa extension registration.
+3. **Audit chain-of-hashes**: linear hash chain vs Merkle tree; tamper-evidence proof format; tenant-scoped chains vs global; storage backend.
+4. **Anonymization pipeline**: CTP (Java) vs `dicomanonymizer` (Python) vs `pydicom-deid`; burned-in pixel PHI detector choice; edge-vs-cloud execution; post-upload PHI quarantine (FR-002a).
+5. **DICOM ingest & PACS push**: Orthanc configuration (DIMSE + DICOMweb QIDO/WADO); `highdicom` for DICOM-SEG + DICOM-SR; C-STORE client for PACS push; SOP Instance UID re-minting per finalization.
+6. **Viewer strategy**: Port MediMind `PACSViewer` vs adopt upstream OHIF v3 plugin system; Cornerstone3D hanging protocols for 3D + axial/coronal/sagittal; resection-plane 3D geometry (voxel boolean vs marching-cubes); interactive refinement UX (VISTA3D + MedSAM-2 click-to-segment).
+7. **Triton orchestration**: Model loading policy (eager vs lazy vs priority); 24 GB VRAM budget allocation across 5 models; cold-start mitigation; inter-stage data passing (shared pinned memory vs NIfTI on disk); partial-result serialization.
+8. **ML sanity checks + physiological bounds**: FR-007a enforcement (cascade location); monotonic volume constraints; classification confidence calibration.
+9. **RUO pixel-burn watermark**: browser capture interception (Clipboard API, print-CSS `@page`, Screen Capture API); canvas-burn strategy; iframe embed blocking via CSP `frame-ancestors`.
+10. **GDPR crypto-shred**: envelope encryption with per-case KMS keys; key deletion as tombstoning; audit residual-identifier hashing.
+11. **Email notifications**: SES vs Postmark vs SMTP relay; EU-region-compliant provider; templating + i18n.
+12. **Cost controls**: GPU auto-shutdown; S3 lifecycle; spend alerts.
+13. **Observability stack**: Sentry (with PHI scrubbing filters) + PostHog (anonymous events) + CloudWatch + Grafana / Prometheus for queue/GPU dashboards.
+14. **DR backups**: Postgres PITR + in-region AZ redundancy; Celery job state persistence for in-flight recovery (FR-014b + NFR-009).
+
+### Dispatch plan
+
+Three parallel research agents, each owning a coherent bundle:
+
+- **Research Agent A — Platform backbone**: auth, FHIR server, chain-of-hashes, RBAC enforcement, notifications, observability.
+- **Research Agent B — Clinical imaging pipeline**: anonymization, Orthanc/CTP/MIG edge, `highdicom` SEG/SR, PACS push, RUO pixel-burn.
+- **Research Agent C — ML orchestration & UX**: Triton cascaded orchestration, VRAM budget, viewer strategy (OHIF vs custom), refinement UX, resection-plane geometry, sanity checks.
+
+Each agent writes its section directly into `research.md` via staged partials in `.research/` then merged.
+
+---
+
+## Phase 1: Design & Contracts *(prerequisite: `research.md` complete)*
+
+### `data-model.md`
+
+Derived from spec §Key Entities (18 entities). Will include:
+- Entity name, fields (type + nullable + FHIR mapping where relevant), relationships, lifecycle, RLS/tenant scope.
+- Core tables: `Study`, `Series`, `Analysis`, `Segmentation`, `Lesion`, `Classification`, `FLRCalculation`, `SurgeonReview`, `Report`, `AuditEvent`, `User`, `Tenant`, `PermissionGrant`, `ModelBillOfMaterials`, `RegulatoryClaimRegistry`, `ErasureRequest`, `DemoCase`, `NotificationPreference`.
+- State machines for `Analysis.status` (queued → running → complete | failed | cancelled | partial-result) and `Report.status` (draft → finalized → superseded | retracted).
+- Chain-of-hashes invariants for `AuditEvent`.
+
+### `contracts/`
+
+OpenAPI 3.1 files for the eight public APIs (per the route groups in `packages/ml-inference/src/api`), plus per-stage Triton I/O contracts (markdown with tensor shapes + dtypes + anatomy-code dictionaries), plus DICOM-SEG + DICOM-SR TID-1500 schema notes.
+
+### `quickstart.md`
+
+Developer bootstrap: clone → install Turborepo deps → bring up `deploy/local/docker-compose.yml` (Postgres + Redis + Orthanc + Triton CPU stub) → run demo case → validate RUO watermark on export. Includes the "first PR checklist" referencing the constitution gates.
+
+### Agent context update
+
+Run `.specify/scripts/bash/update-agent-context.sh claude` after Phase 1 to refresh CLAUDE.md agent context with this plan's tech-stack decisions.
+
+---
+
+## Complexity Tracking
+
+> Empty — Constitution Check gate passed with no violations to justify.
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| *(none)*  | *(none)*   | *(none)*                            |
+
+---
+
+## Post-Design Constitution Re-check *(Phase 1 complete — 2026-04-19)*
+
+All ten principles re-evaluated against the **actual design** produced in `research.md` + `data-model.md` + `contracts/`. No violations; Complexity Tracking remains empty.
+
+| # | Principle | Design evidence | Outcome |
+|---|-----------|-----------------|---------|
+| I | Spec-Driven Development | `spec.md` v2 + `plan.md` this file + `research.md` + `data-model.md` + `contracts/` all present; `tasks.md` will be generated next via `/speckit.tasks` | PASS |
+| II | Apache 2.0 Model Licensing | `ModelBillOfMaterials` entity (data-model §16) + build-time license-hash drift check (research C.8) + FR-038 enforcement | PASS |
+| III | Cascaded Inference Architecture | Triton priority-tier loading (research C.1) explicitly rejects ensemble model; `PipelineCheckpoint` per-stage (data-model §6); `triton-stages.md` declares 6 independent stage contracts | PASS |
+| IV | FHIR-First Healthcare Data | Medplum self-hosted (research A.2); `AuditEvent` Medplum-managed with LiverRa extension URLs at `http://liverra.ai/fhir/StructureDefinition/*` (data-model §14); `packages/app/src/emr/constants/fhir-systems.ts` is the sole URL source | PASS |
+| V | Auditability & Regulatory Traceability | Per-tenant SHA-256 chain + daily Merkle root to S3 Object Lock (research A.3); `AuditEventChain` schema (data-model §14); chain-fail-closed triggers; MBoM binding to every audit event (research X.4) | PASS |
+| VI | Research Use Only Until CE Mark | 5-layer pixel-burn watermark (research B.7); `RegulatoryClaimRegistry` per-claim lifecycle (data-model §17); SEG+SR RUO disclaimers (`dicom-artifacts.md`); UI `x-step-up` on retract/finalize | PASS |
+| VII | Security, Privacy & Data Residency | Cognito `eu-central-1` (research A.1); Medplum + RDS + Elasticache + S3 all in Frankfurt (research A.2/A.7); per-case KMS crypto-shred (research X.1); tenant isolation at Medplum Project + Postgres RLS (data-model); existence-disclosure 404s via Medplum AccessPolicy + FastAPI middleware (research A.4) | PASS |
+| VIII | Type Safety & Strict Mode | TypeScript strict in all `packages/*` (plan Technical Context); Python `mypy --strict` + Pydantic v2 at FastAPI boundary; OpenAPI 3.1 schema validation via `schemathesis` in CI (contracts/README.md) | PASS |
+| IX | Unified Design System | theme.css + EMR component library port from MediMind (plan Project Structure); mobile-first + 44×44 tap targets + dark mode verified (NFR-002/004/005); all UI work routed via `frontend-designer` agent (quickstart §"Port a MediMind component") | PASS |
+| X | Internationalization | Translation files `{en,de,ka}.json` (Tenant entity `primary_locale`; User `locale_preference`); WeasyPrint Noto Sans + Noto Sans Georgian embedded (research B.8); Jinja2 email templates per locale (research A.5); Russian explicitly out of scope (NFR-003) | PASS |
+
+**Gate outcome: PASS.** No Complexity Tracking entries required. Ready for `/speckit.tasks`.
+
+### Phase 1 artifacts produced
+
+- [`research.md`](./research.md) — consolidated index of 22+ resolved unknowns across 3 parallel research agents + cross-cutting merge layer
+- [`.research/A-platform-backbone.md`](./.research/A-platform-backbone.md) — 3,000-word detail on auth / FHIR / audit / RBAC / email / observability / DR
+- [`.research/B-imaging-pipeline.md`](./.research/B-imaging-pipeline.md) — 2,900-word detail on anonymization / Orthanc / DICOM-SEG-SR / PACS push / RUO watermark / Unicode
+- [`.research/C-ml-viewer.md`](./.research/C-ml-viewer.md) — 2,900-word detail on Triton VRAM budget / cascade orchestration / viewer strategy / resection plane / refinement UX / sanity / MLflow
+- [`data-model.md`](./data-model.md) — 21 entities (18 from spec + 3 cross-cutting) with fields, FKs, FHIR projections, RLS, state machines, invariants
+- [`contracts/README.md`](./contracts/README.md) — index + design choices
+- [`contracts/api-openapi.yaml`](./contracts/api-openapi.yaml) — single OpenAPI 3.1 document with 11 tags (`auth`, `ingest`, `analysis`, `review`, `export`, `admin`, `onboarding`, `ops`, `compliance`, `erasure`, `system`) and ~30 endpoints
+- [`contracts/triton-stages.md`](./contracts/triton-stages.md) — 6 Triton model I/O contracts (STU-Net ×2, Couinaud, LiLNet, VISTA3D, MedSAM-2) with tensor shapes, dtypes, sanity gates, timeouts
+- [`contracts/dicom-artifacts.md`](./contracts/dicom-artifacts.md) — DICOM-SEG MULTI_SEGMENT_BINARY + DICOM-SR TID 1500 wire contracts with SNOMED-CT codes, algorithm identification, RUO disclosure
+- [`quickstart.md`](./quickstart.md) — developer bootstrap (clone → demo case → first PR) + Constitution compliance checklist
+
+### Next step
+
+Run `/speckit.tasks` to break this plan into dependency-ordered, parallelizable implementation tasks.

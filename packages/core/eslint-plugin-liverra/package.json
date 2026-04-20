@@ -1,0 +1,13 @@
+{
+  "name": "eslint-plugin-liverra",
+  "version": "0.0.1",
+  "private": true,
+  "description": "LiverRa custom ESLint rules — guardrails from plan.md §Monorepo & Guardrails.",
+  "license": "UNLICENSED",
+  "main": "index.js",
+  "type": "commonjs",
+  "peerDependencies": {
+    "eslint": ">=8"
+  },
+  "keywords": ["eslint", "eslintplugin", "liverra"]
+}

@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/audit-chain-leaf-hash",
+  "name": "LiverRaAuditChainLeafHash",
+  "title": "LiverRa AuditEvent — Chain Leaf Hash",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "SHA-256 leaf hash for this AuditEvent: H(prev_leaf || canonical(event_body)). Feeds the daily Merkle root pushed to S3 Object Lock (6-year retention). Constitution §V auditability gate.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "AuditEvent"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "SHA-256 leaf hash binding this event to the chain",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/audit-chain-leaf-hash"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "32-byte raw SHA-256 digest, base64-encoded",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "base64Binary"
+          }
+        ]
+      }
+    ]
+  }
+}

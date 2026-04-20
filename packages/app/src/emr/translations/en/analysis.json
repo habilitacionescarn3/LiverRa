@@ -1,0 +1,118 @@
+{
+  "status": {
+    "all": "All",
+    "uploading": "Uploading",
+    "anonymizing": "Anonymizing",
+    "queued": "Queued",
+    "running": "Running",
+    "done": "Done",
+    "failed": "Failed",
+    "cancelled": "Cancelled"
+  },
+  "cases": {
+    "title": "Analyses",
+    "subtitle": "Tenant-scoped liver imaging cases",
+    "newUpload": "New upload",
+    "open": "Open",
+    "tableAria": "Liver analyses",
+    "col": {
+      "thumb": "Thumbnail",
+      "studyUid": "Study UID",
+      "patient": "Patient",
+      "uploadedAt": "Uploaded",
+      "status": "Status",
+      "flr": "FLR %",
+      "actions": "Actions"
+    },
+    "filters": {
+      "status": "Status",
+      "dateFrom": "From",
+      "dateTo": "To",
+      "phase": "Phase",
+      "reset": "Reset"
+    },
+    "empty": {
+      "title": "No analyses yet",
+      "description": "Upload your first liver CT/MRI study to kick off an automated segmentation + FLR analysis.",
+      "upload": "Upload a study"
+    },
+    "error": {
+      "title": "Could not load cases",
+      "retry": "Retry"
+    },
+    "pagination": {
+      "summary": "Showing {{from}}–{{to}} of {{total}}",
+      "prev": "Previous",
+      "next": "Next",
+      "pageOf": "Page {{page}} of {{total}}"
+    }
+  },
+  "detail": {
+    "title": "Analysis • {{studyUid}}",
+    "back": "Back to cases",
+    "downloadReport": "Download report",
+    "drawerAria": "Case details drawer",
+    "resizeAria": "Resize drawer",
+    "mprAria": "Multi-planar preview strip",
+    "mprPlaceholder": "Multi-planar views (axial / sagittal / coronal) will appear here once ready.",
+    "error": {
+      "title": "Could not load analysis"
+    },
+    "viewer": {
+      "loading": "Preparing the 3D viewer…"
+    },
+    "tabs": {
+      "segments": "Segments",
+      "lesions": "Lesions",
+      "measurements": "Measurements",
+      "notes": "Notes"
+    },
+    "drawer": {
+      "segmentsPlaceholder": "Couinaud segments I–VIII and per-segment volumes will appear here.",
+      "lesionsPlaceholder": "Detected lesions and LiLNet classifications will appear here.",
+      "measurementsPlaceholder": "Linear + volumetric measurements will appear here.",
+      "notesPlaceholder": "Surgeon notes attached to this case will appear here."
+    },
+    "crumbs": {
+      "cases": "Cases"
+    }
+  },
+  "viewer": {
+    "ariaLabel": "LiverRa 3D viewer",
+    "statusReady": "Ready",
+    "statusLoading": "Loading volume…",
+    "statusNotReady": "Analysis not ready",
+    "keyboardHelpTitle": "Keyboard shortcuts",
+    "keyboard": {
+      "layers": "Toggle layers",
+      "plane": "Resection plane tool",
+      "zoom": "Zoom in / out",
+      "reset": "Reset view"
+    },
+    "webgpuMissing": "WebGPU is unavailable. Falling back to CPU voxel counting — interactions may be slower.",
+    "parenchymaLabel": "Parenchyma overlay"
+  },
+  "flr": {
+    "title": "Future Liver Remnant",
+    "valueMl": "{{ml}} mL",
+    "valuePct": "{{pct}}% of total",
+    "adequacy": {
+      "adequate": "Adequate (advisory ≥ 40%)",
+      "borderline": "Borderline (30–40%)",
+      "low": "Low (< 30%)"
+    },
+    "recompute": "Recompute",
+    "ariaLive": "FLR measurement updates"
+  },
+  "plane": {
+    "ariaLabel": "Resection plane offset",
+    "cpuFallback": "CPU fallback engaged — WebGPU unavailable.",
+    "translate": "Plane offset",
+    "rotate": "Plane rotation",
+    "reset": "Reset plane"
+  },
+  "coldStart": {
+    "warming": "Models warming up",
+    "timeRemaining": "~{{seconds}}s remaining. Your analysis will start automatically."
+  }
+}

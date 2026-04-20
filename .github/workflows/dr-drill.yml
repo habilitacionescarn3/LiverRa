@@ -1,0 +1,79 @@
+name: DR restore drill
+
+# Monthly disaster-recovery restore drill (plan §DR & Ops Drills).
+# Runs `scripts/dr-restore-dryrun.sh` against a short-lived restore target,
+# records a success stamp, and fails CI if no successful stamp exists within
+# the last 90 days. Blocks `production` deploys via release-gate check.
+
+on:
+  schedule:
+    - cron: '0 2 1 * *'   # 02:00 UTC, 1st of each month
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write   # OIDC to AWS — no long-lived keys
+
+concurrency:
+  group: dr-drill
+  cancel-in-progress: false
+
+jobs:
+  dr-drill:
+    name: DR dry-run restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      STALE_THRESHOLD_DAYS: '90'
+      AWS_REGION: 'eu-central-1'
+      DR_STAMP_S3_URI: 's3://liverra-ops-stamps/dr-restore/last-success.json'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DR_DRILL_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Run DR restore dry-run
+        id: drill
+        env:
+          DRILL_MODE: 'dry-run'
+        run: bash scripts/dr-restore-dryrun.sh
+
+      - name: Record success stamp
+        if: success()
+        env:
+          STAMP_URI: ${{ env.DR_STAMP_S3_URI }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          STAMP_FILE=$(mktemp)
+          TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          printf '{"timestamp":"%s","run_id":"%s","run_url":"%s","status":"success"}\n' \
+            "$TS" "$RUN_ID" "$RUN_URL" > "$STAMP_FILE"
+          aws s3 cp "$STAMP_FILE" "$STAMP_URI"
+
+      - name: Verify stamp freshness (fail if >90d stale)
+        if: always()
+        env:
+          STAMP_URI: ${{ env.DR_STAMP_S3_URI }}
+          STALE_DAYS: ${{ env.STALE_THRESHOLD_DAYS }}
+        run: |
+          set -euo pipefail
+          STAMP_FILE=$(mktemp)
+          if ! aws s3 cp "$STAMP_URI" "$STAMP_FILE" 2>/dev/null; then
+            echo "::error::No DR stamp at $STAMP_URI — DR drill has never passed."
+            exit 1
+          fi
+          LAST=$(jq -r '.timestamp' "$STAMP_FILE")
+          LAST_EPOCH=$(date -u -d "$LAST" +%s 2>/dev/null || python3 -c "import datetime,sys;print(int(datetime.datetime.fromisoformat(sys.argv[1].replace('Z','+00:00')).timestamp()))" "$LAST")
+          NOW_EPOCH=$(date -u +%s)
+          AGE_DAYS=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+          echo "Last successful DR drill: $LAST ($AGE_DAYS days ago)"
+          if [ "$AGE_DAYS" -gt "$STALE_DAYS" ]; then
+            echo "::error::Last DR drill success is $AGE_DAYS days old (threshold: $STALE_DAYS). Production deploys are BLOCKED."
+            exit 1
+          fi

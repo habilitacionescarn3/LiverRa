@@ -1,0 +1,16 @@
+{
+  "couinaud": {
+    "I":    { "name": "Segment I",    "latin": "Lobus caudatus",                                     "role": "Caudate lobe" },
+    "II":   { "name": "Segment II",   "latin": "Segmentum II (lobus hepatis sinister, laterale superius)",   "role": "Left lateral superior" },
+    "III":  { "name": "Segment III",  "latin": "Segmentum III (lobus hepatis sinister, laterale inferius)",  "role": "Left lateral inferior" },
+    "IV":   { "name": "Segment IV",   "latin": "Segmentum IV (lobus hepatis sinister, mediale)",            "role": "Left medial" },
+    "V":    { "name": "Segment V",    "latin": "Segmentum V (lobus hepatis dexter, anterius inferius)",     "role": "Right anterior inferior" },
+    "VI":   { "name": "Segment VI",   "latin": "Segmentum VI (lobus hepatis dexter, posterius inferius)",   "role": "Right posterior inferior" },
+    "VII":  { "name": "Segment VII",  "latin": "Segmentum VII (lobus hepatis dexter, posterius superius)",  "role": "Right posterior superior" },
+    "VIII": { "name": "Segment VIII", "latin": "Segmentum VIII (lobus hepatis dexter, anterius superius)",  "role": "Right anterior superior" }
+  },
+  "vessels": {
+    "portal":  { "name": "Portal vein",  "latin": "Vena portae hepatis", "role": "Afferent venous trunk — inflow from gut + spleen" },
+    "hepatic": { "name": "Hepatic vein", "latin": "Venae hepaticae",     "role": "Efferent venous trunk — outflow to inferior vena cava" }
+  }
+}

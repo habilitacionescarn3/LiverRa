@@ -1,0 +1,160 @@
+name: Release gate
+
+# T398 + T469 — blocks release tag creation when any Success Criterion,
+# upgraded-SC gate, or operational drill is out-of-date or red.
+#
+# Gates enforced:
+#   - SC-001..SC-016 are green (latest CI run per SC's assigned workflow)
+#   - Upgraded SC gates (T469):
+#       ci-palette-cvd-check, e2e-gpu (us1), ci-alembic-migrations,
+#       ci-dicom-uid-present, ci-bundle-check
+#   - dr-drill.yml last success within 90 days
+#   - breach-tabletop-YYYY.md evidence exists for current year
+#
+# Trigger: runs on every `release/*` branch push + on tag pushes matching
+# v*. Fails the job (and blocks the release) if any gate is red.
+
+on:
+  push:
+    branches:
+      - 'release/**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: release-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-readiness:
+    name: Verify readiness matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gh extensions
+        run: gh extension install dlvhdr/gh-dash || true
+
+      - name: Assert DR drill within 90 days
+        run: |
+          set -euo pipefail
+          LAST_SUCCESS_ISO=$(gh run list \
+            --workflow dr-drill.yml \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json createdAt \
+            --jq '.[0].createdAt // ""')
+          if [ -z "${LAST_SUCCESS_ISO}" ]; then
+            echo "::error::dr-drill.yml has no successful run on main"
+            exit 1
+          fi
+          LAST_EPOCH=$(date -d "${LAST_SUCCESS_ISO}" +%s)
+          NOW_EPOCH=$(date -u +%s)
+          AGE_DAYS=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+          echo "DR drill last success: ${LAST_SUCCESS_ISO} (${AGE_DAYS} days ago)"
+          if [ "${AGE_DAYS}" -gt 90 ]; then
+            echo "::error::DR drill stale (>${AGE_DAYS} days); blocking release"
+            exit 1
+          fi
+
+      - name: Assert breach tabletop evidence for current year
+        run: |
+          set -euo pipefail
+          YEAR=$(date -u +%Y)
+          FILE="docs/runbooks/breach-tabletop-${YEAR}.md"
+          if [ ! -f "${FILE}" ]; then
+            echo "::error::missing ${FILE}; annual tabletop must be authored before release"
+            exit 1
+          fi
+
+      - name: Assert brand-tokens.md status=approved (T387/T464 gate)
+        run: |
+          set -euo pipefail
+          FILE="specs/001-zero-training-mvp/brand-tokens.md"
+          if [ ! -f "${FILE}" ]; then
+            echo "::error::missing ${FILE}; brand tokens must be signed off before release"
+            exit 1
+          fi
+          STATUS=$(awk '/^---$/{c++; next} c==1 && /^status:/{print $2; exit}' "${FILE}")
+          echo "brand-tokens.md status: ${STATUS:-<unset>}"
+          if [ "${STATUS}" != "approved" ]; then
+            echo "::error::brand-tokens.md status is '${STATUS:-<unset>}'; release gated until founder + design-lead sign off"
+            exit 1
+          fi
+          FOUND=$(awk '/^---$/{c++; next} c==1 && /^founder_sign_off:/{print; exit}' "${FILE}")
+          DLEAD=$(awk '/^---$/{c++; next} c==1 && /^design_lead_sign_off:/{print; exit}' "${FILE}")
+          if echo "${FOUND}" | grep -q "pending\|TBD\|<pending"; then
+            echo "::error::founder_sign_off still placeholder; refuse release"
+            exit 1
+          fi
+          if echo "${DLEAD}" | grep -q "pending\|TBD\|<pending"; then
+            echo "::error::design_lead_sign_off still placeholder; refuse release"
+            exit 1
+          fi
+
+      - name: Assert each SC and upgraded-SC gate is green
+        env:
+          # Full list of required workflows (T469 upgraded gates included).
+          REQUIRED_WORKFLOWS: >
+            ci.yml
+            e2e-cpu.yml
+            e2e-gpu.yml
+            k6-nightly.yml
+        run: |
+          set -euo pipefail
+          FAIL=0
+          for wf in ${REQUIRED_WORKFLOWS}; do
+            LATEST=$(gh run list \
+              --workflow "${wf}" \
+              --branch main \
+              --limit 1 \
+              --json conclusion,status \
+              --jq '.[0] | "\(.status)|\(.conclusion)"')
+            echo "${wf}: ${LATEST}"
+            CONC=$(echo "${LATEST}" | cut -d'|' -f2)
+            if [ "${CONC}" != "success" ]; then
+              echo "::error::${wf} latest run is not success (got: ${LATEST})"
+              FAIL=1
+            fi
+          done
+
+          # Required ci.yml jobs (upgraded-SC gates T469).
+          REQUIRED_JOBS="ci-palette-cvd-check ci-alembic-migrations ci-dicom-uid-present ci-bundle-check"
+          LATEST_RUN_ID=$(gh run list \
+            --workflow ci.yml \
+            --branch main \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
+          if [ -z "${LATEST_RUN_ID}" ]; then
+            echo "::error::no successful ci.yml run found on main"
+            exit 1
+          fi
+          for job in ${REQUIRED_JOBS}; do
+            STATUS=$(gh run view "${LATEST_RUN_ID}" \
+              --json jobs \
+              --jq ".jobs[] | select(.name == \"${job}\") | .conclusion")
+            echo "ci.yml:${job} -> ${STATUS:-missing}"
+            if [ "${STATUS}" != "success" ]; then
+              echo "::error::required job ${job} not green in latest ci.yml run"
+              FAIL=1
+            fi
+          done
+
+          if [ "${FAIL}" -ne 0 ]; then
+            echo "::error::release gate FAILED — see errors above"
+            exit 1
+          fi
+          echo "Release gate: ALL GREEN"

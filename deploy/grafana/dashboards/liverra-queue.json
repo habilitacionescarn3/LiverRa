@@ -1,0 +1,130 @@
+{
+  "title": "LiverRa — Queue",
+  "uid": "liverra-queue",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["liverra", "ops"],
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_analysis_queue_depth, tenant)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Queue depth by tenant",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (tenant) (liverra_analysis_queue_depth{tenant=~\"$tenant\"})",
+          "legendFormat": "{{tenant}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Queue-wait p95 (s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, tenant) (rate(liverra_analysis_queue_wait_seconds_bucket{tenant=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{tenant}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Stuck cases (>15 min)",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(liverra_analysis_queue_wait_seconds > 900)",
+          "refId": "A"
+        }
+      ],
+      "options": { "colorMode": "background" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Celery worker count",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "targets": [{ "expr": "count(celery_worker_up == 1)", "refId": "A" }]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Analyses started / completed / failed",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(liverra_analysis_started_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "started",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(liverra_analysis_completed_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "completed",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(liverra_analysis_failed_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "failed",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Retry rate per stage",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum by (stage) (rate(liverra_stage_retry_total{tenant=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

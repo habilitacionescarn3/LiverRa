@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "users": "Benutzer",
+    "pacs": "PACS-Ziel",
+    "audit": "Audit-Log"
+  },
+  "users": {
+    "title": "Benutzerverwaltung",
+    "subtitle": "Klinikerinnen und Kliniker einladen, sperren und verwalten.",
+    "invite": "Benutzer einladen",
+    "suspend": "Sperren",
+    "error": "Benutzer konnten nicht geladen werden",
+    "empty": {
+      "title": "Noch keine Benutzer",
+      "description": "Senden Sie Ihre erste Einladung, um einen Kliniker auf Ihren Mandanten zu holen."
+    },
+    "status": {
+      "active": "Aktiv",
+      "suspended": "Gesperrt"
+    },
+    "col": {
+      "name": "Name",
+      "email": "E-Mail",
+      "role": "Rolle",
+      "status": "Status",
+      "actions": "Aktionen"
+    }
+  },
+  "invite": {
+    "title": "Benutzer einladen",
+    "submit": "Einladung senden",
+    "error": "Einladung fehlgeschlagen",
+    "email": "E-Mail",
+    "displayName": "Anzeigename",
+    "role": "Rolle",
+    "locale": "Sprache"
+  },
+  "role": {
+    "hpb_surgeon": "HPB-Chirurg:in",
+    "radiologist": "Radiolog:in",
+    "fellow": "Fellow",
+    "ops": "Betrieb",
+    "compliance": "Compliance",
+    "dpo": "DSB"
+  },
+  "pacs": {
+    "title": "PACS-Ziel",
+    "subtitle": "Konfigurieren Sie, wohin finalisierte Studien gesendet werden.",
+    "aeTitle": "AE-Titel",
+    "host": "Host / IP",
+    "port": "Port",
+    "useTls": "DICOM-TLS verwenden",
+    "certFingerprint": "Zertifikats-Fingerabdruck",
+    "testEcho": "Mit C-ECHO testen",
+    "echoOk": "C-ECHO erfolgreich",
+    "echoFail": "C-ECHO fehlgeschlagen",
+    "roundTrip": "Laufzeit",
+    "saved": "PACS-Ziel gespeichert."
+  },
+  "audit": {
+    "title": "Audit-Browser",
+    "subtitle": "PHI-freie Audit-Ereignisse (Chain-of-Hashes) für diesen Mandanten.",
+    "filters": {
+      "from": "Von",
+      "to": "Bis",
+      "category": "Kategorie",
+      "all": "Alle"
+    },
+    "empty": {
+      "title": "Keine Ereignisse",
+      "description": "Keine Audit-Ereignisse entsprechen den aktuellen Filtern."
+    },
+    "col": {
+      "seq": "#",
+      "recorded": "Erfasst",
+      "category": "Kategorie",
+      "actor": "Akteur",
+      "outcome": "Ergebnis",
+      "summary": "Zusammenfassung"
+    }
+  },
+  "deleteRequest": {
+    "title": "Löschanfrage für Fall",
+    "studyId": "Studien-ID",
+    "requestedBy": "Angefordert von",
+    "approve": "Genehmigen (Soft-Delete)",
+    "reject": "Ablehnen"
+  },
+  "coverageOverride": {
+    "title": "Abdeckungs-Override (FR-006a)",
+    "noPermission": "Unzureichende Berechtigung",
+    "noPermissionBody": "Sie haben nicht die Berechtigung admin.coverage_override.",
+    "warning": "Overrides schwächen die Phasenabdeckungs-Prüfungen. Jeder Override wird auditiert und auf nachgelagerten FHIR-Ereignissen gestempelt.",
+    "tenantFlag": "Teilabdeckungs-Override erlauben (mandantenweit)",
+    "perCase": "Override pro Analyse",
+    "reason": "Grund (min. 10 Zeichen)",
+    "submit": "Override mit Step-up-MFA",
+    "flagSaved": "Mandanten-Flag aktualisiert.",
+    "analysisSaved": "Analyse-Override angewendet."
+  }
+}

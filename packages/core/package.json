@@ -3,13 +3,36 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "LiverRa shared utilities, types, FHIR helpers",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "description": "LiverRa shared utilities, types, FHIR helpers, chain-of-hashes audit primitives",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./fhir": {
+      "types": "./dist/fhir/index.d.ts",
+      "import": "./dist/fhir/index.js"
+    },
+    "./hash": {
+      "types": "./dist/hash/index.d.ts",
+      "import": "./dist/hash/index.js"
+    },
+    "./i18n": {
+      "types": "./dist/i18n/index.d.ts",
+      "import": "./dist/i18n/index.js"
+    }
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
     "test": "vitest",
-    "lint": "eslint . --ext ts"
+    "lint": "eslint ."
   },
   "dependencies": {},
   "devDependencies": {}

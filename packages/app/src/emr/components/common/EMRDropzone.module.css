@@ -1,0 +1,197 @@
+/* SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Dropzone container */
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--emr-border-dashed);
+  border-radius: var(--emr-border-radius-xl);
+  background: var(--emr-bg-card);
+  padding: var(--emr-spacing-2xl);
+  text-align: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.dropzone:hover:not(.disabled) {
+  border-color: var(--emr-accent);
+  background: var(--emr-bg-hover);
+}
+
+.dropzone.dragActive {
+  border-color: var(--emr-accent);
+  background: var(--emr-bg-hover);
+  box-shadow: 0 0 0 4px var(--emr-secondary-alpha-10);
+}
+
+.dropzone.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--emr-bg-input);
+}
+
+/* Hidden file input */
+.fileInput {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dropzone content */
+.dropzoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--emr-spacing-md);
+}
+
+.uploadIcon {
+  color: var(--emr-accent);
+  opacity: 0.7;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--emr-font-lg);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+.description {
+  margin: 0;
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+/* Button group */
+.buttonGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--emr-spacing-md);
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--emr-spacing-sm);
+}
+
+.orDivider {
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-sm);
+}
+
+/* Info text */
+.info {
+  margin: 0;
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+/* Error message */
+.error {
+  margin: 0;
+  font-size: var(--emr-font-sm);
+  color: var(--emr-error);
+  font-weight: var(--emr-font-medium);
+}
+
+/* Preview mode */
+.previewContainer {
+  width: 100%;
+}
+
+.previewCard {
+  display: flex;
+  align-items: center;
+  gap: var(--emr-spacing-md);
+  padding: var(--emr-spacing-md);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-border-radius-xl);
+  background: var(--emr-bg-card);
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.previewImage {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--emr-border-radius);
+  border: 1px solid var(--emr-border-color);
+}
+
+.previewInfo {
+  flex: 1;
+  text-align: left;
+}
+
+.previewName {
+  margin: 0;
+  font-size: var(--emr-font-base);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-primary);
+  word-break: break-word;
+}
+
+.previewSize {
+  margin: var(--emr-spacing-xs) 0 0;
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+.removeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.removeButton:hover:not(:disabled) {
+  background: var(--emr-error);
+  color: var(--emr-text-white);
+}
+
+.removeButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile responsive */
+@media (max-width: 576px) {
+  .dropzone {
+    padding: var(--emr-spacing-lg);
+  }
+
+  .uploadIcon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .title {
+    font-size: var(--emr-font-base);
+  }
+
+  .buttonGroup {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .buttonGroup button {
+    width: 100%;
+  }
+
+  .orDivider {
+    display: none;
+  }
+
+  .previewImage {
+    width: 60px;
+    height: 60px;
+  }
+}

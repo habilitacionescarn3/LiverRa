@@ -1,0 +1,114 @@
+# LiverRa — Triton model configuration for Pictorial Couinaud segmentation
+# Spec: specs/001-zero-training-mvp/contracts/triton-stages.md §Stage 3
+# Research: research.md §C.1 (Tier-A VRAM policy — always loaded)
+# License: Apache 2.0 (upstream: https://github.com/xukun-zhang/Couinaud-Segmentation)
+#
+# Tier: A (always loaded). The Pictorial Couinaud model jointly emits the
+# 8 Couinaud region masks PLUS the portal-vein and hepatic-vein trunk
+# masks — so Stage 3 covers both FR-008 (segments) and FR-009 (vessels)
+# in a single forward pass. Stage 2 tasks `segment_couinaud` and
+# `segment_vessels` share the same Triton call (see src/tasks/couinaud.py
+# + src/tasks/vessels.py) and pull different output channels.
+#
+# Shape convention (per contract):
+#   INPUT__0  ct_volume          [1, 1, 128, 128, 128]  fp32
+#   INPUT__1  parenchyma_mask    [1, 1, 128, 128, 128]  uint8 (from Stage 1)
+#   OUTPUT__0 couinaud_softmax   [8, 128, 128, 128]     fp16 — Σ channels ≈ 1
+#                                                        channel c = P(voxel ∈ Couinaud I..VIII)
+#   OUTPUT__1 vessel_trunk_mask  [2, 128, 128, 128]     fp16
+#                                                        channel 0 = portal vein
+#                                                        channel 1 = hepatic vein
+#
+# Down-stream orchestrator argmaxes OUTPUT__0 into a 1-channel uint8 label
+# map with values 1..8 (and 0 = background) before persistence.
+
+name: "liverra-couinaud-segments"
+platform: "pytorch_libtorch"
+max_batch_size: 1
+
+input [
+  {
+    name: "INPUT__0"
+    data_type: TYPE_FP32
+    dims: [ 1, 128, 128, 128 ]
+  },
+  {
+    name: "INPUT__1"
+    data_type: TYPE_UINT8
+    dims: [ 1, 128, 128, 128 ]
+  }
+]
+
+output [
+  {
+    name: "OUTPUT__0"
+    data_type: TYPE_FP16
+    dims: [ 8, 128, 128, 128 ]
+  },
+  {
+    name: "OUTPUT__1"
+    data_type: TYPE_FP16
+    dims: [ 2, 128, 128, 128 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]
+
+# Warm up at server start so the first clinical case does not pay
+# the TRT JIT-compile cost (research §C.1 cold-start budget). We warm
+# both inputs with zero tensors — Pictorial Couinaud's topology head
+# returns a low-confidence dummy which is discarded.
+model_warmup [
+  {
+    name: "couinaud_warmup_zeros"
+    batch_size: 1
+    inputs: {
+      key: "INPUT__0"
+      value: {
+        data_type: TYPE_FP32
+        dims: [ 1, 128, 128, 128 ]
+        zero_data: true
+      }
+    }
+    inputs: {
+      key: "INPUT__1"
+      value: {
+        data_type: TYPE_UINT8
+        dims: [ 1, 128, 128, 128 ]
+        zero_data: true
+      }
+    }
+  }
+]
+
+# TensorRT FP16 acceleration. We keep precision at FP16 (not INT8) so the
+# per-voxel softmax across the 8 segment channels stays numerically
+# stable — Stage 3 sanity checks rely on Σ≈1 and tolerances ≤2%.
+optimization {
+  execution_accelerators {
+    gpu_execution_accelerator : [
+      {
+        name : "tensorrt"
+        parameters { key: "precision_mode" value: "FP16" }
+      }
+    ]
+  }
+}
+
+# Non-decoupled — one request returns exactly one response. Cascade
+# orchestration handles stage fan-out at the Celery layer.
+model_transaction_policy {
+  decoupled: False
+}
+
+# Enables torch.inference_mode() inside libtorch backend — halves memory
+# traffic on repeated calls.
+parameters {
+  key: "INFERENCE_MODE"
+  value: { string_value: "true" }
+}

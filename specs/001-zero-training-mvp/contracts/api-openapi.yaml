@@ -1,0 +1,929 @@
+openapi: 3.1.0
+info:
+  title: LiverRa v1 MVP HTTP API
+  version: 1.0.0
+  description: |
+    Public HTTP API for the LiverRa zero-training liver AI pipeline platform.
+
+    **Auth**: OIDC Bearer token from AWS Cognito (research A.1) with `custom:tenant_id` claim.
+    **RBAC**: Every protected op declares `x-required-permission`. Step-up auth (≤5 min freshness) is marked `x-step-up: true`.
+    **Errors**: RFC 7807 Problem Details. `type`, `title`, `status`, `detail`, plus LiverRa extensions `tenant_id`, `audit_event_id`, `claim_key` (never PHI).
+    **Audit**: Every state-changing op emits a FHIR AuditEvent (chain-of-hashes research A.3).
+
+servers:
+  - url: https://app.liverra.ai/api/v1
+    description: Production
+  - url: http://localhost:7050/api/v1
+    description: Local dev (FastAPI ml-inference)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+    description: OIDC callback, MFA, RUO acceptance (US7)
+  - name: ingest
+    description: Study upload + anonymization + phase detection (US1 P1, FR-001..FR-006a)
+  - name: analysis
+    description: Pipeline state + per-stage results + cancel + retry (US1 P1, US2 P2, US3 P3, FR-007..FR-014b, FR-033a/b/c)
+  - name: review
+    description: Reviewer seat + mask edits + lesion re-prompting + FLR plane + session recovery (US4 P4, FR-015..FR-018c)
+  - name: export
+    description: Finalize + PDF + DICOM-SEG + DICOM-SR + PACS push + retract (US5 P5, FR-023..FR-027a)
+  - name: admin
+    description: Tenant + users + PACS destination + audit view (US6 P2, FR-039, FR-046, FR-047)
+  - name: onboarding
+    description: First-time clinician flow + RUO acceptance + sample case (US7 P2, FR-041, FR-042)
+  - name: ops
+    description: Cross-tenant operations dashboard (US8 P3, FR-033c)
+  - name: compliance
+    description: Compliance reviewer read-only surface + claim registry (US10 P3, FR-028b, FR-038)
+  - name: erasure
+    description: GDPR Art. 17 DPO workflow (US9 P3, FR-040)
+  - name: system
+    description: Health + version + MBoM
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string, description: "MUST NOT contain PHI" }
+        tenant_id: { type: string, format: uuid }
+        audit_event_id: { type: string }
+
+    Tenant:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        display_name: { type: string }
+        primary_locale: { type: string, enum: [en, de, ka] }
+        data_residency_region: { type: string }
+        pacs_destination:
+          nullable: true
+          type: object
+          properties:
+            ae_title: { type: string }
+            host: { type: string }
+            port: { type: integer }
+            use_tls: { type: boolean }
+            cert_fingerprint: { type: string, nullable: true }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        role: { type: string, enum: [hpb_surgeon, radiologist, fellow, admin, ops, compliance, dpo] }
+        tenant_id: { type: string, format: uuid }
+        mfa_enrolled_at: { type: string, format: date-time, nullable: true }
+        ruo_accepted_at: { type: string, format: date-time, nullable: true }
+        locale_preference: { type: string, enum: [en, de, ka] }
+        theme_preference: { type: string, enum: [light, dark, system] }
+        suspended_at: { type: string, format: date-time, nullable: true }
+
+    Study:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        study_instance_uid: { type: string }
+        uploader_user_id: { type: string, format: uuid }
+        upload_started_at: { type: string, format: date-time }
+        upload_completed_at: { type: string, format: date-time, nullable: true }
+        anonymization_status: { type: string, enum: [pending, passed, failed, phi_contaminated] }
+        phase_coverage:
+          type: object
+          properties:
+            non_contrast: { type: boolean }
+            arterial: { type: boolean }
+            portal_venous: { type: boolean }
+            delayed: { type: boolean }
+        ingestion_outcome: { type: string, enum: [accepted, rejected] }
+        ingestion_rejection_reason:
+          type: string
+          nullable: true
+          enum: [missing_portal_venous, mixed_patient_uid, insufficient_coverage, partial_coverage_no_override, non_liver_ct, malformed_dicom, phi_burned_in]
+        partial_coverage_flag: { type: boolean }
+        phi_contamination_flag: { type: boolean }
+
+    Analysis:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        study_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, complete, failed, cancelled, partial_result] }
+        queued_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        pipeline_version: { type: string }
+        cold_start_indicator: { type: boolean }
+        confidence_flags: { type: array, items: { type: string } }
+        atypical_anatomy_flags: { type: array, items: { type: string } }
+        implausible_output_reason: { type: string, nullable: true }
+        timeout_reason: { type: string, nullable: true }
+        retry_of_analysis_id: { type: string, format: uuid, nullable: true }
+        queue_position: { type: integer, nullable: true }
+        estimated_wait_seconds: { type: integer, nullable: true }
+
+    Lesion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        couinaud_location: { type: string }
+        longest_diameter_mm: { type: number }
+        volume_ml: { type: number }
+        discovery_source: { type: string, enum: [ai_detected, reviewer_prompted] }
+        classification:
+          type: object
+          properties:
+            suggested_class: { type: string, enum: [hcc, icc, metastasis, fnh, hemangioma, cyst, abstained] }
+            confidence_vector:
+              type: object
+              additionalProperties: { type: number }
+            abstention_threshold_used: { type: number }
+            temperature_applied: { type: number }
+            model_version: { type: string }
+            reviewer_override_class: { type: string, nullable: true }
+
+    FLRCalculation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        plane_normal: { type: array, items: { type: number }, minItems: 3, maxItems: 3 }
+        plane_offset_mm: { type: number }
+        resected_volume_ml: { type: number }
+        remnant_volume_ml: { type: number }
+        remnant_pct_functional: { type: number }
+        author: { type: string, enum: [ai_default, surgeon_edited] }
+
+    SurgeonReview:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        analysis_id: { type: string, format: uuid }
+        reviewer_user_id: { type: string, format: uuid }
+        seat_held_until: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        finalized_at: { type: string, format: date-time, nullable: true }
+        edit_count: { type: integer }
+        is_addendum_of_review_id: { type: string, format: uuid, nullable: true }
+
+    Report:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        analysis_id: { type: string, format: uuid }
+        status: { type: string, enum: [draft, finalized, superseded, retracted] }
+        finalized_at: { type: string, format: date-time, nullable: true }
+        pdf_url: { type: string, format: uri }
+        seg_url: { type: string, format: uri }
+        sr_url: { type: string, format: uri }
+        seg_sop_instance_uid: { type: string }
+        sr_sop_instance_uid: { type: string }
+        ruo_watermark_present: { type: boolean, const: true }
+        superseded_by_report_id: { type: string, format: uuid, nullable: true }
+
+    ReportDelivery:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        report_id: { type: string, format: uuid }
+        artifact_type: { type: string, enum: [seg, sr] }
+        destination_ae_title: { type: string }
+        status: { type: string, enum: [pending, sending, acknowledged, failed, manual_fallback] }
+        retry_count: { type: integer }
+        last_error: { type: string, nullable: true, description: "PHI-scrubbed" }
+        next_attempt_at: { type: string, format: date-time, nullable: true }
+
+    AuditEventSummary:
+      type: object
+      properties:
+        id: { type: string }
+        category: { type: string }
+        actor: { type: string }
+        subject: { type: string }
+        timestamp: { type: string, format: date-time }
+        outcome: { type: string, enum: [success, denied, error] }
+        chain_sequence_no: { type: integer }
+
+    ClaimRegistryEntry:
+      type: object
+      properties:
+        claim_key: { type: string, enum: [parenchyma_volumetry, flr, couinaud_segmentation, vessel_identification, lesion_detection, lesion_classification, surgical_planning] }
+        status: { type: string, enum: [ruo, under_conformity_assessment, cleared] }
+        effective_from: { type: string, format: date-time }
+        regulatory_reference: { type: string, nullable: true }
+
+  responses:
+    ProblemResponse:
+      description: Error (RFC 7807)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Resource not found (also returned for cross-tenant / unauthorized per FR-032a)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    StepUpRequired:
+      description: 401 with WWW-Authenticate per RFC 9470
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+
+paths:
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Current authenticated user + tenant + RUO state
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  tenant: { $ref: '#/components/schemas/Tenant' }
+                  permissions: { type: array, items: { type: string } }
+
+  /auth/ruo-accept:
+    post:
+      tags: [auth, onboarding]
+      summary: Record explicit RUO acceptance (FR-031, FR-041)
+      x-required-permission: none
+      responses:
+        '204': { description: Recorded }
+        '400': { $ref: '#/components/responses/ProblemResponse' }
+
+  /ingest/uploads:
+    post:
+      tags: [ingest]
+      summary: Initiate resumable DICOM upload (FR-001, FR-005)
+      x-required-permission: study.upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename: { type: string }
+                size_bytes: { type: integer }
+                sha256: { type: string }
+      responses:
+        '201':
+          description: Upload initiated (tus-style)
+          headers:
+            Location: { schema: { type: string, format: uri } }
+
+  /ingest/studies:
+    get:
+      tags: [ingest]
+      summary: List uploaded studies for the caller's tenant (paginated)
+      x-required-permission: study.upload
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Study' } }
+                  next_cursor: { type: string, nullable: true }
+
+  /ingest/studies/{study_id}:
+    parameters:
+      - { name: study_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [ingest]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Study' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /analyses:
+    post:
+      tags: [analysis]
+      summary: Kick off analysis for an uploaded study (idempotent per study_id)
+      x-required-permission: study.upload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                study_id: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Analysis' }
+
+  /analyses/{analysis_id}:
+    parameters:
+      - { name: analysis_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [analysis]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Analysis' }
+
+  /analyses/{analysis_id}/results:
+    parameters:
+      - { name: analysis_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [analysis]
+      summary: Full analysis outputs — parenchyma, segments, vessels, lesions, FLR default
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analysis: { $ref: '#/components/schemas/Analysis' }
+                  segmentations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        anatomy_category: { type: string }
+                        anatomy_detail: { type: string, nullable: true }
+                        volume_ml: { type: number }
+                        mask_url: { type: string, format: uri }
+                        snomed_code: { type: string }
+                  lesions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Lesion' }
+                  flr_default: { $ref: '#/components/schemas/FLRCalculation' }
+                  confidence_flags: { type: array, items: { type: string } }
+
+  /analyses/{analysis_id}/cancel:
+    parameters:
+      - { name: analysis_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [analysis]
+      x-required-permission: study.cancel_analysis
+      summary: Cancel queued/running analysis (FR-033a)
+      responses:
+        '202': { description: Cancelled }
+
+  /analyses/{analysis_id}/retry:
+    parameters:
+      - { name: analysis_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [analysis]
+      x-required-permission: study.retry_analysis
+      summary: Retry failed analysis without re-upload (FR-033b)
+      responses:
+        '202':
+          description: New analysis created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Analysis' }
+
+  /reviews:
+    post:
+      tags: [review]
+      x-required-permission: review.take_seat
+      summary: Open a SurgeonReview (acquires reviewer seat per FR-017a)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                analysis_id: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Seat acquired
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SurgeonReview' }
+        '409':
+          description: Seat held by another user; returns holder display_name
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /reviews/{review_id}/heartbeat:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review]
+      summary: Extend seat (called every 60s by client)
+      responses:
+        '204': { description: Extended }
+
+  /reviews/{review_id}/mask-refine:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review]
+      x-required-permission: review.refine_mask
+      summary: VISTA3D click-to-refine (FR-015). Local recompute ≤30s.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                segmentation_id: { type: string, format: uuid }
+                click_point_voxel: { type: array, items: { type: integer }, minItems: 3, maxItems: 3 }
+                click_mode: { type: string, enum: [add, subtract] }
+      responses:
+        '200':
+          description: Local mask updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  segmentation_id: { type: string, format: uuid }
+                  new_volume_ml: { type: number }
+                  mask_url: { type: string, format: uri }
+                  duration_ms: { type: integer }
+
+  /reviews/{review_id}/lesion-prompt:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review]
+      x-required-permission: review.reprompt_lesion
+      summary: MedSAM-2 one-prompt tumor re-segmentation (FR-016)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                marker_voxel: { type: array, items: { type: integer }, minItems: 3, maxItems: 3 }
+      responses:
+        '201':
+          description: New lesion added to list
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesion' }
+
+  /reviews/{review_id}/classification-override:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review]
+      x-required-permission: review.override_classification
+      summary: Reviewer overrides AI classification (spec Edge Cases)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lesion_id: { type: string, format: uuid }
+                new_class: { type: string, enum: [hcc, icc, metastasis, fnh, hemangioma, cyst] }
+                reason: { type: string }
+      responses:
+        '200': { description: Override recorded }
+
+  /reviews/{review_id}/flr:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review]
+      summary: Commit a new resection-plane FLR (FR-012/013). Client computes locally; server persists.
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FLRCalculation' }
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FLRCalculation' }
+
+  /reviews/{review_id}/finalize:
+    parameters:
+      - { name: review_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [review, export]
+      x-required-permission: report.finalize
+      x-step-up: true
+      summary: Finalize the review → triggers Report generation (US5)
+      responses:
+        '202':
+          description: Report generation queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id: { type: string, format: uuid }
+                  status: { type: string, enum: [draft, finalizing] }
+        '401':
+          $ref: '#/components/responses/StepUpRequired'
+
+  /reports/{report_id}:
+    parameters:
+      - { name: report_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [export]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Report' }
+
+  /reports/{report_id}/pacs-push:
+    parameters:
+      - { name: report_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [export]
+      x-required-permission: report.pacs_push
+      summary: Push SEG + SR to hospital PACS (FR-026, FR-026a)
+      responses:
+        '202':
+          description: Delivery attempts started
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ReportDelivery' }
+
+  /reports/{report_id}/pacs-push/{delivery_id}/retry:
+    parameters:
+      - { name: report_id, in: path, required: true, schema: { type: string, format: uuid } }
+      - { name: delivery_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [export]
+      x-required-permission: report.pacs_retry
+      responses:
+        '202': { description: Retried }
+
+  /reports/{report_id}/retract:
+    parameters:
+      - { name: report_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [export]
+      x-required-permission: report.retract
+      x-step-up: true
+      summary: Retract a finalized Report (FR-027a)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: Retracted }
+
+  /admin/tenants/me:
+    get:
+      tags: [admin]
+      x-required-permission: admin.view_audit
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Tenant' }
+
+  /admin/users:
+    get:
+      tags: [admin]
+      x-required-permission: admin.view_audit
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/User' } }
+
+  /admin/users/invite:
+    post:
+      tags: [admin]
+      x-required-permission: admin.invite_user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [hpb_surgeon, radiologist, fellow, ops, compliance, dpo] }
+                display_name: { type: string }
+                locale_preference: { type: string, enum: [en, de, ka] }
+      responses:
+        '202': { description: Invite email queued (72h token) }
+
+  /admin/users/{user_id}/suspend:
+    parameters:
+      - { name: user_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [admin]
+      x-required-permission: admin.suspend_user
+      responses:
+        '204': { description: Suspended (historical records preserved) }
+
+  /admin/pacs-destination:
+    put:
+      tags: [admin]
+      x-required-permission: admin.configure_pacs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ae_title: { type: string }
+                host: { type: string }
+                port: { type: integer }
+                use_tls: { type: boolean }
+                cert_fingerprint: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Saved (after successful C-ECHO pre-flight)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  destination: { $ref: '#/components/schemas/Tenant/properties/pacs_destination' }
+                  cecho_round_trip_ms: { type: integer }
+
+  /admin/pacs-destination/echo:
+    post:
+      tags: [admin]
+      x-required-permission: admin.cecho_pacs
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reachable: { type: boolean }
+                  round_trip_ms: { type: integer }
+                  error: { type: string, nullable: true, description: "PHI-scrubbed" }
+
+  /admin/studies/{study_id}/delete-request:
+    parameters:
+      - { name: study_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [admin]
+      x-required-permission: admin.approve_deletion
+      summary: Approve a user-submitted case-deletion request (FR-046)
+      responses:
+        '200': { description: Approved + soft-deleted }
+
+  /admin/audit:
+    get:
+      tags: [admin]
+      x-required-permission: admin.view_audit
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: category, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditEventSummary' }
+
+  /ops/queue:
+    get:
+      tags: [ops]
+      x-required-permission: ops.view_queue
+      responses:
+        '200':
+          description: Cross-tenant queue (no PHI)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued: { type: array, items: { $ref: '#/components/schemas/Analysis' } }
+                  running: { type: array, items: { $ref: '#/components/schemas/Analysis' } }
+                  stuck_over_15min: { type: array, items: { $ref: '#/components/schemas/Analysis' } }
+                  gpu_utilization_pct: { type: number }
+                  cold_start_rate_last_hour: { type: number }
+
+  /ops/analyses/{analysis_id}/mark-blocked:
+    parameters:
+      - { name: analysis_id, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [ops]
+      x-required-permission: ops.mark_blocked
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string }
+      responses:
+        '204': { description: Marked blocked — submitting clinician notified }
+
+  /compliance/mbom:
+    get:
+      tags: [compliance]
+      x-required-permission: compliance.view_mbom
+      responses:
+        '200':
+          description: Active Model Bill of Materials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    model_name: { type: string }
+                    source_url: { type: string, format: uri }
+                    pinned_commit_sha: { type: string }
+                    license_text_hash_hex: { type: string }
+                    license_name: { type: string }
+                    integration_date: { type: string, format: date }
+                    approver: { type: string, format: email }
+
+  /compliance/audit-summary:
+    get:
+      tags: [compliance]
+      x-required-permission: compliance.generate_audit_summary
+      parameters:
+        - { name: tenant_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Tamper-evident audit summary with chain verification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events: { type: array, items: { $ref: '#/components/schemas/AuditEventSummary' } }
+                  chain_valid: { type: boolean }
+                  chain_first_invalid_sequence_no: { type: integer, nullable: true }
+                  merkle_root_for_window: { type: string, description: "hex" }
+                  s3_anchor_uris: { type: array, items: { type: string, format: uri } }
+
+  /compliance/ruo-spot-check:
+    post:
+      tags: [compliance]
+      x-required-permission: compliance.spot_check_ruo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sample_size: { type: integer, default: 20 }
+      responses:
+        '200':
+          description: Sampled artifacts with watermark-region highlighted
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    artifact_url: { type: string, format: uri }
+                    watermark_bbox: { type: array, items: { type: integer } }
+                    pass: { type: boolean, nullable: true, description: "Reviewer fills post-check" }
+
+  /compliance/claim-registry:
+    get:
+      tags: [compliance]
+      x-required-permission: compliance.view_mbom
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ClaimRegistryEntry' }
+    put:
+      tags: [compliance]
+      x-required-permission: compliance.toggle_claim_registry
+      x-step-up: true
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimRegistryEntry' }
+      responses:
+        '200': { description: Updated (subsequent exports narrow disclaimer scope) }
+
+  /erasure/requests:
+    post:
+      tags: [erasure]
+      x-required-permission: erasure.execute
+      x-step-up: true
+      summary: Initiate GDPR Art. 17 erasure for a specific Study (FR-040)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target_study_id: { type: string, format: uuid }
+                justification: { type: string }
+      responses:
+        '202':
+          description: Erasure queued (≤60s execution)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  erasure_request_id: { type: string, format: uuid }
+
+  /erasure/requests/{erasure_id}:
+    parameters:
+      - { name: erasure_id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [erasure]
+      x-required-permission: erasure.execute
+      responses:
+        '200':
+          description: OK (includes confirmation PDF URL once completed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [requested, executing, completed, rolled_back] }
+                  tombstone_hash_hex: { type: string }
+                  confirmation_pdf_url: { type: string, format: uri, nullable: true }
+
+  /system/health:
+    get:
+      tags: [system]
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded, down] }
+                  components:
+                    type: object
+                    additionalProperties: { type: string }
+
+  /system/version:
+    get:
+      tags: [system]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  app_version: { type: string }
+                  pipeline_version: { type: string }
+                  mbom_hash: { type: string }
+                  commit_sha: { type: string }
+                  built_at: { type: string, format: date-time }

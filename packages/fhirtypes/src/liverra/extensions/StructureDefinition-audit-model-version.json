@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/audit-model-version",
+  "name": "LiverRaAuditModelVersion",
+  "title": "LiverRa AuditEvent — Model Version",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "MBoM (Model Bill-of-Materials) build SHA for the ML pipeline that produced the audited action. Pins inference reproducibility (Constitution §V).",
+  "context": [
+    {
+      "type": "element",
+      "expression": "AuditEvent"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "MBoM build SHA identifying the exact pipeline revision",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/audit-model-version"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "Full-length hex SHA-256 of the MBoM manifest",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ]
+      }
+    ]
+  }
+}

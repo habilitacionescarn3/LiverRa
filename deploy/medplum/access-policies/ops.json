@@ -1,0 +1,34 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-ops",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "ops",
+        "display": "Operations / on-call engineer \u2014 cross-tenant queue + GPU telemetry; never PHI."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "AuditEvent",
+      "readonly": true
+    },
+    {
+      "resourceType": "ImagingStudy",
+      "readonly": true
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": true
+    },
+    {
+      "resourceType": "Task",
+      "readonly": false
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

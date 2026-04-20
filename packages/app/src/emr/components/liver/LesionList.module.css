@@ -1,0 +1,220 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/*
+ * LesionList styles (T217). No hex literals — all colours via tokens.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 10px 12px;
+  border: 1px solid var(--emr-gray-200);
+  border-radius: 8px;
+  background: var(--emr-bg-card);
+}
+
+.filterField {
+  min-width: 140px;
+  flex: 1 1 auto;
+}
+
+.resultCount {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  margin-inline-start: auto;
+}
+
+.clearBtn {
+  flex: 0 0 auto;
+}
+
+.gridWrap {
+  position: relative;
+  width: 100%;
+  border: 1px solid var(--emr-gray-200);
+  border-radius: 10px;
+  background: var(--emr-bg-card);
+  overflow: hidden;
+}
+
+.headerRow {
+  display: grid;
+  grid-template-columns: 56px minmax(100px, 1fr) 90px minmax(150px, 1.3fr) 100px 90px;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--emr-gray-50);
+  border-bottom: 1px solid var(--emr-gray-200);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  align-items: center;
+}
+
+.virtualViewport {
+  /* The virtualized list lives inside this max-height-bounded scroller. */
+  max-height: 520px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  contain: strict;
+}
+
+.virtualInner {
+  position: relative;
+  width: 100%;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 56px minmax(100px, 1fr) 90px minmax(150px, 1.3fr) 100px 90px;
+  gap: 8px;
+  padding: 8px 12px;
+  align-items: center;
+  cursor: pointer;
+  background: var(--emr-bg-card);
+  border-bottom: 1px solid var(--emr-gray-100);
+  transition: background 0.15s ease;
+  min-height: 56px; /* 44px+ tap target per CLAUDE.md mobile-first */
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row:hover,
+.row:focus-visible {
+  background: var(--emr-bg-hover);
+  outline: none;
+}
+
+.row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--emr-accent);
+}
+
+.rowSelected {
+  background: var(--emr-light-accent);
+}
+
+.thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--emr-gray-100);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbFallback {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  font-weight: var(--emr-font-semibold);
+}
+
+.cellText {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.cellMuted {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  background: var(--emr-gray-100);
+  color: var(--emr-text-secondary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sourceBadgeAI {
+  background: var(--emr-light-accent);
+  color: var(--emr-primary);
+}
+
+.sourceBadgeReviewer {
+  background: var(--liverra-primary-100);
+  color: var(--liverra-primary-700);
+}
+
+/* ──────────── Mobile card layout (<768px) ──────────── */
+
+@media (max-width: 768px) {
+  .headerRow {
+    display: none;
+  }
+  .virtualViewport {
+    max-height: none;
+    overflow: visible;
+  }
+  .row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--emr-gray-200);
+  }
+  .mobileHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .mobileMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: var(--emr-font-xs);
+    color: var(--emr-text-secondary);
+  }
+}
+
+@media (min-width: 769px) {
+  .mobileHeader,
+  .mobileMeta {
+    display: contents; /* desktop relies on grid layout */
+  }
+}
+
+/* Reduced motion — disable transitions */
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    transition: none;
+  }
+}

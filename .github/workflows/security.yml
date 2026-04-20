@@ -1,0 +1,266 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly full scan to catch newly-disclosed CVEs even without code changes
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # -----------------------------------------------------------------
+  # OWASP ZAP baseline scan against a locally-booted preview server
+  # -----------------------------------------------------------------
+  zap-baseline:
+    name: ZAP baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Build app
+        run: npm run build -- --filter=@liverra/app
+      - name: Start preview server
+        run: |
+          npx vite preview --port 3000 --strictPort &
+          npx wait-on http://localhost:3000 --timeout 60000
+        working-directory: packages/app
+      - name: OWASP ZAP baseline
+        uses: zaproxy/action-baseline@v0.10.0
+        with:
+          target: http://localhost:3000
+          rules_file_name: .zap/rules.tsv
+          fail_action: true
+          allow_issue_writing: false
+
+  # -----------------------------------------------------------------
+  # Secret detection
+  # -----------------------------------------------------------------
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'true'
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  # -----------------------------------------------------------------
+  # Container image vulnerability scan (ml-inference image)
+  # -----------------------------------------------------------------
+  trivy-image:
+    name: Trivy (image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ml-inference image
+        run: docker build -t liverra/ml-inference:ci packages/ml-inference
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: liverra/ml-inference:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  # -----------------------------------------------------------------
+  # IaC / config misconfiguration scan (Dockerfiles, docker-compose, terraform)
+  # -----------------------------------------------------------------
+  trivy-config:
+    name: Trivy (config)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: .
+          format: sarif
+          output: trivy-config.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-config.sarif
+          category: trivy-config
+
+  # -----------------------------------------------------------------
+  # npm dependency audit
+  # -----------------------------------------------------------------
+  npm-audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: npm audit (high+critical)
+        run: npm audit --omit=dev --audit-level=high
+
+  # -----------------------------------------------------------------
+  # pip dependency audit
+  # -----------------------------------------------------------------
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/ml-inference
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pip-audit
+      - run: pip-audit -r requirements.txt --strict
+
+  # -----------------------------------------------------------------
+  # Semgrep SAST — TypeScript
+  # -----------------------------------------------------------------
+  semgrep-ts:
+    name: Semgrep (TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: returntocorp/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep scan
+        run: |
+          semgrep ci \
+            --config=p/typescript \
+            --config=p/react \
+            --config=p/owasp-top-ten \
+            --sarif --output=semgrep-ts.sarif \
+            --error
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-ts.sarif
+          category: semgrep-ts
+
+  # -----------------------------------------------------------------
+  # Semgrep SAST — Python
+  # -----------------------------------------------------------------
+  semgrep-py:
+    name: Semgrep (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    container:
+      image: returntocorp/semgrep:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep scan
+        run: |
+          semgrep ci \
+            --config=p/python \
+            --config=p/owasp-top-ten \
+            --include=packages/ml-inference \
+            --sarif --output=semgrep-py.sarif \
+            --error
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-py.sarif
+          category: semgrep-py
+
+  # -----------------------------------------------------------------
+  # Bandit — Python security linter (belt & braces vs semgrep-py)
+  # -----------------------------------------------------------------
+  bandit:
+    name: Bandit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install bandit[toml]
+      - run: bandit -r packages/ml-inference/src -ll -ii
+
+  # -----------------------------------------------------------------
+  # testssl.sh — TLS posture for the deployed preview environment.
+  # Scheduled only; skips on PR runs (no URL yet). STAGING_URL is read
+  # via env: to prevent command injection from repository variables.
+  # -----------------------------------------------------------------
+  testssl:
+    name: testssl.sh
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install testssl.sh
+        run: git clone --depth 1 https://github.com/drwetter/testssl.sh.git
+      - name: Run testssl against staging
+        env:
+          TARGET: ${{ vars.STAGING_URL }}
+        run: |
+          if [ -z "${TARGET:-}" ]; then
+            echo "::warning::STAGING_URL not configured; skipping."
+            exit 0
+          fi
+          ./testssl.sh/testssl.sh --severity HIGH --quiet --color 0 "$TARGET"

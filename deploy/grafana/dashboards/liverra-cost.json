@@ -1,0 +1,58 @@
+{
+  "title": "LiverRa — Cost",
+  "uid": "liverra-cost",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-30d", "to": "now" },
+  "refresh": "1h",
+  "tags": ["liverra", "cost"],
+  "templating": {
+    "list": [
+      {
+        "name": "budget",
+        "type": "constant",
+        "query": "10000",
+        "current": { "value": "10000", "text": "10000" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Daily AWS spend (USD)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (service) (aws_billing_estimated_charges)", "legendFormat": "{{service}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "gauge",
+      "title": "Monthly budget utilisation",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(aws_billing_estimated_charges) / $budget",
+          "refId": "A"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["last"] } }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Cost per analysis",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(aws_billing_estimated_charges) / sum(increase(liverra_analysis_completed_total[1d]))",
+          "legendFormat": "USD/analysis",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,268 @@
+# Feature Specification: Zero-Training Cascaded Pretrained Liver AI Pipeline with Web Viewer (v1 MVP)
+
+**Feature Branch**: `001-zero-training-mvp`
+**Created**: 2026-04-19
+**Status**: Draft
+**Input**: User description: "Build LiverRa v1 MVP — a zero-training cascaded pretrained liver AI pipeline delivered as a standalone web application at app.liverra.ai for HPB surgeons at design-partner hospitals (Regensburg, Potsdam, Geo Hospitals Tbilisi). Target: 6 weeks to working demo. Research Use Only. No custom training. Cascaded pipeline producing 3D viewer + DICOM-SEG + DICOM-SR + PDF report."
+
+**Canonical brief**: [`docs/research/12-spec-input-prompt.md`](../../docs/research/12-spec-input-prompt.md)
+**Strategic context**: [`docs/research/10-mvp-strategy.md`](../../docs/research/10-mvp-strategy.md), [`docs/research/00-executive-brief.md`](../../docs/research/00-executive-brief.md)
+
+---
+
+## Problem & Goal *(plain-language framing)*
+
+**Problem.** Hepatobiliary (HPB) surgeons planning a liver resection need to know three things before they can safely operate: (1) how much healthy liver is left after the planned cut (the "Future Liver Remnant" or FLR), (2) which Couinaud segments the tumor crosses, and (3) what type of tumor they are dealing with. Today these answers come from either manual ROI drawing in legacy PACS software (slow, variable between readers) or an external service like Visible Patient with a 48-hour turnaround and a per-case fee. The result: surgeries get delayed, borderline-resectable cases get declined out of caution, and small centres without access to 3D planning operate with less information than large academic ones.
+
+**Goal.** Deliver a web-based tool where an HPB surgeon uploads a 4-phase contrast liver CT and — within minutes, not days — gets back a 3D interactive view of the liver with segmented anatomy, a tumor list with AI-suggested classification, and an FLR calculator with a resection-plane simulator. The output is marked **Research Use Only** and designed to support, not replace, surgical decision-making. Ship a working demo to three design-partner hospitals within six weeks, accumulating clinical evidence that feeds the eventual CE MDR Class IIb submission.
+
+---
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Upload a 4-phase liver CT and get an FLR answer (Priority: P1)
+
+An HPB surgeon at a design-partner hospital preparing for a right hepatectomy opens `app.liverra.ai`, signs in, drags a de-identified 4-phase contrast liver CT study onto the upload area, and waits. Within a few minutes the system returns a 3D rendering of the patient's liver parenchyma, total liver volume, and an interactive resection plane that the surgeon can drag to simulate different cut lines. A live FLR readout (in mL and as a % of total functional liver volume) updates as the plane moves. The surgeon uses this to decide whether the patient is a resection candidate or needs pre-op portal vein embolization.
+
+**Why this priority**: FLR is the single number that determines operability. Even without any other output (no segments, no tumor classification, no PDF), a fast FLR calculation is demo-worthy and clinically meaningful on its own. This is the minimum viable slice — everything else is additive value layered on top.
+
+**Independent Test**: A surgeon uploads one representative CT study, drags the resection plane across the mid-hepatic vein, and reads the FLR % shown. The scenario passes if (a) the upload-to-result time is under 5 minutes, (b) the FLR number is within ±5% of expert manual volumetry on a 20-case validation set, and (c) the "Research Use Only" disclaimer is visible on the screen at all times.
+
+**Acceptance Scenarios**:
+
+1. **Given** a valid 4-phase contrast liver CT study and a signed-in surgeon, **When** the surgeon drops the study onto the upload area, **Then** the system accepts the upload, shows a progress indicator for ingestion + anonymization + inference, and surfaces a 3D liver model within 5 minutes.
+2. **Given** the 3D liver model is displayed, **When** the surgeon drags the resection plane handle, **Then** the FLR mL and FLR % update within 1 second to reflect the new plane position.
+3. **Given** any AI-generated output is visible, **When** the surgeon looks at the screen or exports any artifact, **Then** a "Research Use Only — Not for Diagnostic Use" disclaimer is prominent and un-dismissable.
+4. **Given** a CT study where the portal-venous phase is missing, **When** the surgeon attempts upload, **Then** the system explains which phase is required and rejects the study (or accepts with a clearly-flagged degraded-confidence result if only portal-venous is present and other phases are missing).
+
+---
+
+### User Story 2 - Review Couinaud segments and vascular anatomy (Priority: P2)
+
+The same surgeon, having obtained an FLR number, now wants to see which of the eight Couinaud segments the tumor touches and where the portal and hepatic vein trunks run. They click a "Segments & vessels" layer and see the liver parenchyma subdivided into 8 color-coded Couinaud segments, with portal vein and hepatic vein trunks overlaid. They toggle individual segments on and off to clarify the view, rotate the 3D model, and change slice view (axial / coronal / sagittal) to correlate with what they see in the native CT slices.
+
+**Why this priority**: Couinaud segmentation is the language HPB surgeons use to communicate resection plans ("I'm taking segments 5, 6, 7, 8"). Without it, the tool is a volumetry gadget, not a planning tool. But it requires the P1 parenchyma mask as a prerequisite, so it lands at P2.
+
+**Independent Test**: Show a surgeon the segmented liver model and ask: "Which segments would you take in this case?" Record the answer. Compare against the surgeon's own manual segmentation of the same CT. Scenario passes if the AI segmentation is judged "surgically usable" (no re-segmentation required before planning) on ≥80% of a 20-scan review set.
+
+**Acceptance Scenarios**:
+
+1. **Given** a completed analysis, **When** the surgeon activates the segments layer, **Then** the liver model shows 8 distinct colored regions corresponding to Couinaud I–VIII, with portal and hepatic vein trunks visibly overlaid.
+2. **Given** the segments layer is active, **When** the surgeon clicks a segment, **Then** that segment's volume (in mL and % of total functional liver) is shown.
+3. **Given** the 3D view, **When** the surgeon switches between 3D, axial, coronal, and sagittal views, **Then** the segment boundaries remain consistent and synchronized across views.
+4. **Given** the surgeon is dissatisfied with a segment boundary, **When** they enter edit mode and place a correction marker, **Then** the system re-computes that segment's boundary locally without re-running the full pipeline.
+
+---
+
+### User Story 3 - Detect and classify liver lesions (Priority: P3)
+
+The surgeon now wants to know what the liver lesions are. They open the "Lesions" panel and see a list of auto-detected lesions, each with: a thumbnail, location (which Couinaud segment it sits in), longest diameter, AI-suggested classification (one of HCC, ICC, metastasis, FNH, hemangioma, cyst), and a confidence score. When the AI is uncertain, the lesion is flagged "classification uncertain — radiologist review recommended" rather than given a low-confidence guess. Clicking a lesion centres the 3D view and all slice views on it.
+
+**Why this priority**: Lesion classification is the highest-risk AI output because misclassification can change management. The constitution requires the Research Use Only disclaimer, and the product requires an abstention path for uncertain cases. Classification adds significant decision-support value, but it is not required for FLR calculation or segment-based planning (P1/P2), so it is P3.
+
+**Independent Test**: Curate a 20-case review set spanning all six tumor classes. For each case, record (a) whether the AI detected every lesion a radiologist identified (recall), (b) whether the AI's classification agreed with pathology or radiologist consensus, and (c) how often the AI correctly abstained instead of guessing wrong. Scenario passes if lesions ≥10 mm achieve ≥78% detection sensitivity and if the abstention mechanism fires on every low-confidence case.
+
+**Acceptance Scenarios**:
+
+1. **Given** the analysis completes, **When** the surgeon opens the Lesions panel, **Then** every detected lesion is listed with location, size, suggested class, and confidence score.
+2. **Given** a lesion with AI confidence below the abstention threshold, **When** the surgeon views the lesion, **Then** the classification field shows "Uncertain — radiologist review recommended" instead of a class name.
+3. **Given** the lesions panel is open, **When** the surgeon clicks a lesion row, **Then** all three slice views (axial / coronal / sagittal) and the 3D view pan to that lesion.
+4. **Given** a case where the native scan missed a small lesion that a radiologist later identified, **When** the radiologist adds a marker, **Then** the system supports one-prompt tumor re-segmentation from that marker and adds the lesion to the list.
+
+---
+
+### User Story 4 - Interactively refine AI output with one-click corrections (Priority: P4)
+
+The surgeon or radiologist reviewing the AI output notices a missed lesion or a parenchyma boundary that the AI drew incorrectly (e.g., bleeding into the portal vein). Instead of starting over or sending the scan to an external 3D service, they click the spot directly on the 3D model or slice view. The system interprets the click as "please segment here" or "expand boundary to include this" and refines the local region in under 30 seconds. Multiple refinement clicks accumulate into a revised mask that the surgeon can save as the "reviewed" version. The original AI output and the reviewed version are both retained and labelled.
+
+**Why this priority**: Even best-in-class AI makes mistakes. Without interactive refinement, a single bad segmentation invalidates the whole analysis and the surgeon reverts to manual tools. Interactive refinement turns "AI that's wrong 20% of the time" into "AI that's right 100% of the time after 2 clicks" — which is the difference between a toy and a tool. But refinement is a power-user feature that depends on P1-P3 having produced reviewable output, so it is P4.
+
+**Independent Test**: Show the reviewer a case with a deliberately imperfect AI mask (e.g., under-segmented tumor). Measure time-to-acceptable-mask with refinement tools versus without. Scenario passes if median time-to-acceptable-mask drops by ≥50% compared to full manual re-segmentation.
+
+**Acceptance Scenarios**:
+
+1. **Given** a displayed AI segmentation, **When** the user clicks inside a region to add or subtract, **Then** the affected mask updates within 30 seconds and only the local neighbourhood is recomputed.
+2. **Given** the user has made edits, **When** they save the reviewed version, **Then** both the original AI output and the reviewed version are retained and distinguishable in the case history.
+3. **Given** a tumor was missed in the first pass, **When** the user drops a single marker on the missed lesion, **Then** the system re-segments that lesion and appends it to the lesion list with a "manually prompted" tag.
+
+---
+
+### User Story 5 - Export a report to hospital PACS and to paper (Priority: P5)
+
+After review, the surgeon clicks "Finalize report". The system produces three artifacts: (1) a surgeon-facing PDF with 3D screenshots, a volumes table, an FLR summary, the resection plan, and a labelled lesion list; (2) a DICOM-SEG file with the segmentation volumes encoded against standard SNOMED-CT anatomy codes for return to the hospital's PACS; (3) a DICOM-SR structured report using the standard volumetric measurement template. All three artifacts carry the Research Use Only watermark and an audit trail summary (who ran the analysis, when, which model versions). The surgeon can download the PDF to share at tumor board and push the DICOM-SEG/SR back to hospital PACS via a standard DICOM store.
+
+**Why this priority**: Without export the analysis can't leave the web app — surgeons can't use it at tumor board, radiologists can't attach findings to the original study, the hospital can't archive it with the patient record. Export makes the tool usable in the real clinical workflow. But P1-P4 deliver value inside the web app already; export is the "ship it back to the hospital" step, so it is P5.
+
+**Independent Test**: Run an end-to-end case from upload through edit to export. Open the PDF on desktop and mobile (surgeon workflow), and send the DICOM-SEG to the design-partner hospital's PACS. Scenario passes if (a) the PDF opens with all sections visible on both form factors, (b) the DICOM-SEG is accepted by the hospital's standard DICOM store and renders in their native PACS, and (c) every artifact carries the RUO watermark.
+
+**Acceptance Scenarios**:
+
+1. **Given** a finalized analysis, **When** the surgeon clicks "Finalize report", **Then** a PDF, a DICOM-SEG, and a DICOM-SR are produced, all three watermarked Research Use Only.
+2. **Given** the PDF is downloaded, **When** it is opened on a mobile device, **Then** all sections (volumes table, lesion list, screenshots, resection plan) are legible without horizontal scrolling.
+3. **Given** the DICOM-SEG is pushed to a configured PACS destination, **When** the PACS receives it, **Then** it registers as a child of the original ImagingStudy and renders in the hospital's native viewer.
+4. **Given** a finalized report, **When** any user opens the case later, **Then** the original AI output, the reviewer edits, and the finalized report version are all retrievable and clearly labelled.
+
+---
+
+### Edge Cases
+
+- **Missing or incomplete phases**: CT study missing the portal-venous phase MUST be rejected with a clear message. Missing arterial, delayed, or non-contrast phases MUST downgrade the analysis to "limited confidence" rather than fail outright, and the limitation MUST be surfaced on every downstream artifact.
+- **Burned-in patient identifiers**: Studies with PHI burned into the pixel data (patient name, MRN overlays) MUST be detected and either stripped before cloud upload or the upload MUST be blocked with a clear message.
+- **Non-liver CT uploaded by mistake**: A chest CT or abdominal CT that does not contain the full liver MUST be detected at ingestion and rejected before the expensive inference pipeline runs.
+- **Very large tumor burden**: Cases where tumor occupies >50% of the liver MAY degrade segmentation quality; the system MUST flag such cases rather than silently produce a low-quality mask.
+- **Cirrhotic / dysmorphic livers**: Livers with nodular cirrhotic contour or prior resection MAY degrade Couinaud boundary accuracy; the analysis MUST surface a confidence flag on the segments layer in these cases.
+- **Network interruption during upload**: A partial upload MUST be resumable, not require a full re-upload.
+- **Inference service unavailable**: If the GPU inference service is down, uploads MUST queue (not fail) and the user MUST see a clear "analysis pending" status rather than an error.
+- **Concurrent uploads on a single GPU**: If 3+ studies are queued, the system MUST FIFO-queue them and show each user their queue position rather than running in parallel and crashing.
+- **User abandons case mid-review**: An in-progress review MUST auto-save edits so the surgeon can resume later without losing work.
+- **Pathology disagrees with AI classification**: The reviewed version MUST be editable to override the AI classification, and the override MUST be retained and distinguishable in the case history.
+- **Browser back / refresh during inference**: Navigating away during inference MUST NOT lose the job; the surgeon MUST find the completed analysis waiting when they return.
+- **Cold start of inference GPU**: On-demand GPU start (used for MVP cost control) MAY add 60–120 s latency to the first case of a session; this MUST be surfaced to the user as a one-time warm-up and MUST NOT count against the sub-5-minute target for subsequent cases.
+
+---
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+**Ingestion & Input Handling**
+
+- **FR-001**: System MUST accept 4-phase contrast liver CT studies in DICOM format via web upload (drag-and-drop) in the MVP.
+- **FR-002**: System MUST anonymize uploaded DICOM studies (header de-identification and burned-in pixel PHI detection) before any data leaves the hospital network or is written to persistent cloud storage.
+- **FR-003**: System MUST validate that the uploaded study contains at minimum the portal-venous phase and MUST reject studies lacking it with a clear explanation.
+- **FR-004**: System MUST detect and gracefully degrade analysis confidence when arterial, delayed, or non-contrast phases are missing, rather than failing outright.
+- **FR-005**: System MUST support resumable upload of large DICOM series (studies can exceed 1 GB) without requiring the user to restart on network interruption.
+- **FR-006**: System MUST detect non-liver or insufficient-coverage CT studies at ingestion and reject them before running the inference pipeline.
+
+**Analysis Pipeline & Outputs**
+
+- **FR-007**: System MUST produce, for each accepted study, a volumetric liver parenchyma mask with a reported confidence metric (e.g., Dice against an internal validation set).
+- **FR-008**: System MUST produce an 8-region Couinaud segment map aligned to the parenchyma mask.
+- **FR-009**: System MUST produce portal vein and hepatic vein trunk masks overlayable on the parenchyma.
+- **FR-010**: System MUST produce a list of detected liver lesions, each annotated with Couinaud location, longest diameter, AI-suggested classification (HCC, ICC, metastasis, FNH, hemangioma, cyst), and a per-lesion confidence score.
+- **FR-011**: System MUST abstain from classifying lesions whose confidence falls below a pre-set threshold and MUST surface such cases as "Uncertain — radiologist review recommended" rather than forcing a class label.
+- **FR-012**: System MUST compute Future Liver Remnant (FLR) volume in mL and as a percentage of total functional liver volume, parameterized by a user-adjustable resection plane.
+- **FR-013**: FLR MUST update in real time (≤1 s) as the user drags the resection plane.
+- **FR-014**: The full inference pipeline MUST complete within 2 minutes per scan on the target inference hardware (single L4-class GPU), excluding upload / anonymization.
+
+**Interactive Review & Refinement**
+
+- **FR-015**: System MUST allow the reviewing user (surgeon or radiologist) to click-to-refine any segmentation (parenchyma, segment, vessel, or lesion) with a local recompute of the affected region in ≤30 s.
+- **FR-016**: System MUST support one-prompt tumor re-segmentation where the reviewer marks a missed or mis-sized lesion with a single click and the system produces a 3D mask of that lesion.
+- **FR-017**: System MUST retain both the original AI output and all user-edited versions of every mask and lesion record, distinguishable and timestamped.
+- **FR-018**: System MUST auto-save review progress so that a user who navigates away or loses their session returns to their in-progress edits intact.
+
+**Visualization**
+
+- **FR-019**: System MUST present an interactive 3D rendering of the liver parenchyma, vessels, segments, and lesions, with the ability to toggle each layer independently.
+- **FR-020**: System MUST present synchronized axial, coronal, and sagittal 2D slice views alongside the 3D view; clicking a point in one view MUST recenter all views.
+- **FR-021**: System MUST support standard radiology interactions: zoom, pan, window / level presets for CT liver soft tissue, and measurement tools.
+- **FR-022**: System MUST render clinical information (volumes, FLR, lesion lists) legibly on both desktop and mobile screens per the unified design system.
+
+**Export & Reporting**
+
+- **FR-023**: System MUST produce, on user request, a structured PDF report containing 3D screenshots, a volumes table, an FLR summary, the configured resection plan, and a labelled lesion list.
+- **FR-024**: System MUST produce a DICOM-SEG artifact encoding the segmentation volumes (parenchyma, 8 segments, vessels, lesions by type) with standard anatomy coding (SNOMED-CT where applicable).
+- **FR-025**: System MUST produce a DICOM-SR structured report using the standard volumetric-measurement reporting template (TID 1500 or equivalent), covering liver + segment volumes, FLR, and lesion measurements + classifications.
+- **FR-026**: System MUST support pushing DICOM-SEG and DICOM-SR back to the hospital PACS via standard DICOM store transactions, configured per hospital.
+- **FR-027**: Every exported artifact (PDF, DICOM-SEG, DICOM-SR) MUST carry an un-removable "Research Use Only — Not for Diagnostic Use" watermark and a minimum audit-trail summary (analysis timestamp, model versions, operator).
+
+**Compliance, Audit & Safety**
+
+- **FR-028**: System MUST display a "Research Use Only — Not for Diagnostic Use" disclaimer persistently and un-dismissably on every screen that shows AI-derived output.
+- **FR-029**: System MUST log every inference run as an audit record containing: input hash, model identifier + version, output hash, timestamp, actor, and study UID — with no PHI in the log body.
+- **FR-030**: System MUST log every DICOM transaction (ingest, export, PACS push) to the same audit stream.
+- **FR-031**: System MUST record explicit user acceptance of the Research Use Only terms on first sign-in and retain the acceptance event in the audit log.
+- **FR-032**: System MUST restrict access to authenticated users, enforce multi-factor authentication for all clinician and admin roles, and scope every case to a single hospital tenant (no cross-tenant visibility).
+
+**Operations**
+
+- **FR-033**: System MUST queue uploads when inference capacity is saturated and surface queue position to the user rather than failing.
+- **FR-034**: System MUST recover from a cold-started inference service, surfacing one-time warm-up latency to the user so that it does not appear to be a failure.
+- **FR-035**: System MUST expose health indicators (ingestion, anonymization, inference, export) sufficient for an operator to diagnose a stuck case.
+- **FR-036**: System MUST support 1–3 concurrent analyses on the MVP hardware footprint; scaling beyond that is out of v1 scope.
+
+### Key Entities
+
+- **Study**: One patient's uploaded imaging, identified by a globally unique Study Instance UID. Owns: originating hospital (tenant), uploader, upload timestamp, anonymization status, phase coverage (non-contrast / arterial / portal-venous / delayed), ingestion outcome.
+- **Series**: One acquisition within a Study (one phase of the 4-phase protocol). Owns: modality, phase label, slice count, image geometry.
+- **Analysis**: One end-to-end run of the inference pipeline over a Study. Owns: status (queued / running / complete / failed), start + end timestamps, pipeline version, per-stage outcomes, confidence flags, cold-start indicator.
+- **Segmentation**: A labelled 3D mask produced by the pipeline. Subtypes: Parenchyma, Couinaud Segment I–VIII, Portal Vein, Hepatic Vein, Lesion. Owns: anatomic label, volume (mL), generation source (AI-original vs reviewer-edited), parent Analysis.
+- **Lesion**: A detected focal liver lesion. Owns: parent Segmentation (mask), Couinaud location, longest diameter, suggested classification (or "abstained"), per-class confidence vector, discovery source (AI-detected vs reviewer-prompted).
+- **Classification**: A per-lesion class assignment across {HCC, ICC, Metastasis, FNH, Hemangioma, Cyst, Abstained}, with confidence and model version.
+- **FLRCalculation**: A resection-plane-parameterized remnant volume measurement. Owns: plane geometry, resected volume, remnant volume, remnant % of total functional liver, timestamp, author (AI-default vs surgeon-edited).
+- **SurgeonReview**: The delta set of edits applied by a reviewer over an AI output. Owns: reviewer, edits (per mask / lesion), review start + finalize timestamps, finalization decision.
+- **Report**: A bundled export artifact (PDF / DICOM-SEG / DICOM-SR). Owns: parent Analysis + SurgeonReview, artifact type, RUO watermark marker, PACS-push state, hash of contents.
+- **AuditEvent**: A single auditable action (inference run, DICOM transaction, PHI touch, authentication, RUO acceptance). Owns: actor, action type, subject (Study / Analysis / Report ID), timestamp, input / output hashes, no PHI in body.
+- **User**: An authenticated clinician or admin. Owns: role (HPB surgeon / radiologist / fellow / admin), tenant (hospital), MFA status, RUO acceptance state.
+- **Tenant**: A design-partner hospital (Regensburg / Potsdam / Geo Hospitals in v1). Owns: PACS push destination, data residency region, authorized user list.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: End-to-end pipeline runs on a representative set of 20 Geo Hospitals liver CT scans with zero crashes over the pilot.
+- **SC-002**: ≥95% of accepted studies return a completed analysis within 5 minutes of upload on warm infrastructure (excluding one-time cold-start warm-up).
+- **SC-003**: FLR calculation falls within ±5% of expert manual volumetry on the 20-scan validation set.
+- **SC-004**: HPB surgeon reviewers rate Couinaud segmentation as "surgically usable without re-segmentation" on ≥80% of the 20-scan review set.
+- **SC-005**: Lesion detection achieves ≥78% sensitivity on lesions ≥10 mm across the validation set (abstention on low-confidence cases counts as a correct non-classification, not a miss).
+- **SC-006**: Interactive refinement reduces median time-to-acceptable-mask by ≥50% compared to full manual re-segmentation on a matched case set.
+- **SC-007**: Three Data Processing Agreements are signed (Regensburg, Potsdam, Geo Hospitals) and each site has at least one user account active with MFA enabled.
+- **SC-008**: At least one real clinical case is documented as having been reviewed at a design-partner tumor board using output from the tool.
+- **SC-009**: Every AI-derived output rendered in the UI, exported to PDF, or exported to DICOM carries a visible Research Use Only disclaimer — verified by manual audit of 20 random export artifacts with zero missing disclaimers.
+- **SC-010**: Every inference run and every DICOM transaction in the pilot period is represented by an audit record containing input hash, model version, output hash, actor, and timestamp — verified by reconciliation against pipeline execution logs with zero gaps.
+- **SC-011**: A conference abstract describing the validation results is submitted to one of: ECR 2027, ESGAR 2026, IHPBA Singapore 2026.
+- **SC-012**: The cost of running the design-partner pilot stays within the budgeted range of €800–€1,500 per month of active operation.
+
+---
+
+## Assumptions *(reasonable defaults carried from the canonical brief)*
+
+- **Target users**: Primary — HPB surgeons with 5–20 years of experience performing 50–200 hepatectomies per year. Secondary — abdominal radiologists validating AI output. Tertiary — clinical fellows / residents as power users.
+- **Target hospitals (v1)**: Regensburg University Hospital (Prof. Schlitt), Ernst von Bergmann Potsdam (Prof. Beyer), Geo Hospitals Tbilisi (Dr. Gogichaishvili).
+- **Regulatory framing**: v1 is Research Use Only. Not a medical device. Not for autonomous clinical use. CE MDR Class IIb submission is a Phase 3 initiative (24–30 months out); v1 exists to accumulate clinical evidence for that submission.
+- **Model stack**: Cascaded Apache-2.0 pretrained models are constitutionally mandated — see Constitution Principle II. Custom training and fine-tuning are explicitly out of v1 scope. Specific model selection and orchestration are implementation concerns for `plan.md`.
+- **Data residency**: Primary cloud region is AWS eu-central-1 (Frankfurt) for GDPR compliance. Deployments for non-DACH hospitals may document a different residency per tenant.
+- **Tenant model**: Single-tenant per hospital in v1 (one deployment namespace per design partner). Multi-tenant isolation on shared infrastructure is out of v1 scope.
+- **Authentication**: OAuth 2.0 / OIDC with MFA required for all clinical users, per Constitution Principle VII. Exact identity provider choice (hospital SSO vs dedicated LiverRa IdP) is an implementation decision per tenant.
+- **Data ingestion**: Web drag-and-drop is the MVP default. Direct DIMSE C-STORE from hospital PACS is Phase 2.
+- **Anonymization**: Header de-identification and burned-in pixel PHI stripping occur before data leaves the hospital network or is persisted in cloud storage.
+- **Audit retention**: Minimum 6 years per HIPAA / whichever local requirement is longer, per Constitution compliance standards.
+- **Uptime target**: 95% during the design-partner pilot. Not 99.9% — this is an MVP, not a production SaaS.
+- **Concurrency target**: 1–3 simultaneous analyses on MVP hardware (single L4-class GPU). Horizontal scale-out is deferred.
+- **Localization**: English, German, and Georgian translations maintained, per Constitution Principle X.
+- **Design system**: Unified LiverRa design system ported from MediMind per Constitution Principle IX. UI work MUST go through the `frontend-designer` agent per CLAUDE.md.
+
+---
+
+## Out of Scope for v1 *(explicit exclusions carried from canonical brief)*
+
+- MRI modality (including HCC gadoxetic-acid MRI).
+- Biliary tree segmentation (requires MRCP).
+- Hepatic artery segmentation (research-grade quality).
+- Multi-tenant isolation on shared infrastructure.
+- Full HIPAA / GDPR-grade audit logging (v1 uses basic but sufficient logging).
+- Auto-classification of LI-RADS categories (decision support only).
+- FDA 510(k) submission artifacts (the pathway is documented for planning; actual submission is Phase 3).
+- Custom model training or fine-tuning (zero-training MVP is the defining constraint).
+- Mobile-native app (responsive web only).
+- EHR integration beyond FHIR basics.
+- ALPPS multi-stage resection planning.
+- Living-donor recipient matching.
+- Pre-operative chemotherapy "vanishing metastases" handling.
+
+---
+
+## Dependencies
+
+- **Constitution**: `.specify/memory/constitution.md` v2.0.0 — all ten principles apply, with Principles I, II, III, V, VI as hard gates for this feature.
+- **Design-partner agreements**: Signed Data Processing Agreements with Regensburg, Potsdam, Geo Hospitals are prerequisites for any real-patient data flow (SC-007).
+- **Validation dataset**: A curated 20-scan set from Geo Hospitals, phase-labelled, de-identified, with expert manual FLR and segment ground truth, is required to verify SC-003, SC-004, SC-005.
+- **Reusable MediMind assets**: The MediMind → LiverRa asset map in `CLAUDE.md` identifies porting candidates (Cornerstone3D init, DICOM viewer skeleton, DICOMweb client, DICOM-SR service, annotation service, audit service, theme CSS, translation system, EMR component library, Orthanc / nginx stack). Per-component porting decisions happen in `plan.md` and `tasks.md`.
+- **External research dependencies**: Published benchmarks in `docs/research/04-ml-feasibility.md` set the expected accuracy bands used in SC-003 through SC-005.
+
+---
+
+## Clarifications Needed
+
+None at spec level. All open questions are implementation-level and belong in `plan.md` / `research.md` (examples: exact phase-detection algorithm, viewer customization scope, model loading strategy, lesion abstention threshold calibration).

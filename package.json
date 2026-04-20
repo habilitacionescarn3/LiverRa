@@ -6,22 +6,40 @@
   "license": "UNLICENSED",
   "author": "DevoteAI <team@updevoteai.com>",
   "type": "module",
+  "packageManager": "npm@11.6.2",
   "workspaces": [
     "packages/app",
     "packages/core",
     "packages/imaging",
-    "packages/fhirtypes"
+    "packages/fhirtypes",
+    "packages/core/eslint-plugin-liverra"
   ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "test:e2e": "playwright test --config=packages/app/playwright.config.ts",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "generate:openapi-client": "npx openapi-typescript specs/001-zero-training-mvp/contracts/api-openapi.yaml -o packages/app/src/emr/services/api-schema.gen.ts",
+    "generate:permissions": "cd packages/ml-inference && python -m src.services.auth.rbac.generator",
+    "bootstrap:dev": "bash scripts/bootstrap-dev.sh",
+    "palette-cvd-check": "tsx packages/app/scripts/palette-cvd-check.ts",
+    "model-bom": "bash scripts/model-bom.sh",
+    "license-check": "bash scripts/license-check.sh"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "@typescript-eslint/utils": "^8.14.0",
+    "eslint": "^9.15.0",
+    "openapi-typescript": "^7.4.0",
+    "tsx": "^4.19.0",
     "turbo": "^2.3.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.13.0"
   },
   "engines": {
     "node": ">=20.0.0",

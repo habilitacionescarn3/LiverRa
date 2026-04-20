@@ -1,0 +1,126 @@
+# LiverRa — production stack (single-node AWS deployment)
+#
+# Assumes managed AWS services reachable via environment variables:
+#   - RDS Postgres (POSTGRES_HOST)
+#   - Elasticache Redis (REDIS_HOST)
+#   - S3 (S3_DICOM_BUCKET, S3_ARTIFACTS_BUCKET, S3_AUDIT_BUCKET) in eu-central-1
+#   - AWS Secrets Manager for all secrets (AWS_SECRETS_MANAGER_PREFIX=liverra/)
+#
+# Orthanc + Triton run on-host alongside FastAPI. Medplum runs in-VPC.
+# EKS migration deferred to Phase 2 (3+ paying customers).
+#
+# See research.md §A.7, plan.md §Technical Context.
+
+name: liverra-production
+
+services:
+  orthanc:
+    image: orthancteam/orthanc:24.10.1
+    container_name: liverra-orthanc
+    restart: unless-stopped
+    environment:
+      ORTHANC__NAME: LiverRa-Prod
+      ORTHANC__REGISTERED_USERS: |
+        {"${ORTHANC_USERNAME}":"${ORTHANC_PASSWORD}"}
+      ORTHANC__DICOM_WEB__ENABLE: "true"
+      ORTHANC__POSTGRESQL__ENABLE_INDEX: "true"
+      ORTHANC__POSTGRESQL__HOST: ${POSTGRES_HOST}
+      ORTHANC__POSTGRESQL__PORT: ${POSTGRES_PORT:-5432}
+      ORTHANC__POSTGRESQL__USERNAME: ${POSTGRES_USER}
+      ORTHANC__POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD}
+      ORTHANC__POSTGRESQL__DATABASE: orthanc
+    ports:
+      - "4242:4242"
+      - "8042:8042"
+    volumes:
+      - /var/lib/liverra/orthanc:/var/lib/orthanc/db
+
+  medplum:
+    image: medplum/medplum-server:latest
+    container_name: liverra-medplum
+    restart: unless-stopped
+    environment:
+      MEDPLUM_DATABASE_HOST: ${POSTGRES_HOST}
+      MEDPLUM_DATABASE_PORT: ${POSTGRES_PORT:-5432}
+      MEDPLUM_DATABASE_USERNAME: ${POSTGRES_USER}
+      MEDPLUM_DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      MEDPLUM_DATABASE_DBNAME: medplum
+      MEDPLUM_REDIS_HOST: ${REDIS_HOST}
+      MEDPLUM_REDIS_PORT: ${REDIS_PORT:-6379}
+      MEDPLUM_REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MEDPLUM_PORT: "8103"
+      MEDPLUM_BASE_URL: ${MEDPLUM_BASE_URL}
+    ports:
+      - "8103:8103"
+
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.10-py3
+    container_name: liverra-triton
+    restart: unless-stopped
+    command: >
+      tritonserver
+      --model-repository=s3://${S3_ARTIFACTS_BUCKET}/triton-models/
+      --model-control-mode=explicit
+      --load-model=stunet-parenchyma
+      --load-model=stunet-lesions
+      --load-model=couinaud-segments
+      --log-verbose=0
+    environment:
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  ml-inference:
+    image: ${LIVERRA_IMAGE_REGISTRY}/liverra-ml-inference:${LIVERRA_VERSION:-latest}
+    container_name: liverra-ml-inference
+    restart: unless-stopped
+    environment:
+      LIVERRA_ENV: production
+      AWS_REGION: ${AWS_REGION}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT:-6379}/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD}@${REDIS_HOST}:${REDIS_PORT:-6379}/1
+      TRITON_URL: http://triton:8001
+      ORTHANC_URL: http://orthanc:8042
+      MEDPLUM_BASE_URL: http://medplum:8103/
+      S3_DICOM_BUCKET: ${S3_DICOM_BUCKET}
+      S3_ARTIFACTS_BUCKET: ${S3_ARTIFACTS_BUCKET}
+      S3_AUDIT_BUCKET: ${S3_AUDIT_BUCKET}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      KMS_MASTER_KEY_ID: ${KMS_MASTER_KEY_ID}
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: production
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      LIVERRA_UID_ROOT: ${LIVERRA_UID_ROOT}
+    ports:
+      - "8080:8000"
+    depends_on:
+      - triton
+      - orthanc
+      - medplum
+
+  app:
+    image: ${LIVERRA_IMAGE_REGISTRY}/liverra-app:${LIVERRA_VERSION:-latest}
+    container_name: liverra-app
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_MEDPLUM_BASE_URL: ${VITE_MEDPLUM_BASE_URL}
+      VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
+      VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY}
+      VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST}
+    ports:
+      - "3000:3000"
+
+# No volumes: all durable state lives in RDS, Elasticache, S3.

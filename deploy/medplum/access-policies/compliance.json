@@ -1,0 +1,38 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-compliance",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "compliance",
+        "display": "Compliance reviewer \u2014 read-only across tenants for MBoM, claim registry, and audit summaries. `report.view` is granted but restricted to non-PHI summaries by server-side projection."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "AuditEvent",
+      "readonly": true
+    },
+    {
+      "resourceType": "Basic",
+      "readonly": false
+    },
+    {
+      "resourceType": "DiagnosticReport",
+      "readonly": true
+    },
+    {
+      "resourceType": "DocumentReference",
+      "readonly": false
+    },
+    {
+      "resourceType": "Task",
+      "readonly": false
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

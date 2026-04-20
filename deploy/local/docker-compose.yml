@@ -1,0 +1,129 @@
+# LiverRa — local development stack
+# Brought up by `scripts/switch-env.sh local && docker compose -f deploy/local/docker-compose.yml up -d`
+# See quickstart.md §3.
+
+name: liverra-local
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: liverra-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-liverra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-liverra}
+      POSTGRES_DB: ${POSTGRES_DB:-liverra}
+    ports:
+      - "5432:5432"
+    volumes:
+      - liverra_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-liverra}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: liverra-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - liverra_redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  orthanc:
+    image: orthancteam/orthanc:24.10.1
+    container_name: liverra-orthanc
+    environment:
+      ORTHANC__NAME: LiverRa-Local
+      ORTHANC__REGISTERED_USERS: |
+        {"${ORTHANC_USERNAME:-orthanc}":"${ORTHANC_PASSWORD:-orthanc}"}
+      ORTHANC__DICOM_WEB__ENABLE: "true"
+      ORTHANC__POSTGRESQL__ENABLE_INDEX: "true"
+      ORTHANC__POSTGRESQL__HOST: postgres
+      ORTHANC__POSTGRESQL__PORT: 5432
+      ORTHANC__POSTGRESQL__USERNAME: ${POSTGRES_USER:-liverra}
+      ORTHANC__POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-liverra}
+      ORTHANC__POSTGRESQL__DATABASE: ${POSTGRES_DB:-liverra}
+    ports:
+      - "4242:4242"   # DIMSE (DICOM protocol)
+      - "8042:8042"   # REST + DICOMweb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - liverra_orthanc_data:/var/lib/orthanc/db
+
+  medplum:
+    image: medplum/medplum-server:latest
+    container_name: liverra-medplum
+    environment:
+      MEDPLUM_DATABASE_HOST: postgres
+      MEDPLUM_DATABASE_PORT: "5432"
+      MEDPLUM_DATABASE_USERNAME: ${POSTGRES_USER:-liverra}
+      MEDPLUM_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-liverra}
+      MEDPLUM_DATABASE_DBNAME: medplum
+      MEDPLUM_REDIS_HOST: redis
+      MEDPLUM_REDIS_PORT: "6379"
+      MEDPLUM_PORT: "8103"
+      MEDPLUM_BASE_URL: ${MEDPLUM_BASE_URL:-http://localhost:8103/}
+    ports:
+      - "8103:8103"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  triton:
+    # CPU stub for frontend-only work — serves fixture responses on the 5 ML endpoints.
+    image: nvcr.io/nvidia/tritonserver:24.10-py3
+    container_name: liverra-triton
+    command: >
+      tritonserver
+      --model-repository=/models
+      --strict-model-config=false
+      --log-verbose=0
+    ports:
+      - "8000:8000"   # HTTP
+      - "8001:8001"   # gRPC
+      - "8002:8002"   # metrics
+    volumes:
+      - ../../packages/ml-inference/triton-models:/models:ro
+    # No GPU claim — CPU mode for zero-GPU dev machines.
+
+  minio:
+    image: minio/minio:latest
+    container_name: liverra-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-liverra}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-liverra-dev-password}
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - liverra_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: liverra-mailhog
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+
+volumes:
+  liverra_postgres_data:
+  liverra_redis_data:
+  liverra_orthanc_data:
+  liverra_minio_data:

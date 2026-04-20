@@ -1,0 +1,4116 @@
+/* LiverRa EMR Theme - CSS Custom Properties */
+/* This theme system provides consistent colors, gradients, and dimensions across the EMR UI */
+/* Ported from MediMind 2026-04-19; brand ramp rewritten to placeholder warm-gray per §Brand Rebrand */
+/*
+ * FORBIDDEN HEX SENTINEL (ESLint-discoverable):
+ * Never re-introduce these values anywhere in this codebase:
+ *   #3b82f6 #60a5fa #2563eb #4267B2 #93c5fd #1d4ed8 #4299e1 #63b3ed
+ * All color references MUST use var(--emr-*) or var(--liverra-*) tokens from this file.
+ */
+
+/* === Z-INDEX SCALE ===
+ * base:      0-9     (default stacking)
+ * dropdowns: 100-199 (dropdown menus, popovers)
+ * sticky:    200-299 (sticky headers, sidebars)
+ * modals:    1000-1099 (modal dialogs)
+ * toasts:    1100-1199 (notification toasts)
+ * tooltips:  1200-1299 (tooltips, help text)
+ * override:  9999+    (emergency overrides)
+ */
+
+:root {
+  /* ==================== CORE COLORS ==================== */
+  /* PLACEHOLDER warm-gray ramp — final brand ramp TBD in §Brand Rebrand */
+  /*
+   * T464 PENDING: Once specs/001-zero-training-mvp/brand-tokens.md status
+   * flips to 'approved' (founder + design-lead sign-off), replace the
+   * --liverra-primary-50..900 + --emr-primary/secondary/accent values
+   * below with the approved ramp. Also introduce --liverra-accent-50..900
+   * per brand-tokens.md §1.2.
+   *
+   * Until approved:
+   *   - keep placeholder warm-gray values in place
+   *   - release-gate.yml (T398) blocks pilot tags on pending status
+   *   - ci-palette-cvd-check + ci-forbidden-colors-scan still run
+   *   - any edit here that changes ramp values without bumping
+   *     brand-tokens.md status is a release-blocker
+   * Tracking: T464 (deferred-work contract delivered; ramp swap awaits
+   * sign-off).
+   */
+  /* LiverRa primary ramp (50…900) — source of truth for brand color */
+  --liverra-primary-50:  #f7f5f3;
+  --liverra-primary-100: #eae5e0;
+  --liverra-primary-200: #d8d0c8;
+  --liverra-primary-300: #b8aa9d;
+  --liverra-primary-400: #8a7a6c;
+  --liverra-primary-500: #6b5c4f;
+  --liverra-primary-600: #4d4236;
+  --liverra-primary-700: #352d24;
+  --liverra-primary-800: #231e18;
+  --liverra-primary-900: #15110d;
+
+  /* Primary warm-gray palette - used for main navigation and primary actions */
+  /* Mapped from MediMind blue ramp (#1a365d / #2b6cb0 / #3182ce / #bee3f8) */
+  --emr-primary: var(--liverra-primary-700);        /* was #1a365d navy */
+  --emr-secondary: var(--liverra-primary-500);      /* was #2b6cb0 medium blue */
+  --emr-accent: var(--liverra-primary-400);         /* was #3182ce light blue */
+  --emr-light-accent: var(--liverra-primary-100);   /* was #bee3f8 pale blue */
+
+  /* Primary color with alpha transparency variants */
+  --emr-primary-alpha-04: rgba(26, 54, 93, 0.04);
+  --emr-primary-alpha-08: rgba(26, 54, 93, 0.08);
+  --emr-primary-alpha-12: rgba(26, 54, 93, 0.12);
+  --emr-primary-alpha-16: rgba(26, 54, 93, 0.16);
+  --emr-primary-alpha-20: rgba(26, 54, 93, 0.20);
+  --emr-primary-alpha-24: rgba(26, 54, 93, 0.24);
+  --emr-primary-alpha-28: rgba(26, 54, 93, 0.28);
+  --emr-primary-alpha-32: rgba(26, 54, 93, 0.32);
+  --emr-primary-alpha-40: rgba(26, 54, 93, 0.40);
+
+  /* Secondary color with alpha transparency variants (43, 108, 176 = #2b6cb0) */
+  --emr-secondary-alpha-02: rgba(43, 108, 176, 0.02);
+  --emr-secondary-alpha-03: rgba(43, 108, 176, 0.03);
+  --emr-secondary-alpha-04: rgba(43, 108, 176, 0.04);
+  --emr-secondary-alpha-05: rgba(43, 108, 176, 0.05);
+  --emr-secondary-alpha-06: rgba(43, 108, 176, 0.06);
+  --emr-secondary-alpha-08: rgba(43, 108, 176, 0.08);
+  --emr-secondary-alpha-10: rgba(43, 108, 176, 0.10);
+  --emr-secondary-alpha-12: rgba(43, 108, 176, 0.12);
+  --emr-secondary-alpha-15: rgba(43, 108, 176, 0.15);
+  --emr-secondary-alpha-18: rgba(43, 108, 176, 0.18);
+  --emr-secondary-alpha-20: rgba(43, 108, 176, 0.20);
+  --emr-secondary-alpha-25: rgba(43, 108, 176, 0.25);
+  --emr-secondary-alpha-30: rgba(43, 108, 176, 0.30);
+  --emr-secondary-alpha-35: rgba(43, 108, 176, 0.35);
+  --emr-secondary-alpha-40: rgba(43, 108, 176, 0.40);
+  --emr-secondary-alpha-50: rgba(43, 108, 176, 0.50);
+  --emr-secondary-alpha-60: rgba(43, 108, 176, 0.60);
+  --emr-secondary-alpha-80: rgba(43, 108, 176, 0.80);
+  --emr-secondary-alpha-90: rgba(43, 108, 176, 0.90);
+
+  /* Accent color with alpha transparency variants (49, 130, 206 = #3182ce) */
+  --emr-accent-alpha-02: rgba(49, 130, 206, 0.02);
+  --emr-accent-alpha-04: rgba(49, 130, 206, 0.04);
+  --emr-accent-alpha-08: rgba(49, 130, 206, 0.08);
+  --emr-accent-alpha-10: rgba(49, 130, 206, 0.10);
+  --emr-accent-alpha-12: rgba(49, 130, 206, 0.12);
+  --emr-accent-alpha-15: rgba(49, 130, 206, 0.15);
+  --emr-accent-alpha-20: rgba(49, 130, 206, 0.20);
+  --emr-accent-alpha-30: rgba(49, 130, 206, 0.30);
+  --emr-accent-alpha-35: rgba(49, 130, 206, 0.35);
+  --emr-accent-alpha-80: rgba(49, 130, 206, 0.80);
+
+  /* White color with alpha transparency variants */
+  --emr-white-alpha-02: rgba(255, 255, 255, 0.02);
+  --emr-white-alpha-03: rgba(255, 255, 255, 0.03);
+  --emr-white-alpha-05: rgba(255, 255, 255, 0.05);
+  --emr-white-alpha-10: rgba(255, 255, 255, 0.10);
+  --emr-white-alpha-12: rgba(255, 255, 255, 0.12);
+  --emr-white-alpha-15: rgba(255, 255, 255, 0.15);
+  --emr-white-alpha-20: rgba(255, 255, 255, 0.20);
+  --emr-white-alpha-25: rgba(255, 255, 255, 0.25);
+  --emr-white-alpha-30: rgba(255, 255, 255, 0.30);
+  --emr-white-alpha-50: rgba(255, 255, 255, 0.50);
+  --emr-white-alpha-70: rgba(255, 255, 255, 0.70);
+  --emr-white-alpha-75: rgba(255, 255, 255, 0.75);
+  --emr-white-alpha-85: rgba(255, 255, 255, 0.85);
+  --emr-white-alpha-95: rgba(255, 255, 255, 0.95);
+
+  /* Light accent color with alpha transparency variants (49, 130, 206 = #3182ce) */
+  --emr-light-accent-alpha-02: rgba(99, 179, 237, 0.02);
+  --emr-light-accent-alpha-03: rgba(99, 179, 237, 0.03);
+  --emr-light-accent-alpha-04: rgba(99, 179, 237, 0.04);
+  --emr-light-accent-alpha-05: rgba(99, 179, 237, 0.05);
+  --emr-light-accent-alpha-06: rgba(99, 179, 237, 0.06);
+  --emr-light-accent-alpha-08: rgba(99, 179, 237, 0.08);
+  --emr-light-accent-alpha-10: rgba(99, 179, 237, 0.10);
+  --emr-light-accent-alpha-12: rgba(99, 179, 237, 0.12);
+  --emr-light-accent-alpha-15: rgba(99, 179, 237, 0.15);
+  --emr-light-accent-alpha-20: rgba(99, 179, 237, 0.20);
+  --emr-light-accent-alpha-25: rgba(99, 179, 237, 0.25);
+  --emr-light-accent-alpha-30: rgba(99, 179, 237, 0.30);
+  --emr-accent-blue-alpha-02: rgba(66, 153, 225, 0.02);
+  --emr-accent-blue-alpha-03: rgba(66, 153, 225, 0.03);
+  --emr-accent-blue-alpha-04: rgba(66, 153, 225, 0.04);
+
+  /* Blue color variants for UI elements (49, 130, 206 = #3182ce) */
+  --emr-blue-300: #bee3f8;
+  --emr-blue-alpha-20: rgba(49, 130, 206, 0.2);
+  --emr-blue-alpha-30: rgba(49, 130, 206, 0.3);
+  --emr-blue-alpha-40: rgba(49, 130, 206, 0.4);
+
+  /* Dark mode indicator gradient (blue tones) */
+  --emr-gradient-dark-indicator: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+
+  /* Light blue palette - used for sub-menu tabs (changed from turquoise) */
+  --emr-turquoise: #3182ce; /* Now using accent blue */
+  --emr-turquoise-light: #e8f0f8; /* Now using light accent blue */
+  --emr-turquoise-dark: #3182ce; /* Now using medium blue */
+
+  /* Neutral colors */
+  --emr-gray-50: #f9fafb;
+  --emr-gray-100: #f3f4f6;
+  --emr-gray-200: #e5e7eb;
+  --emr-gray-300: #d1d5db;
+  --emr-gray-400: #9ca3af;
+  --emr-gray-500: #6b7280;
+  --emr-gray-600: #4b5563;
+  --emr-gray-700: #374151;
+  --emr-gray-800: #1f2937;
+  --emr-gray-900: #111827;
+
+  /* Text colors */
+  --emr-text-primary: #1f2937;
+  --emr-text-secondary: #6b7280;
+  --emr-text-tertiary: #6b7280;
+  --emr-text-inverse: #ffffff;
+  --emr-text-inverse-secondary: rgba(255, 255, 255, 0.8);
+  --emr-text-white: #ffffff;
+
+  /* ==================== SURFACE COLORS ==================== */
+  /* Light theme surface backgrounds */
+  --emr-bg-page: #ffffff;
+  --emr-bg-card: #ffffff;
+  --emr-bg-modal: #ffffff;
+  --emr-bg-input: #ffffff;
+  --emr-bg-hover: #f7fafc;
+  --emr-bg-error-light: #fee2e2;
+  --emr-bg-highlight: #FAFAAC;
+  --emr-overlay-bg: rgba(0, 0, 0, 0.5);
+
+  /* MPR (multi-planar reconstruction) canvas — always dark for radiologist DICOM viewing */
+  --emr-mpr-canvas-bg: #0d1117;
+  --emr-overlay-dark: rgba(17, 24, 39, 0.8);
+
+  /* DICOM viewer chrome (always dark regardless of theme -- radiology standard) */
+  --emr-viewer-bg: #000000;
+  --emr-viewer-chrome: linear-gradient(180deg, #1a1a2e 0%, #16162a 100%);
+  /* RUO watermark fill (always near-white for legibility over dark viewer) */
+  --emr-watermark-fill: rgba(255, 255, 255, 0.9);
+
+  /* Card and table component colors */
+  --emr-card-bg: #ffffff;
+  --emr-card-border: #e5e7eb;
+  --emr-stat-card-bg: #edf2f9; /* Light bluish tint for stat cards */
+  --emr-primary-light: rgba(43, 108, 176, 0.1);
+  --emr-primary-dark: #1a365d;
+  --emr-glass-white-90: rgba(255, 255, 255, 0.9);
+  --emr-glass-white-95: rgba(255, 255, 255, 0.95);
+
+  /* ==================== SEMANTIC COLORS ==================== */
+  /* Semantic status colors */
+  --emr-success: #38a169;
+  --emr-success-light: #48bb78;
+  /* Green shades for print styles */
+  --emr-green-100: #c6f6d5;
+  --emr-green-800: #22543d;
+  --emr-success-alpha-03: rgba(56, 161, 105, 0.03);
+  --emr-success-alpha-05: rgba(56, 161, 105, 0.05);
+  --emr-success-alpha-08: rgba(56, 161, 105, 0.08);
+  --emr-success-alpha-10: rgba(56, 161, 105, 0.1);
+  --emr-success-alpha-12: rgba(56, 161, 105, 0.12);
+  --emr-success-alpha-15: rgba(56, 161, 105, 0.15);
+  --emr-success-alpha-20: rgba(56, 161, 105, 0.2);
+  --emr-success-alpha-30: rgba(56, 161, 105, 0.3);
+  --emr-success-alpha-35: rgba(56, 161, 105, 0.35);
+  --emr-success-alpha-40: rgba(56, 161, 105, 0.4);
+  --emr-success-alpha-50: rgba(56, 161, 105, 0.5);
+  --emr-success-alpha-55: rgba(56, 161, 105, 0.55);
+  /* Emerald color alpha variants (16, 185, 129 = #10b981) */
+  --emr-emerald-alpha-05: rgba(16, 185, 129, 0.05);
+  --emr-warning: #dd6b20;
+  --emr-warning-light: #ed8936;
+  /* Warning color alpha variants (245, 158, 11 = #f59e0b amber) */
+  --emr-warning-alpha-05: rgba(245, 158, 11, 0.05);
+  --emr-warning-alpha-08: rgba(245, 158, 11, 0.08);
+  --emr-warning-alpha-10: rgba(245, 158, 11, 0.10);
+  --emr-warning-alpha-12: rgba(245, 158, 11, 0.12);
+  --emr-warning-alpha-15: rgba(245, 158, 11, 0.15);
+  --emr-warning-alpha-20: rgba(245, 158, 11, 0.20);
+  --emr-warning-alpha-30: rgba(245, 158, 11, 0.30);
+  --emr-warning-alpha-35: rgba(245, 158, 11, 0.35);
+  --emr-warning-alpha-40: rgba(245, 158, 11, 0.40);
+  /* ABG/Lab orange warning color (237, 137, 54 = #ed8936) */
+  --emr-abg-orange-alpha-15: rgba(237, 137, 54, 0.15);
+  --emr-abg-orange-alpha-30: rgba(237, 137, 54, 0.3);
+  --emr-error: #e53e3e;
+  --emr-error-light: #fc8181;
+  /* Red shades for print styles */
+  --emr-red-100: #fed7d7;
+  --emr-red-800: #742a2a;
+  --emr-error-alpha-05: rgba(229, 62, 62, 0.05);
+  --emr-error-alpha-10: rgba(229, 62, 62, 0.1);
+  --emr-error-alpha-12: rgba(229, 62, 62, 0.12);
+  --emr-error-alpha-15: rgba(229, 62, 62, 0.15);
+  --emr-error-alpha-20: rgba(229, 62, 62, 0.20);
+  --emr-error-alpha-25: rgba(229, 62, 62, 0.25);
+  --emr-error-alpha-30: rgba(229, 62, 62, 0.30);
+  --emr-error-alpha-35: rgba(229, 62, 62, 0.35);
+  --emr-error-alpha-40: rgba(229, 62, 62, 0.40);
+  --emr-error-alpha-50: rgba(229, 62, 62, 0.50);
+  --emr-error-alpha-60: rgba(229, 62, 62, 0.60);
+  --emr-error-alpha-00: rgba(229, 62, 62, 0);
+  --emr-info: #3182ce;
+  --emr-info-light: #3182ce;
+  --emr-info-alpha-10: rgba(49, 130, 206, 0.1);
+  --emr-info-alpha-15: rgba(49, 130, 206, 0.15);
+
+  /* Shadow color token */
+  --emr-shadow-color: rgba(0, 0, 0, 0.08);
+
+  /* Primary accent background */
+  --emr-bg-accent-primary: rgba(26, 54, 93, 0.08);
+
+  /* Monospace font stack */
+  --emr-font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Success semantic surface tokens */
+  --emr-success-bg: rgba(56, 161, 105, 0.08);
+  --emr-success-border: rgba(56, 161, 105, 0.2);
+
+  /* Warning semantic surface tokens */
+  --emr-warning-border: rgba(221, 107, 32, 0.2);
+  --emr-warning-hover-bg: rgba(221, 107, 32, 0.15);
+  --emr-warning-hover-border: rgba(221, 107, 32, 0.4);
+
+  /* Semantic background accents */
+  --emr-bg-accent-secondary: rgba(43, 108, 176, 0.1);
+  --emr-bg-accent-success: #ecfdf5;
+  --emr-bg-accent-warning: #fffbeb;
+  --emr-bg-accent-error: #fef2f2;
+  --emr-bg-accent-info: #eff6ff;
+  --emr-bg-accent-gray: rgba(107, 114, 128, 0.1);
+  --emr-bg-accent-turquoise: rgba(6, 182, 212, 0.1);
+  --emr-bg-accent-accent: rgba(139, 92, 246, 0.1);
+  --emr-bg-hover-alt: rgba(43, 108, 176, 0.08);
+  --emr-bg-overlay-light: rgba(255, 255, 255, 0.15);
+
+  /* Accent transparent variants for animations and focus states */
+  --emr-accent-transparent: rgba(49, 130, 206, 0.2);
+  --emr-accent-transparent-strong: rgba(49, 130, 206, 0.3);
+
+  /* Border colors for semantic elements */
+  --emr-border-secondary: rgba(43, 108, 176, 0.2);
+  --emr-border-success: rgba(56, 161, 105, 0.3);
+  --emr-border-warning: rgba(221, 107, 32, 0.3);
+  --emr-border-light: rgba(107, 114, 128, 0.2);
+  --emr-border-turquoise: rgba(6, 182, 212, 0.2);
+  --emr-border-accent: rgba(139, 92, 246, 0.2);
+  --emr-accent-border: rgba(43, 108, 176, 0.2);
+
+  /* Animation/shine effect colors */
+  --emr-shine-color: rgba(255, 255, 255, 0.4);
+  --emr-shine-color-dark: rgba(255, 255, 255, 0.15);
+
+  /* Shadow variants for semantic colors */
+  --emr-shadow-success: 0 2px 6px rgba(16, 185, 129, 0.3);
+  --emr-shadow-warning: 0 2px 6px rgba(245, 158, 11, 0.3);
+  --emr-shadow-error: 0 2px 6px rgba(239, 68, 68, 0.3);
+  --emr-shadow-info: 0 2px 6px rgba(49, 130, 206, 0.3);
+
+  /* Tab shadow variants - for active tab states */
+  --emr-shadow-tab-blue: 0 6px 24px -4px rgba(43, 108, 176, 0.5);
+  --emr-shadow-tab-green: 0 6px 24px -4px rgba(56, 161, 105, 0.5);
+  --emr-shadow-tab-teal: 0 6px 24px -4px rgba(49, 130, 206, 0.5);
+  --emr-shadow-tab-orange: 0 6px 24px -4px rgba(221, 107, 32, 0.5);
+  --emr-shadow-tab-red: 0 6px 24px -4px rgba(229, 62, 62, 0.5);
+
+  /* Hover background colors with transparency */
+  --emr-bg-hover-blue: rgba(43, 108, 176, 0.08);
+  --emr-bg-hover-green: rgba(56, 161, 105, 0.08);
+  --emr-bg-hover-teal: rgba(49, 130, 206, 0.08);
+  --emr-bg-hover-orange: rgba(221, 107, 32, 0.08);
+  --emr-bg-hover-red: rgba(229, 62, 62, 0.08);
+
+  /* Hover border colors with transparency */
+  --emr-border-hover-blue: rgba(43, 108, 176, 0.2);
+  --emr-border-hover-green: rgba(56, 161, 105, 0.2);
+  --emr-border-hover-teal: rgba(49, 130, 206, 0.2);
+  --emr-border-hover-orange: rgba(221, 107, 32, 0.2);
+  --emr-border-hover-red: rgba(229, 62, 62, 0.2);
+
+  /* Special purpose colors for UI feedback and highlighting */
+  --emr-highlight-search: #c6efce; /* Light green for search match highlighting */
+  --emr-highlight-bg: rgba(255, 237, 74, 0.6); /* Yellow highlight for search term matches */
+  --emr-section-header-bg: #f8f9fa; /* Section header background (lighter than gray-50) */
+  --emr-error-bg: #fff3f3; /* Error message background */
+  --emr-error-text: #c92a2a; /* Error message text */
+  --emr-warning-bg: #fff7ed; /* Warning message background */
+  --emr-warning-text: #b45309; /* Warning text — WCAG AA 5.0:1 on white */
+  --emr-success-text: #276749; /* Success text — WCAG AA 5.9:1 on white */
+  --emr-info-bg: #eff6ff; /* Info message background */
+
+  /* ==================== LEGACY PHP EMR SECTION COLORS ==================== */
+  /* Pink/Salmon - Patient Info, Registration sections (matches PHP EMR) */
+  --emr-section-pink: #d53f8c;
+  --emr-section-pink-bg: #f8d7da;
+  --emr-section-pink-border: #f5c6cb;
+  --emr-section-pink-text: #721c24;
+  --emr-gradient-section-pink: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  --emr-gradient-section-pink-solid: linear-gradient(135deg, #d53f8c 0%, #ed64a6 50%, #f687b3 100%);
+
+  /* Cyan/Teal - Medical Data subsections (matches PHP EMR) */
+  --emr-section-cyan-bg: #d1ecf1;
+  --emr-section-cyan-border: #bee5eb;
+  --emr-section-cyan-text: #0c5460;
+  --emr-gradient-section-cyan: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  --emr-gradient-section-teal: linear-gradient(135deg, #38b2ac 0%, #4fd1c5 100%);
+
+  /* Blue - Table Headers (matches PHP EMR) */
+  --emr-table-header-bg: #cce5ff;
+  --emr-table-header-border: #b8daff;
+  --emr-table-header-text: #004085;
+  --emr-gradient-table-header: linear-gradient(135deg, #cce5ff 0%, #b8daff 100%);
+
+  /* Yellow - Highlighted Rows, Required Fields */
+  --emr-highlight-yellow: #fff3cd;
+  --emr-highlight-yellow-hover: #ffe69c;
+  --emr-required-bg: #fffde7;
+  --emr-required-border: #ffc107;
+  --emr-required-text: #ff9800;
+
+  /* Warning Alert Box Colors */
+  --emr-alert-warning-bg: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  --emr-alert-warning-border: #f9a825;
+  --emr-alert-warning-text: #5d4037;
+  --emr-alert-warning-shadow: rgba(249, 168, 37, 0.15);
+
+  /* Teal/Turquoise Section Header - Medical System Headers */
+  --emr-teal-primary: #138496;
+  --emr-teal-secondary: #17a2b8;
+  --emr-teal-light: #20c4dd;
+  --emr-gradient-teal-header: linear-gradient(90deg, #138496 0%, #17a2b8 50%, #20c4dd 100%);
+  --emr-shadow-teal: rgba(23, 162, 184, 0.2);
+  --emr-teal-alpha-04: rgba(23, 162, 184, 0.04);
+  --emr-teal-alpha-06: rgba(23, 162, 184, 0.06);
+
+  /* Wearable/Health Data Visualization - Teal accent */
+  --emr-wearable-accent: #14b8a6;
+  --emr-wearable-accent-light: #5eead4;
+  --emr-wearable-alpha-10: rgba(20, 184, 166, 0.1);
+  --emr-wearable-alpha-15: rgba(20, 184, 166, 0.15);
+  --emr-wearable-alpha-25: rgba(20, 184, 166, 0.25);
+
+  /* Gray Alpha Variants for hover effects */
+  --emr-gray-alpha-04: rgba(107, 114, 128, 0.04);
+  --emr-gray-alpha-08: rgba(107, 114, 128, 0.08);
+  --emr-gray-alpha-12: rgba(113, 128, 150, 0.12);
+
+  /* Bed Status Colors (Cleaning/Reserved/Out of Service) */
+  --emr-cleaning-alpha-15: rgba(236, 201, 75, 0.15);
+  --emr-cleaning-alpha-20: rgba(236, 201, 75, 0.20);
+  --emr-reserved-alpha-12: rgba(66, 153, 225, 0.12);
+  --emr-reserved-alpha-20: rgba(66, 153, 225, 0.20);
+  --emr-orange: #dd6b20; /* MediScribe/voice transcription accent */
+  --emr-orange-alpha-15: rgba(221, 107, 32, 0.15);
+  --emr-orange-alpha-20: rgba(221, 107, 32, 0.20);
+  --emr-info-alpha-15: rgba(49, 130, 206, 0.15);
+  --emr-info-alpha-20: rgba(49, 130, 206, 0.20);
+
+  /* Gamification Colors */
+  --emr-gold: #ffd700;
+  --emr-gold-light: #ffed4a;
+  --emr-bronze: #cd7f32;
+  --emr-fire-orange: #ff6b35;
+  --emr-fire-orange-light: #ff8c5a;
+  --emr-fire-orange-alpha-40: rgba(255, 107, 53, 0.4);
+  --emr-fire-orange-light-alpha-50: rgba(255, 140, 90, 0.5);
+  --emr-warning-alpha-40: rgba(245, 158, 11, 0.40);
+
+  /* Time-of-Day Colors (Morning/Afternoon/Evening) */
+  --emr-time-morning-gradient: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  --emr-time-morning-text: #b45309;
+  --emr-time-afternoon-gradient: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  --emr-time-evening-gradient: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  --emr-time-evening-text: #4f46e5;
+
+  /* Medication Dose Time-of-Day Colors */
+  --emr-dose-morning: #f59e0b;
+  --emr-dose-morning-light: #fef3c7;
+  --emr-dose-morning-bg: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  --emr-dose-morning-glow: 0 0 20px rgba(245, 158, 11, 0.4);
+  --emr-dose-noon: #eab308;
+  --emr-dose-noon-light: #fef9c3;
+  --emr-dose-noon-bg: linear-gradient(135deg, #fef9c3 0%, #fde047 100%);
+  --emr-dose-noon-glow: 0 0 20px rgba(234, 179, 8, 0.4);
+  --emr-dose-evening: #ea580c;
+  --emr-dose-evening-light: #ffedd5;
+  --emr-dose-evening-bg: linear-gradient(135deg, #ffedd5 0%, #fdba74 100%);
+  --emr-dose-evening-glow: 0 0 20px rgba(234, 88, 12, 0.4);
+  --emr-dose-night: #6366f1;
+  --emr-dose-night-light: #e0e7ff;
+  --emr-dose-night-bg: linear-gradient(135deg, #e0e7ff 0%, #a5b4fc 100%);
+  --emr-dose-night-glow: 0 0 20px rgba(99, 102, 241, 0.4);
+
+  /* Gradient fading to transparent/light - for overlay effects */
+  --emr-gradient-to-light: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 1) 100%);
+
+  /* Brown - Form Titles */
+  --emr-form-title-brown: #8b4513;
+
+  /* Green - Success Actions, Visit Headers */
+  --emr-gradient-green: linear-gradient(135deg, #38a169 0%, #48bb78 100%);
+  --emr-gradient-green-solid: linear-gradient(135deg, #276749 0%, #38a169 50%, #48bb78 100%);
+
+  /* Red - Error/Danger buttons */
+  --emr-gradient-error: linear-gradient(135deg, #e53935 0%, #d32f2f 100%);
+  --emr-gradient-error-critical: linear-gradient(135deg, #c62828 0%, #e53935 50%, #ef5350 100%);
+
+  /* Purple/Violet - Privacy/Consent indicators */
+  --emr-purple: #7c3aed;
+  --emr-purple-light: #8b5cf6;
+  --emr-gradient-purple: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+
+  /* Label Cell Colors */
+  --emr-label-cell-bg: #f8f9fa;
+  --emr-label-cell-text: #495057;
+
+  /* ==================== FORM TEXTAREA COLORS ==================== */
+  /* Form textarea gradient backgrounds - light grayish blue for professional appearance */
+  --emr-form-textarea-bg-start: #eef2f5;
+  --emr-form-textarea-bg-end: #e0e5e9;
+  --emr-form-textarea-border: #b8c4d0;
+  --emr-form-textarea-hover-border: #8fa3b8;
+  --emr-form-textarea-hover-bg-start: #e9eef2;
+  --emr-form-textarea-hover-bg-end: #dce2e7;
+
+  /* Form accent blue - lighter blue for form accents (49, 130, 206 = #3182ce) */
+  --emr-form-accent-blue: #4a9edd;
+  --emr-form-accent-blue-alpha-03: rgba(99, 179, 237, 0.03);
+  --emr-form-accent-blue-alpha-04: rgba(99, 179, 237, 0.04);
+  --emr-form-accent-blue-alpha-06: rgba(99, 179, 237, 0.06);
+  --emr-form-accent-blue-alpha-40: rgba(99, 179, 237, 0.40);
+
+  /* ==================== INTEGRATION COLORS ==================== */
+  /* Colors for integration parameter cards - using blue theme palette */
+  --emr-integration-sms: var(--emr-secondary);        /* Medium blue - SMS parameters */
+  --emr-integration-sms-bg: rgba(43, 108, 176, 0.1);
+  --emr-integration-sms-border: rgba(43, 108, 176, 0.3);
+  --emr-integration-moh-stat: var(--emr-secondary);   /* Medium blue - MOH Statistics */
+  --emr-integration-moh-stat-bg: rgba(43, 108, 176, 0.08);
+  --emr-integration-moh-stat-border: rgba(43, 108, 176, 0.2);
+  --emr-integration-rs: var(--emr-accent);            /* Light blue - Revenue Service */
+  --emr-integration-rs-bg: rgba(49, 130, 206, 0.1);
+  --emr-integration-rs-border: rgba(49, 130, 206, 0.3);
+  --emr-integration-moh: var(--emr-primary);          /* Dark blue - MOH General */
+  --emr-integration-moh-bg: rgba(26, 54, 93, 0.08);
+  --emr-integration-moh-border: rgba(26, 54, 93, 0.2);
+
+
+  /* ==================== COLLAPSIBLE SECTION COLORS ==================== */
+  /* Color-coded accents for collapsible sections - using blue theme palette */
+  --emr-section-personal: var(--emr-secondary); /* Blue accent for personal information sections */
+  --emr-section-contact: #3182ce; /* Medium blue accent for contact information sections */
+  --emr-section-additional: var(--emr-accent); /* Light blue accent for additional details sections */
+  --emr-section-hover-bg: rgba(49, 130, 206, 0.05); /* Light blue hover background */
+  --emr-section-active-bg: rgba(49, 130, 206, 0.08); /* Light blue active background */
+  --emr-section-employee: var(--emr-primary); /* Dark blue accent for employee types section */
+
+  /* Collapsible Section Header - Softer blue (easier on the eye) */
+  --emr-gradient-section-header: linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%); /* Lighter than primary: drops the deepest navy, uses secondary -> accent */
+  --emr-shadow-section-header: 0 2px 6px rgba(49, 130, 206, 0.22); /* Softer shadow to match lighter header */
+  --emr-shadow-section-header-hover: 0 4px 10px rgba(49, 130, 206, 0.30); /* Hover shadow */
+
+  /* Semantic gradients for status indicators */
+  --emr-gradient-success: linear-gradient(135deg, #276749 0%, #38a169 50%, #48bb78 100%);
+  --emr-gradient-warning: linear-gradient(135deg, #d69e2e 0%, #ecc94b 100%);
+  --emr-gradient-warning-light: linear-gradient(135deg, #fbd38d 0%, #f6ad55 100%);
+
+  /* ==================== NAVIGATION BACKGROUNDS ==================== */
+  --emr-topnav-bg: #e9ecef;
+  --emr-mainmenu-bg: #ffffff;
+  --emr-submenu-bg: #3182ce; /* Light blue instead of turquoise */
+
+  /* ==================== GRADIENTS ==================== */
+  /* Primary blue gradient - used for active main menu items and action buttons */
+  --emr-gradient-primary: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+
+  /* Secondary gradient - lighter blue for hover states */
+  --emr-gradient-secondary: linear-gradient(135deg, #2b6cb0 0%, #3182ce 50%, #3182ce 100%);
+
+  /* Ambulatory badge gradient - teal/green for outpatient visits */
+  --emr-gradient-ambulatory: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  --emr-ambulatory-shadow: rgba(13, 148, 136, 0.35);
+
+  /* Light blue gradient - used for sub-menu horizontal tabs (changed from turquoise) */
+  --emr-gradient-submenu: linear-gradient(90deg, #2b6cb0 0%, #3182ce 50%, #3182ce 100%);
+
+  /* Subtle gradient variants for modal sections */
+  --emr-gradient-subtle-primary: linear-gradient(135deg, #dfe7f2 0%, #ebf0f7 100%);
+  --emr-gradient-subtle-secondary: linear-gradient(135deg, #dde6f3 0%, #eaf0f8 100%);
+  --emr-gradient-subtle-accent: linear-gradient(135deg, #dce5f5 0%, #e9eff9 100%);
+
+  /* Icon container gradient backgrounds for light mode */
+  --emr-icon-gradient-primary: linear-gradient(135deg, rgba(26, 54, 93, 0.15) 0%, rgba(26, 54, 93, 0.08) 100%);
+  --emr-icon-gradient-secondary: linear-gradient(135deg, rgba(43, 108, 176, 0.15) 0%, rgba(49, 130, 206, 0.08) 100%);
+  --emr-icon-gradient-success: linear-gradient(135deg, rgba(56, 161, 105, 0.15) 0%, rgba(72, 187, 120, 0.08) 100%);
+  --emr-icon-gradient-warning: linear-gradient(135deg, rgba(221, 107, 32, 0.15) 0%, rgba(237, 137, 54, 0.08) 100%);
+  --emr-icon-gradient-error: linear-gradient(135deg, rgba(229, 62, 62, 0.15) 0%, rgba(245, 101, 101, 0.08) 100%);
+  --emr-icon-gradient-info: linear-gradient(135deg, rgba(49, 130, 206, 0.15) 0%, rgba(49, 130, 206, 0.08) 100%);
+
+  /* Accent line gradients for stat card borders - light mode */
+  --emr-accent-line-primary: linear-gradient(180deg, var(--emr-primary) 0%, rgba(26, 54, 93, 0.5) 100%);
+  --emr-accent-line-secondary: linear-gradient(180deg, var(--emr-secondary) 0%, var(--emr-accent) 100%);
+  --emr-accent-line-success: linear-gradient(180deg, var(--emr-success) 0%, rgba(72, 187, 120, 0.6) 100%);
+  --emr-accent-line-warning: linear-gradient(180deg, var(--emr-warning) 0%, rgba(237, 137, 54, 0.6) 100%);
+  --emr-accent-line-error: linear-gradient(180deg, var(--emr-error) 0%, rgba(245, 101, 101, 0.6) 100%);
+  --emr-accent-line-info: linear-gradient(180deg, var(--emr-info) 0%, rgba(49, 130, 206, 0.6) 100%);
+
+  /* Empty state gradients */
+  --emr-gradient-hero: linear-gradient(135deg, rgba(43, 108, 176, 0.03) 0%, rgba(49, 130, 206, 0.06) 50%, rgba(43, 108, 176, 0.03) 100%);
+  --emr-gradient-decorative-1: linear-gradient(135deg, rgba(49, 130, 206, 0.1), rgba(43, 108, 176, 0.05));
+  --emr-gradient-decorative-2: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(49, 130, 206, 0.05));
+  --emr-gradient-overlay: linear-gradient(135deg, transparent 40%, rgba(49, 130, 206, 0.08) 100%);
+
+  /* Document/Form content gradients - reader-friendly backgrounds */
+  --emr-gradient-light-blue: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-document-bg: #ffffff;
+  --emr-document-text: #1f2937;
+
+  /* Assignment Card Gradients - Used in shift roster and schedules */
+  --emr-gradient-card-light-blue: linear-gradient(135deg, #e8f4fc 0%, #d4e9f7 50%, #c5dff2 100%);
+  --emr-gradient-card-error: linear-gradient(135deg, #fde8e8 0%, #fcd4d4 50%, #fac0c0 100%);
+  --emr-gradient-card-dark-blue: linear-gradient(135deg, #1e3a5f 0%, #2a4a6f 50%, #1a365d 100%);
+  --emr-gradient-card-dark-error: linear-gradient(135deg, #5c2323 0%, #742a2a 50%, #5c2323 100%);
+  --emr-gradient-shine: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+  --emr-gradient-shine-dark: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
+
+  /* Dark gray gradient - used in dark mode for headers */
+  --emr-gradient-dark-gray: linear-gradient(135deg, var(--emr-gray-800) 0%, var(--emr-gray-600) 100%);
+  --emr-gradient-dark-gray-soft: linear-gradient(135deg, #3d4f5f 0%, var(--emr-gray-800) 100%);
+
+  /* ==================== MEDISCRIBE GRADIENTS ==================== */
+  /* Template card gradient - dark blue */
+  --emr-gradient-template: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3b7ab8 100%);
+  --emr-gradient-template-badge: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --emr-shadow-template: 0 4px 12px rgba(30, 58, 95, 0.3);
+  --emr-shadow-template-hover: 0 8px 24px rgba(30, 58, 95, 0.4), 0 0 20px rgba(59, 122, 184, 0.3);
+
+  /* Diagnosis card gradient - blue (unified theme) */
+  --emr-gradient-diagnosis: var(--emr-gradient-primary);
+  --emr-gradient-diagnosis-badge: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  --emr-shadow-diagnosis: 0 4px 12px rgba(43, 108, 176, 0.3);
+  --emr-shadow-diagnosis-hover: 0 8px 24px rgba(43, 108, 176, 0.4), 0 0 20px rgba(49, 130, 206, 0.3);
+
+  /* Card glow effect (blue theme) */
+  --emr-card-glow-weak: rgba(43, 108, 176, 0.3);
+  --emr-card-glow-strong: rgba(43, 108, 176, 0.5);
+
+  /* Hero section - decorative gradients and effects */
+  --emr-hero-orb-light-blue: rgba(99, 179, 237, 0.35);
+  --emr-hero-orb-accent: rgba(49, 130, 206, 0.3);
+  --emr-hero-orb-pale-blue: rgba(190, 227, 248, 0.15);
+  --emr-hero-orb-dark: rgba(49, 130, 206, 0.2);
+  --emr-hero-orb-secondary: rgba(43, 108, 176, 0.15);
+  --emr-hero-orb-light: rgba(191, 219, 254, 0.08);
+  --emr-hero-glow-ring-start: rgba(99, 179, 237, 0.5);
+  --emr-hero-glow-ring-mid: rgba(190, 227, 248, 0.3);
+  --emr-hero-glow-ring-end: rgba(49, 130, 206, 0.4);
+  --emr-hero-shadow: rgba(26, 54, 93, 0.3);
+
+  /* Featured/gold gradient - amber/yellow */
+  --emr-gradient-featured: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --emr-shadow-featured: 0 2px 6px rgba(251, 191, 36, 0.3);
+  --emr-featured-text: #78350f;
+
+  /* Star rating color - amber/yellow */
+  --emr-star-color: #fbbf24;
+
+  /* Recording state gradients */
+  --emr-gradient-recording-stop: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  --emr-gradient-recording-pause: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  --emr-shadow-recording-stop: 0 4px 12px rgba(229, 62, 62, 0.35);
+  --emr-shadow-recording-pause: 0 4px 12px rgba(237, 137, 54, 0.35);
+
+  /* Primary shadows for MediScribe buttons */
+  --emr-shadow-primary-sm: 0 2px 8px rgba(43, 108, 176, 0.3);
+  --emr-shadow-primary-md: 0 4px 12px rgba(43, 108, 176, 0.4);
+
+  /* MediScribe input/control backgrounds */
+  --emr-mediscribe-input-bg: linear-gradient(135deg, rgba(49, 130, 206, 0.05) 0%, rgba(255, 255, 255, 0.9) 100%);
+  --emr-mediscribe-input-border: rgba(49, 130, 206, 0.3);
+  --emr-mediscribe-input-focus-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15), 0 4px 12px rgba(43, 108, 176, 0.15);
+
+  /* Placeholder input states */
+  --emr-placeholder-filled-bg: rgba(56, 161, 105, 0.05);
+  --emr-placeholder-dark-bg: rgba(43, 108, 176, 0.25);
+  --emr-placeholder-dark-border: rgba(49, 130, 206, 0.5);
+  --emr-placeholder-dark-hover-bg: rgba(43, 108, 176, 0.35);
+  --emr-placeholder-dark-focus-bg: rgba(43, 108, 176, 0.4);
+  --emr-placeholder-dark-disabled-bg: rgba(43, 108, 176, 0.2);
+  --emr-placeholder-dark-disabled-border: rgba(49, 130, 206, 0.4);
+  --emr-placeholder-dark-filled-bg: rgba(56, 161, 105, 0.25);
+  --emr-placeholder-dark-filled-focus-bg: rgba(56, 161, 105, 0.35);
+
+  /* ==================== TYPOGRAPHY SCALE ==================== */
+  /* Standardized font sizes - change --emr-font-base to adjust all text proportionally */
+  --emr-font-4xs: 8px;      /* Smallest text - use sparingly */
+  --emr-font-3xs: 9px;      /* Very small text - compact tables */
+  --emr-font-2xs: 10px;     /* Extra small text - dense data displays */
+  --emr-font-xs: 11px;      /* Small labels, badges, timestamps */
+  --emr-font-sm: 12px;      /* Secondary text, captions */
+  --emr-font-base: 13px;    /* Main content: tables, forms, navigation, buttons */
+  --emr-font-md: 14px;      /* Emphasized text, form labels */
+  --emr-font-lg: 16px;      /* Section headers, card titles */
+  --emr-font-xl: 18px;      /* Page titles */
+  --emr-font-2xl: 20px;     /* Major headings */
+  --emr-font-3xl: 24px;     /* Hero text */
+  --emr-font-4xl: 28px;     /* Large display text */
+  --emr-font-5xl: 32px;     /* Extra large display */
+  --emr-font-6xl: 40px;     /* Jumbo display */
+  --emr-font-7xl: 48px;     /* Maximum display */
+  --emr-font-5xl-plus: 36px; /* Large hero text */
+  --emr-font-7xl-plus: 56px; /* Extra large display */
+  --emr-font-8xl: 64px;      /* Jumbo hero text */
+
+  /* Line heights */
+  --emr-line-height-none: 1;          /* Single line, no spacing */
+  --emr-line-height-tight: 1.25;
+  --emr-line-height-snug: 1.375;
+  --emr-line-height-base: 1.5;
+  --emr-line-height-relaxed: 1.75;
+  --emr-line-height-loose: 2;
+  --emr-line-height-1: 1;             /* Alias for none */
+  --emr-line-height-1-1: 1.1;
+  --emr-line-height-1-2: 1.2;
+  --emr-line-height-1-3: 1.3;
+  --emr-line-height-1-4: 1.4;
+  --emr-line-height-1-5: 1.5;         /* Alias for base */
+  --emr-line-height-1-6: 1.6;
+  --emr-line-height-1-7: 1.7;
+  --emr-line-height-1-8: 1.8;
+
+  /* Font weights */
+  --emr-font-normal: 400;
+  --emr-font-medium: 500;
+  --emr-font-semibold: 600;
+  --emr-font-bold: 700;
+  --emr-font-extrabold: 800;
+
+  /* Letter spacing */
+  --emr-letter-spacing-tighter: -0.06em;  /* Very compressed large headings */
+  --emr-letter-spacing-tight: -0.03em;    /* Compressed headings */
+  --emr-letter-spacing-normal: 0;         /* Default */
+  --emr-letter-spacing-wide: 0.02em;      /* Buttons, labels */
+  --emr-letter-spacing-medium: 0.03em;    /* Badges, small caps */
+  --emr-letter-spacing-wider: 0.05em;     /* Tags, uppercase labels */
+  --emr-letter-spacing-uppercase: 0.1em;  /* Uppercase text */
+  --emr-letter-spacing-widest: 0.15em;    /* Decorative/section dividers */
+
+  /* ==================== LAYOUT DIMENSIONS ==================== */
+  --emr-topnav-height: 28px;
+  --emr-mainmenu-height: 35px;
+  --emr-submenu-height: 30px;
+  --emr-content-padding: 24px;
+
+  /* Computed layout heights - use these instead of repeated calc() */
+  --emr-content-height: calc(100vh - var(--emr-topnav-height) - var(--emr-mainmenu-height) - var(--emr-submenu-height));
+  --emr-content-height-with-padding: calc(100vh - var(--emr-topnav-height) - var(--emr-mainmenu-height) - var(--emr-submenu-height) - 40px);
+
+  /* ==================== BLACK ALPHA (for shadows) ==================== */
+  --emr-black-alpha-02: rgba(0, 0, 0, 0.02);
+  --emr-black-alpha-03: rgba(0, 0, 0, 0.03);
+  --emr-black-alpha-04: rgba(0, 0, 0, 0.04);
+  --emr-black-alpha-05: rgba(0, 0, 0, 0.05);
+  --emr-black-alpha-06: rgba(0, 0, 0, 0.06);
+  --emr-black-alpha-08: rgba(0, 0, 0, 0.08);
+  --emr-black-alpha-10: rgba(0, 0, 0, 0.10);
+  --emr-black-alpha-15: rgba(0, 0, 0, 0.15);
+  --emr-black-alpha-20: rgba(0, 0, 0, 0.20);
+  --emr-black-alpha-25: rgba(0, 0, 0, 0.25);
+  --emr-black-alpha-30: rgba(0, 0, 0, 0.30);
+  --emr-black-alpha-40: rgba(0, 0, 0, 0.40);
+  --emr-black-alpha-50: rgba(0, 0, 0, 0.50);
+  --emr-black-alpha-60: rgba(0, 0, 0, 0.60);
+  --emr-black-alpha-70: rgba(0, 0, 0, 0.70);
+  --emr-black-alpha-80: rgba(0, 0, 0, 0.80);
+
+  /* ==================== SHADOWS ==================== */
+  --emr-shadow-sm: 0 1px 2px 0 var(--emr-black-alpha-05);
+  --emr-shadow-md: 0 4px 6px -1px var(--emr-black-alpha-10), 0 2px 4px -1px var(--emr-black-alpha-06);
+  --emr-shadow-lg: 0 10px 15px -3px var(--emr-black-alpha-10), 0 4px 6px -2px var(--emr-black-alpha-05);
+  --emr-shadow-xl: 0 20px 25px -5px var(--emr-black-alpha-10), 0 10px 10px -5px var(--emr-black-alpha-04);
+
+  /* Button shadows */
+  --emr-shadow-button: 0 1px 3px rgba(26, 54, 93, 0.2), 0 4px 12px rgba(26, 54, 93, 0.15);
+  --emr-shadow-button-hover: 0 2px 4px rgba(26, 54, 93, 0.25), 0 8px 16px rgba(26, 54, 93, 0.2);
+
+  /* Add button specific - uses primary gradient in light mode */
+  --emr-gradient-add-button: var(--emr-gradient-primary);
+  --emr-shadow-add-button: var(--emr-shadow-button);
+  --emr-shadow-add-button-hover: var(--emr-shadow-button-hover);
+
+  /* Secondary button - subtle blue tint */
+  --emr-btn-secondary-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.08) 0%, rgba(49, 130, 206, 0.04) 100%);
+  --emr-btn-secondary-border: rgba(43, 108, 176, 0.25);
+  --emr-btn-secondary-text: var(--emr-primary);
+  --emr-btn-secondary-hover-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.15) 0%, rgba(49, 130, 206, 0.08) 100%);
+  --emr-btn-secondary-hover-border: rgba(43, 108, 176, 0.4);
+
+  /* Premium shadows for empty state components */
+  --emr-shadow-premium: 0 20px 40px rgba(43, 108, 176, 0.12), 0 8px 16px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --emr-shadow-hover: 0 12px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(43, 108, 176, 0.2);
+  --emr-drop-shadow: drop-shadow(0 4px 8px rgba(43, 108, 176, 0.2));
+
+  /* Secondary color shadows for interactive elements */
+  --emr-shadow-secondary-light: 0 2px 6px rgba(43, 108, 176, 0.2);
+  --emr-shadow-secondary: 0 3px 8px rgba(43, 108, 176, 0.3);
+
+  /* ==================== FORM TEXTAREA SEMANTIC COLORS ==================== */
+  /* Semantic colors for form textareas with specific purposes */
+  --emr-textarea-recipe-bg: rgba(135, 206, 250, 0.15);
+  --emr-textarea-recipe-border: rgba(135, 206, 250, 0.3);
+  --emr-textarea-also-bg: rgba(144, 238, 144, 0.15);
+  --emr-textarea-also-border: rgba(144, 238, 144, 0.3);
+  --emr-textarea-recommendation-bg: rgba(255, 228, 181, 0.15);
+  --emr-textarea-recommendation-border: rgba(255, 228, 181, 0.3);
+  --emr-textarea-diet-bg: rgba(144, 238, 144, 0.15);
+  --emr-textarea-diet-border: rgba(144, 238, 144, 0.3);
+  --emr-shadow-focus-warning: 0 0 0 2px rgba(255, 193, 7, 0.1);
+  --emr-shadow-focus-success: 0 0 0 2px rgba(40, 167, 69, 0.1);
+  --emr-shadow-focus-primary: 0 0 0 2px rgba(43, 108, 176, 0.1);
+
+  /* ==================== SPARKLINE COLORS ==================== */
+  /* Sparkline stroke colors per variant - resolved hex values for SVG */
+  --emr-sparkline-stroke-primary: #2b6cb0;
+  --emr-sparkline-stroke-secondary: #4a5568;
+  --emr-sparkline-stroke-success: #38a169;
+  --emr-sparkline-stroke-warning: #dd6b20;
+  --emr-sparkline-stroke-error: #e53e3e;
+  --emr-sparkline-stroke-info: #3182ce;
+
+  /* Sparkline fill colors per variant (with opacity) */
+  --emr-sparkline-fill-primary: rgba(43, 108, 176, 0.15);
+  --emr-sparkline-fill-secondary: rgba(74, 85, 104, 0.15);
+  --emr-sparkline-fill-success: rgba(56, 161, 105, 0.15);
+  --emr-sparkline-fill-warning: rgba(221, 107, 32, 0.15);
+  --emr-sparkline-fill-error: rgba(229, 62, 62, 0.15);
+  --emr-sparkline-fill-info: rgba(49, 130, 206, 0.15);
+
+  /* ==================== DASHBOARD STATS COLORS ==================== */
+  /* Status and metric colors - using blue theme palette */
+  --emr-stat-success: var(--emr-accent);      /* Light blue */
+  --emr-stat-warning: var(--emr-secondary);   /* Medium blue */
+  --emr-stat-info: var(--emr-secondary);      /* Medium blue */
+  --emr-stat-neutral: var(--emr-gray-500);    /* Gray */
+  --emr-stat-danger: var(--emr-primary);      /* Dark blue */
+
+  /* Dashboard stat card gradients - using primary blue palette only */
+  --emr-stat-gradient-total: linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%);
+  --emr-stat-gradient-active: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  --emr-stat-gradient-pending: linear-gradient(135deg, #3182ce 0%, #3182ce 100%);
+  --emr-stat-gradient-inactive: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+
+  /* ==================== CARD SHADOWS ==================== */
+  /* Enhanced shadows for dashboard cards with hover states */
+  --emr-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(26, 54, 93, 0.06);
+  --emr-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(26, 54, 93, 0.12);
+
+  /* ==================== STATUS BADGE COLORS ==================== */
+  /* Standardized colors for status badges - using blue theme palette */
+  --emr-status-active: var(--emr-accent);     /* Light blue - active */
+  --emr-status-pending: var(--emr-secondary); /* Medium blue - pending */
+  --emr-status-inactive: var(--emr-gray-500); /* Gray - inactive */
+  --emr-status-locked: var(--emr-primary);    /* Dark blue - locked */
+
+  /* ==================== FINANCIAL METRICS STATUS COLORS ==================== */
+  /* Status colors for financial metrics cards (PreAuth, Claims, etc.) */
+
+  /* Green shades - Success/Approved states */
+  --emr-financial-green-100: #10b981;         /* Emerald 500 - primary success */
+  --emr-financial-green-200: #34d399;         /* Emerald 400 - lighter success */
+  --emr-financial-green-300: #059669;         /* Emerald 600 - deeper success */
+  --emr-financial-green-alpha-08: rgba(16, 185, 129, 0.08);
+  --emr-financial-green-alpha-10: rgba(16, 185, 129, 0.1);
+  --emr-financial-green-alpha-12: rgba(16, 185, 129, 0.12);
+  --emr-financial-green-alpha-15: rgba(16, 185, 129, 0.15);
+  --emr-financial-green-alpha-20: rgba(16, 185, 129, 0.2);
+  --emr-financial-green-alpha-40: rgba(16, 185, 129, 0.4);
+  --emr-financial-green-alpha-50: rgba(16, 185, 129, 0.5);
+
+  /* Secondary green - Good rating */
+  --emr-financial-lime-100: #22c55e;          /* Green 500 */
+  --emr-financial-lime-200: #4ade80;          /* Green 400 */
+  --emr-financial-lime-300: #16a34a;          /* Green 600 */
+  --emr-financial-lime-alpha-08: rgba(34, 197, 94, 0.08);
+  --emr-financial-lime-alpha-12: rgba(34, 197, 94, 0.12);
+  --emr-financial-lime-alpha-15: rgba(34, 197, 94, 0.15);
+  --emr-financial-lime-alpha-20: rgba(34, 197, 94, 0.2);
+  --emr-financial-lime-alpha-40: rgba(34, 197, 94, 0.4);
+
+  /* Amber shades - Warning states */
+  --emr-financial-amber-100: #f59e0b;         /* Amber 500 - primary warning */
+  --emr-financial-amber-200: #fbbf24;         /* Amber 400 - lighter warning */
+  --emr-financial-amber-300: #d97706;         /* Amber 600 - deeper warning */
+  --emr-financial-amber-alpha-05: rgba(245, 158, 11, 0.05);
+  --emr-financial-amber-alpha-08: rgba(245, 158, 11, 0.08);
+  --emr-financial-amber-alpha-10: rgba(245, 158, 11, 0.1);
+  --emr-financial-amber-alpha-12: rgba(245, 158, 11, 0.12);
+  --emr-financial-amber-alpha-15: rgba(245, 158, 11, 0.15);
+  --emr-financial-amber-alpha-20: rgba(245, 158, 11, 0.2);
+  --emr-financial-amber-alpha-25: rgba(245, 158, 11, 0.25);
+
+  /* Favorites/Star colors (theme light blue) */
+  --emr-star-amber: #3182ce;
+  --emr-star-amber-dark: #2b6cb0;
+  --emr-star-amber-hover: #2b6cb0;
+  --emr-star-amber-light: #bee3f8;
+  --emr-star-amber-alpha-15: rgba(49, 130, 206, 0.15);
+  --emr-star-amber-alpha-20: rgba(49, 130, 206, 0.2);
+  --emr-star-amber-alpha-25: rgba(49, 130, 206, 0.25);
+
+  /* Red shades - Error/Denied states */
+  --emr-financial-red-100: #ef4444;           /* Red 500 - primary error */
+  --emr-financial-red-200: #f87171;           /* Red 400 - lighter error */
+  --emr-financial-red-300: #dc2626;           /* Red 600 - deeper error */
+  --emr-financial-red-alpha-08: rgba(239, 68, 68, 0.08);
+  --emr-financial-red-alpha-12: rgba(239, 68, 68, 0.12);
+  --emr-financial-red-alpha-15: rgba(239, 68, 68, 0.15);
+  --emr-financial-red-alpha-20: rgba(239, 68, 68, 0.2);
+  --emr-financial-red-alpha-30: rgba(239, 68, 68, 0.3);
+  --emr-financial-red-alpha-40: rgba(239, 68, 68, 0.4);
+
+  /* Blue shades - Info/Pending states */
+  --emr-financial-blue-100: #2b6cb0;          /* Secondary - primary info */
+  --emr-financial-blue-200: #3182ce;          /* Accent - lighter info */
+  --emr-financial-blue-alpha-08: rgba(43, 108, 176, 0.08);
+  --emr-financial-blue-alpha-15: rgba(43, 108, 176, 0.15);
+  --emr-financial-blue-alpha-20: rgba(43, 108, 176, 0.2);
+
+  /* Purple shades - Partial/Special states */
+  --emr-financial-purple-100: #a855f7;        /* Purple 500 - primary partial */
+  --emr-financial-purple-200: #c084fc;        /* Purple 400 - lighter partial */
+  --emr-financial-purple-alpha-08: rgba(168, 85, 247, 0.08);
+  --emr-financial-purple-alpha-15: rgba(168, 85, 247, 0.15);
+  --emr-financial-purple-alpha-20: rgba(168, 85, 247, 0.2);
+
+  /* Financial card shadows and gradients */
+  --emr-shadow-financial-card: 0 1px 3px var(--emr-glass-black-05), 0 4px 12px var(--emr-glass-black-04, rgba(0, 0, 0, 0.04));
+  --emr-shadow-financial-card-hover: 0 4px 16px var(--emr-glass-black-10, rgba(0, 0, 0, 0.08)), 0 8px 32px var(--emr-glass-black-05, rgba(0, 0, 0, 0.06));
+
+  /* ==================== TELEMEDICINE VIDEO COLORS ==================== */
+  /* Video call state colors */
+  --emr-video-active: #22c55e;      /* Green - camera/mic active */
+  --emr-video-muted: #ef4444;       /* Red - camera/mic muted */
+  --emr-video-waiting: #f59e0b;     /* Amber - waiting room state */
+  --emr-video-background: #1e293b; /* Dark blue-gray - video area background */
+  --emr-video-placeholder-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); /* Video placeholder gradient */
+
+  /* Video call success state shadows */
+  --emr-shadow-video-success: 0 8px 24px rgba(34, 197, 94, 0.35), 0 0 0 6px rgba(34, 197, 94, 0.15);
+
+  /* Network quality indicator colors */
+  --emr-network-excellent: #22c55e; /* Green - excellent connection */
+  --emr-network-good: #84cc16;      /* Lime - good connection */
+  --emr-network-fair: #f59e0b;      /* Amber - fair connection */
+  --emr-network-poor: #ef4444;      /* Red - poor connection */
+
+  /* Queue position indicator colors (same as network for consistency) */
+  --emr-queue-excellent: #22c55e;   /* Green - position 1 */
+  --emr-queue-good: #84cc16;        /* Lime - position 2-3 */
+  --emr-queue-fair: #f59e0b;        /* Amber - position 4-5 */
+  --emr-queue-poor: #ef4444;        /* Red - position 6+ */
+
+  /* Control button sizes (44px+ minimum for touch targets) */
+  --emr-control-size-sm: 44px;      /* Small control button */
+  --emr-control-size-md: 56px;      /* Medium control button */
+  --emr-control-size-lg: 72px;      /* Large control button */
+
+  /* Video layout dimensions */
+  --emr-video-aspect-ratio: 16/9;   /* Standard video aspect ratio */
+  --emr-pip-size: 180px;            /* Picture-in-picture size */
+  --emr-video-grid-gap: 8px;        /* Gap between video tiles */
+  --emr-video-border-radius: var(--emr-border-radius-lg); /* Video tile corners */
+
+  /* Video control bar */
+  --emr-control-bar-bg: rgba(0, 0, 0, 0.75);      /* Semi-transparent dark */
+  --emr-control-bar-blur: blur(8px);              /* Backdrop blur */
+  --emr-control-bar-gradient: linear-gradient(to top, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.85) 60%, rgba(15, 23, 42, 0) 100%); /* Control bar gradient */
+  --emr-control-bar-gradient-dark: linear-gradient(to top, rgba(2, 6, 23, 0.98) 0%, rgba(2, 6, 23, 0.9) 60%, rgba(2, 6, 23, 0) 100%); /* Dark mode control bar */
+
+  /* Speaking indicator */
+  --emr-speaking-glow: 0 0 0 3px rgba(34, 197, 94, 0.6); /* Green glow when speaking */
+  --emr-speaking-border: 3px solid var(--emr-video-active);
+
+  /* ==================== BORDERS ==================== */
+  --emr-border-radius: 6px;
+  --emr-border-radius-sm: 4px;
+  --emr-border-radius-lg: 8px;
+  --emr-border-radius-xl: 12px;
+  --emr-border-radius-2xl: 16px;
+  --emr-border-color: #e5e7eb;
+  --emr-border-default: #e5e7eb;
+  --emr-border-focus: #3182ce;
+  --emr-border-error: #e53e3e;
+  --emr-border-subtle: rgba(49, 130, 206, 0.15);
+  --emr-border-dashed: rgba(43, 108, 176, 0.15);
+
+  /* ==================== TRANSITIONS ==================== */
+  --emr-transition-fast: 0.15s ease;
+  --emr-transition-base: 0.2s ease;
+  --emr-transition-slow: 0.3s ease;
+  --emr-transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Page Transition Variables */
+  --emr-page-transition-duration: 200ms;
+  --emr-page-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --emr-page-transition-slide-distance: 20px;
+
+  /* ==================== MODERN FORM BUILDER DESIGN TOKENS ==================== */
+  /* Side Panel Enhancement Variables */
+  --emr-panel-width-palette: 280px;
+  --emr-panel-padding: 20px;
+  --emr-palette-item-gap: 12px;
+  --emr-palette-icon-size: 42px;
+
+  /* Enhanced shadows for side panels */
+  --emr-shadow-panel: 2px 0 12px rgba(0, 0, 0, 0.04);
+  --emr-shadow-panel-item: 0 1px 4px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
+  --emr-shadow-panel-item-hover: 0 4px 12px rgba(43, 108, 176, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+
+  /* Glassmorphism effects */
+  --emr-glass-bg: rgba(255, 255, 255, 0.85);
+  --emr-glass-bg-light: rgba(255, 255, 255, 0.6);
+  --emr-glass-border: rgba(255, 255, 255, 0.3);
+  --emr-glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+  --emr-backdrop-blur: blur(10px);
+  --emr-backdrop-blur-lg: blur(20px);
+
+  /* Modal button colors */
+  --emr-button-close-bg: rgba(255, 255, 255, 0.08);
+  --emr-button-close-color: rgba(255, 255, 255, 0.7);
+  --emr-button-close-hover-bg: rgba(255, 255, 255, 0.15);
+  --emr-button-close-hover-color: rgba(255, 255, 255, 0.95);
+
+  /* Modal icon color - dark blue for contrast on white glass background */
+  --emr-modal-icon-color: var(--emr-primary);
+
+  /* Modal title text color - white for visibility on blue gradient */
+  --emr-modal-title-color: #ffffff;
+
+  /* Gradient highlight for modals */
+  --emr-gradient-highlight: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
+
+  /* Modern soft shadows */
+  --emr-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --emr-shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.05);
+  --emr-shadow-soft-lg: 0 8px 24px rgba(0, 0, 0, 0.06), 0 16px 48px rgba(0, 0, 0, 0.06);
+  --emr-shadow-glow: 0 0 20px rgba(49, 130, 206, 0.3);
+  --emr-shadow-glow-primary: 0 0 24px rgba(43, 108, 176, 0.25);
+  --emr-shadow-glow-primary-subtle: 0 0 12px rgba(43, 108, 176, 0.15);
+  --emr-shadow-glow-accent: 0 0 24px rgba(49, 130, 206, 0.35);
+  --emr-shadow-glow-accent-subtle: 0 0 12px rgba(49, 130, 206, 0.2);
+  --emr-shadow-focus-ring: 0 0 0 2px rgba(43, 108, 176, 0.15);
+
+  /* Shimmer gradients for streaming/loading effects */
+  --emr-gradient-shimmer: linear-gradient(90deg, transparent 0%, rgba(43, 108, 176, 0.08) 50%, transparent 100%);
+  --emr-gradient-shimmer-dark: linear-gradient(90deg, transparent 0%, rgba(49, 130, 206, 0.1) 50%, transparent 100%);
+  --emr-gradient-user-bubble-skeleton: linear-gradient(135deg, rgba(43, 108, 176, 0.1) 0%, rgba(49, 130, 206, 0.05) 100%);
+  --emr-gradient-user-bubble-skeleton-dark: linear-gradient(135deg, rgba(49, 130, 206, 0.15) 0%, rgba(99, 179, 237, 0.08) 100%);
+
+  /* Modern accent gradients */
+  --emr-gradient-soft: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --emr-gradient-canvas: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
+  --emr-gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  --emr-gradient-header-modern: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-gradient-accent-glow: linear-gradient(135deg, rgba(49, 130, 206, 0.1) 0%, rgba(43, 108, 176, 0.05) 100%);
+
+  /* Modern selection states */
+  --emr-selected-bg: rgba(43, 108, 176, 0.08);
+  --emr-selected-border: #2b6cb0;
+  --emr-hover-bg: rgba(43, 108, 176, 0.04);
+  --emr-focus-ring: 0 0 0 3px rgba(43, 108, 176, 0.15);
+
+  /* Scale transforms */
+  --emr-scale-hover: 1.02;
+  --emr-scale-active: 0.98;
+
+  /* ==================== SPACING ==================== */
+  --emr-spacing-xs: 4px;
+  --emr-spacing-sm: 8px;
+  --emr-spacing-md: 12px;
+  --emr-spacing-lg: 16px;
+  --emr-spacing-xl: 20px;
+  --emr-spacing-2xl: 24px;
+  --emr-spacing-3xl: 32px;
+
+  /* ==================== Z-INDEX LAYERS ==================== */
+  --emr-z-topnav: 1000;
+  --emr-z-mainmenu: 999;
+  --emr-z-submenu: 998;
+  --emr-z-action-buttons: 997;
+  --emr-z-dropdown: 1001;
+  --emr-z-modal: 1100;
+
+  /* ==================== EMR TABLE TOKENS ==================== */
+  /* Light mode - clean, professional table design */
+  --emr-table-header-bg: #eef2f7;
+  --emr-table-header-text: #1a365d;
+  --emr-table-header-border: #d1dce8;
+  --emr-table-header-font-weight: 700;
+  --emr-table-row-bg: #ffffff;
+  --emr-table-row-stripe: #fafbfc;
+  --emr-table-row-hover: rgba(43, 108, 176, 0.06);
+  --emr-table-row-selected: rgba(43, 108, 176, 0.18);
+  --emr-table-row-highlight: rgba(16, 185, 129, 0.12);
+  --emr-table-border: #e5e7eb;
+  --emr-table-border-radius: 8px;
+  --emr-table-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --emr-table-cell-padding: 12px 16px;
+  --emr-table-cell-padding-compact: 8px 12px;
+  --emr-table-selected-border: #2b6cb0;
+  --emr-table-sort-icon-active: #2b6cb0;
+  --emr-table-sort-icon-inactive: #9ca3af;
+  --emr-table-action-hover: rgba(43, 108, 176, 0.1);
+  --emr-table-checkbox-color: #2b6cb0;
+
+  /* ==================== RESPONSIVE BREAKPOINTS ==================== */
+  --emr-mobile-breakpoint: 768px;
+  --emr-tablet-breakpoint: 1024px;
+  --emr-desktop-breakpoint: 1440px;
+
+  /* ==================== GLASS/OVERLAY EFFECTS ==================== */
+  /* Transparent white overlays for glassmorphism effects on dark backgrounds */
+  --emr-glass-white-03: rgba(255, 255, 255, 0.03);
+  --emr-glass-white-05: rgba(255, 255, 255, 0.05);
+  --emr-glass-white-06: rgba(255, 255, 255, 0.06);
+  --emr-glass-white-08: rgba(255, 255, 255, 0.08);
+  --emr-glass-white-10: rgba(255, 255, 255, 0.1);
+  --emr-glass-white-12: rgba(255, 255, 255, 0.12);
+  --emr-glass-white-14: rgba(255, 255, 255, 0.14);
+  --emr-glass-white-15: rgba(255, 255, 255, 0.15);
+  --emr-glass-white-18: rgba(255, 255, 255, 0.18);
+  --emr-glass-white-20: rgba(255, 255, 255, 0.2);
+  --emr-glass-white-25: rgba(255, 255, 255, 0.25);
+  --emr-glass-white-30: rgba(255, 255, 255, 0.3);
+  --emr-glass-white-35: rgba(255, 255, 255, 0.35);
+  --emr-glass-white-40: rgba(255, 255, 255, 0.4);
+  --emr-glass-white-50: rgba(255, 255, 255, 0.5);
+  --emr-glass-white-60: rgba(255, 255, 255, 0.6);
+  --emr-glass-white-70: rgba(255, 255, 255, 0.7);
+  --emr-glass-white-80: rgba(255, 255, 255, 0.8);
+  --emr-glass-white-85: rgba(255, 255, 255, 0.85);
+  --emr-glass-white-95: rgba(255, 255, 255, 0.95);
+  --emr-glass-border: rgba(255, 255, 255, 0.15);
+
+  /* Transparent black overlays for shadows and dark overlays */
+  --emr-glass-black-02: rgba(0, 0, 0, 0.02);
+  --emr-glass-black-05: rgba(0, 0, 0, 0.05);
+  --emr-glass-black-10: rgba(0, 0, 0, 0.1);
+  --emr-glass-black-15: rgba(0, 0, 0, 0.15);
+  --emr-glass-black-20: rgba(0, 0, 0, 0.2);
+  --emr-glass-black-25: rgba(0, 0, 0, 0.25);
+  --emr-glass-black-70: rgba(0, 0, 0, 0.7);
+
+  /* Background alpha variations */
+  --emr-bg-white-alpha-05: rgba(255, 255, 255, 0.05);
+  --emr-bg-white-alpha-10: rgba(255, 255, 255, 0.1);
+  --emr-bg-white-alpha-15: rgba(255, 255, 255, 0.15);
+  --emr-bg-white-alpha-20: rgba(255, 255, 255, 0.2);
+  --emr-bg-white-alpha-30: rgba(255, 255, 255, 0.3);
+  --emr-bg-white-alpha-50: rgba(255, 255, 255, 0.5);
+  --emr-bg-white-alpha-95: rgba(255, 255, 255, 0.95);
+
+  /* Text shadows for glassmorphism */
+  --emr-text-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --emr-text-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
+
+  /* ==================== STAT CARD GRADIENTS (HOSPITAL LAYOUT) ==================== */
+  /* All stat card gradients use the blue theme palette */
+  /* These are now redundant - use --emr-stat-gradient-* or --emr-gradient-* instead */
+
+  /* ==================== PAGE BACKGROUND GRADIENTS ==================== */
+  --emr-page-bg-light: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  --emr-page-bg-soft: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --emr-page-bg-canvas: linear-gradient(135deg, #fafbfc 0%, #f4f6f8 100%);
+  --emr-page-bg-header: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  /* ==================== HOSPITAL LAYOUT ENTITY COLORS ==================== */
+  /* All entity types use the blue theme palette for consistency */
+
+  /* Building - Primary Blue */
+  --emr-building: var(--emr-primary);
+  --emr-building-light: #3182ce;
+  --emr-gradient-building: var(--emr-gradient-primary);
+  --emr-building-focus: var(--emr-secondary);
+  --emr-building-shadow: rgba(43, 108, 176, 0.1);
+  --emr-building-context-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-building-context-border: var(--emr-light-accent);
+
+  /* Floor - Secondary Blue */
+  --emr-floor: var(--emr-secondary);
+  --emr-floor-light: #3182ce;
+  --emr-gradient-floor: var(--emr-gradient-secondary);
+  --emr-floor-focus: var(--emr-secondary);
+  --emr-floor-shadow: rgba(43, 108, 176, 0.1);
+  --emr-floor-context-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-floor-context-border: var(--emr-light-accent);
+
+  /* Department - Primary Blue */
+  --emr-department: var(--emr-primary);
+  --emr-department-light: var(--emr-accent);
+  --emr-gradient-department: var(--emr-gradient-primary);
+  --emr-department-focus: var(--emr-secondary);
+  --emr-department-shadow: rgba(43, 108, 176, 0.1);
+  --emr-department-context-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-department-context-border: var(--emr-light-accent);
+
+  /* Room - Secondary Blue */
+  --emr-room: var(--emr-secondary);
+  --emr-room-light: var(--emr-accent);
+  --emr-gradient-room: var(--emr-gradient-secondary);
+  --emr-room-focus: var(--emr-secondary);
+  --emr-room-shadow: rgba(43, 108, 176, 0.1);
+  --emr-room-context-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-room-context-border: var(--emr-light-accent);
+
+  /* Bed Form - Primary Blue */
+  --emr-bed-form: var(--emr-primary);
+  --emr-bed-form-light: var(--emr-accent);
+  --emr-gradient-bed-form: var(--emr-gradient-primary);
+  --emr-bed-form-focus: var(--emr-secondary);
+  --emr-bed-form-shadow: rgba(43, 108, 176, 0.1);
+  --emr-bed-form-context-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-bed-form-context-border: var(--emr-light-accent);
+
+  /* Temporary bed - Light blue accent */
+  --emr-bed-temporary-bg: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  --emr-bed-temporary-border: var(--emr-light-accent);
+
+  /* ==================== DEPARTMENT TYPE COLORS ==================== */
+  /* All department types use blue theme palette - differentiated by intensity */
+  --emr-dept-icu: var(--emr-primary);
+  --emr-dept-general: var(--emr-secondary);
+  --emr-dept-pediatrics: var(--emr-secondary);
+  --emr-dept-maternity: var(--emr-secondary);
+  --emr-dept-surgery: var(--emr-primary);
+  --emr-dept-emergency: var(--emr-primary);
+  --emr-dept-cardiology: var(--emr-primary);
+  --emr-dept-neurology: var(--emr-secondary);
+  --emr-dept-oncology: var(--emr-primary);
+  --emr-dept-isolation: var(--emr-secondary);
+  --emr-dept-orthopedics: var(--emr-secondary);
+  --emr-dept-psychiatry: var(--emr-secondary);
+  --emr-dept-rehabilitation: var(--emr-secondary);
+
+  /* ==================== BED BOARD DESIGN TOKENS ==================== */
+  /* Colors for bed status indicators - using blue theme with intensity variations */
+  --emr-bed-available: var(--emr-accent);        /* Light blue - bed ready */
+  --emr-bed-available-bg: rgba(49, 130, 206, 0.1);
+  --emr-bed-occupied: var(--emr-secondary);      /* Medium blue - patient assigned */
+  --emr-bed-occupied-bg: rgba(43, 108, 176, 0.1);
+  --emr-bed-cleaning: var(--emr-accent);         /* Light blue - being cleaned */
+  --emr-bed-cleaning-bg: rgba(49, 130, 206, 0.1);
+  --emr-bed-reserved: var(--emr-primary);        /* Dark blue - reserved for incoming */
+  --emr-bed-reserved-bg: rgba(26, 54, 93, 0.1);
+  --emr-bed-out-of-service: var(--emr-gray-500); /* Gray - maintenance/unavailable */
+  --emr-bed-out-of-service-bg: rgba(107, 114, 128, 0.1);
+
+  /* Acuity level colors - using blue theme with intensity variations */
+  --emr-acuity-critical: var(--emr-primary);     /* Dark blue - critical condition */
+  --emr-acuity-critical-bg: rgba(26, 54, 93, 0.1);
+  --emr-acuity-moderate: var(--emr-secondary);   /* Medium blue - moderate condition */
+  --emr-acuity-moderate-bg: rgba(43, 108, 176, 0.1);
+  --emr-acuity-stable: var(--emr-accent);        /* Light blue - stable condition */
+  --emr-acuity-stable-bg: rgba(49, 130, 206, 0.1);
+
+  /* Note urgency colors - using blue theme */
+  --emr-note-routine: var(--emr-gray-500);       /* Gray - routine note */
+  --emr-note-urgent: var(--emr-secondary);       /* Medium blue - urgent note */
+  --emr-note-critical: var(--emr-primary);       /* Dark blue - critical note */
+
+  /* Bed card dimensions */
+  --emr-bed-card-width: 280px;
+  --emr-bed-card-height: 180px;
+  --emr-bed-card-gap: 16px;
+  --emr-bed-card-border-radius: 12px;
+  --emr-bed-card-padding: 16px;
+
+  /* Hospital layout tree */
+  --emr-tree-indent: 24px;
+  --emr-tree-line-color: #e5e7eb;
+  --emr-tree-node-height: 40px;
+  --emr-tree-icon-size: 20px;
+
+  /* ==================== FORM INPUT DESIGN TOKENS ==================== */
+  /* Standardized form input styling for consistent UI across all forms */
+  /* ENHANCED: More visually distinct styling for production-ready forms */
+
+  /* Input Heights (touch-friendly) */
+  --emr-input-height-sm: 38px;
+  --emr-input-height-md: 44px;
+  --emr-input-height-lg: 50px;
+
+  /* Input Colors - ENHANCED with subtle gradient background */
+  --emr-input-bg: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+  --emr-input-bg-solid: #ffffff;
+  --emr-input-bg-disabled: #f3f4f6;
+  --emr-input-bg-focus: #ffffff;
+  --emr-input-border: #c7d2e0;
+  --emr-input-border-hover: #3182ce;
+  --emr-input-border-focus: #2b6cb0;
+  --emr-input-text: #1a202c;
+  --emr-input-text-disabled: #a0aec0;
+  --emr-input-placeholder: #a0aec0;
+
+  /* Input Shadow - ENHANCED for depth */
+  --emr-input-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --emr-input-shadow-hover: 0 4px 12px rgba(49, 130, 206, 0.15);
+  --emr-input-shadow-focus: 0 0 0 3px rgba(49, 130, 206, 0.25), 0 4px 12px rgba(49, 130, 206, 0.1);
+
+  /* Input Validation States - ENHANCED with stronger colors */
+  --emr-input-error-border: #e53e3e;
+  --emr-input-error-bg: #fff5f5;
+  --emr-input-error-text: #c53030;
+  --emr-input-error-glow: 0 0 0 3px rgba(229, 62, 62, 0.2), 0 4px 12px rgba(229, 62, 62, 0.1);
+
+  --emr-input-success-border: #38a169;
+  --emr-input-success-bg: #f0fff4;
+  --emr-input-success-text: #276749;
+  --emr-input-success-glow: 0 0 0 3px rgba(56, 161, 105, 0.2), 0 4px 12px rgba(56, 161, 105, 0.1);
+
+  --emr-input-warning-border: #dd6b20;
+  --emr-input-warning-bg: #fffaf0;
+  --emr-input-warning-text: #c05621;
+  --emr-input-warning-glow: 0 0 0 3px rgba(221, 107, 32, 0.2), 0 4px 12px rgba(221, 107, 32, 0.1);
+
+  /* Input Focus Ring - ENHANCED with stronger visibility */
+  --emr-input-focus-ring: 0 0 0 3px rgba(49, 130, 206, 0.3);
+  --emr-input-focus-ring-primary: 0 0 0 4px rgba(43, 108, 176, 0.25);
+
+  /* Input Label - ENHANCED with better contrast */
+  --emr-input-label-color: #2d3748;
+  --emr-input-label-size: 13px;
+  --emr-input-label-weight: 600;
+  --emr-input-label-spacing: 8px;
+
+  /* Input Help Text */
+  --emr-input-help-color: #718096;
+  --emr-input-help-size: 12px;
+
+  /* Required Indicator - Red asterisk */
+  --emr-input-required-color: #e53e3e;
+
+  /* Input Dimensions - ENHANCED with more padding */
+  --emr-input-padding-x: 14px;
+  --emr-input-padding-y: 12px;
+  --emr-input-border-radius: 10px;
+  --emr-input-font-size: 14px;
+  --emr-input-border-width: 1.5px;
+
+  /* Input Icons */
+  --emr-input-icon-size: 18px;
+  --emr-input-icon-color: #718096;
+  --emr-input-icon-color-focus: #2b6cb0;
+
+  /* Input Transitions - Smooth animations */
+  --emr-input-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Input Accent Colors - For left border accent */
+  --emr-input-accent-default: transparent;
+  --emr-input-accent-focus: #3182ce;
+  --emr-input-accent-filled: #38a169;
+
+  /* ==================== CLINICAL STATUS COLORS ==================== */
+  /* Extends the existing semantic color system for clinical contexts */
+  /* All colors reference existing --emr-input-* variables for consistency */
+
+  /* Patient Status - Blue accents for returning patients */
+  --emr-patient-returning: var(--emr-accent);
+  --emr-patient-returning-bg: rgba(49, 130, 206, 0.15);
+  --emr-patient-vip: var(--emr-input-warning-border);
+  --emr-patient-vip-bg: rgba(221, 107, 32, 0.1);
+
+  /* Discharge Status - Gray tones for discharged patients */
+  --emr-patient-discharged: #6b7280;
+  --emr-patient-discharged-bg: rgba(107, 114, 128, 0.08);
+  --emr-patient-discharged-badge-bg: rgba(107, 114, 128, 0.15);
+  --emr-patient-discharged-badge-text: #374151;
+
+  /* Encounter Status - Row left-border accents and backgrounds */
+  --emr-encounter-active: #2b6cb0;
+  --emr-encounter-active-bg: rgba(43, 108, 176, 0.04);
+  --emr-encounter-finished: #38a169;
+  --emr-encounter-finished-bg: rgba(56, 161, 105, 0.05);
+  --emr-encounter-cancelled: #6b7280;
+  --emr-encounter-cancelled-bg: rgba(107, 114, 128, 0.05);
+  --emr-encounter-planned: #0891b2;
+  --emr-encounter-planned-bg: rgba(8, 145, 178, 0.05);
+  --emr-encounter-error: #e53e3e;
+  --emr-encounter-error-bg: rgba(229, 62, 62, 0.05);
+
+  /* Visit Type badges */
+  --emr-visit-ambulatory: #0891b2;
+  --emr-visit-ambulatory-bg: rgba(8, 145, 178, 0.1);
+  --emr-visit-stationary: #2b6cb0;
+  --emr-visit-stationary-bg: rgba(43, 108, 176, 0.1);
+  --emr-visit-emergency: #e53e3e;
+  --emr-visit-emergency-bg: rgba(229, 62, 62, 0.1);
+
+  /* Debt row tint */
+  --emr-encounter-debt-bg: rgba(229, 62, 62, 0.04);
+
+  /* Payment Status - Uses existing semantic colors */
+  --emr-payment-paid: var(--emr-input-success-bg);
+  --emr-payment-paid-text: var(--emr-input-success-text);
+  --emr-payment-paid-border: var(--emr-input-success-border);
+  --emr-payment-unpaid: var(--emr-input-error-bg);
+  --emr-payment-unpaid-text: var(--emr-input-error-text);
+  --emr-payment-unpaid-border: var(--emr-input-error-border);
+  --emr-payment-partial: var(--emr-input-warning-bg);
+  --emr-payment-partial-text: var(--emr-input-warning-text);
+  --emr-payment-partial-border: var(--emr-input-warning-border);
+
+  /* Triage/Acuity - Uses existing semantic colors (ESI standard) */
+  --emr-triage-critical: var(--emr-input-error-border);
+  --emr-triage-critical-bg: var(--emr-input-error-bg);
+  --emr-triage-urgent: var(--emr-input-warning-border);
+  --emr-triage-urgent-bg: var(--emr-input-warning-bg);
+  --emr-triage-stable: var(--emr-input-success-border);
+  --emr-triage-stable-bg: var(--emr-input-success-bg);
+  --emr-triage-info: var(--emr-secondary);
+  --emr-triage-info-bg: rgba(43, 108, 176, 0.1);
+
+  /* Lab Results - Uses existing semantic colors */
+  --emr-lab-critical: var(--emr-input-error-border);
+  --emr-lab-critical-bg: var(--emr-input-error-bg);
+  --emr-lab-abnormal: var(--emr-input-warning-border);
+  --emr-lab-abnormal-bg: var(--emr-input-warning-bg);
+  --emr-lab-normal: var(--emr-input-success-border);
+  --emr-lab-normal-bg: var(--emr-input-success-bg);
+
+  /* Reference Range Bar - Lab result visualization zones */
+  --emr-refrange-low-start: rgba(49, 130, 206, 0.3);
+  --emr-refrange-low-end: rgba(49, 130, 206, 0.15);
+  --emr-refrange-normal-start: rgba(56, 161, 105, 0.4);
+  --emr-refrange-normal-mid: rgba(72, 187, 120, 0.5);
+  --emr-refrange-normal-end: rgba(56, 161, 105, 0.4);
+  --emr-refrange-high-start: rgba(221, 107, 32, 0.15);
+  --emr-refrange-high-end: rgba(221, 107, 32, 0.3);
+  --emr-refrange-critical: var(--emr-error-alpha-30);
+  --emr-refrange-marker-shadow: var(--emr-black-alpha-20);
+  --emr-refrange-marker-shadow-hover: var(--emr-black-alpha-30);
+
+  /* ==================== MODAL DESIGN TOKENS ==================== */
+  /* Standardized modal system with T-shirt sizing */
+
+  /* Modal Sizes (T-shirt sizing) */
+  --emr-modal-sm: 400px;
+  --emr-modal-md: 540px;
+  --emr-modal-lg: 720px;
+  --emr-modal-xl: 900px;
+
+  /* Modal Header */
+  --emr-modal-header-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+  --emr-modal-header-border: var(--emr-gray-200);
+  --emr-modal-accent-height: 4px;
+
+  /* Modal Icon Container */
+  --emr-modal-icon-size-sm: 40px;
+  --emr-modal-icon-size-md: 44px;
+  --emr-modal-icon-size-lg: 48px;
+  --emr-modal-icon-size-xl: 52px;
+  --emr-modal-icon-gradient: var(--emr-gradient-primary);
+  --emr-modal-icon-shadow: 0 4px 14px rgba(43, 108, 176, 0.3);
+  --emr-modal-icon-radius: 14px;
+
+  /* Modal Title */
+  --emr-modal-title-size-sm: 18px;
+  --emr-modal-title-size-md: 18px;
+  --emr-modal-title-size-lg: 20px;
+  --emr-modal-title-size-xl: 22px;
+  --emr-modal-title-color: #ffffff;
+  --emr-modal-title-weight: 700;
+  --emr-modal-subtitle-color: rgba(255, 255, 255, 0.8);
+
+  /* Modal Close Button */
+  --emr-modal-close-size: 40px;
+  --emr-modal-close-bg: var(--emr-gray-100);
+  --emr-modal-close-bg-hover: var(--emr-gray-200);
+  --emr-modal-close-color: var(--emr-gray-500);
+  --emr-modal-close-color-hover: var(--emr-gray-700);
+  --emr-modal-close-radius: 10px;
+
+  /* Modal Body */
+  --emr-modal-body-bg: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  --emr-modal-scrollbar-width: 10px;
+  --emr-modal-scrollbar-track: var(--emr-gray-100);
+  --emr-modal-scrollbar-thumb: var(--emr-gray-300);
+  --emr-modal-scrollbar-thumb-hover: var(--emr-gray-400);
+
+  /* Modal Footer */
+  --emr-modal-footer-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --emr-modal-footer-border: var(--emr-gray-200);
+
+  /* Modal Primary Button */
+  --emr-modal-btn-height: 44px;
+  --emr-modal-btn-min-width: 140px;
+  --emr-modal-btn-radius: 10px;
+  --emr-modal-btn-primary-bg: var(--emr-gradient-primary);
+  --emr-modal-btn-primary-shadow: 0 4px 14px rgba(43, 108, 176, 0.3);
+  --emr-modal-btn-primary-shadow-hover: 0 6px 20px rgba(43, 108, 176, 0.4);
+
+  /* Modal Cancel Button */
+  --emr-modal-btn-cancel-color: var(--emr-gray-600);
+  --emr-modal-btn-cancel-bg-hover: var(--emr-gray-100);
+
+  /* Modal Danger Button */
+  --emr-modal-btn-danger-bg: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  --emr-modal-btn-danger-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+
+  /* Modal Overlay */
+  --emr-modal-overlay-bg: rgba(15, 23, 42, 0.5);
+  --emr-modal-overlay-blur: 6px;
+
+  /* Modal Shadow */
+  --emr-modal-shadow: 0 8px 32px rgba(26, 54, 93, 0.15), 0 24px 80px rgba(26, 54, 93, 0.12);
+  --emr-modal-radius: 16px;
+
+  /* Modal Animation */
+  --emr-modal-animation-duration: 350ms;
+  --emr-modal-animation-easing: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Speaker Colors (MediScribe transcript speaker highlighting) */
+  --emr-speaker-1: #dbeafe; /* blue */
+  --emr-speaker-2: #dcfce7; /* green */
+  --emr-speaker-3: #fef3c7; /* amber */
+  --emr-speaker-4: #fce7f3; /* pink */
+  --emr-speaker-5: #e0e7ff; /* indigo */
+  --emr-speaker-6: #f5f3ff; /* violet */
+
+  /* ============ Dashboard Bento Category Accents ============ */
+  /* All category accents resolve to the three brand blues. Soft values share
+     the single light-accent tint. Auto-switch for dark mode via the theme
+     variables they point to. Do NOT use these for general UI; they are
+     scoped to the dashboard hub. */
+  --emr-cat-personnel: var(--emr-primary);
+  --emr-cat-personnel-soft: var(--emr-light-accent);
+  --emr-cat-clinical: var(--emr-accent);
+  --emr-cat-clinical-soft: var(--emr-light-accent);
+  --emr-cat-parameters: var(--emr-secondary);
+  --emr-cat-parameters-soft: var(--emr-light-accent);
+  --emr-cat-nomenclature: var(--emr-primary);
+  --emr-cat-nomenclature-soft: var(--emr-light-accent);
+  --emr-cat-finance: var(--emr-secondary);
+  --emr-cat-finance-soft: var(--emr-light-accent);
+  --emr-cat-statistics: var(--emr-primary);
+  --emr-cat-statistics-soft: var(--emr-light-accent);
+  --emr-cat-admin: var(--emr-secondary);
+  --emr-cat-admin-soft: var(--emr-light-accent);
+  --emr-cat-archive: var(--emr-accent);
+  --emr-cat-archive-soft: var(--emr-light-accent);
+  --emr-cat-insurance: var(--emr-accent);
+  --emr-cat-insurance-soft: var(--emr-light-accent);
+}
+
+/* ==================== DARK MODE THEME ==================== */
+/* Dark theme overrides - activated via Mantine's color scheme attribute */
+/* Uses Tailwind Slate color family for blue-tinted dark surfaces */
+:root[data-mantine-color-scheme="dark"] {
+  /* LiverRa primary ramp (dark mode) — inverted warm-gray */
+  --liverra-primary-50:  #15110d;
+  --liverra-primary-100: #231e18;
+  --liverra-primary-200: #352d24;
+  --liverra-primary-300: #4d4236;
+  --liverra-primary-400: #6b5c4f;
+  --liverra-primary-500: #8a7a6c;
+  --liverra-primary-600: #b8aa9d;
+  --liverra-primary-700: #d8d0c8;
+  --liverra-primary-800: #eae5e0;
+  --liverra-primary-900: #f7f5f3;
+
+  /* Core Colors - warm-gray accents for dark mode (mapped from brand ramp) */
+  --emr-primary: var(--liverra-primary-400);
+  --emr-secondary: var(--liverra-primary-500);
+  --emr-accent: var(--liverra-primary-600);
+  --emr-light-accent: var(--liverra-primary-200);
+
+  /* Turquoise palette - Using blue family */
+  --emr-turquoise: #3182ce;
+  --emr-turquoise-light: #1a365d;
+  --emr-turquoise-dark: #3182ce;
+
+  /* Neutral colors - Slate family (blue-tinted) */
+  --emr-gray-50: #0f172a;
+  --emr-gray-100: #1e293b;
+  --emr-gray-200: #334155;
+  --emr-gray-300: #475569;
+  --emr-gray-400: #64748b;
+  --emr-gray-500: #94a3b8;
+  --emr-gray-600: #cbd5e1;
+  --emr-gray-700: #e2e8f0;
+  --emr-gray-800: #f1f5f9;
+  --emr-gray-900: #f8fafc;
+
+  /* Text colors - High contrast for readability */
+  --emr-text-primary: #f1f5f9;
+  --emr-text-secondary: #94a3b8;
+  --emr-text-tertiary: #94a3b8;
+  --emr-text-inverse: #0f172a;
+  --emr-text-white: #f8fafc;
+
+  /* Navigation backgrounds - Slate family */
+  --emr-topnav-bg: #0f172a;
+  --emr-mainmenu-bg: #0f172a;
+  --emr-submenu-bg: #1e293b;
+
+  /* Surface colors - Slate family */
+  --emr-bg-page: #0f172a;
+  --emr-bg-card: #1e293b;
+  --emr-bg-modal: #1e293b;
+  --emr-bg-input: #1e293b;
+  --emr-bg-hover: #334155;
+  --emr-bg-error-light: rgba(239, 68, 68, 0.15);
+  --emr-bg-highlight: rgba(250, 250, 172, 0.15);
+  --emr-overlay-bg: rgba(0, 0, 0, 0.75);
+
+  /* MPR canvas stays dark in dark mode too */
+  --emr-mpr-canvas-bg: #0d1117;
+
+  /* Card and table component colors - Slate family */
+  --emr-card-bg: #1e293b;
+  --emr-card-border: #334155;
+  --emr-stat-card-bg: #243447; /* Slightly lighter than card-bg for stat cards */
+  --emr-primary-light: rgba(49, 130, 206, 0.15);
+  --emr-primary-dark: #3182ce;
+  --emr-glass-white-90: rgba(30, 41, 59, 0.9);
+  --emr-glass-white-95: rgba(30, 41, 59, 0.95);
+
+  /* Semantic colors - Vibrant for strong visual distinction */
+  --emr-success: #22c55e;
+  --emr-success-light: #4ade80;
+  --emr-warning: #f59e0b;
+  --emr-warning-light: #fbbf24;
+  --emr-error: #ef4444;
+  --emr-error-light: #f87171;
+  --emr-info: #2b6cb0;
+  --emr-info-light: #3182ce;
+
+  /* Purple accent for research badges */
+  --emr-accent-purple: #a78bfa;
+
+  /* Favorites/Star colors - Dark Mode (theme light blue) */
+  --emr-star-amber: #90cdf4;
+  --emr-star-amber-dark: #90cdf4;
+  --emr-star-amber-hover: #bee3f8;
+  --emr-star-amber-light: #90cdf4;
+
+  /* Shadow color token - dark mode */
+  --emr-shadow-color: rgba(0, 0, 0, 0.3);
+
+  /* Primary accent background - dark mode */
+  --emr-bg-accent-primary: rgba(49, 130, 206, 0.12);
+
+  /* Success semantic surface tokens - dark mode */
+  --emr-success-bg: rgba(72, 187, 120, 0.12);
+  --emr-success-border: rgba(72, 187, 120, 0.25);
+
+  /* Warning semantic surface tokens - dark mode */
+  --emr-warning-border: rgba(237, 137, 54, 0.25);
+  --emr-warning-hover-bg: rgba(237, 137, 54, 0.2);
+  --emr-warning-hover-border: rgba(237, 137, 54, 0.45);
+
+  /* Semantic background accents - Enhanced for Slate surfaces */
+  --emr-bg-accent-secondary: rgba(43, 108, 176, 0.12);
+  --emr-bg-accent-success: rgba(34, 197, 94, 0.12);
+  --emr-bg-accent-warning: rgba(245, 158, 11, 0.12);
+  --emr-bg-accent-error: rgba(239, 68, 68, 0.12);
+  --emr-bg-accent-info: rgba(49, 130, 206, 0.12);
+  --emr-bg-accent-gray: rgba(148, 163, 184, 0.12);
+  --emr-bg-accent-turquoise: rgba(6, 182, 212, 0.12);
+  --emr-bg-accent-accent: rgba(167, 139, 250, 0.12);
+  --emr-bg-hover-alt: rgba(49, 130, 206, 0.1);
+  --emr-bg-overlay-light: rgba(255, 255, 255, 0.08);
+
+  /* Accent transparent variants for animations and focus states - Dark mode */
+  --emr-accent-transparent: rgba(147, 197, 253, 0.25);
+  --emr-accent-transparent-strong: rgba(147, 197, 253, 0.35);
+
+  /* Message background colors - Dark mode */
+  --emr-error-bg: rgba(239, 68, 68, 0.15);
+  --emr-error-text: #fca5a5; /* Dark mode error text — light red for contrast on dark bg */
+  --emr-warning-bg: rgba(245, 158, 11, 0.15);
+  --emr-warning-text: #fbbf24; /* Dark mode warning text — light amber for contrast on dark bg */
+  --emr-success-text: #6ee7b7; /* Dark mode success text — light green for contrast on dark bg */
+  --emr-info-bg: rgba(43, 108, 176, 0.15);
+
+  /* Legacy PHP EMR colors - Dark Mode */
+  --emr-section-pink: #ed64a6;
+  --emr-section-pink-bg: #4a3636;
+  --emr-section-pink-border: #5a4040;
+  --emr-section-pink-text: #f8d7da;
+  --emr-gradient-section-pink: linear-gradient(135deg, #4a3636 0%, #5a4040 100%);
+  --emr-gradient-section-pink-solid: linear-gradient(135deg, #6b3a5a 0%, #8b4a6a 50%, #a55a7a 100%);
+
+  --emr-section-cyan-bg: #2a3f44;
+  --emr-section-cyan-border: #354a50;
+  --emr-section-cyan-text: #bee5eb;
+  --emr-gradient-section-cyan: linear-gradient(135deg, #2a3f44 0%, #354a50 100%);
+  --emr-gradient-section-teal: linear-gradient(135deg, #2c7a7b 0%, #319795 100%);
+
+  --emr-table-header-bg: #1a3a5c;
+  --emr-table-header-border: #234b73;
+  --emr-table-header-text: #cce5ff;
+  --emr-gradient-table-header: linear-gradient(135deg, #1a3a5c 0%, #234b73 100%);
+
+  --emr-highlight-yellow: #433d00;
+  --emr-highlight-yellow-hover: #544d00;
+  --emr-highlight-bg: rgba(255, 200, 74, 0.5); /* Brighter yellow for dark mode visibility */
+  --emr-required-bg: #3d3800;
+  --emr-required-border: #856404;
+  --emr-required-text: #ffc107;
+
+  --emr-form-title-brown: #d69e2e;
+
+  /* Warning Alert Box Colors - Dark Mode */
+  --emr-alert-warning-bg: linear-gradient(135deg, #3d3500 0%, #4a4000 100%);
+  --emr-alert-warning-border: #856404;
+  --emr-alert-warning-text: #ffc107;
+  --emr-alert-warning-shadow: rgba(249, 168, 37, 0.25);
+
+  /* Teal/Turquoise Section Header - Dark Mode */
+  --emr-teal-primary: #20c4dd;
+  --emr-teal-secondary: #17a2b8;
+  --emr-teal-light: #138496;
+  --emr-gradient-teal-header: linear-gradient(90deg, #0f5a66 0%, #117a8b 50%, #138496 100%);
+  --emr-shadow-teal: rgba(23, 162, 184, 0.35);
+
+  /* Gray Alpha Variants for hover effects - Dark Mode */
+  --emr-gray-alpha-04: rgba(148, 163, 184, 0.06);
+  --emr-gray-alpha-08: rgba(148, 163, 184, 0.1);
+
+  --emr-gradient-green: linear-gradient(135deg, #276749 0%, #2f855a 100%);
+  --emr-gradient-green-solid: linear-gradient(135deg, #22543d 0%, #276749 50%, #2f855a 100%);
+
+  --emr-gradient-error: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);
+  --emr-gradient-error-critical: linear-gradient(135deg, #991b1b 0%, #b91c1c 50%, #dc2626 100%);
+
+  /* Medication Dose Time-of-Day Colors - Dark Mode */
+  --emr-dose-morning: #fbbf24;
+  --emr-dose-morning-light: rgba(251, 191, 36, 0.15);
+  --emr-dose-morning-bg: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(251, 191, 36, 0.1) 100%);
+  --emr-dose-morning-glow: 0 0 20px rgba(251, 191, 36, 0.3);
+  --emr-dose-noon: #facc15;
+  --emr-dose-noon-light: rgba(234, 179, 8, 0.15);
+  --emr-dose-noon-bg: linear-gradient(135deg, rgba(234, 179, 8, 0.2) 0%, rgba(234, 179, 8, 0.1) 100%);
+  --emr-dose-noon-glow: 0 0 20px rgba(234, 179, 8, 0.3);
+  --emr-dose-evening: #fb923c;
+  --emr-dose-evening-light: rgba(249, 115, 22, 0.15);
+  --emr-dose-evening-bg: linear-gradient(135deg, rgba(249, 115, 22, 0.2) 0%, rgba(249, 115, 22, 0.1) 100%);
+  --emr-dose-evening-glow: 0 0 20px rgba(249, 115, 22, 0.3);
+  --emr-dose-night: #818cf8;
+  --emr-dose-night-light: rgba(99, 102, 241, 0.15);
+  --emr-dose-night-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+  --emr-dose-night-glow: 0 0 20px rgba(99, 102, 241, 0.3);
+
+  /* Gradient fading to transparent/light - Dark Mode */
+  --emr-gradient-to-light: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 1) 100%);
+
+  /* Subtle gradients for sections (EMRModalSection, form groups) - Dark Mode */
+  --emr-gradient-subtle-primary: linear-gradient(135deg, rgba(43, 108, 176, 0.08) 0%, rgba(49, 130, 206, 0.04) 100%);
+  --emr-gradient-subtle-secondary: linear-gradient(135deg, rgba(49, 130, 206, 0.08) 0%, rgba(43, 108, 176, 0.04) 100%);
+  --emr-gradient-subtle-accent: linear-gradient(135deg, rgba(99, 179, 237, 0.08) 0%, rgba(49, 130, 206, 0.04) 100%);
+
+  --emr-purple: #a78bfa;
+  --emr-purple-light: #c4b5fd;
+  --emr-gradient-purple: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+
+  --emr-label-cell-bg: #2d2d2d;
+  --emr-label-cell-text: #adb5bd;
+
+  /* Border colors - Semantic */
+  --emr-border-secondary: rgba(43, 108, 176, 0.25);
+  --emr-border-success: rgba(34, 197, 94, 0.35);
+  --emr-border-warning: rgba(245, 158, 11, 0.35);
+  --emr-border-light: rgba(148, 163, 184, 0.2);
+  --emr-border-turquoise: rgba(6, 182, 212, 0.25);
+  --emr-border-accent: rgba(167, 139, 250, 0.25);
+  --emr-accent-border: rgba(99, 179, 237, 0.3);
+
+  /* Animation/shine effect colors - Dark mode */
+  --emr-shine-color: rgba(255, 255, 255, 0.15);
+  --emr-shine-color-dark: rgba(255, 255, 255, 0.08);
+
+  /* Shadow variants for semantic colors - Vibrant */
+  --emr-shadow-success: 0 2px 8px rgba(34, 197, 94, 0.35);
+  --emr-shadow-warning: 0 2px 8px rgba(245, 158, 11, 0.35);
+  --emr-shadow-error: 0 2px 8px rgba(239, 68, 68, 0.35);
+  --emr-shadow-info: 0 2px 8px rgba(43, 108, 176, 0.35);
+
+  /* Form textarea semantic colors - Dark mode */
+  --emr-textarea-recipe-bg: rgba(135, 206, 250, 0.1);
+  --emr-textarea-recipe-border: rgba(135, 206, 250, 0.2);
+  --emr-textarea-also-bg: rgba(144, 238, 144, 0.1);
+  --emr-textarea-also-border: rgba(144, 238, 144, 0.2);
+  --emr-textarea-recommendation-bg: rgba(255, 228, 181, 0.08);
+  --emr-textarea-recommendation-border: rgba(255, 228, 181, 0.15);
+  --emr-textarea-diet-bg: rgba(144, 238, 144, 0.08);
+  --emr-textarea-diet-border: rgba(144, 238, 144, 0.15);
+  --emr-shadow-focus-warning: 0 0 0 2px rgba(255, 193, 7, 0.15);
+  --emr-shadow-focus-success: 0 0 0 2px rgba(40, 167, 69, 0.15);
+  --emr-shadow-focus-primary: 0 0 0 2px rgba(49, 130, 206, 0.2);
+
+  /* Tab shadow variants - for active tab states (dark mode) */
+  --emr-shadow-tab-blue: 0 6px 24px -4px rgba(49, 130, 206, 0.5);
+  --emr-shadow-tab-green: 0 6px 24px -4px rgba(34, 197, 94, 0.5);
+  --emr-shadow-tab-teal: 0 6px 24px -4px rgba(43, 108, 176, 0.5);
+  --emr-shadow-tab-orange: 0 6px 24px -4px rgba(245, 158, 11, 0.5);
+  --emr-shadow-tab-red: 0 6px 24px -4px rgba(239, 68, 68, 0.5);
+
+  /* Hover background colors with transparency (dark mode - higher opacity) */
+  --emr-bg-hover-blue: rgba(49, 130, 206, 0.15);
+  --emr-bg-hover-green: rgba(34, 197, 94, 0.15);
+  --emr-bg-hover-teal: rgba(43, 108, 176, 0.15);
+  --emr-bg-hover-orange: rgba(245, 158, 11, 0.15);
+  --emr-bg-hover-red: rgba(239, 68, 68, 0.15);
+
+  /* Hover border colors with transparency (dark mode - higher opacity) */
+  --emr-border-hover-blue: rgba(49, 130, 206, 0.3);
+  --emr-border-hover-green: rgba(34, 197, 94, 0.3);
+  --emr-border-hover-teal: rgba(43, 108, 176, 0.3);
+  --emr-border-hover-orange: rgba(245, 158, 11, 0.3);
+  --emr-border-hover-red: rgba(239, 68, 68, 0.3);
+
+  /* Border colors - Slate family */
+  --emr-border-color: #334155;
+  --emr-border-default: #334155;
+  --emr-border-focus: #3182ce;
+  --emr-border-error: #ef4444;
+
+  /* Gradients for dark mode - Slate family with subtle blue tint */
+  --emr-gradient-primary: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+  --emr-gradient-success: linear-gradient(135deg, #276749 0%, #38a169 50%, #48bb78 100%);
+  --emr-gradient-secondary: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+  --emr-gradient-submenu: linear-gradient(90deg, #1e293b 0%, #334155 50%, #475569 100%);
+
+  /* Collapsible Section Header - softer slate (dark mode) */
+  --emr-gradient-section-header: linear-gradient(135deg, #334155 0%, #475569 100%);
+  --emr-shadow-section-header: 0 2px 6px rgba(15, 23, 42, 0.35);
+  --emr-shadow-section-header-hover: 0 4px 10px rgba(15, 23, 42, 0.45);
+
+  /* Document/Form content - Reader-friendly dark backgrounds */
+  --emr-gradient-light-blue: linear-gradient(180deg, #374151 0%, #4b5563 100%);
+  --emr-document-bg: #374151;
+  --emr-document-text: #f1f5f9;
+
+  /* Add button - same gradient as light mode for consistency */
+  --emr-gradient-add-button: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-shadow-add-button: 0 2px 4px rgba(43, 108, 176, 0.3), 0 4px 12px rgba(43, 108, 176, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --emr-shadow-add-button-hover: 0 4px 8px rgba(43, 108, 176, 0.35), 0 8px 16px rgba(43, 108, 176, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+  /* ==================== MEDISCRIBE GRADIENTS (DARK MODE) ==================== */
+  /* Template card - same gradient for visual consistency */
+  --emr-gradient-template: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3b7ab8 100%);
+  --emr-gradient-template-badge: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --emr-shadow-template: 0 4px 12px rgba(30, 58, 95, 0.5);
+  --emr-shadow-template-hover: 0 8px 24px rgba(30, 58, 95, 0.6), 0 0 20px rgba(59, 122, 184, 0.4);
+
+  /* Diagnosis card - blue gradient (unified theme) */
+  --emr-gradient-diagnosis: var(--emr-gradient-primary);
+  --emr-gradient-diagnosis-badge: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  --emr-shadow-diagnosis: 0 4px 12px rgba(43, 108, 176, 0.5);
+  --emr-shadow-diagnosis-hover: 0 8px 24px rgba(43, 108, 176, 0.6), 0 0 20px rgba(49, 130, 206, 0.4);
+
+  /* Card glow effect (blue theme - dark mode) */
+  --emr-card-glow-weak: rgba(43, 108, 176, 0.4);
+  --emr-card-glow-strong: rgba(43, 108, 176, 0.6);
+
+  /* Featured/gold gradient */
+  --emr-gradient-featured: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --emr-shadow-featured: 0 2px 6px rgba(251, 191, 36, 0.4);
+  --emr-featured-text: #fef3c7;
+
+  /* Recording state gradients - same for consistency */
+  --emr-gradient-recording-stop: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+  --emr-gradient-recording-pause: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+  --emr-shadow-recording-stop: 0 4px 12px rgba(229, 62, 62, 0.5);
+  --emr-shadow-recording-pause: 0 4px 12px rgba(237, 137, 54, 0.5);
+
+  /* Time-of-Day Colors - Dark Mode */
+  --emr-time-morning-gradient: linear-gradient(135deg, rgba(254, 243, 199, 0.2) 0%, rgba(253, 230, 138, 0.15) 100%);
+  --emr-time-morning-text: #fbbf24;
+  --emr-time-afternoon-gradient: linear-gradient(135deg, rgba(219, 234, 254, 0.15) 0%, rgba(191, 219, 254, 0.1) 100%);
+  --emr-time-evening-gradient: linear-gradient(135deg, rgba(224, 231, 255, 0.15) 0%, rgba(199, 210, 254, 0.1) 100%);
+  --emr-time-evening-text: #818cf8;
+
+  /* Primary shadows for MediScribe buttons */
+  --emr-shadow-primary-sm: 0 2px 8px rgba(43, 108, 176, 0.4);
+  --emr-shadow-primary-md: 0 4px 12px rgba(43, 108, 176, 0.5);
+
+  /* MediScribe input/control backgrounds - dark mode adjustments */
+  --emr-mediscribe-input-bg: linear-gradient(135deg, rgba(49, 130, 206, 0.08) 0%, rgba(51, 65, 85, 0.95) 100%);
+  --emr-mediscribe-input-border: rgba(49, 130, 206, 0.4);
+  --emr-mediscribe-input-focus-shadow: 0 0 0 3px rgba(49, 130, 206, 0.2), 0 4px 12px rgba(43, 108, 176, 0.25);
+
+  /* Secondary button - blue tint for dark mode */
+  --emr-btn-secondary-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.2) 0%, rgba(49, 130, 206, 0.12) 100%);
+  --emr-btn-secondary-border: rgba(49, 130, 206, 0.35);
+  --emr-btn-secondary-text: #3182ce;
+  --emr-btn-secondary-hover-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.3) 0%, rgba(49, 130, 206, 0.2) 100%);
+  --emr-btn-secondary-hover-border: rgba(49, 130, 206, 0.5);
+
+  /* Black alpha (stronger for dark mode) */
+  --emr-black-alpha-02: rgba(0, 0, 0, 0.02);
+  --emr-black-alpha-03: rgba(0, 0, 0, 0.03);
+  --emr-black-alpha-04: rgba(0, 0, 0, 0.04);
+  --emr-black-alpha-05: rgba(0, 0, 0, 0.05);
+  --emr-black-alpha-06: rgba(0, 0, 0, 0.06);
+  --emr-black-alpha-08: rgba(0, 0, 0, 0.08);
+  --emr-black-alpha-10: rgba(0, 0, 0, 0.10);
+  --emr-black-alpha-15: rgba(0, 0, 0, 0.15);
+  --emr-black-alpha-20: rgba(0, 0, 0, 0.20);
+  --emr-black-alpha-25: rgba(0, 0, 0, 0.25);
+  --emr-black-alpha-30: rgba(0, 0, 0, 0.30);
+  --emr-black-alpha-40: rgba(0, 0, 0, 0.40);
+
+  /* Shadows - More subtle for dark mode */
+  --emr-shadow-sm: 0 1px 2px 0 var(--emr-black-alpha-30);
+  --emr-shadow-md: 0 4px 6px -1px var(--emr-black-alpha-40);
+  --emr-shadow-lg: 0 10px 15px -3px var(--emr-black-alpha-40);
+  --emr-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+
+  /* ==================== TELEMEDICINE VIDEO COLORS (DARK MODE) ==================== */
+  /* Video background - even darker for better contrast in dark mode */
+  --emr-video-background: #0f172a;            /* Slate-900 - darker for dark mode */
+  --emr-control-bar-bg: rgba(15, 23, 42, 0.9); /* More opaque for dark mode */
+
+  /* Table tokens - Slate family - enhanced for dark mode visibility */
+  --emr-table-header-bg: #1a2d47;
+  --emr-table-header-text: #e2e8f0;
+  --emr-table-header-border: rgba(99, 179, 237, 0.25);
+  --emr-table-row-bg: #0f172a;
+  --emr-table-row-stripe: #162033;
+  --emr-table-row-hover: rgba(49, 130, 206, 0.18);
+  --emr-table-border: rgba(51, 65, 85, 0.6);
+
+  /* Section tokens for dark mode - blue tint for visual distinction */
+  --emr-section-header-bg: rgba(49, 130, 206, 0.12);
+  --emr-section-hover-bg: rgba(49, 130, 206, 0.18);
+  --emr-section-active-bg: rgba(49, 130, 206, 0.25);
+
+  /* Input tokens for dark mode - Solid dark backgrounds for visibility */
+  --emr-input-bg: linear-gradient(180deg, #1e293b 0%, #1a2332 100%);
+  --emr-input-bg-solid: #1e293b;
+  --emr-input-bg-disabled: #334155;
+  --emr-input-bg-focus: #263548;
+  --emr-input-border: rgba(49, 130, 206, 0.3);
+  --emr-input-border-hover: rgba(49, 130, 206, 0.5);
+  --emr-input-border-focus: rgba(147, 197, 253, 0.6);
+  --emr-input-text: #f1f5f9;
+  --emr-input-text-disabled: #b0bec5;
+  --emr-input-placeholder: rgba(255, 255, 255, 0.75);
+  --emr-input-label-color: #e2e8f0;
+  --emr-input-help-color: #94a3b8;
+  --emr-input-icon-color: #3182ce;
+  --emr-input-icon-color-focus: #3182ce;
+
+  /* Input validation state backgrounds for dark mode */
+  --emr-input-error-bg: rgba(229, 62, 62, 0.15);
+  --emr-input-success-bg: rgba(34, 197, 94, 0.15);
+  --emr-input-warning-bg: rgba(221, 107, 32, 0.15);
+
+  /* Reference Range Bar - Dark mode (increased opacity for visibility) */
+  --emr-refrange-low-start: rgba(49, 130, 206, 0.4);
+  --emr-refrange-low-end: rgba(49, 130, 206, 0.2);
+  --emr-refrange-normal-start: rgba(56, 161, 105, 0.5);
+  --emr-refrange-normal-mid: rgba(72, 187, 120, 0.6);
+  --emr-refrange-normal-end: rgba(56, 161, 105, 0.5);
+  --emr-refrange-high-start: rgba(221, 107, 32, 0.2);
+  --emr-refrange-high-end: rgba(221, 107, 32, 0.4);
+  --emr-refrange-critical: var(--emr-error-alpha-40);
+
+  /* Modal tokens for dark mode - Slate family */
+  --emr-modal-header-bg: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.95) 100%);
+  --emr-modal-body-bg: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --emr-modal-footer-bg: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  --emr-modal-close-bg: #334155;
+  --emr-modal-close-bg-hover: #475569;
+  --emr-modal-overlay-bg: rgba(0, 0, 0, 0.75);
+
+  /* Glass effects for dark mode - Slate tinted */
+  --emr-glass-bg: rgba(148, 163, 184, 0.9);
+  --emr-glass-bg-light: rgba(148, 163, 184, 0.7);
+  --emr-glass-border: rgba(255, 255, 255, 0.15);
+
+  /* Modal icon color for dark mode */
+  --emr-modal-icon-color: #1e293b;
+
+  /* Modal title text color */
+  --emr-modal-title-color: #f1f5f9;
+
+  /* Glassmorphism overlays - white for dark backgrounds */
+  --emr-glass-white-03: rgba(255, 255, 255, 0.03);
+  --emr-glass-white-05: rgba(255, 255, 255, 0.05);
+  --emr-glass-white-06: rgba(255, 255, 255, 0.06);
+  --emr-glass-white-08: rgba(255, 255, 255, 0.08);
+  --emr-glass-white-10: rgba(255, 255, 255, 0.1);
+  --emr-glass-white-12: rgba(255, 255, 255, 0.12);
+  --emr-glass-white-14: rgba(255, 255, 255, 0.14);
+  --emr-glass-white-15: rgba(255, 255, 255, 0.15);
+  --emr-glass-white-18: rgba(255, 255, 255, 0.18);
+  --emr-glass-white-20: rgba(255, 255, 255, 0.2);
+  --emr-glass-white-25: rgba(255, 255, 255, 0.25);
+  --emr-glass-white-30: rgba(255, 255, 255, 0.3);
+  --emr-glass-white-35: rgba(255, 255, 255, 0.35);
+  --emr-glass-white-40: rgba(255, 255, 255, 0.4);
+  --emr-glass-white-50: rgba(255, 255, 255, 0.5);
+  --emr-glass-white-60: rgba(255, 255, 255, 0.6);
+  --emr-glass-white-70: rgba(255, 255, 255, 0.7);
+  --emr-glass-white-80: rgba(255, 255, 255, 0.8);
+  --emr-glass-white-85: rgba(255, 255, 255, 0.85);
+  --emr-glass-white-95: rgba(255, 255, 255, 0.95);
+  --emr-glass-border: rgba(255, 255, 255, 0.15);
+
+  /* Transparent black overlays - stronger for dark mode */
+  --emr-glass-black-02: rgba(0, 0, 0, 0.03);
+  --emr-glass-black-05: rgba(0, 0, 0, 0.08);
+  --emr-glass-black-10: rgba(0, 0, 0, 0.15);
+  --emr-glass-black-15: rgba(0, 0, 0, 0.2);
+  --emr-glass-black-20: rgba(0, 0, 0, 0.25);
+  --emr-glass-black-25: rgba(0, 0, 0, 0.3);
+  --emr-glass-black-70: rgba(0, 0, 0, 0.8);
+
+  /* Page background gradients - Slate family */
+  --emr-page-bg-light: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --emr-page-bg-soft: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --emr-page-bg-canvas: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --emr-page-bg-header: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+
+  /* Stat card gradients - Slate family with subtle depth */
+  --emr-stat-gradient-total: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  --emr-stat-gradient-active: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  --emr-stat-gradient-pending: linear-gradient(135deg, #334155 0%, #475569 100%);
+  --emr-stat-gradient-inactive: linear-gradient(135deg, #334155 0%, #475569 100%);
+
+  /* Card shadows for dark mode - deeper for contrast */
+  --emr-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --emr-shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
+
+  /* Soft shadows for dark mode */
+  --emr-shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --emr-shadow-soft-md: 0 4px 12px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --emr-shadow-soft-lg: 0 8px 24px rgba(0, 0, 0, 0.35), 0 16px 48px rgba(0, 0, 0, 0.3);
+
+  /* Gradient accent glow for dark mode - Blue family */
+  --emr-gradient-accent-glow: linear-gradient(135deg, rgba(49, 130, 206, 0.15) 0%, rgba(43, 108, 176, 0.1) 100%);
+
+  /* Gradient soft for dark mode - Slate family */
+  --emr-gradient-soft: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  --emr-gradient-canvas: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  --emr-gradient-card: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+
+  /* Empty state backgrounds for dark mode - Blue tinted */
+  --emr-gradient-hero: linear-gradient(135deg, rgba(43, 108, 176, 0.08) 0%, rgba(49, 130, 206, 0.12) 50%, rgba(43, 108, 176, 0.08) 100%);
+  --emr-gradient-decorative-1: linear-gradient(135deg, rgba(49, 130, 206, 0.15), rgba(43, 108, 176, 0.1));
+  --emr-gradient-decorative-2: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(49, 130, 206, 0.1));
+
+  /* Tree line color for dark mode */
+  --emr-tree-line-color: #334155;
+
+  /* Selection states for dark mode - Blue family */
+  --emr-selected-bg: rgba(49, 130, 206, 0.15);
+  --emr-selected-border: #3182ce;
+  --emr-hover-bg: rgba(49, 130, 206, 0.1);
+  --emr-focus-ring: 0 0 0 3px rgba(49, 130, 206, 0.3);
+
+  /* Discharge Status - Dark mode overrides */
+  --emr-patient-discharged: #94a3b8;
+  --emr-patient-discharged-bg: rgba(148, 163, 184, 0.12);
+  --emr-patient-discharged-badge-bg: rgba(148, 163, 184, 0.2);
+  --emr-patient-discharged-badge-text: #cbd5e1;
+
+  /* Encounter Status - Dark mode overrides */
+  --emr-encounter-active: #90cdf4;
+  --emr-encounter-active-bg: rgba(144, 205, 244, 0.06);
+  --emr-encounter-finished: #68d391;
+  --emr-encounter-finished-bg: rgba(104, 211, 145, 0.06);
+  --emr-encounter-cancelled: #94a3b8;
+  --emr-encounter-cancelled-bg: rgba(148, 163, 184, 0.06);
+  --emr-encounter-planned: #22d3ee;
+  --emr-encounter-planned-bg: rgba(34, 211, 238, 0.06);
+  --emr-encounter-error: #fc8181;
+  --emr-encounter-error-bg: rgba(252, 129, 129, 0.06);
+
+  /* Visit Type badges - Dark mode */
+  --emr-visit-ambulatory: #22d3ee;
+  --emr-visit-ambulatory-bg: rgba(34, 211, 238, 0.12);
+  --emr-visit-stationary: #90cdf4;
+  --emr-visit-stationary-bg: rgba(144, 205, 244, 0.12);
+  --emr-visit-emergency: #fc8181;
+  --emr-visit-emergency-bg: rgba(252, 129, 129, 0.12);
+
+  /* Debt row tint - Dark mode */
+  --emr-encounter-debt-bg: rgba(252, 129, 129, 0.06);
+
+  /* ==================== PREMIUM DARK MODE CARD SYSTEM ==================== */
+  /* Elevated card surfaces - Slate family with depth */
+  --emr-card-surface-1: #0f172a;
+  --emr-card-surface-2: #1e293b;
+  --emr-card-surface-3: #334155;
+
+  /* Card backgrounds with subtle depth */
+  --emr-card-bg-gradient: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+  --emr-card-bg-elevated: linear-gradient(145deg, #334155 0%, #1e293b 100%);
+  --emr-card-bg-glass: linear-gradient(145deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+
+  /* Glowing borders for dark mode - Blue family */
+  --emr-card-border-glow: rgba(49, 130, 206, 0.2);
+  --emr-card-border-subtle: rgba(255, 255, 255, 0.06);
+  --emr-card-border-hover: rgba(49, 130, 206, 0.35);
+
+  /* Inner glow effects */
+  --emr-card-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --emr-card-inner-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+
+  /* Premium shadows for dark mode cards */
+  --emr-shadow-card-dark: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 40px rgba(0, 0, 0, 0.15);
+  --emr-shadow-card-dark-hover: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 60px rgba(49, 130, 206, 0.1);
+  --emr-shadow-glow-blue: 0 0 20px rgba(49, 130, 206, 0.15), 0 0 40px rgba(49, 130, 206, 0.05);
+
+  /* Accent line gradients for dark mode - Vibrant colors */
+  --emr-accent-line-blue: linear-gradient(180deg, #3182ce 0%, #2b6cb0 50%, rgba(43, 108, 176, 0.3) 100%);
+  --emr-accent-line-success: linear-gradient(180deg, #22c55e 0%, #16a34a 50%, rgba(22, 163, 74, 0.3) 100%);
+  --emr-accent-line-warning: linear-gradient(180deg, #f59e0b 0%, #d97706 50%, rgba(217, 119, 6, 0.3) 100%);
+  --emr-accent-line-error: linear-gradient(180deg, #ef4444 0%, #dc2626 50%, rgba(220, 38, 38, 0.3) 100%);
+  --emr-accent-line-info: linear-gradient(180deg, #2b6cb0 0%, #1a365d 50%, rgba(26, 54, 93, 0.3) 100%);
+
+  /* Icon container backgrounds for dark mode - Vibrant colors */
+  --emr-icon-bg-blue: linear-gradient(135deg, rgba(49, 130, 206, 0.2) 0%, rgba(43, 108, 176, 0.1) 100%);
+  --emr-icon-bg-success: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(22, 163, 74, 0.1) 100%);
+  --emr-icon-bg-warning: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.1) 100%);
+  --emr-icon-bg-error: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
+  --emr-icon-bg-info: linear-gradient(135deg, rgba(43, 108, 176, 0.2) 0%, rgba(26, 54, 93, 0.1) 100%);
+
+  /* Stat card variant backgrounds for dark mode - Vibrant colors */
+  --emr-stat-bg-primary: linear-gradient(145deg, rgba(49, 130, 206, 0.1) 0%, rgba(43, 108, 176, 0.05) 100%);
+  --emr-stat-bg-secondary: linear-gradient(145deg, rgba(147, 197, 253, 0.1) 0%, rgba(49, 130, 206, 0.05) 100%);
+  --emr-stat-bg-success: linear-gradient(145deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.05) 100%);
+  --emr-stat-bg-warning: linear-gradient(145deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%);
+  --emr-stat-bg-error: linear-gradient(145deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%);
+  --emr-stat-bg-info: linear-gradient(145deg, rgba(43, 108, 176, 0.1) 0%, rgba(26, 54, 93, 0.05) 100%);
+
+  /* Form textarea styling - Dark mode */
+  --emr-form-textarea-bg-start: #1e293b;
+  --emr-form-textarea-bg-end: #263548;
+  --emr-form-textarea-border: #475569;
+  --emr-form-textarea-hover-border: #64748b;
+  --emr-form-textarea-hover-bg-start: #263548;
+  --emr-form-textarea-hover-bg-end: #2d3f54;
+
+  /* Speaker Colors - Dark mode */
+  --emr-speaker-1: #1e3a5f;
+  --emr-speaker-2: #1a3a2a;
+  --emr-speaker-3: #3a2e1a;
+  --emr-speaker-4: #3a1a2e;
+  --emr-speaker-5: #1e1e3a;
+  --emr-speaker-6: #2a1e3a;
+
+  /* ============ Dashboard Bento Category Accents (Dark Mode) ============ */
+  /* All resolve to the theme blue variables which auto-adapt in dark mode —
+     so each category reads in-brand regardless of scheme. */
+  --emr-cat-personnel: var(--emr-primary);
+  --emr-cat-personnel-soft: var(--emr-light-accent);
+  --emr-cat-clinical: var(--emr-accent);
+  --emr-cat-clinical-soft: var(--emr-light-accent);
+  --emr-cat-parameters: var(--emr-secondary);
+  --emr-cat-parameters-soft: var(--emr-light-accent);
+  --emr-cat-nomenclature: var(--emr-primary);
+  --emr-cat-nomenclature-soft: var(--emr-light-accent);
+  --emr-cat-finance: var(--emr-secondary);
+  --emr-cat-finance-soft: var(--emr-light-accent);
+  --emr-cat-statistics: var(--emr-primary);
+  --emr-cat-statistics-soft: var(--emr-light-accent);
+  --emr-cat-admin: var(--emr-secondary);
+  --emr-cat-admin-soft: var(--emr-light-accent);
+  --emr-cat-archive: var(--emr-accent);
+  --emr-cat-archive-soft: var(--emr-light-accent);
+  --emr-cat-insurance: var(--emr-accent);
+  --emr-cat-insurance-soft: var(--emr-light-accent);
+}
+
+/* ==================== FONT FAMILIES ==================== */
+/* Ensure Georgian characters are supported */
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    'Noto Sans',
+    'Noto Sans Georgian',
+    sans-serif,
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol';
+  font-size: var(--emr-font-base);
+}
+
+/* ==================== GLOBAL EMR TEXT SIZING ==================== */
+/* Apply standardized font sizes to all EMR content */
+
+/* Form inputs, textareas, selects */
+.mantine-TextInput-input,
+.mantine-Textarea-input,
+.mantine-Select-input,
+.mantine-NumberInput-input,
+.mantine-DateInput-input,
+.mantine-DatePickerInput-input,
+.mantine-MultiSelect-input,
+.mantine-PasswordInput-input,
+.mantine-Autocomplete-input,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea,
+select {
+  font-size: var(--emr-font-base) !important;
+}
+
+/* Form labels */
+.mantine-InputWrapper-label,
+.mantine-TextInput-label,
+.mantine-Select-label,
+.mantine-NumberInput-label,
+.mantine-Textarea-label,
+.mantine-Checkbox-label,
+.mantine-Radio-label,
+.mantine-Switch-label,
+label {
+  font-size: var(--emr-font-base) !important;
+}
+
+/* Buttons */
+.mantine-Button-root,
+.mantine-ActionIcon-root,
+.mantine-UnstyledButton-root,
+button {
+  font-size: var(--emr-font-base);
+}
+
+/* Table cells and headers */
+.mantine-Table-th,
+.mantine-Table-td,
+th, td {
+  font-size: var(--emr-font-base) !important;
+}
+
+/* Table text color - ensure visibility in both modes */
+.mantine-Table-table th,
+.mantine-Table-table td,
+.mantine-Table-th,
+.mantine-Table-td,
+.mantine-Table-thead th,
+.mantine-Table-tbody td,
+table.mantine-Table-table th,
+table.mantine-Table-table td {
+  color: var(--emr-text-primary) !important;
+}
+
+/* Dark mode specific - use explicit light color */
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table th,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table td,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-th,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-td,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-thead th,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tbody td,
+:root[data-mantine-color-scheme="dark"] table th,
+:root[data-mantine-color-scheme="dark"] table td,
+[data-mantine-color-scheme="dark"] .mantine-Table-table th,
+[data-mantine-color-scheme="dark"] .mantine-Table-table td,
+[data-mantine-color-scheme="dark"] .mantine-Table-th,
+[data-mantine-color-scheme="dark"] .mantine-Table-td,
+[data-mantine-color-scheme="dark"] table th,
+[data-mantine-color-scheme="dark"] table td {
+  color: #f1f5f9 !important;
+}
+
+/* Text elements */
+.mantine-Text-root,
+p, span, div {
+  font-size: inherit;
+}
+
+/* Placeholders */
+::placeholder {
+  font-size: var(--emr-font-base) !important;
+  color: var(--emr-input-placeholder) !important;
+  opacity: 1 !important;
+}
+
+/* Dark mode placeholder - ensure visibility */
+:root[data-mantine-color-scheme="dark"] ::placeholder,
+[data-mantine-color-scheme="dark"] ::placeholder {
+  color: #b0bec5 !important;
+  opacity: 1 !important;
+}
+
+/* Mantine input placeholders in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input::placeholder,
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input::placeholder,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input::placeholder,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input::placeholder,
+:root[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input::placeholder,
+[data-mantine-color-scheme="dark"] .mantine-Input-input::placeholder,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input::placeholder,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input::placeholder,
+[data-mantine-color-scheme="dark"] .mantine-Select-input::placeholder,
+[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input::placeholder {
+  color: #b0bec5 !important;
+  opacity: 1 !important;
+}
+
+/* ==================== GLOBAL MANTINE INPUT DARK MODE STYLING ==================== */
+/* Apply EMR input styling to ALL Mantine inputs in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-DateInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-DatePickerInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input,
+[data-mantine-color-scheme="dark"] .mantine-Select-input,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input,
+[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input,
+[data-mantine-color-scheme="dark"] .mantine-DateInput-input,
+[data-mantine-color-scheme="dark"] .mantine-DatePickerInput-input,
+[data-mantine-color-scheme="dark"] .mantine-Input-input {
+  background-color: var(--emr-input-bg-solid) !important;
+  background: var(--emr-input-bg) !important;
+  border-color: var(--emr-input-border) !important;
+  color: var(--emr-input-text) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input:hover:not(:disabled):not(:focus),
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input:hover:not(:disabled):not(:focus),
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input:hover:not(:disabled):not(:focus),
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:hover:not(:disabled):not(:focus),
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input:hover:not(:disabled):not(:focus),
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input:hover:not(:disabled):not(:focus),
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input:hover:not(:disabled):not(:focus),
+[data-mantine-color-scheme="dark"] .mantine-Select-input:hover:not(:disabled):not(:focus),
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:hover:not(:disabled):not(:focus),
+[data-mantine-color-scheme="dark"] .mantine-Input-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--emr-input-border-hover) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input:focus,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input:focus,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input:focus,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:focus,
+:root[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input:focus,
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-Select-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-PasswordInput-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-Input-input:focus {
+  border-color: var(--emr-input-border-focus) !important;
+  background-color: var(--emr-input-bg-focus) !important;
+  box-shadow: var(--emr-input-shadow-focus) !important;
+}
+
+/* Mantine Input readonly/disabled in dark mode - Use blue-tinted background */
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input:read-only,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input:read-only,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:read-only,
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input:read-only,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input:read-only,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input:read-only,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:read-only,
+[data-mantine-color-scheme="dark"] .mantine-Input-input:read-only {
+  background-color: var(--emr-input-bg-disabled) !important;
+  cursor: default;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input:disabled,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input:disabled,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input:disabled,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:disabled,
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input:disabled,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input:disabled,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input:disabled,
+[data-mantine-color-scheme="dark"] .mantine-Select-input:disabled,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input:disabled,
+[data-mantine-color-scheme="dark"] .mantine-Input-input:disabled {
+  background-color: var(--emr-input-bg-disabled) !important;
+  color: var(--emr-input-text-disabled) !important;
+  cursor: not-allowed;
+}
+
+/* Mantine InputWrapper label in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-InputWrapper-label,
+[data-mantine-color-scheme="dark"] .mantine-InputWrapper-label {
+  color: var(--emr-input-label-color) !important;
+}
+
+/* Mantine Select dropdown in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-dropdown,
+[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-dropdown {
+  background-color: var(--emr-bg-card) !important;
+  border-color: var(--emr-input-border) !important;
+}
+
+/* ==================== SELECT/COMBOBOX OPTIONS TEXT COLOR FIX ==================== */
+/* Ensure dropdown option text is always visible in both light and dark mode */
+/* This is a critical fix - without it, dropdown options may be invisible */
+
+/* Light mode: dark text on light background - multiple selectors for higher specificity */
+.mantine-Select-option,
+.mantine-Combobox-option,
+.mantine-Select-dropdown .mantine-Select-option,
+.mantine-Combobox-dropdown .mantine-Combobox-option,
+[data-mantine-color-scheme="light"] .mantine-Select-option,
+[data-mantine-color-scheme="light"] .mantine-Combobox-option,
+:root .mantine-Select-option,
+:root .mantine-Combobox-option {
+  color: var(--emr-text-primary) !important;
+  color: #1f2937 !important; /* Fallback: explicit dark gray if CSS variable fails */
+}
+
+/* Also target any nested text/span elements inside options */
+.mantine-Select-option *,
+.mantine-Combobox-option *,
+.mantine-Select-option span,
+.mantine-Combobox-option span {
+  color: inherit !important;
+}
+
+/* Dark mode: light text on dark background - higher specificity to override light mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-dropdown .mantine-Select-option,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-dropdown .mantine-Combobox-option,
+[data-mantine-color-scheme="dark"] .mantine-Select-option,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option {
+  color: var(--emr-text-primary) !important;
+  color: #f1f5f9 !important; /* Fallback: explicit light gray if CSS variable fails */
+}
+
+/* Dark mode nested elements */
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option *,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option *,
+[data-mantine-color-scheme="dark"] .mantine-Select-option *,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option * {
+  color: inherit !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered],
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option:hover,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-hovered],
+[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered],
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option:hover,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-hovered] {
+  background-color: var(--emr-bg-hover) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option[data-selected],
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-selected],
+[data-mantine-color-scheme="dark"] .mantine-Select-option[data-selected],
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-selected] {
+  background-color: var(--emr-secondary) !important;
+  color: var(--emr-text-inverse) !important;
+}
+
+/* ==================== MANTINE DIMMED TEXT DARK MODE FIX ==================== */
+/* Fix for c="dimmed" prop in Mantine Text components - ensures visibility in dark mode */
+/* Mantine's dimmed color becomes too dark in dark mode, making text invisible */
+:root[data-mantine-color-scheme="dark"] {
+  --mantine-color-dimmed: var(--emr-text-secondary) !important;
+}
+
+/* Direct fix for Mantine Text with c="dimmed" */
+:root[data-mantine-color-scheme="dark"] .mantine-Text-root[data-c="dimmed"],
+[data-mantine-color-scheme="dark"] .mantine-Text-root[data-c="dimmed"] {
+  color: var(--emr-text-secondary) !important;
+}
+
+/* Also fix any element that uses the dimmed color directly */
+:root[data-mantine-color-scheme="dark"] [style*="color: var(--mantine-color-dimmed)"],
+[data-mantine-color-scheme="dark"] [style*="color: var(--mantine-color-dimmed)"] {
+  color: var(--emr-text-secondary) !important;
+}
+
+/* ==================== DOCUMENT/FORM CONTENT DARK MODE TEXT ==================== */
+/* Ensure all text in form/document areas is readable in dark mode */
+:root[data-mantine-color-scheme="dark"] [style*="--emr-document-bg"],
+:root[data-mantine-color-scheme="dark"] [style*="document-bg"],
+[data-mantine-color-scheme="dark"] [style*="--emr-document-bg"],
+[data-mantine-color-scheme="dark"] [style*="document-bg"] {
+  color: var(--emr-document-text) !important;
+}
+
+/* Form filler and form builder document containers in dark mode */
+:root[data-mantine-color-scheme="dark"] form,
+[data-mantine-color-scheme="dark"] form {
+  color: var(--emr-text-primary);
+}
+
+/* Ensure spans, divs, and text elements inside forms are readable */
+:root[data-mantine-color-scheme="dark"] form span,
+:root[data-mantine-color-scheme="dark"] form div,
+:root[data-mantine-color-scheme="dark"] form p,
+:root[data-mantine-color-scheme="dark"] form label,
+[data-mantine-color-scheme="dark"] form span,
+[data-mantine-color-scheme="dark"] form div,
+[data-mantine-color-scheme="dark"] form p,
+[data-mantine-color-scheme="dark"] form label {
+  color: inherit;
+}
+
+/* Badges and tags */
+.mantine-Badge-root {
+  font-size: var(--emr-font-sm) !important;
+}
+
+/* Menu items and dropdowns */
+.mantine-Menu-item,
+.mantine-Select-option {
+  font-size: var(--emr-font-base) !important;
+}
+
+/* Tabs */
+.mantine-Tabs-tab {
+  font-size: var(--emr-font-base) !important;
+}
+
+/* Cards and Paper */
+.mantine-Card-root,
+.mantine-Paper-root {
+  font-size: var(--emr-font-base);
+}
+
+/* ==================== EMR STAT CARD LIGHT MODE FIX ==================== */
+/* Force visible bluish tint background on stat cards in light mode */
+:root:not([data-mantine-color-scheme="dark"]) [data-emr-stat-card]:not([data-mode="hero"]),
+:root[data-mantine-color-scheme="light"] [data-emr-stat-card]:not([data-mode="hero"]) {
+  background-color: #edf2f9 !important;
+  border: 1px solid #c1cad6 !important;
+  box-shadow: 0 1px 4px rgba(26, 54, 93, 0.1) !important;
+}
+:root:not([data-mantine-color-scheme="dark"]) [data-emr-stat-card]:not([data-mode="hero"]):hover,
+:root[data-mantine-color-scheme="light"] [data-emr-stat-card]:not([data-mode="hero"]):hover {
+  border-color: #93a3b8 !important;
+  box-shadow: 0 4px 12px rgba(26, 54, 93, 0.15) !important;
+}
+
+/* ==================== MANTINE PAPER DARK MODE FIX ==================== */
+/* Force Paper components to use EMR theme variables in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Paper-root,
+[data-mantine-color-scheme="dark"] .mantine-Paper-root {
+  background-color: var(--emr-bg-card) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-border-color) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Card-root,
+[data-mantine-color-scheme="dark"] .mantine-Card-root {
+  background-color: var(--emr-bg-card) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-border-color) !important;
+}
+
+/* ==================== MANTINE TABLE DARK MODE FIX ==================== */
+/* Force Table components to use EMR theme variables in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Table-root,
+[data-mantine-color-scheme="dark"] .mantine-Table-root {
+  background-color: var(--emr-bg-card) !important;
+  color: var(--emr-text-primary) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-thead,
+[data-mantine-color-scheme="dark"] .mantine-Table-thead {
+  background-color: var(--emr-bg-hover) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-th,
+[data-mantine-color-scheme="dark"] .mantine-Table-th {
+  background-color: var(--emr-bg-hover) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-border-color) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tbody,
+[data-mantine-color-scheme="dark"] .mantine-Table-tbody {
+  background-color: var(--emr-bg-card) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tr,
+[data-mantine-color-scheme="dark"] .mantine-Table-tr {
+  background-color: var(--emr-bg-card) !important;
+  color: var(--emr-text-primary) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tr[data-striped="odd"]:nth-of-type(odd),
+[data-mantine-color-scheme="dark"] .mantine-Table-tr[data-striped="odd"]:nth-of-type(odd),
+:root[data-mantine-color-scheme="dark"] table[data-striped="true"] tbody tr:nth-of-type(odd),
+[data-mantine-color-scheme="dark"] table[data-striped="true"] tbody tr:nth-of-type(odd) {
+  background-color: var(--emr-bg-hover) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-td,
+[data-mantine-color-scheme="dark"] .mantine-Table-td {
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-border-color) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tr:hover,
+[data-mantine-color-scheme="dark"] .mantine-Table-tr:hover {
+  background-color: var(--emr-bg-hover) !important;
+}
+
+/* Section headers */
+h1, .mantine-Title-root[data-order="1"] {
+  font-size: var(--emr-font-2xl) !important;
+}
+
+h2, .mantine-Title-root[data-order="2"] {
+  font-size: var(--emr-font-xl) !important;
+}
+
+h3, .mantine-Title-root[data-order="3"] {
+  font-size: var(--emr-font-lg) !important;
+}
+
+h4, h5, h6 {
+  font-size: var(--emr-font-md) !important;
+}
+
+/* ==================== UTILITY CLASSES ==================== */
+.emr-text-gradient {
+  background: var(--emr-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.emr-bg-gradient-primary {
+  background: var(--emr-gradient-primary);
+}
+
+.emr-bg-gradient-secondary {
+  background: var(--emr-gradient-secondary);
+}
+
+.emr-bg-gradient-submenu {
+  background: var(--emr-gradient-submenu);
+}
+
+.emr-shadow-sm {
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.emr-shadow-md {
+  box-shadow: var(--emr-shadow-md);
+}
+
+.emr-shadow-lg {
+  box-shadow: var(--emr-shadow-lg);
+}
+
+.emr-shadow-xl {
+  box-shadow: var(--emr-shadow-xl);
+}
+
+/* ==================== FORM BUILDER UTILITY CLASSES ==================== */
+/* Panel header - consistent subtle style for FieldPalette and FormCanvas */
+.emr-panel-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--emr-gray-200);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.emr-panel-title {
+  color: var(--emr-gray-600);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Field item cards with hover/selected states */
+.emr-field-item {
+  padding: 12px 14px;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-gray-200);
+  border-radius: var(--emr-border-radius);
+  cursor: pointer;
+  transition: var(--emr-transition-smooth);
+}
+
+.emr-field-item:hover {
+  border-color: #3182ce;
+  transform: translateX(2px);
+  box-shadow: var(--emr-shadow-soft);
+}
+
+.emr-field-item.selected {
+  border-color: #2b6cb0;
+  border-width: 2px;
+  background: var(--emr-selected-bg);
+  box-shadow: var(--emr-shadow-glow);
+}
+
+/* Drop zone styling */
+.emr-drop-zone {
+  min-height: 400px;
+  border: 2px dashed var(--emr-gray-300);
+  border-radius: var(--emr-border-radius-xl);
+  background: var(--emr-gradient-canvas);
+  transition: var(--emr-transition-smooth);
+}
+
+.emr-drop-zone.active {
+  border-color: #2b6cb0;
+  background: linear-gradient(135deg, rgba(43, 108, 176, 0.05) 0%, rgba(43, 108, 176, 0.1) 100%);
+  animation: dropPulse 1s ease-in-out infinite;
+}
+
+/* Empty state container */
+.emr-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  text-align: center;
+}
+
+.emr-empty-state-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  background: var(--emr-gradient-accent-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  border: 2px dashed var(--emr-gray-300);
+}
+
+/* Form Builder specific animations */
+@keyframes dropPulse {
+  0%, 100% {
+    background: linear-gradient(135deg, rgba(43, 108, 176, 0.05) 0%, rgba(43, 108, 176, 0.1) 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(43, 108, 176, 0.1) 0%, rgba(43, 108, 176, 0.15) 100%);
+  }
+}
+
+@keyframes emptyStatePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+}
+
+/* Form Builder specific tokens */
+:root {
+  --emr-builder-panel-width-palette: 240px;
+  --emr-builder-panel-width-properties: 320px;
+  --emr-builder-header-height: 64px;
+  --emr-builder-metadata-height: 100px;
+}
+
+/* ==================== FOCUS STATES ==================== */
+.emr-focus-visible:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ==================== SCROLLBAR STYLING ==================== */
+/* Custom scrollbar for EMR components */
+.emr-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.emr-scrollbar::-webkit-scrollbar-track {
+  background: var(--emr-gray-100);
+  border-radius: var(--emr-border-radius-sm);
+}
+
+.emr-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--emr-gray-400);
+  border-radius: var(--emr-border-radius-sm);
+}
+
+.emr-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--emr-gray-500);
+}
+
+/* Hide scrollbar but keep functionality */
+.emr-scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.emr-scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* ==================== THEME TRANSITIONS ==================== */
+/* Smooth color transitions when switching themes */
+:root {
+  --theme-transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Apply transitions globally for theme changes */
+*,
+*::before,
+*::after {
+  transition: var(--theme-transition);
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
+}
+
+/* ==================== PRINT STYLES ==================== */
+/* Print-specific styles for form viewer and PDF export */
+@media print {
+  /* Force light mode theme variables for printing (black on white) */
+  /* Override both light and dark mode to ensure consistent print output */
+  :root,
+  :root[data-mantine-color-scheme="dark"],
+  :root[data-mantine-color-scheme="light"] {
+    /* Core Colors - Light mode values for print */
+    --emr-primary: #1a365d;
+    --emr-secondary: #2b6cb0;
+    --emr-accent: #3182ce;
+    --emr-light-accent: #bee3f8;
+
+    /* Neutral colors - Light mode */
+    --emr-gray-50: #f9fafb;
+    --emr-gray-100: #f3f4f6;
+    --emr-gray-200: #e5e7eb;
+    --emr-gray-300: #d1d5db;
+    --emr-gray-400: #9ca3af;
+    --emr-gray-500: #6b7280;
+    --emr-gray-600: #4b5563;
+    --emr-gray-700: #374151;
+    --emr-gray-800: #1f2937;
+    --emr-gray-900: #111827;
+
+    /* Text colors - Black on white for print */
+    --emr-text-primary: #000000;
+    --emr-text-secondary: #374151;
+    --emr-text-inverse: #ffffff;
+
+    /* Surface colors - White backgrounds to save ink */
+    --emr-bg-page: #ffffff;
+    --emr-bg-card: #ffffff;
+    --emr-bg-modal: #ffffff;
+    --emr-bg-input: #ffffff;
+    --emr-bg-hover: #ffffff;
+
+    /* Semantic colors - Print-friendly */
+    --emr-success: #38a169;
+    --emr-warning: #dd6b20;
+    --emr-error: #e53e3e;
+    --emr-info: #3182ce;
+
+    /* Border colors */
+    --emr-border-color: #d1d5db;
+    --emr-border-default: #d1d5db;
+    --emr-border-focus: #3182ce;
+    --emr-border-error: #e53e3e;
+
+    /* Remove gradients and shadows to save ink */
+    --emr-gradient-primary: transparent;
+    --emr-gradient-secondary: transparent;
+    --emr-gradient-submenu: transparent;
+    --emr-shadow-sm: none;
+    --emr-shadow-md: none;
+    --emr-shadow-lg: none;
+    --emr-shadow-xl: none;
+
+    /* Input colors - Simple for print */
+    --emr-input-bg: #ffffff;
+    --emr-input-bg-solid: #ffffff;
+    --emr-input-border: #d1d5db;
+    --emr-input-text: #000000;
+    --emr-input-label-color: #000000;
+
+    /* Lab Report Print variables */
+    --emr-print-text: #000000;
+    --emr-print-bg: #ffffff;
+    --emr-print-primary: #1a5276;
+    --emr-print-border-dark: #333333;
+    --emr-print-border-light: #dddddd;
+    --emr-print-text-muted: #555555;
+    --emr-print-text-secondary: #666666;
+    --emr-print-text-light: #888888;
+    --emr-print-stripe: #f9f9f9;
+    --emr-print-result-high: #fdf2e9;
+    --emr-print-result-low: #eaf2f8;
+    --emr-print-result-critical: #fadbd8;
+    --emr-print-conclusion-bg: #f8f9fa;
+    --emr-print-flag-warning: #f39c12;
+    --emr-print-flag-critical: #e74c3c;
+  }
+
+  /* Hide non-printable elements */
+  .no-print,
+  button,
+  nav,
+  header:not(.print-header),
+  .mantine-AppShell-header,
+  .mantine-AppShell-navbar,
+  .mantine-AppShell-aside,
+  .mantine-AppShell-footer,
+  [data-testid="topnav"],
+  [data-testid="main-menu"],
+  [data-testid="submenu"],
+  .emr-action-buttons,
+  .mantine-Modal-root,
+  .mantine-Notification-root {
+    display: none !important;
+  }
+
+  /* Show only print-specific headers */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset page layout */
+  html,
+  body {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  #root {
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 20mm 15mm;
+  }
+
+  /* Main content area */
+  .mantine-AppShell-main,
+  [data-testid="form-viewer-view"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  /* Form content styling */
+  [data-testid="form-content"],
+  [data-testid="patient-info-card"],
+  [data-testid="form-metadata"] {
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Typography adjustments for print */
+  body {
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: #000000 !important;
+    page-break-after: avoid;
+  }
+
+  /* Ensure links are visible */
+  a {
+    color: #000000 !important;
+    text-decoration: underline !important;
+  }
+
+  /* Preserve form field borders */
+  .mantine-Paper-root,
+  .mantine-Card-root {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+  }
+
+  /* Patient info card styling */
+  [data-testid="patient-info-card"] {
+    background-color: #f8f8f8 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Status badges - preserve colors for meaning */
+  .mantine-Badge-root {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Signature images */
+  img[data-testid*="signature"] {
+    max-width: 200px;
+    border: 1px solid #d1d5db;
+  }
+
+  /* Footer for printed pages */
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 9pt;
+    color: #6b7280;
+    border-top: 1px solid #d1d5db;
+    padding-top: 5mm;
+  }
+
+  /* Page breaks */
+  .print-page-break {
+    page-break-before: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+
+  /* Form sections */
+  .form-section {
+    page-break-inside: avoid;
+    margin-bottom: 10mm;
+  }
+
+  /* Tables */
+  table {
+    border-collapse: collapse !important;
+    background: #ffffff !important;
+  }
+
+  th, td {
+    border: 1px solid #d1d5db !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Remove background images and gradients to save ink */
+  * {
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* ==================== RESPONSIVE FORM BUILDER STYLES (T159) ==================== */
+/* Mobile-first responsive utilities for form builder components */
+
+/* Hide on specific breakpoints */
+@media (max-width: 768px) {
+  .emr-hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .emr-hide-tablet {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .emr-hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Show only on specific breakpoints */
+.emr-show-only-mobile {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .emr-show-only-mobile {
+    display: block;
+  }
+}
+
+/* Stack children vertically on mobile */
+.emr-stack-mobile {
+  display: flex;
+  flex-direction: row;
+  gap: var(--emr-spacing-md);
+}
+
+@media (max-width: 768px) {
+  .emr-stack-mobile {
+    flex-direction: column;
+  }
+}
+
+/* Touch-friendly sizing (44px minimum tap target) */
+.emr-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px 16px;
+}
+
+/* Form builder panel layout */
+.emr-form-builder-layout {
+  display: grid;
+  grid-template-columns: 250px 1fr 300px;
+  gap: var(--emr-spacing-md);
+  height: var(--emr-content-height);
+}
+
+@media (max-width: 1024px) {
+  .emr-form-builder-layout {
+    grid-template-columns: 200px 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .emr-form-builder-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+}
+
+/* Form builder palette panel */
+.emr-form-palette {
+  background: var(--emr-gray-50);
+  border-radius: var(--emr-border-radius);
+  padding: var(--emr-spacing-md);
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .emr-form-palette {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 320px;
+    z-index: 1001;
+    transform: translateX(-100%);
+    transition: transform var(--emr-transition-base);
+    box-shadow: var(--emr-shadow-xl);
+  }
+
+  .emr-form-palette.open {
+    transform: translateX(0);
+  }
+}
+
+/* Form builder canvas */
+.emr-form-canvas {
+  background: var(--emr-gray-50);
+  border-radius: var(--emr-border-radius);
+  padding: var(--emr-spacing-lg);
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .emr-form-canvas {
+    padding: var(--emr-spacing-sm);
+  }
+}
+
+/* Form builder properties panel */
+.emr-form-properties {
+  background: var(--emr-gray-50);
+  border-radius: var(--emr-border-radius);
+  padding: var(--emr-spacing-md);
+  overflow-y: auto;
+}
+
+@media (max-width: 1024px) {
+  .emr-form-properties {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 350px;
+    z-index: 1001;
+    transform: translateX(100%);
+    transition: transform var(--emr-transition-base);
+    box-shadow: var(--emr-shadow-xl);
+  }
+
+  .emr-form-properties.open {
+    transform: translateX(0);
+  }
+}
+
+/* Mobile panel overlay */
+.emr-panel-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+@media (max-width: 768px) {
+  .emr-panel-overlay.visible {
+    display: block;
+  }
+}
+
+/* Floating action button for mobile */
+.emr-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--emr-gradient-primary);
+  color: white;
+  box-shadow: var(--emr-shadow-lg);
+  cursor: pointer;
+  z-index: 999;
+  border: none;
+  transition: transform var(--emr-transition-fast);
+}
+
+.emr-fab:hover {
+  transform: scale(1.05);
+}
+
+.emr-fab:active {
+  transform: scale(0.95);
+}
+
+@media (min-width: 1025px) {
+  .emr-fab {
+    display: none;
+  }
+}
+
+/* Form field cards for mobile */
+.emr-field-card {
+  background: var(--emr-bg-card);
+  border-radius: var(--emr-border-radius);
+  padding: var(--emr-spacing-md);
+  margin-bottom: var(--emr-spacing-sm);
+  box-shadow: var(--emr-shadow-sm);
+  cursor: pointer;
+  transition: box-shadow var(--emr-transition-fast);
+}
+
+.emr-field-card:hover {
+  box-shadow: var(--emr-shadow-md);
+}
+
+.emr-field-card.selected {
+  border: 2px solid var(--emr-accent);
+  box-shadow: var(--emr-shadow-md);
+}
+
+@media (max-width: 768px) {
+  .emr-field-card {
+    padding: var(--emr-spacing-lg);
+  }
+}
+
+/* Responsive form input sizing */
+.emr-responsive-input {
+  min-height: 40px;
+}
+
+@media (max-width: 768px) {
+  .emr-responsive-input {
+    min-height: 44px;
+    font-size: var(--emr-font-lg); /* Prevents iOS zoom on focus */
+  }
+}
+
+/* Responsive modal sizing */
+@media (max-width: 768px) {
+  .emr-responsive-modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
+/* Print utility classes */
+.print-only {
+  display: none;
+}
+
+.print-header {
+  display: none;
+}
+
+@media print {
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 15mm;
+  }
+
+  .print-header h1 {
+    font-size: 18pt;
+    margin: 0 0 5mm 0;
+  }
+
+  .print-header .print-date {
+    font-size: 10pt;
+    color: var(--emr-gray-600);
+  }
+}
+
+/* ==================== BED BOARD UTILITY CLASSES ==================== */
+/* Status indicator colors */
+.emr-bed-status-available {
+  background-color: var(--emr-bed-available-bg);
+  border-color: var(--emr-bed-available);
+  color: var(--emr-bed-available);
+}
+
+.emr-bed-status-occupied {
+  background-color: var(--emr-bed-occupied-bg);
+  border-color: var(--emr-bed-occupied);
+  color: var(--emr-bed-occupied);
+}
+
+.emr-bed-status-cleaning {
+  background-color: var(--emr-bed-cleaning-bg);
+  border-color: var(--emr-bed-cleaning);
+  color: var(--emr-bed-cleaning);
+}
+
+.emr-bed-status-reserved {
+  background-color: var(--emr-bed-reserved-bg);
+  border-color: var(--emr-bed-reserved);
+  color: var(--emr-bed-reserved);
+}
+
+.emr-bed-status-out-of-service {
+  background-color: var(--emr-bed-out-of-service-bg);
+  border-color: var(--emr-bed-out-of-service);
+  color: var(--emr-bed-out-of-service);
+}
+
+/* Acuity level indicators */
+.emr-acuity-critical {
+  background-color: var(--emr-acuity-critical-bg);
+  border-left: 4px solid var(--emr-acuity-critical);
+}
+
+.emr-acuity-moderate {
+  background-color: var(--emr-acuity-moderate-bg);
+  border-left: 4px solid var(--emr-acuity-moderate);
+}
+
+.emr-acuity-stable {
+  background-color: var(--emr-acuity-stable-bg);
+  border-left: 4px solid var(--emr-acuity-stable);
+}
+
+/* Bed card base styles */
+.emr-bed-card {
+  width: var(--emr-bed-card-width);
+  min-height: var(--emr-bed-card-height);
+  padding: var(--emr-bed-card-padding);
+  border-radius: var(--emr-bed-card-border-radius);
+  background: var(--emr-bg-card);
+  border: 2px solid var(--emr-border-color);
+  box-shadow: var(--emr-shadow-sm);
+  transition: var(--emr-transition-smooth);
+  cursor: pointer;
+}
+
+.emr-bed-card:hover {
+  box-shadow: var(--emr-shadow-md);
+  transform: translateY(-2px);
+}
+
+.emr-bed-card.selected {
+  border-color: var(--emr-primary);
+  box-shadow: var(--emr-shadow-glow-primary);
+}
+
+/* Bed board grid layout */
+.emr-bed-board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--emr-bed-card-width), 1fr));
+  gap: var(--emr-bed-card-gap);
+  padding: var(--emr-spacing-lg);
+}
+
+@media (max-width: 768px) {
+  .emr-bed-board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .emr-bed-card {
+    width: 100%;
+  }
+}
+
+/* Hospital layout tree */
+.emr-layout-tree {
+  padding: var(--emr-spacing-md);
+}
+
+.emr-layout-tree-node {
+  display: flex;
+  align-items: center;
+  height: var(--emr-tree-node-height);
+  padding: 0 var(--emr-spacing-sm);
+  border-radius: var(--emr-border-radius-sm);
+  cursor: pointer;
+  transition: var(--emr-transition-fast);
+}
+
+.emr-layout-tree-node:hover {
+  background-color: var(--emr-hover-bg);
+}
+
+.emr-layout-tree-node.selected {
+  background-color: var(--emr-selected-bg);
+  border-left: 3px solid var(--emr-primary);
+}
+
+.emr-layout-tree-children {
+  margin-left: var(--emr-tree-indent);
+  border-left: 1px dashed var(--emr-tree-line-color);
+  padding-left: var(--emr-spacing-sm);
+}
+
+/* Note urgency badges */
+.emr-note-urgency-routine {
+  background-color: var(--emr-note-routine);
+}
+
+.emr-note-urgency-urgent {
+  background-color: var(--emr-note-urgent);
+}
+
+.emr-note-urgency-critical {
+  background-color: var(--emr-note-critical);
+  animation: urgentPulse 2s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Timeline styles */
+.emr-timeline {
+  position: relative;
+  padding-left: var(--emr-spacing-xl);
+}
+
+.emr-timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--emr-gray-200);
+}
+
+.emr-timeline-item {
+  position: relative;
+  padding-bottom: var(--emr-spacing-lg);
+}
+
+.emr-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--emr-spacing-xl) + 4px);
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--emr-primary);
+  border: 2px solid white;
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.emr-timeline-item.new::before {
+  background: var(--emr-stat-success);
+  animation: newEventPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes newEventPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+}
+
+/* ==================== NEWS2 ALERT ANIMATION ==================== */
+/* Pulsing animation for NEWS2 alert indicators */
+@keyframes alertPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+/* ==================== MANTINE MODAL Z-INDEX OVERRIDE ==================== */
+/* Ensure modals always appear above navigation elements (submenu, etc.) */
+/* Mantine default modal z-index is 200, which is lower than our nav z-index (998+) */
+.mantine-Modal-root,
+.mantine-Modal-inner,
+.mantine-Modal-overlay {
+  z-index: var(--emr-z-modal, 1100) !important;
+}
+
+.mantine-Modal-content {
+  z-index: calc(var(--emr-z-modal, 1100) + 1) !important;
+}
+
+/* Also handle other overlay components */
+.mantine-Overlay-root {
+  z-index: var(--emr-z-modal, 1100) !important;
+}
+
+/* Fix gray loading overlay background in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-Overlay-root {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+}
+
+/* Drawer z-index override */
+.mantine-Drawer-root,
+.mantine-Drawer-inner,
+.mantine-Drawer-overlay {
+  z-index: var(--emr-z-modal, 1100) !important;
+}
+
+.mantine-Drawer-content {
+  z-index: calc(var(--emr-z-modal, 1100) + 1) !important;
+}
+
+/* Popover and dropdown z-index - should be above modals for nested popovers */
+.mantine-Popover-dropdown {
+  z-index: calc(var(--emr-z-modal, 1100) + 10) !important;
+}
+
+.mantine-Menu-dropdown {
+  z-index: calc(var(--emr-z-modal, 1100) + 10) !important;
+}
+
+/* Select dropdown should be above everything when inside a modal */
+.mantine-Select-dropdown,
+.mantine-Combobox-dropdown {
+  z-index: calc(var(--emr-z-modal, 1100) + 20) !important;
+  max-height: 80vh !important; /* Allow dropdown to use most of viewport */
+}
+
+/* Ensure dropdown options container has generous height */
+.mantine-Select-options,
+.mantine-Combobox-options {
+  max-height: 600px !important; /* Very generous for Georgian text */
+  overflow-y: auto !important;
+}
+
+/* ==================== EMR INLINE ADD FORM BUTTON STYLES ==================== */
+/* Button hover and active states for EMRInlineAddForm component */
+.emr-inline-add-form-button:hover:not([data-disabled]) {
+  box-shadow: var(--emr-shadow-button-hover) !important;
+  transform: translateY(-1px);
+}
+
+.emr-inline-add-form-button:active:not([data-disabled]) {
+  transform: translateY(0);
+}
+
+/* ==================== PLACEHOLDER INLINE STYLES ==================== */
+/* Global class for inline placeholder styling (used in dynamic HTML) */
+.placeholder-inline {
+  background: var(--emr-placeholder-dark-bg);
+  border: 1px dashed var(--emr-placeholder-dark-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: 0 2px;
+  color: inherit;
+}
+
+:root[data-mantine-color-scheme='dark'] .placeholder-inline {
+  background: var(--emr-placeholder-dark-bg);
+  border-color: var(--emr-placeholder-dark-border);
+}
+
+/* ==================== MANTINE SKELETON DARK MODE ==================== */
+/* Style Mantine Skeleton component to use theme colors instead of gray */
+:root[data-mantine-color-scheme="dark"] .mantine-Skeleton-root {
+  --skeleton-bg: rgba(26, 54, 93, 0.3);
+  --skeleton-highlight: rgba(43, 108, 176, 0.4);
+  background-color: var(--skeleton-bg) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Skeleton-root::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(43, 108, 176, 0.2),
+    transparent
+  ) !important;
+}
+
+/* Mantine LoadingOverlay dark mode styling */
+:root[data-mantine-color-scheme="dark"] .mantine-LoadingOverlay-root {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-LoadingOverlay-loader {
+  color: var(--emr-secondary) !important;
+}
+
+/* ==================== DARK MODE TABLE BACKGROUND FIX ==================== */
+/* Force all table rows to use consistent dark background */
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table tbody,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table tr,
+:root[data-mantine-color-scheme="dark"] .mantine-Table-table td,
+:root[data-mantine-color-scheme="dark"] table,
+:root[data-mantine-color-scheme="dark"] table tbody,
+:root[data-mantine-color-scheme="dark"] table tr,
+:root[data-mantine-color-scheme="dark"] table td,
+:root[data-mantine-color-scheme="dark"] [data-striped] tr,
+:root[data-mantine-color-scheme="dark"] tr[data-striped],
+:root[data-mantine-color-scheme="dark"] .mantine-Table-tr {
+  background-color: var(--emr-bg-card) !important;
+}
+
+/* ==================== DARK MODE TABLE TEXT FIX V2 ==================== */
+/* Force light text colors for ALL table content in dark mode */
+/* This overrides Mantine's CSS-in-JS at multiple levels for reliability */
+
+/* 1. Override the core Mantine text color variable */
+:root[data-mantine-color-scheme="dark"] {
+  --mantine-color-text: #f1f5f9;
+}
+
+/* 2. Target ALL elements inside tables - nuclear option */
+:root[data-mantine-color-scheme="dark"] table,
+:root[data-mantine-color-scheme="dark"] table * {
+  color: var(--emr-text-primary) !important;
+}
+
+/* 3. Target Mantine's hashed class names directly */
+:root[data-mantine-color-scheme="dark"] .m_4e7aa4f3,
+:root[data-mantine-color-scheme="dark"] .m_4e7aa4ef,
+:root[data-mantine-color-scheme="dark"] .m_b23fa0ef {
+  color: var(--emr-text-primary) !important;
+}
+
+/* 4. Override Text components inside tables */
+:root[data-mantine-color-scheme="dark"] table .mantine-Text-root {
+  color: var(--emr-text-primary) !important;
+  --mantine-color-text: var(--emr-text-primary) !important;
+}
+
+/* 5. Handle striped rows specifically */
+:root[data-mantine-color-scheme="dark"] tr[data-striped] *,
+:root[data-mantine-color-scheme="dark"] [data-striped="odd"] *,
+:root[data-mantine-color-scheme="dark"] [data-striped="even"] * {
+  color: var(--emr-text-primary) !important;
+}
+
+/* 6. Override dimmed text in tables */
+:root[data-mantine-color-scheme="dark"] table [data-mantine-color="dimmed"],
+:root[data-mantine-color-scheme="dark"] table [class*="dimmed"] {
+  color: var(--emr-text-secondary) !important;
+}
+
+/* 7. Ensure Badge text is readable */
+:root[data-mantine-color-scheme="dark"] .mantine-Badge-label {
+  color: inherit !important;
+}
+
+/* 8. Fix EMREmptyState and other Text components */
+:root[data-mantine-color-scheme="dark"] .mantine-Text-root {
+  color: var(--emr-text-primary) !important;
+}
+
+/* 9. Fix Badge in dark mode - ensure proper contrast */
+:root[data-mantine-color-scheme="dark"] .mantine-Badge-root[data-variant="light"] {
+  color: #f1f5f9 !important;
+  background-color: rgba(49, 130, 206, 0.2) !important;
+}
+
+/* ==================== DARK MODE ICON COLORS ==================== */
+/* Global icon styling for dark mode - ensures all icons are visible */
+
+/* Tabler icons (most common in the app) */
+:root[data-mantine-color-scheme="dark"] svg.tabler-icon,
+:root[data-mantine-color-scheme="dark"] .tabler-icon,
+[data-mantine-color-scheme="dark"] svg.tabler-icon,
+[data-mantine-color-scheme="dark"] .tabler-icon {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons inside Accordion controls */
+:root[data-mantine-color-scheme="dark"] .mantine-Accordion-control svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Accordion-label svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Accordion-icon svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Accordion-chevron svg,
+[data-mantine-color-scheme="dark"] .mantine-Accordion-control svg,
+[data-mantine-color-scheme="dark"] .mantine-Accordion-label svg,
+[data-mantine-color-scheme="dark"] .mantine-Accordion-icon svg,
+[data-mantine-color-scheme="dark"] .mantine-Accordion-chevron svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons inside NavLink and menu items */
+:root[data-mantine-color-scheme="dark"] .mantine-NavLink-root svg,
+:root[data-mantine-color-scheme="dark"] .mantine-NavLink-icon svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Menu-item svg,
+[data-mantine-color-scheme="dark"] .mantine-NavLink-root svg,
+[data-mantine-color-scheme="dark"] .mantine-NavLink-icon svg,
+[data-mantine-color-scheme="dark"] .mantine-Menu-item svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons in sidebar sections */
+:root[data-mantine-color-scheme="dark"] .sidebar svg,
+:root[data-mantine-color-scheme="dark"] .patient-sidebar svg,
+:root[data-mantine-color-scheme="dark"] .emr-sidebar svg,
+:root[data-mantine-color-scheme="dark"] [class*="sidebar"] svg,
+[data-mantine-color-scheme="dark"] .sidebar svg,
+[data-mantine-color-scheme="dark"] .patient-sidebar svg,
+[data-mantine-color-scheme="dark"] .emr-sidebar svg,
+[data-mantine-color-scheme="dark"] [class*="sidebar"] svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons inside Paper/Card components */
+:root[data-mantine-color-scheme="dark"] .mantine-Paper-root svg.tabler-icon,
+:root[data-mantine-color-scheme="dark"] .mantine-Card-root svg.tabler-icon,
+[data-mantine-color-scheme="dark"] .mantine-Paper-root svg.tabler-icon,
+[data-mantine-color-scheme="dark"] .mantine-Card-root svg.tabler-icon {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons in Group/Stack layouts */
+:root[data-mantine-color-scheme="dark"] .mantine-Group-root > svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Stack-root > svg,
+[data-mantine-color-scheme="dark"] .mantine-Group-root > svg,
+[data-mantine-color-scheme="dark"] .mantine-Stack-root > svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Icons in Button components should inherit button color unless it's a light/subtle/outline/white variant */
+:root[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="light"] svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="subtle"] svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="outline"] svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="white"] svg,
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="light"] svg,
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="subtle"] svg,
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="outline"] svg,
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="white"] svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* ActionIcon in dark mode */
+:root[data-mantine-color-scheme="dark"] .mantine-ActionIcon-root svg,
+[data-mantine-color-scheme="dark"] .mantine-ActionIcon-root svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Exception: Icons with explicit colors should not be overridden */
+:root[data-mantine-color-scheme="dark"] svg[style*="color"],
+:root[data-mantine-color-scheme="dark"] svg[style*="stroke"],
+[data-mantine-color-scheme="dark"] svg[style*="color"],
+[data-mantine-color-scheme="dark"] svg[style*="stroke"] {
+  /* Allow inline styles to take precedence */
+  color: unset;
+  stroke: unset;
+}
+
+/* Input section icons (search, calendar, etc.) should be secondary color */
+:root[data-mantine-color-scheme="dark"] .mantine-Input-section svg,
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-section svg,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-section svg,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-section svg,
+[data-mantine-color-scheme="dark"] .mantine-Input-section svg,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-section svg,
+[data-mantine-color-scheme="dark"] .mantine-Select-section svg,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-section svg {
+  color: var(--emr-text-secondary, #94a3b8) !important;
+  stroke: var(--emr-text-secondary, #94a3b8) !important;
+}
+
+/* ==================== MANTINE INPUT/SELECT DARK MODE GLOBAL OVERRIDES ==================== */
+/* Force dark backgrounds on all Mantine form inputs */
+
+:root[data-mantine-color-scheme="dark"] .mantine-TextInput-input,
+:root[data-mantine-color-scheme="dark"] .mantine-Input-input,
+:root[data-mantine-color-scheme="dark"] .mantine-Textarea-input,
+:root[data-mantine-color-scheme="dark"] .mantine-NumberInput-input,
+[data-mantine-color-scheme="dark"] .mantine-TextInput-input,
+[data-mantine-color-scheme="dark"] .mantine-Input-input,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input,
+[data-mantine-color-scheme="dark"] .mantine-NumberInput-input {
+  background-color: var(--emr-bg-card, #1e293b) !important;
+  border-color: var(--emr-gray-200, #334155) !important;
+  color: var(--emr-text-primary, #f1f5f9) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-input,
+[data-mantine-color-scheme="dark"] .mantine-Select-input {
+  background-color: var(--emr-bg-card, #1e293b) !important;
+  border-color: var(--emr-gray-200, #334155) !important;
+  color: var(--emr-text-primary, #f1f5f9) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-dropdown,
+[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-dropdown {
+  background-color: var(--emr-bg-card, #1e293b) !important;
+  border-color: var(--emr-gray-200, #334155) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option,
+[data-mantine-color-scheme="dark"] .mantine-Select-option,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option {
+  color: var(--emr-text-primary, #f1f5f9) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+:root[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered],
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option:hover,
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-hovered],
+:root[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-selected],
+[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+[data-mantine-color-scheme="dark"] .mantine-Select-option[data-hovered],
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option:hover,
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-hovered],
+[data-mantine-color-scheme="dark"] .mantine-Combobox-option[data-combobox-selected] {
+  background-color: var(--emr-secondary-alpha-15, rgba(43, 108, 176, 0.15)) !important;
+}
+
+/* DatePicker dark mode overrides */
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeader,
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeaderControl,
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeaderLevel,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeader,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeaderControl,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-calendarHeaderLevel {
+  color: var(--emr-text-primary, #f1f5f9) !important;
+  background: transparent !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-weekday,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-weekday {
+  color: var(--emr-text-secondary, #94a3b8) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-day,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-day {
+  color: var(--emr-text-primary, #f1f5f9) !important;
+  background: transparent !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-day:hover,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-day:hover {
+  background-color: var(--emr-secondary-alpha-15, rgba(43, 108, 176, 0.15)) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-selected],
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-selected] {
+  background: var(--emr-gradient-primary) !important;
+  color: var(--emr-text-inverse, #0f172a) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-outside],
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-outside] {
+  color: var(--emr-gray-400, #64748b) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-disabled],
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-day[data-disabled] {
+  color: var(--emr-gray-400, #64748b) !important;
+  opacity: 0.5;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-monthCell,
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-yearCell,
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-monthCell,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-yearCell,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl {
+  color: var(--emr-text-primary, #f1f5f9) !important;
+  background: transparent !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl:hover,
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl:hover {
+  background-color: var(--emr-secondary-alpha-15, rgba(43, 108, 176, 0.15)) !important;
+}
+
+:root[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl[data-selected],
+[data-mantine-color-scheme="dark"] .mantine-DatePicker-pickerControl[data-selected] {
+  background: var(--emr-gradient-primary) !important;
+  color: var(--emr-text-inverse, #0f172a) !important;
+}
+
+/* Paper component (used for cards and dropdowns) */
+:root[data-mantine-color-scheme="dark"] .mantine-Paper-root,
+[data-mantine-color-scheme="dark"] .mantine-Paper-root {
+  background-color: var(--emr-bg-card, #1e293b);
+  border-color: var(--emr-gray-200, #334155);
+}
+
+/* ==================== NUCLEAR DARK MODE INPUT OVERRIDE ==================== */
+/* These rules use the highest possible CSS specificity to override ALL input backgrounds */
+/* This is necessary because Mantine may apply inline styles or CSS-in-JS styles */
+
+:root[data-mantine-color-scheme="dark"] input[class*="mantine"],
+:root[data-mantine-color-scheme="dark"] textarea[class*="mantine"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-Input-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-TextInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-Textarea-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-Select-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-NumberInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-PasswordInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-DateInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-DatePickerInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-TimeInput-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-Autocomplete-input"],
+:root[data-mantine-color-scheme="dark"] [class*="mantine-MultiSelect-input"] {
+  background-color: var(--emr-bg-input) !important;
+  background: var(--emr-bg-input) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-card-border) !important;
+}
+
+/* Alternative selectors without :root prefix */
+[data-mantine-color-scheme="dark"] input[class*="mantine"],
+[data-mantine-color-scheme="dark"] textarea[class*="mantine"],
+[data-mantine-color-scheme="dark"] [class*="mantine-Input-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-TextInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-Textarea-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-Select-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-NumberInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-PasswordInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-DateInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-DatePickerInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-TimeInput-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-Autocomplete-input"],
+[data-mantine-color-scheme="dark"] [class*="mantine-MultiSelect-input"] {
+  background-color: var(--emr-bg-input) !important;
+  background: var(--emr-bg-input) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-card-border) !important;
+}
+
+/* Focus state for dark mode inputs */
+:root[data-mantine-color-scheme="dark"] input[class*="mantine"]:focus,
+:root[data-mantine-color-scheme="dark"] textarea[class*="mantine"]:focus,
+:root[data-mantine-color-scheme="dark"] [class*="mantine-Input-input"]:focus,
+[data-mantine-color-scheme="dark"] input[class*="mantine"]:focus,
+[data-mantine-color-scheme="dark"] textarea[class*="mantine"]:focus,
+[data-mantine-color-scheme="dark"] [class*="mantine-Input-input"]:focus {
+  background-color: var(--emr-bg-input) !important;
+  background: var(--emr-bg-input) !important;
+  border-color: var(--emr-primary) !important;
+  box-shadow: 0 0 0 2px var(--emr-primary-alpha-30) !important;
+}
+
+/* Placeholder text in dark mode */
+:root[data-mantine-color-scheme="dark"] input[class*="mantine"]::placeholder,
+:root[data-mantine-color-scheme="dark"] textarea[class*="mantine"]::placeholder,
+[data-mantine-color-scheme="dark"] input[class*="mantine"]::placeholder,
+[data-mantine-color-scheme="dark"] textarea[class*="mantine"]::placeholder {
+  color: var(--emr-text-secondary) !important;
+}
+
+/* ==================== GRADIENT TABLE HEADER - WHITE TEXT ==================== */
+/* Override all table text color rules for rows with gradient background.
+   Must come last and use high specificity to beat the !important rules above. */
+:root .emr-table-header-gradient th,
+:root .emr-table-header-gradient .mantine-Table-th,
+:root table .emr-table-header-gradient th,
+:root .mantine-Table-table .emr-table-header-gradient th,
+:root .mantine-Table-thead .emr-table-header-gradient th,
+:root[data-mantine-color-scheme="dark"] .emr-table-header-gradient th,
+:root[data-mantine-color-scheme="dark"] .emr-table-header-gradient .mantine-Table-th,
+:root[data-mantine-color-scheme="dark"] table .emr-table-header-gradient th {
+  color: #ffffff !important;
+}
+
+/* ==================== DATE PICKER Z-INDEX FIX ==================== */
+/*
+ * Ensure DatePicker/DateInput dropdown/popover appears above modals.
+ * Mantine Modal default z-index is 200. We set DatePicker to 10001 to ensure
+ * it appears above modals when a DatePicker is used inside a modal.
+ *
+ * This fixes T427: DatePicker vs security modal z-index conflict
+ */
+[class*="mantine-DatePicker-dropdown"],
+[class*="mantine-DatePickerInput-dropdown"],
+[class*="mantine-DateInput-dropdown"],
+[class*="mantine-MonthPicker-dropdown"],
+[class*="mantine-YearPicker-dropdown"],
+[class*="mantine-Calendar-dropdown"] {
+  z-index: 10001 !important;
+}
+
+/* Ensure the popover that wraps the calendar is also above modals */
+[class*="mantine-Popover-dropdown"]:has([class*="mantine-DatePicker"]),
+[class*="mantine-Popover-dropdown"]:has([class*="mantine-Calendar"]) {
+  z-index: 10001 !important;
+}
+
+/* ==================== WCAG AA COLOR CONTRAST AUDIT ==================== */
+/*
+ * WCAG AA Contrast Requirements:
+ *   - Normal text (< 18px / < 14px bold): minimum 4.5:1 contrast ratio
+ *   - Large text (>= 18px / >= 14px bold): minimum 3:1 contrast ratio
+ *   - UI components and graphical objects: minimum 3:1 contrast ratio
+ *
+ * Light Mode Audit:
+ *   - --emr-text-primary (#1f2937) on --emr-bg-card (#ffffff): ~14.7:1 (PASS)
+ *   - --emr-text-secondary (#6b7280) on --emr-bg-card (#ffffff): ~5.0:1 (PASS)
+ *   - --emr-text-inverse (#ffffff) on --emr-primary (#1a365d): ~10.5:1 (PASS)
+ *   - --emr-primary (#1a365d) on --emr-bg-card (#ffffff): ~10.5:1 (PASS)
+ *   - --emr-secondary (#2b6cb0) on --emr-bg-card (#ffffff): ~5.3:1 (PASS)
+ *   - --emr-error (#e53e3e) on --emr-bg-card (#ffffff): ~4.0:1 (PASS for large text only)
+ *   - --emr-success (#38a169) on --emr-bg-card (#ffffff): ~3.5:1 (PASS for large text only)
+ *
+ * Dark Mode Audit:
+ *   - --emr-text-primary (#f1f5f9) on --emr-bg-card (#1e293b): ~11.2:1 (PASS)
+ *   - --emr-text-secondary (#94a3b8) on --emr-bg-card (#1e293b): ~5.6:1 (PASS)
+ *   - --emr-error (#ef4444) on --emr-bg-card (#1e293b): ~4.6:1 (PASS)
+ *   - --emr-success (#22c55e) on --emr-bg-card (#1e293b): ~5.5:1 (PASS)
+ *
+ * Notes:
+ *   - Semantic status colors (error, success, warning) used on white backgrounds
+ *     should be paired with bold or large text to meet AA for normal text.
+ *   - The current theme colors were designed for contrast compliance.
+ *   - Any future color additions should be verified against WCAG AA requirements.
+ */
+
+/* ==================== FILTER PILL HOVER (CSS-only, replaces useState) ==================== */
+.emr-filter-pill:not([data-active]):not([data-disabled]):hover {
+  background: var(--emr-bg-hover) !important;
+  border-color: var(--emr-text-muted) !important;
+  transform: scale(1.01) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   T081 — LiverRa overlay palette
+   Distinct high-contrast colors for Couinaud segments, lesion markers,
+   resection-plane handles, and major vessel overlays on CT/MRI volumes.
+   ΔE2000 ≥ 12 across the 8 Couinaud colors verified (light + dark).
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Couinaud liver segments I–VIII (light theme, full saturation on dark CT bg) */
+  --liverra-seg-couinaud-I:    #E8B84F;   /* saffron    */
+  --liverra-seg-couinaud-II:   #6FA8DC;   /* cornflower */
+  --liverra-seg-couinaud-III:  #93C47D;   /* moss       */
+  --liverra-seg-couinaud-IV:   #E06666;   /* coral      */
+  --liverra-seg-couinaud-V:    #B38BDD;   /* lavender   */
+  --liverra-seg-couinaud-VI:   #F6B26B;   /* apricot    */
+  --liverra-seg-couinaud-VII:  #76A5AF;   /* teal       */
+  --liverra-seg-couinaud-VIII: #D5A6BD;   /* mauve      */
+
+  /* Lesion + planning overlays */
+  --liverra-lesion-marker:     #FF5555;   /* bright red for malignant tumor ROIs (HCC / ICC / MET) */
+  --liverra-lesion-benign:     #3A7A3A;   /* forest green for benign lesions (FNH / HEM / CYST) */
+  --liverra-lesion-abstain:    #6B7280;   /* neutral gray — "Uncertain" abstention state (FR-011) */
+  --liverra-plane-handle:      #FFD53F;   /* amber — resection plane drag handle */
+  --liverra-overlay-text:      #FFFFFF;   /* label text over overlays */
+
+  /* Major vessels */
+  --liverra-vessel-portal:     #4F94CD;   /* portal-vein blue */
+  --liverra-vessel-hepatic:    #CD5C5C;   /* hepatic-vein red */
+}
+
+/*
+ * Dark theme dimmed variants (~30% luminance reduction).
+ * Naming: `{token}-dark` so callers can pick explicitly based on canvas bg.
+ */
+:root[data-mantine-color-scheme="dark"] {
+  --liverra-seg-couinaud-I-dark:    #B58F3D;
+  --liverra-seg-couinaud-II-dark:   #4E7AA2;
+  --liverra-seg-couinaud-III-dark:  #688B58;
+  --liverra-seg-couinaud-IV-dark:   #A24A4A;
+  --liverra-seg-couinaud-V-dark:    #80629E;
+  --liverra-seg-couinaud-VI-dark:   #B07E4D;
+  --liverra-seg-couinaud-VII-dark:  #54757C;
+  --liverra-seg-couinaud-VIII-dark: #987686;
+
+  --liverra-lesion-marker-dark:     #CC4444;
+  --liverra-lesion-benign-dark:     #2F6130;
+  --liverra-lesion-abstain-dark:    #9CA3AF;
+  --liverra-plane-handle-dark:      #CCAA33;
+  --liverra-overlay-text-dark:      #F1F5F9;
+
+  --liverra-vessel-portal-dark:     #3A6B94;
+  --liverra-vessel-hepatic-dark:    #A04848;
+}

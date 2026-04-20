@@ -19,6 +19,48 @@
     },
     "clean": {
       "cache": false
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"],
+      "outputs": []
+    },
+    "generate:openapi-client": {
+      "cache": false,
+      "inputs": ["specs/001-zero-training-mvp/contracts/api-openapi.yaml"],
+      "outputs": [
+        "packages/app/src/emr/services/api-schema.gen.ts",
+        "packages/app/src/emr/services/api-client.gen.ts"
+      ]
+    },
+    "generate:fhir-types": {
+      "outputs": ["packages/fhirtypes/src/gen/**"]
+    },
+    "generate:permissions": {
+      "cache": false,
+      "inputs": ["packages/ml-inference/src/services/auth/rbac/matrix.yaml"],
+      "outputs": [
+        "packages/app/src/emr/constants/permissions.gen.ts",
+        "packages/ml-inference/src/services/auth/rbac/permissions_registry.py",
+        "deploy/medplum/access-policies/*.json"
+      ]
+    },
+    "model-bom": {
+      "dependsOn": ["^build"],
+      "outputs": ["MBoM.json"]
+    },
+    "license-check": {
+      "dependsOn": ["model-bom"],
+      "outputs": []
+    },
+    "bundle-analyze": {
+      "dependsOn": ["build"],
+      "outputs": ["packages/app/bundle-analysis.html"]
+    },
+    "palette-cvd-check": {
+      "outputs": []
+    },
+    "i18n-check": {
+      "outputs": []
     }
   }
 }

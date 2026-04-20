@@ -1,0 +1,106 @@
+/* EMRWizardStepper - Mobile-friendly wizard step indicator */
+
+.container {
+  background: var(--emr-bg-card);
+  border-bottom: 1px solid var(--emr-border-color);
+  padding: var(--emr-spacing-sm) var(--emr-spacing-md);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header {
+  margin-bottom: var(--emr-spacing-xs);
+}
+
+.navButton {
+  color: var(--emr-text-secondary);
+  transition: all 0.2s ease;
+  border-radius: var(--emr-radius-md);
+}
+
+.navButton:hover:not(:disabled) {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-primary);
+}
+
+.navButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.stepInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.iconContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--emr-primary);
+  color: var(--emr-text-inverse);
+}
+
+.stepLabel {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepCounter {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  font-weight: var(--emr-font-medium);
+}
+
+.validBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--emr-success);
+  color: var(--emr-text-white);
+  flex-shrink: 0;
+}
+
+.progressBar {
+  margin-bottom: var(--emr-spacing-xs);
+}
+
+.dotsContainer {
+  padding: var(--emr-spacing-xs) 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emr-border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dot:hover {
+  transform: scale(1.3);
+}
+
+.dotActive {
+  width: 12px;
+  height: 12px;
+  background: var(--emr-primary);
+  box-shadow: 0 0 0 3px var(--emr-secondary-alpha-20);
+}
+
+.dotCompleted {
+  background: var(--emr-success);
+}
+

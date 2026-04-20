@@ -1,0 +1,1087 @@
+/**
+ * EMRFormFields - Standardized Form Input Styles
+ * ENHANCED: Production-ready, visually distinct form styling
+ * Features: Shadows, gradients, animations, colored accents
+ */
+
+/* ==================== BASE INPUT STYLES ==================== */
+.emr-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--emr-input-label-spacing);
+  width: fit-content;
+  min-width: 150px;
+  position: relative;
+}
+
+.emr-field-wrapper.full-width {
+  width: 100%;
+  min-width: unset;
+}
+
+/* ==================== LABEL STYLES ==================== */
+.emr-field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--emr-input-label-size);
+  font-weight: var(--emr-input-label-weight);
+  color: var(--emr-input-label-color);
+  line-height: var(--emr-line-height-1-4);
+  letter-spacing: var(--emr-letter-spacing-wide);
+  text-transform: none;
+}
+
+.emr-field-label-required {
+  color: var(--emr-input-required-color);
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-bold);
+  margin-left: 2px;
+}
+
+/* ==================== INPUT BASE STYLES ==================== */
+.emr-input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--emr-input-height-md);
+  padding: var(--emr-input-padding-y) var(--emr-input-padding-x);
+  font-size: var(--emr-input-font-size);
+  font-family: inherit;
+  color: var(--emr-input-text);
+  background: var(--emr-input-bg-solid);
+  border: var(--emr-input-border-width) solid var(--emr-input-border);
+  border-radius: var(--emr-input-border-radius);
+  outline: none;
+  transition: var(--emr-input-transition);
+  box-sizing: border-box;
+  box-shadow: var(--emr-input-shadow);
+}
+
+/* Size variants */
+.emr-input.size-sm {
+  min-height: var(--emr-input-height-sm);
+  padding: 10px 12px;
+  font-size: var(--emr-font-base);
+}
+
+.emr-input.size-md {
+  min-height: var(--emr-input-height-md);
+}
+
+.emr-input.size-lg {
+  min-height: var(--emr-input-height-lg);
+  padding: 14px 16px;
+  font-size: var(--emr-font-lg);
+}
+
+/* Placeholder */
+.emr-input::placeholder {
+  color: var(--emr-input-placeholder);
+  opacity: 1;
+  font-style: italic;
+}
+
+/* Hover state - ENHANCED with shadow */
+.emr-input:hover:not(:disabled):not(:focus):not(.has-error) {
+  border-color: var(--emr-input-border-hover);
+  box-shadow: var(--emr-input-shadow-hover);
+  transform: translateY(-1px);
+}
+
+/* Focus state - ENHANCED with glow */
+.emr-input:focus,
+.emr-input:focus-within {
+  border-color: var(--emr-input-border-focus);
+  box-shadow: var(--emr-input-shadow-focus);
+  background-color: var(--emr-input-bg-focus);
+  transform: translateY(-1px);
+}
+
+/* Disabled state */
+.emr-input:disabled,
+.emr-input.disabled {
+  background-color: var(--emr-input-bg-disabled);
+  color: var(--emr-input-text-disabled);
+  cursor: not-allowed;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+/* Read-only state */
+.emr-input:read-only:not(:disabled) {
+  background-color: var(--emr-input-bg-disabled);
+  cursor: default;
+  box-shadow: none;
+}
+
+/* ==================== VALIDATION STATES ==================== */
+/* Error state */
+.emr-input.has-error,
+.emr-field-wrapper.has-error .emr-input {
+  border-color: var(--emr-input-error-border);
+  background-color: var(--emr-input-error-bg);
+}
+
+.emr-input.has-error:focus,
+.emr-field-wrapper.has-error .emr-input:focus {
+  box-shadow: var(--emr-input-error-glow);
+}
+
+/* Success state */
+.emr-input.has-success,
+.emr-field-wrapper.has-success .emr-input {
+  border-color: var(--emr-input-success-border);
+  background-color: var(--emr-input-success-bg);
+}
+
+.emr-input.has-success:focus,
+.emr-field-wrapper.has-success .emr-input:focus {
+  box-shadow: var(--emr-input-success-glow);
+}
+
+/* Warning state */
+.emr-input.has-warning,
+.emr-field-wrapper.has-warning .emr-input {
+  border-color: var(--emr-input-warning-border);
+  background-color: var(--emr-input-warning-bg);
+}
+
+.emr-input.has-warning:focus,
+.emr-field-wrapper.has-warning .emr-input:focus {
+  box-shadow: var(--emr-input-warning-glow);
+}
+
+/* ==================== HELP TEXT & ERROR MESSAGE ==================== */
+.emr-field-help {
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-help-color);
+  line-height: var(--emr-line-height-1-4);
+  margin-top: 2px;
+}
+
+.emr-field-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-error-text);
+  line-height: var(--emr-line-height-1-4);
+  margin-top: 2px;
+}
+
+.emr-field-success {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-success-text);
+  line-height: var(--emr-line-height-1-4);
+  margin-top: 2px;
+}
+
+.emr-field-warning {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-warning-text);
+  line-height: var(--emr-line-height-1-4);
+  margin-top: 2px;
+}
+
+/* ==================== INPUT WITH SECTIONS ==================== */
+.emr-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.emr-input-left-section {
+  position: absolute;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--emr-input-icon-color);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.emr-input-right-section {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--emr-input-icon-color);
+  z-index: 1;
+}
+
+.emr-input.has-left-section {
+  padding-left: 44px;
+}
+
+.emr-input.has-right-section {
+  padding-right: 40px;
+}
+
+/* Clear button in right section */
+.emr-input-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--emr-input-icon-color);
+  cursor: pointer;
+  transition: var(--emr-input-transition);
+}
+
+.emr-input-clear-btn:hover {
+  background-color: var(--emr-bg-hover);
+  color: var(--emr-input-text);
+}
+
+/* ==================== TEXTAREA SPECIFIC ==================== */
+.emr-textarea {
+  resize: vertical;
+  min-height: 80px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: var(--emr-line-height-base);
+}
+
+.emr-textarea.no-resize {
+  resize: none;
+}
+
+.emr-textarea-counter {
+  display: flex;
+  justify-content: flex-end;
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-help-color);
+  margin-top: 4px;
+}
+
+.emr-textarea-counter.at-limit {
+  color: var(--emr-input-warning-text);
+}
+
+.emr-textarea-counter.over-limit {
+  color: var(--emr-input-error-text);
+}
+
+/* ==================== SELECT SPECIFIC ==================== */
+.emr-select-input {
+  cursor: pointer;
+}
+
+.emr-select-input:disabled {
+  cursor: not-allowed;
+}
+
+/* ==================== CHECKBOX & SWITCH ==================== */
+.emr-checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.emr-checkbox-wrapper.disabled {
+  cursor: not-allowed;
+}
+
+.emr-checkbox-wrapper.disabled .emr-checkbox-label {
+  color: var(--emr-input-text-disabled);
+}
+
+.emr-checkbox-wrapper.label-left {
+  flex-direction: row-reverse;
+}
+
+.emr-checkbox-input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--emr-input-border);
+  border-radius: 4px;
+  background-color: var(--emr-input-bg-solid);
+  cursor: inherit;
+  transition: var(--emr-input-transition);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.emr-checkbox-input:checked {
+  background-color: var(--emr-secondary);
+  border-color: var(--emr-secondary);
+}
+
+.emr-checkbox-input:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--emr-bg-page);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.emr-checkbox-input:focus {
+  box-shadow: var(--emr-input-focus-ring);
+}
+
+.emr-checkbox-input.indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 8px;
+  height: 2px;
+  background-color: var(--emr-bg-page);
+  transform: none;
+  border: none;
+}
+
+/* Switch */
+.emr-switch-input {
+  appearance: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: var(--emr-gray-300);
+  cursor: inherit;
+  transition: var(--emr-input-transition);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.emr-switch-input::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--emr-bg-page);
+  box-shadow: var(--emr-shadow-sm);
+  transition: var(--emr-input-transition);
+}
+
+.emr-switch-input:checked {
+  background-color: var(--emr-secondary);
+}
+
+.emr-switch-input:checked::after {
+  left: 20px;
+}
+
+.emr-switch-input:focus {
+  box-shadow: var(--emr-input-focus-ring);
+}
+
+/* Dark mode switch track color */
+:root[data-mantine-color-scheme="dark"] .emr-switch-input {
+  background-color: var(--emr-text-secondary);
+}
+
+/* ==================== RADIO GROUP ==================== */
+.emr-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.emr-radio-group.horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.emr-radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.emr-radio-option.disabled {
+  cursor: not-allowed;
+}
+
+.emr-radio-option.disabled .emr-radio-label {
+  color: var(--emr-input-text-disabled);
+}
+
+.emr-radio-input {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--emr-input-border);
+  border-radius: 50%;
+  background-color: var(--emr-input-bg-solid);
+  cursor: inherit;
+  transition: var(--emr-input-transition);
+  position: relative;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.emr-radio-input:checked {
+  border-color: var(--emr-secondary);
+}
+
+.emr-radio-input:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--emr-secondary);
+}
+
+.emr-radio-input:focus {
+  box-shadow: var(--emr-input-focus-ring);
+}
+
+.emr-radio-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.emr-radio-label {
+  font-size: var(--emr-input-font-size);
+  color: var(--emr-input-text);
+  line-height: var(--emr-line-height-1-4);
+}
+
+.emr-radio-description {
+  font-size: var(--emr-input-help-size);
+  color: var(--emr-input-help-color);
+  line-height: var(--emr-line-height-1-4);
+}
+
+/* ==================== FORM ROW ==================== */
+.emr-form-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.emr-form-row.wrap {
+  flex-wrap: wrap;
+}
+
+.emr-form-row.gap-sm {
+  gap: 8px;
+}
+
+.emr-form-row.gap-md {
+  gap: 16px;
+}
+
+.emr-form-row.gap-lg {
+  gap: 24px;
+}
+
+.emr-form-row.align-start {
+  align-items: flex-start;
+}
+
+.emr-form-row.align-center {
+  align-items: center;
+}
+
+.emr-form-row.align-end {
+  align-items: flex-end;
+}
+
+.emr-form-row.align-stretch {
+  align-items: stretch;
+}
+
+.emr-form-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .emr-form-row {
+    flex-direction: column;
+  }
+
+  .emr-form-row > * {
+    width: 100%;
+  }
+}
+
+/* ==================== FORM SECTION ==================== */
+.emr-form-section {
+  border: 2px solid var(--emr-section-personal);
+  border-radius: var(--emr-border-radius-lg);
+  overflow: hidden;
+  background-color: var(--emr-bg-card);
+  margin-bottom: 16px;
+}
+
+.emr-form-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--emr-section-header-bg);
+  transition: var(--emr-input-transition);
+  user-select: none;
+  gap: 12px;
+}
+
+.emr-form-section-header:hover {
+  background-color: var(--emr-section-hover-bg);
+}
+
+.emr-form-section-header-left {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.emr-form-section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.emr-form-section-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.emr-form-section-title-text {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-section-personal);
+}
+
+/* Dark mode: Use white title text for better readability */
+:root[data-mantine-color-scheme="dark"] .emr-form-section-title-text {
+  color: var(--emr-text-primary);
+}
+
+.emr-form-section-subtitle {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  font-weight: var(--emr-font-normal);
+}
+
+/* Legacy class for backwards compat */
+.emr-form-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-section-personal);
+}
+
+/* Dark mode: Use white title text for legacy class */
+:root[data-mantine-color-scheme="dark"] .emr-form-section-title {
+  color: var(--emr-text-primary);
+}
+
+.emr-form-section-icon {
+  color: var(--emr-section-personal);
+}
+
+.emr-form-section-right {
+  flex-shrink: 0;
+}
+
+.emr-form-section-chevron {
+  color: var(--emr-text-secondary);
+  transition: transform var(--emr-transition-fast);
+  flex-shrink: 0;
+}
+
+.emr-form-section.open .emr-form-section-chevron {
+  transform: rotate(180deg);
+}
+
+.emr-form-section-content {
+  padding: 16px;
+  display: none;
+}
+
+.emr-form-section.open .emr-form-section-content {
+  display: block;
+}
+
+.emr-form-section-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-sm);
+  border: 2px dashed var(--emr-border-color);
+  border-radius: var(--emr-border-radius);
+  background-color: var(--emr-bg-page);
+}
+
+/* ==================== FORM ACTIONS ==================== */
+.emr-form-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--emr-border-color);
+}
+
+.emr-form-actions.align-left {
+  justify-content: flex-start;
+}
+
+.emr-form-actions.align-center {
+  justify-content: center;
+}
+
+.emr-form-actions.align-right {
+  justify-content: flex-end;
+}
+
+.emr-form-actions.align-space-between {
+  justify-content: space-between;
+}
+
+.emr-form-actions-primary {
+  display: flex;
+  gap: 12px;
+}
+
+/* ==================== ANIMATIONS ==================== */
+@keyframes emr-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+.emr-input.shake {
+  animation: emr-shake 0.5s ease-in-out;
+}
+
+@keyframes emr-pulse-success {
+  0% { box-shadow: var(--emr-input-success-glow); }
+  50% { box-shadow: var(--emr-shadow-success); }
+  100% { box-shadow: var(--emr-input-success-glow); }
+}
+
+.emr-input.pulse-success {
+  animation: emr-pulse-success 1s ease-in-out;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .emr-input.shake,
+  .emr-input.pulse-success {
+    animation: none;
+  }
+
+  .emr-input,
+  .emr-checkbox-input,
+  .emr-switch-input,
+  .emr-radio-input,
+  .emr-form-section-header,
+  .emr-form-section-chevron {
+    transition: none;
+  }
+}
+
+/* ==================== MANTINE OVERRIDES ==================== */
+/* ENHANCED: Apply production-ready EMR styling to Mantine components */
+
+/* Base input styles for all Mantine inputs */
+.emr-field-wrapper .mantine-TextInput-input,
+.emr-field-wrapper .mantine-Select-input,
+.emr-field-wrapper .mantine-MultiSelect-input,
+.emr-field-wrapper .mantine-NumberInput-input,
+.emr-field-wrapper .mantine-Textarea-input,
+.emr-field-wrapper .mantine-DateInput-input,
+.emr-field-wrapper .mantine-DatePickerInput-input,
+.emr-field-wrapper .mantine-PasswordInput-input {
+  min-height: var(--emr-input-height-md) !important;
+  font-size: var(--emr-input-font-size) !important;
+  border: var(--emr-input-border-width) solid var(--emr-input-border) !important;
+  border-radius: var(--emr-input-border-radius) !important;
+  box-shadow: var(--emr-input-shadow) !important;
+  transition: var(--emr-input-transition) !important;
+  padding: var(--emr-input-padding-y) var(--emr-input-padding-x) !important;
+  background-color: var(--emr-input-bg-solid) !important;
+}
+
+/* Fix: Increase left padding when Mantine input has a left section (icon) */
+.emr-field-wrapper .mantine-TextInput-wrapper:has(.mantine-TextInput-section[data-position="left"]) .mantine-TextInput-input,
+.emr-field-wrapper .mantine-Select-wrapper:has(.mantine-Select-section[data-position="left"]) .mantine-Select-input,
+.emr-field-wrapper .mantine-MultiSelect-wrapper:has(.mantine-MultiSelect-section[data-position="left"]) .mantine-MultiSelect-input,
+.emr-field-wrapper .mantine-NumberInput-wrapper:has(.mantine-NumberInput-section[data-position="left"]) .mantine-NumberInput-input,
+.emr-field-wrapper .mantine-Textarea-wrapper:has(.mantine-Textarea-section[data-position="left"]) .mantine-Textarea-input,
+.emr-field-wrapper .mantine-Autocomplete-wrapper:has(.mantine-Autocomplete-section[data-position="left"]) .mantine-Autocomplete-input {
+  padding-left: 40px !important;
+}
+
+/* Hover state - with shadow lift */
+.emr-field-wrapper .mantine-TextInput-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-Select-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-MultiSelect-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-NumberInput-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-Textarea-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-DateInput-input:hover:not(:disabled):not(:focus),
+.emr-field-wrapper .mantine-DatePickerInput-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--emr-input-border-hover) !important;
+  box-shadow: var(--emr-input-shadow-hover) !important;
+  transform: translateY(-1px);
+}
+
+/* Focus state - with glow effect */
+.emr-field-wrapper .mantine-TextInput-input:focus,
+.emr-field-wrapper .mantine-Select-input:focus,
+.emr-field-wrapper .mantine-MultiSelect-input:focus,
+.emr-field-wrapper .mantine-NumberInput-input:focus,
+.emr-field-wrapper .mantine-Textarea-input:focus,
+.emr-field-wrapper .mantine-DateInput-input:focus,
+.emr-field-wrapper .mantine-DatePickerInput-input:focus,
+.emr-field-wrapper .mantine-PasswordInput-input:focus {
+  border-color: var(--emr-input-border-focus) !important;
+  box-shadow: var(--emr-input-shadow-focus) !important;
+  transform: translateY(-1px);
+}
+
+/* Error state */
+.emr-field-wrapper.has-error .mantine-TextInput-input,
+.emr-field-wrapper.has-error .mantine-Select-input,
+.emr-field-wrapper.has-error .mantine-MultiSelect-input,
+.emr-field-wrapper.has-error .mantine-NumberInput-input,
+.emr-field-wrapper.has-error .mantine-Textarea-input,
+.emr-field-wrapper.has-error .mantine-DateInput-input {
+  border-color: var(--emr-input-error-border) !important;
+  background-color: var(--emr-input-error-bg) !important;
+  box-shadow: var(--emr-input-error-glow) !important;
+}
+
+/* Select dropdown styling */
+.emr-field-wrapper .mantine-Select-dropdown,
+.mantine-Select-dropdown,
+.mantine-Combobox-dropdown {
+  border-radius: var(--emr-input-border-radius) !important;
+  box-shadow: var(--emr-shadow-lg) !important;
+  border: 1px solid var(--emr-input-border) !important;
+  background-color: var(--emr-bg-card) !important;
+}
+
+/* Ensure scrollable options area has generous height */
+.emr-field-wrapper .mantine-Select-options,
+.mantine-Select-options,
+.mantine-Combobox-options {
+  max-height: 600px !important; /* Very generous - CSS controls final height */
+  overflow-y: auto !important;
+  background-color: var(--emr-bg-card) !important;
+}
+
+.emr-field-wrapper .mantine-Select-option,
+.mantine-Select-option,
+.mantine-Combobox-option {
+  padding: 10px 14px !important;
+  border-radius: 6px !important;
+  margin: 2px 4px !important;
+  min-height: 40px !important; /* Match ITEM_HEIGHT constant */
+  display: flex !important;
+  align-items: center !important;
+  color: var(--emr-text-primary) !important;
+  background-color: transparent !important;
+}
+
+.emr-field-wrapper .mantine-Select-option:hover,
+.emr-field-wrapper .mantine-Select-option[data-hovered],
+.mantine-Select-option:hover,
+.mantine-Select-option[data-hovered],
+.mantine-Combobox-option:hover,
+.mantine-Combobox-option[data-combobox-hovered] {
+  background-color: var(--emr-bg-accent-secondary) !important;
+}
+
+.emr-field-wrapper .mantine-Select-option[data-selected],
+.mantine-Select-option[data-selected],
+.mantine-Combobox-option[data-combobox-selected] {
+  background-color: var(--emr-secondary) !important;
+  color: var(--emr-text-inverse) !important;
+}
+
+/* Hide default Mantine error/label when using EMR wrapper */
+.emr-field-wrapper .mantine-InputWrapper-label,
+.emr-field-wrapper .mantine-InputWrapper-error {
+  display: none;
+}
+
+/* DatePicker calendar styling */
+.mantine-DatePicker-day[data-selected] {
+  background-color: var(--emr-secondary) !important;
+}
+
+.mantine-DatePicker-day:hover:not([data-selected]) {
+  background-color: var(--emr-bg-accent-secondary) !important;
+}
+
+/* DateTimePicker global styling for dark mode support */
+.mantine-DateTimePicker-input,
+.mantine-TimeInput-input {
+  min-height: var(--emr-input-height-md) !important;
+  font-size: var(--emr-input-font-size) !important;
+  border: var(--emr-input-border-width) solid var(--emr-input-border) !important;
+  border-radius: var(--emr-input-border-radius) !important;
+  box-shadow: var(--emr-input-shadow) !important;
+  transition: var(--emr-input-transition) !important;
+  padding: var(--emr-input-padding-y) var(--emr-input-padding-x) !important;
+  background-color: var(--emr-input-bg-solid) !important;
+  color: var(--emr-input-text) !important;
+}
+
+.mantine-DateTimePicker-input:hover:not(:disabled):not(:focus),
+.mantine-TimeInput-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--emr-input-border-hover) !important;
+  box-shadow: var(--emr-input-shadow-hover) !important;
+}
+
+.mantine-DateTimePicker-input:focus,
+.mantine-TimeInput-input:focus {
+  border-color: var(--emr-input-border-focus) !important;
+  box-shadow: var(--emr-input-shadow-focus) !important;
+}
+
+.mantine-DateTimePicker-input:disabled,
+.mantine-TimeInput-input:disabled {
+  background-color: var(--emr-input-bg-disabled) !important;
+  color: var(--emr-input-text-disabled) !important;
+}
+
+/* DateTimePicker dropdown/popover styling */
+.mantine-DateTimePicker-dropdown,
+.mantine-DateTimePicker-calendar {
+  background-color: var(--emr-bg-card) !important;
+  border: 1px solid var(--emr-border-default) !important;
+  border-radius: var(--emr-input-border-radius) !important;
+  box-shadow: var(--emr-shadow-lg) !important;
+}
+
+.mantine-DateTimePicker-calendarHeader {
+  background-color: var(--emr-bg-card) !important;
+}
+
+.mantine-DateTimePicker-calendarHeaderControl {
+  color: var(--emr-text-primary) !important;
+}
+
+.mantine-DateTimePicker-calendarHeaderControl:hover {
+  background-color: var(--emr-bg-hover) !important;
+}
+
+.mantine-DateTimePicker-calendarHeaderLevel {
+  color: var(--emr-text-primary) !important;
+}
+
+.mantine-DateTimePicker-day {
+  color: var(--emr-text-primary) !important;
+}
+
+.mantine-DateTimePicker-day:hover:not([data-selected]):not([data-disabled]) {
+  background-color: var(--emr-bg-accent-secondary) !important;
+}
+
+.mantine-DateTimePicker-day[data-selected] {
+  background-color: var(--emr-secondary) !important;
+  color: var(--emr-text-inverse) !important;
+}
+
+.mantine-DateTimePicker-day[data-disabled] {
+  color: var(--emr-text-secondary) !important;
+  opacity: 0.5;
+}
+
+.mantine-DateTimePicker-day[data-outside] {
+  color: var(--emr-text-secondary) !important;
+}
+
+.mantine-DateTimePicker-weekday {
+  color: var(--emr-text-secondary) !important;
+}
+
+.mantine-DateTimePicker-month,
+.mantine-DateTimePicker-year {
+  color: var(--emr-text-primary) !important;
+}
+
+.mantine-DateTimePicker-timeInput input {
+  background-color: var(--emr-input-bg-solid) !important;
+  color: var(--emr-text-primary) !important;
+  border-color: var(--emr-input-border) !important;
+}
+
+/* ==================== MOBILE TOUCH TARGETS ==================== */
+@media (max-width: 768px) {
+  /* Form section header: stack title and right content */
+  .emr-form-section-header {
+    flex-wrap: wrap;
+  }
+
+  .emr-form-section-header-left {
+    flex: 1 1 100%;
+  }
+
+  .emr-form-section-right {
+    flex: 1 1 100%;
+    padding-top: 8px;
+  }
+
+  .emr-input {
+    min-height: 44px; /* iOS minimum touch target */
+    font-size: var(--emr-font-lg); /* Prevent iOS zoom on focus */
+  }
+
+  .emr-checkbox-input,
+  .emr-radio-input {
+    width: 22px;
+    height: 22px;
+  }
+
+  .emr-switch-input {
+    width: 48px;
+    height: 26px;
+  }
+
+  .emr-switch-input::after {
+    width: 22px;
+    height: 22px;
+  }
+
+  .emr-switch-input:checked::after {
+    left: 24px;
+  }
+}
+
+/* ==================== TIME INPUT - HIDE NATIVE ICON ==================== */
+.emr-time-input-native {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  color-scheme: dark light;
+}
+
+/* Hide the native time picker icon in Chrome/Edge/Safari */
+.emr-time-input-native::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* Hide the native time picker icon in Firefox */
+.emr-time-input-native::-moz-focus-inner {
+  border: 0;
+}
+
+/* Additional reset for time input */
+.emr-time-input-native::-webkit-inner-spin-button,
+.emr-time-input-native::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.emr-time-input-native::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.emr-time-input-native::-webkit-datetime-edit {
+  padding: 0;
+}
+
+/* ==================== NATIVE TIME PICKER POPUP STYLING ==================== */
+/* Style the native time picker popup (limited browser support) */
+:root {
+  /* Chrome/Edge time picker colors using CSS custom properties */
+  --time-picker-accent: var(--emr-secondary);
+}
+
+/* For browsers that support accent-color */
+.emr-time-input-native {
+  accent-color: var(--emr-primary);
+}
+
+/* Time picker popup in Chromium browsers */
+.emr-time-input-native::-webkit-datetime-edit-hour-field:focus,
+.emr-time-input-native::-webkit-datetime-edit-minute-field:focus,
+.emr-time-input-native::-webkit-datetime-edit-second-field:focus,
+.emr-time-input-native::-webkit-datetime-edit-ampm-field:focus {
+  background-color: var(--emr-primary);
+  color: var(--emr-text-inverse);
+  border-radius: 4px;
+}
+
+/* ==================== DARK MODE OVERRIDES ==================== */
+/* Ensure EMR inputs use dark mode variables in dark color scheme */
+
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DateInput-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DatePickerInput-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-PasswordInput-input,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TimeInput-input {
+  background-color: var(--emr-input-bg-solid) !important;
+  background: var(--emr-input-bg) !important;
+  border-color: var(--emr-input-border) !important;
+  color: var(--emr-input-text) !important;
+}
+
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DateInput-input:focus,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DatePickerInput-input:focus {
+  background-color: var(--emr-input-bg-focus) !important;
+  border-color: var(--emr-input-border-focus) !important;
+  box-shadow: var(--emr-input-shadow-focus) !important;
+}
+
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input:disabled,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input:disabled,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input:disabled,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input:disabled,
+[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input:disabled {
+  background-color: var(--emr-input-bg-disabled) !important;
+  color: var(--emr-input-text-disabled) !important;
+}
+
+/* Filter bar inputs: blend with parent card background */
+.filter-input-transparent .mantine-TextInput-input,
+.filter-input-transparent .mantine-MultiSelect-input,
+.filter-input-transparent .mantine-Select-input {
+  background: transparent !important;
+  background-color: transparent !important;
+}

@@ -1,0 +1,117 @@
+{# SPDX-FileCopyrightText: Copyright LiverRa contributors #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{# LiverRa surgeon-facing report — English (T260).                      #}
+{# Rendered by pdf_builder.py via Jinja2 + WeasyPrint.                    #}
+{# The CSS-level RUO watermark lives in pdf_builder._base_css(); this    #}
+{# template renders the report body on top of that background.           #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LiverRa Report {{ report_id }}</title>
+  </head>
+  <body>
+    {% if sample_case_flag %}
+      <div class="sample-banner">
+        SAMPLE DATA — not a real patient. Not for clinical use.
+      </div>
+    {% endif %}
+
+    <h1 style="margin-bottom: 2mm;">
+      LiverRa — Liver Analysis Report
+      <span style="font-size: 9pt; color: #b91c1c;">(Research Use Only)</span>
+    </h1>
+    <p style="color: #4b5563;">
+      <strong>Report ID:</strong> {{ report_id }}<br />
+      <strong>Analysis ID:</strong> {{ analysis_id }}<br />
+      <strong>Institution:</strong> {{ tenant_display_name or "—" }}<br />
+      <strong>Finalized by:</strong> {{ finalized_by_display }}<br />
+      <strong>Finalized at (UTC):</strong> {{ finalized_at }}
+    </p>
+
+    <h2>Volumetric Summary</h2>
+    <table class="volumes">
+      <thead><tr><th>Structure</th><th>Volume (mL)</th></tr></thead>
+      <tbody>
+        <tr><td>Whole liver parenchyma</td><td>{{ parenchyma_volume_ml }}</td></tr>
+        {% for roman in ['I','II','III','IV','V','VI','VII','VIII'] %}
+          <tr><td>Couinaud Segment {{ roman }}</td>
+            <td>{{ "%.1f"|format(couinaud_volumes.get(roman, 0)) }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if flr_remnant_volume_ml is not none %}
+      <h2>Future Liver Remnant (FLR)</h2>
+      <p>
+        <strong>Remnant volume:</strong> {{ flr_remnant_volume_ml }} mL<br />
+        <strong>Functional remnant:</strong> {{ flr_remnant_pct_functional }} %<br />
+        <strong>Adequacy:</strong>
+        <span style="font-weight: 700;">{{ flr_adequacy_label or "—" }}</span>
+        <span style="color: #6b7280; font-size: 7.5pt;">
+          (thresholds: &lt;25 % inadequate · 25–30 % borderline · ≥30 % adequate)
+        </span>
+      </p>
+    {% endif %}
+
+    {% if lesions %}
+      <h2>Lesions</h2>
+      <table class="volumes">
+        <thead>
+          <tr>
+            <th>#</th><th>Class</th><th>Longest diameter (mm)</th>
+            <th>Volume (mL)</th><th>Confidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lesion in lesions %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ lesion.class_label_localised }}</td>
+              <td>{{ "%.1f"|format(lesion.diameter_mm) }}</td>
+              <td>{{ "%.1f"|format(lesion.volume_ml) }}</td>
+              <td>{{ "%.0f"|format(lesion.confidence_pct) }} %</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if screenshots %}
+      <h2>3D Screenshots</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;">
+        {% for src in screenshots %}
+          <img src="{{ src }}" alt="3D rendering" style="width: 100%; border: 0.5pt solid #cbd5f5;" />
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <h2>Model Attribution</h2>
+    <table class="volumes">
+      <thead><tr><th>Model</th><th>Version</th><th>License</th></tr></thead>
+      <tbody>
+        {% for row in model_summary %}
+          <tr><td>{{ row.name }}</td><td>{{ row.version }}</td><td>{{ row.license }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>RUO Claim Registry Snapshot</h2>
+    {% if claim_registry %}
+      <ul>
+        {% for claim in claim_registry %}
+          <li><strong>{{ claim.key }}</strong> — {{ claim.status }} ({{ claim.watermark_variant or "default" }})</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color: #6b7280;">No per-claim overrides recorded for this report.</p>
+    {% endif %}
+
+    <hr style="margin-top: 8mm; border: none; border-top: 0.5pt solid #cbd5f5;" />
+    <p style="font-size: 7.5pt; color: #991b1b;">
+      <strong>{{ watermark_text }}</strong><br />
+      Software: LiverRa v1 MVP · {{ software_versions }}<br />
+      This report is informational only. Clinical judgment rests with the qualified treating physician.
+    </p>
+  </body>
+</html>

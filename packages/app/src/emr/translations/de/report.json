@@ -1,0 +1,93 @@
+{
+  "status": {
+    "draft": "Entwurf",
+    "finalizing": "Wird finalisiert",
+    "finalized": "Finalisiert",
+    "superseded": "Ersetzt",
+    "retracted": "Zurückgezogen"
+  },
+  "finalize": {
+    "title": "Bericht finalisieren",
+    "submit": "Jetzt finalisieren",
+    "step": {
+      "check": "Vorprüfung",
+      "checkDesc": "Eingaben verifizieren",
+      "watermark": "RUO-Hinweis",
+      "watermarkDesc": "Nur zu Forschungszwecken",
+      "pacs": "PACS-Ziele",
+      "pacsDesc": "Optionales SEG/SR-Versenden",
+      "review": "Überprüfung",
+      "reviewDesc": "Messungen + FLR",
+      "ship": "Finalisieren",
+      "shipDesc": "Erfordert Step-up-MFA"
+    },
+    "check": {
+      "body": "Bestätigen Sie, dass alle Messungen, Läsionen und die FLR-Ebene geprüft wurden."
+    },
+    "watermark": {
+      "heading": "NUR ZU FORSCHUNGSZWECKEN — NICHT FÜR KLINISCHE ENTSCHEIDUNGEN",
+      "body": "Dieser Bericht dient ausschließlich zu Informationszwecken. Die klinische Beurteilung obliegt einer qualifizierten Ärztin oder einem qualifizierten Arzt.",
+      "ack": "Ich nehme den RUO-Rahmen zur Kenntnis."
+    },
+    "pacs": {
+      "enable": "SEG + SR an konfigurierte PACS-Ziele übermitteln",
+      "hint": "Sie können das auch überspringen und den Versand später von der Berichts-Seite starten."
+    },
+    "review": {
+      "notesLabel": "Anmerkungen für den Bericht (optional)",
+      "hint": "Die vollständige Vorschau ist nach Abschluss der Finalisierung auf der Berichts-Seite verfügbar."
+    },
+    "ship": {
+      "body": "Die Finalisierung erfordert eine Step-up-MFA-Prüfung."
+    }
+  },
+  "pdf": {
+    "iframeTitle": "Finalisierter Bericht (PDF)",
+    "loading": "Bericht wird geladen…",
+    "error": "PDF-Vorschau nicht verfügbar.",
+    "finalizing": "Das PDF wird noch erstellt; dieses Panel aktualisiert sich automatisch.",
+    "claimHidden": "Die PDF-Vorschau ist für den aktuellen RUO-Claim eingeschränkt.",
+    "ruoBadge": "NUR ZU FORSCHUNGSZWECKEN"
+  },
+  "pacs": {
+    "title": "PACS-Zustellung",
+    "start": "Versand starten",
+    "loading": "Zustellungen werden geladen…",
+    "empty": "Es wurde noch kein PACS-Ziel übermittelt. Klicken Sie auf \"Versand starten\", um die konfigurierten Ziele zu bedienen.",
+    "aria": "Zustellungs-Zeitstrahl",
+    "nextAttempt": "Nächster Versuch:",
+    "retry": "Wiederholen",
+    "manualFallback": "Für manuellen Versand herunterladen",
+    "demoBlocked": "Beispielberichte können nicht an ein echtes PACS-Ziel übermittelt werden.",
+    "status": {
+      "pending": "Ausstehend",
+      "sending": "Wird gesendet",
+      "acknowledged": "Bestätigt",
+      "failed": "Fehlgeschlagen",
+      "manual_fallback": "Manueller Fallback"
+    }
+  },
+  "retract": {
+    "title": "Bericht zurückziehen",
+    "body": "Die Rücknahme ist auditiersicher: der Berichtsdatensatz bleibt bestehen und wird markiert. Nachgelagerte Betrachter sehen ein \"Zurückgezogen\"-Banner.",
+    "reasonLabel": "Grund für die Rücknahme",
+    "reasonPlaceholder": "Erklären Sie, warum dieser Bericht zurückgezogen wird…",
+    "confirm": "Zurückziehen"
+  },
+  "view": {
+    "title": "Bericht",
+    "loading": "Bericht wird geladen…",
+    "error": "Bericht konnte nicht geladen werden.",
+    "finalizedAt": "Finalisiert am:",
+    "supersededBy": "Ersetzt durch",
+    "retracted": "Dieser Bericht wurde zurückgezogen.",
+    "retract": "Zurückziehen",
+    "sampleData": "BEISPIELDATEN",
+    "noId": "Keine Berichts-ID in der URL."
+  },
+  "artifact": {
+    "seg": "DICOM-SEG (Leber + Segmente + Läsionen)",
+    "sr": "DICOM-SR (Messbericht)",
+    "pdf": "PDF-Bericht"
+  }
+}

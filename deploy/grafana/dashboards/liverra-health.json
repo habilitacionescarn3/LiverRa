@@ -1,0 +1,61 @@
+{
+  "title": "LiverRa — Health aggregator",
+  "uid": "liverra-health",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["liverra", "health"],
+  "templating": {
+    "list": [
+      {
+        "name": "dependency",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_system_health, dependency)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "/system/health — overall",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "liverra_system_health{dependency=\"overall\"}", "refId": "A" }
+      ],
+      "options": { "colorMode": "background" }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Dependency status",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "liverra_system_health{dependency=~\"$dependency\"}",
+          "legendFormat": "{{dependency}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "PACS C-ECHO success rate",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (tenant_id) (rate(liverra_cecho_total{outcome=\"ok\"}[5m])) / sum by (tenant_id) (rate(liverra_cecho_total[5m]))",
+          "legendFormat": "{{tenant_id}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

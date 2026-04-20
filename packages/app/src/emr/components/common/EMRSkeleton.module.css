@@ -1,0 +1,103 @@
+/* EMRSkeleton - Unified skeleton loading components */
+/* Uses ONLY theme CSS variables from theme.css */
+
+/* ==================== BASE SKELETON ==================== */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--emr-bg-input) 0%,
+    var(--emr-bg-hover) 50%,
+    var(--emr-bg-input) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ==================== SHIMMER ANIMATION ==================== */
+
+.animated .skeleton {
+  animation: emrSkeletonShimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes emrSkeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ==================== CARD SKELETON ==================== */
+
+.card {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-radius-md, 8px);
+  padding: var(--mantine-spacing-md, 16px);
+}
+
+/* ==================== LIST SKELETON ==================== */
+
+.listItem {
+  padding: var(--mantine-spacing-sm, 12px);
+  border-radius: var(--emr-radius-sm, 4px);
+  background: var(--emr-bg-hover);
+  transition: background-color 0.15s ease;
+}
+
+/* ==================== FORM SKELETON ==================== */
+
+.form {
+  padding: var(--mantine-spacing-md, 16px);
+}
+
+/* ==================== STAT CARD SKELETON ==================== */
+
+.statCard {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-radius-md, 8px);
+  padding: var(--mantine-spacing-md, 16px);
+}
+
+/* ==================== MOBILE RESPONSIVE ==================== */
+
+@media (max-width: 576px) {
+  .card {
+    padding: var(--mantine-spacing-sm, 12px);
+  }
+
+  .form {
+    padding: var(--mantine-spacing-sm, 12px);
+  }
+
+  .statCard {
+    padding: var(--mantine-spacing-sm, 12px);
+  }
+}
+
+/* ==================== REDUCED MOTION ==================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .animated .skeleton {
+    animation: none;
+  }
+
+  .skeleton {
+    background: var(--emr-bg-input);
+  }
+}
+
+/* ==================== HIGH CONTRAST MODE ==================== */
+
+@media (prefers-contrast: high) {
+  .skeleton {
+    background: var(--emr-border-color);
+  }
+
+  .card,
+  .statCard {
+    border-width: 2px;
+  }
+}

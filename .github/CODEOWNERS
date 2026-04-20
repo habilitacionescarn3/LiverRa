@@ -1,0 +1,12 @@
+# CODEOWNERS — LiverRa
+#
+# Declares mandatory reviewers for medical-terminology translations and
+# LiverRa specs per plan §i18n wiring (T024). Medical glossary JSON files
+# MUST be reviewed by a locale-appropriate HPB clinician before merge.
+#
+# GitHub enforces this automatically when branch protection has
+# "Require review from Code Owners" enabled on `main`.
+
+packages/app/src/emr/translations/de/glossary.medical.json @german-hpb-reviewer
+packages/app/src/emr/translations/ka/glossary.medical.json @georgian-hpb-reviewer
+specs/** @DevoteAI

@@ -1,0 +1,42 @@
+{
+  "resourceType": "AccessPolicy",
+  "name": "liverra-dpo",
+  "meta": {
+    "tag": [
+      {
+        "system": "http://liverra.ai/fhir/CodeSystem/access-policy-role",
+        "code": "dpo",
+        "display": "Data Protection Officer \u2014 GDPR erasure executor + audit viewer."
+      }
+    ]
+  },
+  "resource": [
+    {
+      "resourceType": "AuditEvent",
+      "readonly": true
+    },
+    {
+      "resourceType": "Basic",
+      "readonly": true
+    },
+    {
+      "resourceType": "DocumentReference",
+      "readonly": true
+    },
+    {
+      "resourceType": "ImagingStudy",
+      "readonly": false
+    },
+    {
+      "resourceType": "Patient",
+      "readonly": false
+    },
+    {
+      "resourceType": "Task",
+      "readonly": false
+    }
+  ],
+  "compartment": {
+    "reference": "Project/${tenant_id}"
+  }
+}

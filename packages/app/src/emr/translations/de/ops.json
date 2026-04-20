@@ -1,0 +1,63 @@
+{
+  "page": {
+    "title": "Ops-Warteschlange",
+    "subtitle": "Übergreifende Pipeline-Übersicht. Es werden keine Patientendaten angezeigt.",
+    "no_phi_badge": "Keine PHI"
+  },
+  "gauges": {
+    "queued": "In Warteschlange",
+    "running": "Läuft",
+    "stuck": "Hängt >15 Min",
+    "gpu_utilization": "GPU-Auslastung",
+    "cold_starts": "Kaltstarts / Std."
+  },
+  "sections": {
+    "stuck_cases": "Hängende Fälle"
+  },
+  "table": {
+    "analysis_id": "Analyse",
+    "status": "Status",
+    "last_stage": "Letzte Stufe",
+    "stuck_for": "Hängt seit",
+    "error_slug": "Fehler",
+    "empty": "Keine hängenden Fälle in den letzten 15 Minuten."
+  },
+  "detail": {
+    "title": "Falldetails",
+    "analysis_id": "Analyse-ID",
+    "study_id": "Studie-ID",
+    "tenant_id": "Mandant-ID",
+    "pipeline_version": "Pipeline-Version",
+    "last_stage": "Letzte Stufe",
+    "error_slug": "Fehler-Slug",
+    "model_versions": "Modell-Versionen",
+    "stuck_minutes": "Hängt seit {{minutes}} Min",
+    "load_failed_title": "Fall konnte nicht geladen werden",
+    "load_failed_body": "Bitte erneut versuchen oder einen anderen Fall auswählen."
+  },
+  "actions": {
+    "retry": "Wiederholen",
+    "cancel": "Abbrechen",
+    "mark_blocked": "Blockiert markieren"
+  },
+  "confirm": {
+    "retry_title": "Analyse wiederholen?",
+    "retry_body": "Wird ab dem letzten erfolgreichen Checkpoint neu eingereiht. Der Einreicher wird nach Abschluss benachrichtigt.",
+    "cancel_title": "Analyse abbrechen?",
+    "cancel_body": "Dies stoppt den Job ordnungsgemäß. Er kann später wiederholt werden.",
+    "mark_blocked_title": "Als blockiert markieren?",
+    "mark_blocked_body": "Terminaler Zustand — der einreichende Kliniker erhält eine umsetzbare Benachrichtigung.",
+    "mark_blocked_note_label": "Interne Notiz (optional)",
+    "mark_blocked_note_help": "Vor Speicherung PHI-bereinigt — bitte ohne Patientendetails.",
+    "mark_blocked_note_placeholder": "z. B., Inferenzdienst ausgefallen; Wiederholen nach 14:00"
+  },
+  "severity": {
+    "ok": "OK",
+    "warn": "Warnung",
+    "alarm": "Alarm"
+  },
+  "errors": {
+    "load_title": "Warteschlange konnte nicht geladen werden",
+    "load_body": "Der Ops-Endpunkt ist nicht erreichbar. Automatische Wiederholung läuft."
+  }
+}

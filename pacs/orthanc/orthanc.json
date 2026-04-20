@@ -1,0 +1,122 @@
+/**
+ * LiverRa edge appliance — installed on-prem at hospital for DICOM receive.
+ *
+ * Plain-English:
+ *   This is the Orthanc DICOM receiver that sits inside the hospital network.
+ *   CT/MR scanners push studies to it over DICOM (port 4242). A tiny Lua hook
+ *   (liverra-hooks.lua) forwards each received instance to the anonymization
+ *   sidecar on localhost:7070 before anything is persisted or re-transmitted.
+ *
+ * References:
+ *   - specs/001-zero-training-mvp/research.md §B.3 (Orthanc 1.12+ + DICOMweb
+ *     plugin + Postgres backend + Lua ReceivedInstanceFilter)
+ *   - spec.md §FR-002 (anonymize before data leaves hospital network)
+ *
+ * Environment variables resolved at container start (docker-compose / helm):
+ *   ORTHANC_ADMIN_USER, ORTHANC_ADMIN_PASSWORD
+ *   ORTHANC_POSTGRES_HOST, ORTHANC_POSTGRES_PORT,
+ *   ORTHANC_POSTGRES_DB, ORTHANC_POSTGRES_USER, ORTHANC_POSTGRES_PASSWORD
+ *   ORTHANC_AET   (DICOM Application Entity Title for this appliance)
+ *
+ * TLS material is mounted from the host at /etc/orthanc/tls/.
+ */
+{
+  // ---- Identity -----------------------------------------------------------
+  "Name": "LiverRa-Edge",
+  "DicomAet": "${ORTHANC_AET}",
+
+  // ---- Storage ------------------------------------------------------------
+  // Filesystem holds raw DICOM; Postgres holds the SQL index.
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/idx",
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+
+  // ---- DIMSE listener (C-STORE receive) -----------------------------------
+  "DicomServerEnabled": true,
+  "DicomPort": 4242,
+  "DicomCheckCalledAet": true,
+  "DicomCheckModalityHost": false,
+
+  // ---- DICOM-TLS (research §B.3 — DIMSE TLS 1.2 only) ---------------------
+  "DicomTls": true,
+  "DicomTlsCertificate": "/etc/orthanc/tls/edge-cert.pem",
+  "DicomTlsPrivateKey": "/etc/orthanc/tls/edge-key.pem",
+  "DicomTlsTrustedCertificates": "/etc/orthanc/tls/ca-bundle.pem",
+  "DicomTlsRemoteCertificateRequired": true,
+  "DicomTlsMinimumProtocolVersion": 3,
+
+  // ---- HTTP / DICOMweb (plugin) -------------------------------------------
+  // No remote HTTP; the sidecar + CTP reach Orthanc over the docker network.
+  "HttpServerEnabled": true,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": false,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "${ORTHANC_ADMIN_USER}": "${ORTHANC_ADMIN_PASSWORD}"
+  },
+  "HttpCompressionEnabled": true,
+  "HttpRequestTimeout": 30,
+
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/",
+    "EnableWado": true,
+    "WadoRoot": "/wado",
+    "Host": "localhost",
+    "Ssl": false,
+    "StudiesMetadata": "Full",
+    "SeriesMetadata": "Full"
+  },
+
+  // ---- Postgres backend (research §B.3) -----------------------------------
+  "PostgreSQL": {
+    "EnableIndex": true,
+    "EnableStorage": true,
+    "Host": "${ORTHANC_POSTGRES_HOST}",
+    "Port": 5432,
+    "Database": "${ORTHANC_POSTGRES_DB}",
+    "Username": "${ORTHANC_POSTGRES_USER}",
+    "Password": "${ORTHANC_POSTGRES_PASSWORD}",
+    "Lock": true,
+    "MaximumConnectionRetries": 10,
+    "ConnectionRetryInterval": 5,
+    "IndexConnectionsCount": 5
+  },
+
+  // ---- Plugins / Lua -------------------------------------------------------
+  // The Lua script wires ReceivedInstanceFilter -> /orthanc-webhook.
+  "LuaScripts": [
+    "/etc/orthanc/liverra-hooks.lua"
+  ],
+  "Plugins": [
+    "/usr/share/orthanc/plugins"
+  ],
+
+  // ---- Policy -------------------------------------------------------------
+  // Do NOT accept unknown modalities automatically; operator enrolls AE
+  // titles via the admin UI only after SSO handshake with the hospital PACS.
+  "DicomModalities": {},
+  "DicomAlwaysAllowEcho": false,
+  "DicomAlwaysAllowFind": false,
+  "DicomAlwaysAllowGet": false,
+  "DicomAlwaysAllowMove": false,
+  "DicomAlwaysAllowStore": false,
+  "UnknownSopClassAccepted": false,
+
+  // ---- Auto-forwarding is OFF ---------------------------------------------
+  // LiverRa orchestrator does C-STORE push itself (research §B.6); Orthanc
+  // must NEVER re-transmit PHI-carrying originals to remote destinations.
+  "SynchronousCMove": false,
+
+  // ---- Logging (PHI-safe — no patient names / MRNs) -----------------------
+  "LogLevel": "default",
+  "LogExportedResources": false,
+  "HttpVerbose": false,
+
+  // ---- Concurrency --------------------------------------------------------
+  "ConcurrentJobs": 2,
+  "JobsHistorySize": 10,
+  "SaveJobs": true
+}

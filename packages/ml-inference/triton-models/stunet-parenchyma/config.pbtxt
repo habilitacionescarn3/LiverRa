@@ -1,0 +1,86 @@
+# LiverRa — Triton model configuration for STU-Net parenchyma segmentation
+# Spec: specs/001-zero-training-mvp/contracts/triton-stages.md §Stage 1
+# Research: research.md §C.1 (Tier-A VRAM policy — always loaded)
+# License: Apache 2.0 (upstream: https://github.com/uni-medical/STU-Net)
+#
+# Tier: A (always loaded). Model control mode for the server is `explicit`
+# (set via Triton launch flag) so admins can still force-reload after a
+# weight rotation, but in steady state this model is never unloaded.
+#
+# Shape convention: 4 contrast phases × 128³ resampled volume.
+# Channel order (matches orchestrator pre-processing in tasks/parenchyma.py):
+#   0 = non_contrast
+#   1 = arterial
+#   2 = portal_venous  (primary driver)
+#   3 = delayed
+
+name: "liverra-stunet-parenchyma"
+platform: "pytorch_libtorch"
+max_batch_size: 1
+
+input [
+  {
+    name: "INPUT__0"
+    data_type: TYPE_FP16
+    dims: [ 4, 128, 128, 128 ]
+  }
+]
+
+output [
+  {
+    name: "OUTPUT__0"
+    data_type: TYPE_FP16
+    dims: [ 1, 128, 128, 128 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_GPU
+  }
+]
+
+# Warm up at server start so the first clinical case does not pay
+# the TRT JIT-compile cost (research §C.1 cold-start budget).
+model_warmup [
+  {
+    name: "parenchyma_warmup_zeros"
+    batch_size: 1
+    inputs: {
+      key: "INPUT__0"
+      value: {
+        data_type: TYPE_FP16
+        dims: [ 4, 128, 128, 128 ]
+        zero_data: true
+      }
+    }
+  }
+]
+
+# TensorRT FP16 acceleration. We keep precision at FP16 (not INT8) so the
+# confidence-per-voxel output in §Stage 1 sanity checks stays numerically
+# stable across vendors.
+optimization {
+  execution_accelerators {
+    gpu_execution_accelerator : [
+      {
+        name : "tensorrt"
+        parameters { key: "precision_mode" value: "FP16" }
+      }
+    ]
+  }
+}
+
+# Non-decoupled — one request returns exactly one response. Cascade
+# orchestration handles stage fan-out at the Celery layer, not here.
+model_transaction_policy {
+  decoupled: False
+}
+
+# Enables torch.inference_mode() inside libtorch backend — halves memory
+# traffic on repeated calls.
+parameters {
+  key: "INFERENCE_MODE"
+  value: { string_value: "true" }
+}

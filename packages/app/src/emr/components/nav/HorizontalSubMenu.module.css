@@ -1,0 +1,213 @@
+/**
+ * HorizontalSubMenu Component Styles — LiverRa (T108).
+ * Ported from MediMind — theme-variable-only (no hardcoded hex).
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 44px;
+
+  background: var(--emr-gradient-submenu);
+  box-shadow: inset 0 1px 0 var(--emr-glass-white-10, rgba(255, 255, 255, 0.1));
+
+  position: relative;
+  z-index: var(--emr-z-submenu, 30);
+}
+
+.scrollContainer {
+  display: flex;
+  width: 100%;
+  height: 44px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollContainer::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollSnap {
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 8px;
+}
+
+.tabContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  height: 100%;
+  min-width: fit-content;
+  padding: 0 12px;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 14px;
+  margin: 0;
+  min-height: 44px;
+  height: 100%;
+
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-white, var(--emr-text-inverse));
+  opacity: 0.85;
+  text-align: center;
+  white-space: nowrap;
+
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  scroll-snap-align: center;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Noto Sans Georgian', 'Noto Sans', sans-serif;
+}
+
+.tabLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.tab:hover:not(.active) {
+  color: var(--emr-text-white, var(--emr-text-inverse));
+  background-color: var(--emr-glass-white-10, rgba(255, 255, 255, 0.1));
+}
+
+.tab:active:not(.active) {
+  transform: scale(0.95);
+  background-color: var(--emr-glass-white-15, rgba(255, 255, 255, 0.15));
+}
+
+.tab.active {
+  color: var(--emr-text-white, var(--emr-text-inverse));
+  font-weight: var(--emr-font-semibold);
+  opacity: 1;
+}
+
+.activeBar {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 16px);
+  height: 3px;
+  background: var(--emr-text-white, var(--emr-text-inverse));
+  border-radius: 3px 3px 0 0;
+  box-shadow: 0 0 8px var(--emr-glass-white-20, rgba(255, 255, 255, 0.2));
+}
+
+.tab.active:hover {
+  background-color: var(--emr-glass-white-05, rgba(255, 255, 255, 0.05));
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--emr-glass-white-40, rgba(255, 255, 255, 0.4));
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+/* --------- Scroll indicator dots --------- */
+.scrollIndicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 6px;
+  background: var(--emr-gradient-submenu);
+}
+
+.indicatorDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emr-glass-white-40, rgba(255, 255, 255, 0.4));
+  transition: all 0.2s ease;
+}
+
+.indicatorDot.activeDot {
+  background: var(--emr-text-white, var(--emr-text-inverse));
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 4px var(--emr-glass-white-50, rgba(255, 255, 255, 0.5));
+}
+
+/* --------- Responsive --------- */
+@media (max-width: 1024px) {
+  .tab {
+    font-size: var(--emr-font-xs);
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    min-height: 44px;
+  }
+
+  .scrollContainer {
+    height: 44px;
+  }
+
+  .tabContainer {
+    padding: 0 8px;
+    gap: 0;
+    flex-wrap: nowrap;
+    min-width: max-content;
+  }
+
+  .tab {
+    font-size: var(--emr-font-xs);
+    padding: 0 12px;
+    flex-shrink: 0;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabContainer {
+    padding: 0 4px;
+  }
+
+  .tab {
+    font-size: var(--emr-font-xs);
+    padding: 0 10px;
+    min-height: 44px;
+  }
+
+  .tabLabel {
+    max-width: none;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  .scrollIndicator {
+    padding: 3px 0 4px;
+  }
+
+  .indicatorDot {
+    width: 5px;
+    height: 5px;
+  }
+
+  .indicatorDot.activeDot {
+    width: 7px;
+    height: 7px;
+  }
+}

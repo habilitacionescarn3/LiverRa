@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/audit-chain-sequence-no",
+  "name": "LiverRaAuditChainSequenceNo",
+  "title": "LiverRa AuditEvent — Chain Sequence Number",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Monotonic, per-tenant sequence number in the linear SHA-256 audit chain (research §A.3). Combined with audit-chain-leaf-hash, forms a tamper-evident log whose daily Merkle root is sealed into S3 Object Lock.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "AuditEvent"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "Position of this audit record in the per-tenant chain",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/audit-chain-sequence-no"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "1-based monotonic chain sequence number",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "positiveInt"
+          }
+        ]
+      }
+    ]
+  }
+}

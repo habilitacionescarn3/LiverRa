@@ -1,0 +1,283 @@
+/**
+ * EMRMainMenu Component Styles — LiverRa (T107).
+ *
+ * Port of MediMind's EMRMainMenu.module.css, theme-variable-only (no
+ * hardcoded hex). Uses `--emr-*` tokens exclusively; LiverRa-specific
+ * colors are supplied by the theme layer, so this file is brand-neutral.
+ */
+
+.menuContainer {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+
+/* Menu item — 44px minimum touch target per accessibility matrix */
+.menuItem {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  padding: 10px 14px;
+  min-height: 44px;
+  margin: 0;
+
+  font-size: var(--emr-font-base);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: var(--emr-letter-spacing-tight, 0);
+
+  background-color: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Noto Sans Georgian', 'Noto Sans', sans-serif;
+}
+
+.menuIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.menuLabel {
+  display: inline;
+}
+
+.menuItem:hover:not(.active) {
+  background-color: var(--emr-hover-bg, var(--emr-bg-hover));
+  color: var(--emr-secondary);
+}
+
+.menuItem:hover:not(.active) .menuIcon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.menuItem.active {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-white, var(--emr-text-inverse));
+  font-weight: var(--emr-font-semibold);
+  box-shadow: var(--emr-shadow-button, var(--emr-shadow-md));
+}
+
+.menuItem.active .menuIcon {
+  opacity: 1;
+}
+
+.activeIndicator {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  background: var(--emr-text-white, var(--emr-text-inverse));
+  border-radius: 50%;
+  opacity: 0.9;
+}
+
+.menuItem.active:hover {
+  box-shadow: var(--emr-shadow-button-hover, var(--emr-shadow-lg));
+  transform: translateY(-1px);
+}
+
+.menuItem:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.menuItem.active:focus-visible {
+  outline-color: var(--emr-text-white, var(--emr-text-inverse));
+  outline-offset: 3px;
+}
+
+.menuItem:active:not(.active) {
+  transform: scale(0.98);
+}
+
+/* --------- Tablet --------- */
+@media (max-width: 1024px) {
+  .menuItem {
+    font-size: var(--emr-font-sm);
+    padding: 6px 10px;
+  }
+
+  .menuIcon {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .menuContainer {
+    gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .menuContainer::-webkit-scrollbar {
+    display: none;
+  }
+
+  .menuItem {
+    font-size: var(--emr-font-xs);
+    padding: 5px 8px;
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .menuContainer {
+    gap: 1px;
+    padding: 0 2px;
+  }
+
+  .menuItem {
+    font-size: var(--emr-font-xs);
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+
+  .menuLabel {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* --------- Mobile bottom nav bar --------- */
+.mobileNavBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--emr-z-mainmenu, 40);
+
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-around;
+
+  height: 64px;
+  padding: 4px 8px;
+  padding-bottom: max(4px, env(safe-area-inset-bottom));
+
+  background: var(--emr-bg-card);
+  border-top: 1px solid var(--emr-border-color);
+  box-shadow: 0 -2px 12px var(--emr-black-alpha-08, rgba(0, 0, 0, 0.08));
+
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
+
+.mobileNavItem {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+
+  flex: 1;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 80px;
+  padding: 6px 4px;
+
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-secondary);
+  text-align: center;
+
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Noto Sans Georgian', 'Noto Sans', sans-serif;
+}
+
+.mobileNavItem:hover {
+  background: var(--emr-bg-hover);
+}
+
+.mobileNavItem:active {
+  transform: scale(0.92);
+}
+
+.mobileNavItem.active {
+  color: var(--emr-primary);
+}
+
+.mobileNavItem.active .mobileNavIcon {
+  color: var(--emr-primary);
+  transform: scale(1.1);
+}
+
+.mobileNavItem.active .mobileNavLabel {
+  color: var(--emr-primary);
+  font-weight: var(--emr-font-semibold);
+}
+
+.mobileNavIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--emr-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.mobileNavLabel {
+  font-size: var(--emr-font-xs);
+  line-height: 1.2;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------- Overflow menu --------- */
+.overflowDropdown {
+  border-radius: 12px;
+  border: 1px solid var(--emr-border-color);
+  box-shadow: var(--emr-shadow-lg);
+  overflow: hidden;
+}
+
+.overflowItemActive {
+  background: var(--emr-primary-light, var(--emr-bg-hover));
+  color: var(--emr-primary);
+  font-weight: var(--emr-font-semibold);
+}
+
+.overflowDropdown :global(.mantine-Menu-item) {
+  min-height: 44px;
+  padding: 10px 14px;
+}

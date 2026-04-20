@@ -1,0 +1,142 @@
+{
+  "title": "LiverRa — Latency",
+  "uid": "liverra-latency",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["liverra", "ops"],
+  "templating": {
+    "list": [
+      {
+        "name": "stage",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_cascade_stage_latency_seconds_bucket, stage)",
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_cascade_stage_latency_seconds_bucket, tenant_id)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Cascade stage latency p50",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, stage) (rate(liverra_cascade_stage_latency_seconds_bucket{stage=~\"$stage\", tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Cascade stage latency p95",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(liverra_cascade_stage_latency_seconds_bucket{stage=~\"$stage\", tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Cascade stage latency p99",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, stage) (rate(liverra_cascade_stage_latency_seconds_bucket{stage=~\"$stage\", tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "End-to-end pipeline latency (p50/p95/p99) — SC-002 budget 480 s",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(liverra_pipeline_duration_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(liverra_pipeline_duration_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(liverra_pipeline_duration_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          { "color": "green", "value": null },
+          { "color": "red", "value": 480 }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Viewer resection-plane drag latency — FR-013 budget 1 s",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(liverra_viewer_drag_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p95 drag",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "SSE event emit → client render latency",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(liverra_sse_client_render_seconds_bucket{tenant_id=~\"$tenant\"}[5m])))",
+          "legendFormat": "p95 render",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Slowest active traces (Tempo)",
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "queryType": "traceql",
+          "query": "{ service.name=\"liverra-ml-inference\" && duration > 60s } | sort_by(duration, desc)",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

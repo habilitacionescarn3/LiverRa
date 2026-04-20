@@ -1,0 +1,147 @@
+{
+  "title": "LiverRa — Errors",
+  "uid": "liverra-errors",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": true,
+  "timezone": "utc",
+  "time": { "from": "now-24h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["liverra", "errors"],
+  "templating": {
+    "list": [
+      {
+        "name": "slug",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_problem_detail_total, slug)",
+        "includeAll": true,
+        "multi": true
+      },
+      {
+        "name": "tenant",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(liverra_problem_detail_total, tenant_id)",
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "5xx rate per endpoint",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (endpoint) (rate(liverra_http_requests_total{status=~\"5..\", tenant_id=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Problem-detail slug breakdown",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (slug) (rate(liverra_problem_detail_total{slug=~\"$slug\", tenant_id=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{slug}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Sentry open issues",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [{ "expr": "sentry_open_issues_total", "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "PHI scrubber failures (24h) — FR-002a",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 8 },
+      "targets": [{ "expr": "increase(phi_scrubber_failed_total[24h])", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Chain-tampering events (24h)",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "increase(liverra_audit_tampering_attempt_total[24h])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background" }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "C-ECHO failure rate (last 1h)",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "expr": "(sum(rate(liverra_cecho_total{outcome=\"fail\"}[1h])) / sum(rate(liverra_cecho_total[1h]))) * 100",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 10 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "C-STORE retry backoff by analysis",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "sum by (analysis_id) (increase(liverra_cstore_retry_total{tenant_id=~\"$tenant\"}[5m]))",
+          "legendFormat": "{{analysis_id}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

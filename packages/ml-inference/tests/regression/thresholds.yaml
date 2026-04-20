@@ -1,0 +1,98 @@
+# LiverRa ML regression gate thresholds
+# Plan reference: specs/001-zero-training-mvp/plan.md §ML regression gate
+# SC bindings: SC-003 (FLR ±5%), SC-004 (Couinaud usable), SC-005 (lesion sens ≥78% @ ≥10 mm)
+#
+# Consumed by:
+#   - packages/ml-inference/tests/regression/test_*.py
+#   - CI job `ci-ml-regression` (every PR touching triton-models/** or orchestrator/**)
+#
+# Rules:
+#   - Every threshold row references `mbom_version` — runner REFUSES to execute
+#     if MBoM mismatches → forces explicit re-approval on weight swap.
+#   - Lowering any threshold requires spec amendment + second reviewer
+#     (Constitution Code Review security-sensitive change gate extended to
+#     clinical-safety changes).
+#   - Fixture bundles live outside the repo; paths resolved via
+#     LIVERRA_GOLDEN_FIXTURES_DIR env var (see conftest.py).
+
+mbom_version: "2026.04.19-mvp-v0.1"  # bump on any weight swap
+
+fixtures:
+  ct-001-normal:
+    bundle_sha256: "TBD-on-first-bind"
+    expected_lesion_count: 0
+  ct-002-cirrhotic:
+    bundle_sha256: "TBD-on-first-bind"
+    expected_lesion_count_min: 1
+  ct-003-post-resection:
+    bundle_sha256: "TBD-on-first-bind"
+    resected_segments: [5, 6, 7, 8]
+  ct-004-tumor-replacement:
+    bundle_sha256: "TBD-on-first-bind"
+    expected_lesion_count_min: 5
+  ct-005-partial-coverage:
+    bundle_sha256: "TBD-on-first-bind"
+    expected_pipeline_outcome: "halt"
+
+stages:
+  stunet_parenchyma:
+    model_version: "liverra-stunet-parenchyma-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: dice_liver_vs_gt
+    threshold_min: 0.92
+    fixtures: [ct-001-normal, ct-002-cirrhotic, ct-003-post-resection, ct-004-tumor-replacement]
+    sanity_checks:
+      parenchyma_volume_ml: { min: 300.0, max: 3500.0 }
+
+  stunet_lesions:
+    model_version: "liverra-stunet-lesions-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metrics:
+      - name: dice
+        threshold_min: 0.65
+      - name: sensitivity_at_10mm
+        threshold_min: 0.78
+    fixtures: [ct-001-normal, ct-002-cirrhotic, ct-003-post-resection, ct-004-tumor-replacement]
+    sanity_checks:
+      lesion_containment_in_parenchyma: 0.95  # FR-007a
+
+  couinaud:
+    model_version: "liverra-couinaud-segments-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: mean_iou_per_segment
+    threshold_min: 0.70
+    fixtures: [ct-001-normal, ct-002-cirrhotic, ct-003-post-resection]
+
+  lilnet:
+    model_version: "liverra-lilnet-classifier-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: top1_accuracy
+    threshold_min: 0.82
+    classes: [HCC, CRLM, ICC, HEMA, FNH, ADENOMA]
+    fixtures: [ct-lesions-labeled-pack]
+
+  vista3d_refine:
+    model_version: "liverra-vista3d-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: delta_dice_after_3_clicks
+    threshold_min: 0.05  # absolute improvement over 0-click baseline
+    fixtures: [ct-002-cirrhotic]
+
+  medsam2_track:
+    model_version: "liverra-medsam2-v1"
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: slice_to_slice_iou
+    threshold_min: 0.85
+    fixtures: [ct-003-post-resection]
+
+  flr_pipeline_endtoend:
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: flr_ml_abs_pct_error
+    threshold_max: 0.05  # SC-003 ±5%
+    fixtures: [ct-002-cirrhotic, ct-003-post-resection, ct-004-tumor-replacement]
+
+  coverage_precheck:
+    mbom_version: "2026.04.19-mvp-v0.1"
+    metric: sensitivity_truncation_detection
+    threshold_min: 0.95
+    fixtures: [ct-005-partial-coverage]
