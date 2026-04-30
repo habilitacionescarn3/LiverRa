@@ -36,7 +36,7 @@ seven cascade stages with their visuals and numerical outputs.
 | 3 — Vessels | `stage3_vessels.png` | Coronal MIP of the vessel tree inside the liver outline + 3 axial detail slices |
 | 4 — **Couinaud (heuristic)** | `stage4_couinaud.png` | **8-color overlay** (tab10 palette) on 4 axial + 2 coronal + 2 sagittal slices, with per-segment volume table in the figure title |
 | 5 — Lesions | `stage5_lesions.png` | Per-lesion 3-axis thumbnails (axial/coronal/sagittal centred on each lesion) with yellow tumor contour |
-| 6 — Classification | `stage6_classification.png` | Stub-aware placeholder (LiLNet not yet wired) |
+| 6 — **Classification (LI-RADS)** | `stage6_classification.png` | **Per-lesion 4-phase enhancement curve + 6-class probability bar chart + human-readable reasoning.** Rule-based discriminant scorer matching LiLNet's `[6]` output contract — rules straight from the LI-RADS playbook (HCC = APHE + washout, hemangioma = progressive fill-in, cyst = water density, etc.). |
 | 7 — **FLR (segment-aware)** | `stage7_flr.png` | Coronal + sagittal with **green = remnant, red = removed** — based on the Couinaud mask + selected resection pattern. Per-segment volumetry table on the right shows each segment's ml + remnant/removed flag. |
 
 ## Numbers from this run
@@ -50,7 +50,7 @@ The captured run used the **right_hepatectomy** pattern (V + VI + VII + VIII rem
 | Left lobe (II+III+IV) | 514.9 ml (28.2 %) | |
 | Caudate (I) | 3.6 ml | small (heuristic limit on this scan) |
 | **FLR for right hepatectomy** | **518.5 ml (28.4 %)** | **borderline — PVE indicated** |
-| Lesion candidate (largest) | 151.3 ml | needs radiologist review |
+| Lesion candidate (largest) | 151.3 ml | **classified as ICC (cholangiocarcinoma) at 88% confidence** — delayed enhancement without APHE (rel: A +5, PV −9, D +16) |
 | Cascade duration | ~117 s on cache | |
 
 ## Cross-pattern sanity check
@@ -121,11 +121,16 @@ the path to commercial-friendly weights.
 
 Open improvement ideas (queued for next session):
 
-1. Per-lesion 4-phase enhancement curve (LiLNet input signature; ~1 h).
-2. Connected-component cleanup on the liver mask (drop islands < 5 ml).
-3. Segment III refinement using left-portal-vein anatomical landmark.
-4. Real STU-Net Apache-2.0 weights to remove the TS license caveat.
-5. Per-slice radiologist PDF.
-6. Side-by-side 4-phase axial viewer.
-7. 3D mesh render via plotly/vtk.
-8. Dome / left-lobe completeness flags.
+1. ~~Per-lesion 4-phase enhancement curve~~ **DONE** — see stage 6 panel.
+2. ~~LiLNet 6-class classification~~ **DONE as a rule-based LI-RADS classifier** —
+   produces the same `[6]` output the upstream LiLNet would, with explicit
+   per-lesion reasoning. Real LiLNet weights are still queued (multi-day
+   integration; see `docs/plans/PHASE_3_GAPS.md`) but not blocking the demo.
+3. Connected-component cleanup on the liver mask (drop islands < 5 ml).
+4. Segment III refinement using left-portal-vein anatomical landmark.
+5. Real STU-Net Apache-2.0 weights to remove the TS license caveat.
+6. Per-slice radiologist PDF.
+7. Side-by-side 4-phase axial viewer.
+8. 3D mesh render via plotly/vtk.
+9. Dome / left-lobe completeness flags.
+10. Validate the LI-RADS classifier against radiologist labels on a multi-case set.

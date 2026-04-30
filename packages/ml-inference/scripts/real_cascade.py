@@ -30,12 +30,20 @@ import psycopg
 import SimpleITK as sitk
 from totalsegmentator.python_api import totalsegmentator
 
-# Heuristic Couinaud + segment-aware FLR
+# Heuristic Couinaud + segment-aware FLR + LI-RADS-style classifier
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # …/ml-inference/
 from src.orchestrator.couinaud_heuristic import compute_couinaud
 from src.orchestrator.flr_segment_aware import (
     RESECTION_PATTERNS,
     compute_flr as compute_segment_aware_flr,
+)
+from src.orchestrator.lesion_enhancement_features import (
+    PHASES as LIRADS_PHASES,
+    extract_lesion_features,
+)
+from src.orchestrator.lirads_classifier import (
+    CLASS_ORDER as LIRADS_CLASSES,
+    classify_lesion,
 )
 
 # ---------------------------------------------------------------------------
@@ -436,6 +444,126 @@ def main() -> int:
             else "stub-no-tumor",
             license_hash="cc-by-nc-sa-4.0" if tumor_native is not None else "n/a-dev-stub",
         )
+
+    # ----------------------------------------------------------------------
+    # Stage 6 — LI-RADS-style 6-class classification per lesion
+    # (replaces the LiLNet stub with a clinically-grounded rule-based
+    # classifier whose [6] output matches the Triton config contract)
+    # ----------------------------------------------------------------------
+    print(f"\n[6/7b] LI-RADS-style classification per lesion")
+    classifications: list[dict] = []
+    classifier_version = "lirads-rule-classifier-v1"
+
+    if tumor_native is not None and lesion_count > 0:
+        # Need all 4 contrast phases at the native CT geometry. We already
+        # have portal_venous loaded (it's the input to TS); download the
+        # other three from MinIO into the workdir, reusing the cache if
+        # they're already there.
+        t_cls = time.perf_counter()
+        phase_volumes_native: dict[str, np.ndarray] = {}
+        for phase in LIRADS_PHASES:
+            if phase == "portal_venous":
+                # Already on disk under ct_path
+                pv_img = sitk.ReadImage(str(ct_path))
+                phase_volumes_native[phase] = sitk.GetArrayFromImage(pv_img).astype(np.float32)
+                continue
+            phase_path = workdir / f"{phase}.nii.gz"
+            if not phase_path.exists():
+                download_phase(STUDY_ID, phase, phase_path)
+            try:
+                phase_img = sitk.ReadImage(str(phase_path))
+                phase_arr = sitk.GetArrayFromImage(phase_img).astype(np.float32)
+                # Phase volumes have different shapes (different slice spacings)
+                # so resample each to the portal_venous grid we used for
+                # liver/tumor masks. NN preserves HU values reasonably well
+                # for the mean-HU-in-VOI feature we care about.
+                if phase_arr.shape != liver_arr_native.shape:
+                    res = sitk.ResampleImageFilter()
+                    res.SetReferenceImage(liver_native)
+                    res.SetInterpolator(sitk.sitkLinear)
+                    res.SetDefaultPixelValue(-1024)  # air HU
+                    phase_img_res = res.Execute(phase_img)
+                    phase_arr = sitk.GetArrayFromImage(phase_img_res).astype(np.float32)
+                phase_volumes_native[phase] = phase_arr
+                print(f"      ✓ {phase}.nii.gz  ({phase_arr.shape})")
+            except Exception as exc:
+                print(f"      ! {phase} load failed: {exc}")
+                phase_volumes_native[phase] = None  # type: ignore
+
+        # Iterate over connected components (already labeled above)
+        # `labeled` is the per-voxel CC-id array; lesion ids 1..lesion_count
+        for lid in range(1, lesion_count + 1):
+            lesion_mask = (labeled == lid).astype(np.uint8)
+            voxels = int(lesion_mask.sum())
+            volume_ml_lid = voxels * voxel_ml
+            if volume_ml_lid < 0.05:
+                continue  # tiny noise
+            # Restrict to liver-contained portion to skip false positives
+            lesion_inside = lesion_mask & (liver_arr_native > 0).astype(np.uint8)
+            if lesion_inside.sum() == 0:
+                continue
+            features = extract_lesion_features(
+                lesion_mask=lesion_inside,
+                phase_volumes={k: v for k, v in phase_volumes_native.items() if v is not None},
+                liver_mask=liver_arr_native,
+                voxel_ml=voxel_ml_native,
+            )
+            cls = classify_lesion(features)
+            classifications.append({
+                "lesion_id": int(lid),
+                "volume_ml": features["volume_ml"],
+                "voxels": features["voxels"],
+                "features": features,
+                "classification": cls,
+            })
+            print(
+                f"      lesion {lid}  vol={features['volume_ml']:.1f} ml  "
+                f"top1={cls['top1']} (conf={cls['top1_confidence']:.2f})"
+            )
+            for r in cls["reasoning"]:
+                print(f"          • {r}")
+
+        # Persist the classifications JSON to MinIO
+        cls_uri = f"analyses/{analysis_id}/lesion_classifications.json"
+        s3_client().put_object(
+            Bucket=ANALYSES_BUCKET, Key=cls_uri,
+            Body=json.dumps(
+                {
+                    "analysis_id": analysis_id,
+                    "classifier_version": classifier_version,
+                    "class_order": list(LIRADS_CLASSES),
+                    "n_lesions": len(classifications),
+                    "lesions": classifications,
+                },
+                indent=2,
+            ).encode("utf-8"),
+            ContentType="application/json",
+        )
+        print(f"      ✓ classifications JSON → s3://{ANALYSES_BUCKET}/{cls_uri}  +{time.perf_counter()-t_cls:.1f}s")
+    else:
+        print(f"      no lesions to classify → skipping")
+
+    with psycopg.connect(DB_URL, autocommit=True) as conn:
+        if classifications:
+            insert_checkpoint(
+                conn,
+                analysis_id,
+                6,
+                "classification",
+                f"s3://{ANALYSES_BUCKET}/analyses/{analysis_id}/lesion_classifications.json",
+                classifier_version,
+                license_hash="n/a-rule-based",
+            )
+        else:
+            insert_checkpoint(
+                conn,
+                analysis_id,
+                6,
+                "classification",
+                f"s3://liverra-dev/stub/{analysis_id}/classification.json",
+                "skipped-no-lesions",
+                license_hash="n/a",
+            )
 
     # ----------------------------------------------------------------------
     # Stage 7 — FLR (segment-aware: total minus segments removed by the

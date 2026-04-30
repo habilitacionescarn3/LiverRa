@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>LiverRa stage report — fe95882a-5c30-4173-979f-618b10558ed2</title>
+<html><head><meta charset="utf-8"><title>LiverRa stage report — 32604926-ab2e-4058-8148-35f91e850e2b</title>
 <style>
 body{font-family:-apple-system,system-ui,Segoe UI,Helvetica,sans-serif;color:#222;
      max-width:1080px;margin:24px auto;padding:0 16px;line-height:1.45}
@@ -17,20 +17,20 @@ code{background:#f6f6f6;padding:1px 5px;border-radius:3px}
 
 <h1>LiverRa stage report</h1>
 <p class="meta">
-  analysis_id: <code>fe95882a-5c30-4173-979f-618b10558ed2</code> &nbsp;|&nbsp;
+  analysis_id: <code>32604926-ab2e-4058-8148-35f91e850e2b</code> &nbsp;|&nbsp;
   status: <strong>completed</strong> &nbsp;|&nbsp;
-  duration: 115.6 s &nbsp;|&nbsp;
+  duration: 131.4 s &nbsp;|&nbsp;
   pipeline: <code>totalsegmentator-v2</code>
 </p>
 
 <h2>Pipeline checkpoints</h2>
 <table>
   <thead><tr><th>#</th><th>stage</th><th>model_version</th><th>license</th><th>Δ from start</th><th>output_uri</th></tr></thead>
-  <tbody><tr><td>1</td><td>anonymization</td><td><code>ctp+presidio@v1-passthrough</code></td><td><code>n/a</code></td><td>0.01s</td><td><code>s3://liverra-dev/anonymized/00000000-0000-0000-0000-0000000000bb.zip</code></td></tr><tr><td>2</td><td>parenchyma</td><td><code>totalsegmentator-v2</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>56.36s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/fe95882a-5c30-4173-979f-618b10558ed2/parenchyma_mask.nii.gz</code></td></tr><tr><td>3</td><td>vessels</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>109.05s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/fe95882a-5c30-4173-979f-618b10558ed2/vessels.nii.gz</code></td></tr><tr><td>4</td><td>couinaud</td><td><code>couinaud-heuristic-v1</code></td><td><code>n/a-heuristic</code></td><td>112.60s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/fe95882a-5c30-4173-979f-618b10558ed2/couinaud.nii.gz</code></td></tr><tr><td>5</td><td>lesion_detection</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>114.69s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/fe95882a-5c30-4173-979f-618b10558ed2/lesions/</code></td></tr><tr><td>7</td><td>flr_init</td><td><code>flr-segment-aware-right_hepatectomy@v1</code></td><td><code>n/a-heuristic</code></td><td>115.57s</td><td><code>flr://analyses/fe95882a-5c30-4173-979f-618b10558ed2</code></td></tr></tbody>
+  <tbody><tr><td>1</td><td>anonymization</td><td><code>ctp+presidio@v1-passthrough</code></td><td><code>n/a</code></td><td>0.01s</td><td><code>s3://liverra-dev/anonymized/00000000-0000-0000-0000-0000000000bb.zip</code></td></tr><tr><td>2</td><td>parenchyma</td><td><code>totalsegmentator-v2</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>57.24s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/32604926-ab2e-4058-8148-35f91e850e2b/parenchyma_mask.nii.gz</code></td></tr><tr><td>3</td><td>vessels</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>112.45s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/32604926-ab2e-4058-8148-35f91e850e2b/vessels.nii.gz</code></td></tr><tr><td>4</td><td>couinaud</td><td><code>couinaud-heuristic-v1</code></td><td><code>n/a-heuristic</code></td><td>116.24s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/32604926-ab2e-4058-8148-35f91e850e2b/couinaud.nii.gz</code></td></tr><tr><td>5</td><td>lesion_detection</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>118.62s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/32604926-ab2e-4058-8148-35f91e850e2b/lesions/</code></td></tr><tr><td>6</td><td>classification</td><td><code>lirads-rule-classifier-v1</code></td><td><code>n/a-rule-based</code></td><td>130.57s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/32604926-ab2e-4058-8148-35f91e850e2b/lesion_classifications.json</code></td></tr><tr><td>7</td><td>flr_init</td><td><code>flr-segment-aware-right_hepatectomy@v1</code></td><td><code>n/a-heuristic</code></td><td>131.45s</td><td><code>flr://analyses/32604926-ab2e-4058-8148-35f91e850e2b</code></td></tr></tbody>
 </table>
 
 <h2>FLR summary</h2>
-<p><strong>Total liver:</strong> 1828.44 ml &nbsp;<strong>FLR:</strong> 518.48 ml (28.36 %) <span class='warn'>(heuristic — NOT validated)</span></p>
+<p><strong>Total liver:</strong> 1828.45 ml &nbsp;<strong>FLR:</strong> 518.51 ml (28.36 %) <span class='warn'>(heuristic — NOT validated)</span></p>
 
 
         <section>
@@ -42,7 +42,7 @@ code{background:#f6f6f6;padding:1px 5px;border-radius:3px}
         
         <section>
           <h2>Stage 2 — Parenchyma (TotalSegmentator v2)</h2>
-          <p class="meta">Total liver volume: <strong>1828 ml</strong> (3,773,137 voxels). Components: 1 (largest = 100.0% of volume; 0 islands &lt; 5 ml). Bbox z=[356..608].</p>
+          <p class="meta">Total liver volume: <strong>1828 ml</strong> (3,773,175 voxels). Components: 1 (largest = 100.0% of volume; 0 islands &lt; 5 ml). Bbox z=[356..608].</p>
           <img src="stage2_parenchyma.png" alt="stage2_parenchyma" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
           
         </section>
@@ -69,15 +69,15 @@ code{background:#f6f6f6;padding:1px 5px;border-radius:3px}
         </section>
         
         <section>
-          <h2>Stage 6 — Classification — STUB</h2>
-          <p class="meta">No real classifier wired. LiLNet integration is multi-day work (per PHASE_3_GAPS.md).</p>
+          <h2>Stage 6 — Classification (LI-RADS rule-based)</h2>
+          <p class="meta"><strong>1 lesion(s) classified</strong> via lirads-rule-classifier-v1 — top-1 per lesion: #1: <strong>icc</strong> (88%). <span class='warn'>(rule-based, NOT clinically validated)</span></p>
           <img src="stage6_classification.png" alt="stage6_classification" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
           
         </section>
         
         <section>
           <h2>Stage 7 — FLR (segment-aware heuristic)</h2>
-          <p class="meta"><strong>Pattern: right_hepatectomy</strong> &nbsp;|&nbsp; Total 1828 ml &nbsp;|&nbsp; FLR 518 ml (28.4%) &nbsp;|&nbsp; removed: V, VI, VII, VIII &nbsp;|&nbsp; <span class='warn'>(heuristic — NOT validated)</span></p>
+          <p class="meta"><strong>Pattern: right_hepatectomy</strong> &nbsp;|&nbsp; Total 1828 ml &nbsp;|&nbsp; FLR 519 ml (28.4%) &nbsp;|&nbsp; removed: V, VI, VII, VIII &nbsp;|&nbsp; <span class='warn'>(heuristic — NOT validated)</span></p>
           <img src="stage7_flr.png" alt="stage7_flr" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
           
         </section>
@@ -104,5 +104,5 @@ code{background:#f6f6f6;padding:1px 5px;border-radius:3px}
   <li><strong>Pre-op vs post-op compare view</strong> — when we have follow-up scans.</li>
 </ul>
 
-<p class="meta">Generated 2026-04-30T18:50:41+00:00 UTC</p>
+<p class="meta">Generated 2026-04-30T19:06:46+00:00 UTC</p>
 </body></html>
