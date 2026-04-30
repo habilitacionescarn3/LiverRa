@@ -1,10 +1,12 @@
 name: stu-net-lesions
 family: segmentation
 source_url: https://github.com/uni-medical/STU-Net
-pinned_commit_sha: abc1234000000000000000000000000000000000
+pinned_commit_sha: 0000000000000000000000000000000000000000
 license_file: LICENSE
-integration_date: 2026-04-19
+integration_date: 2026-04-30
 approver: Levan Gogichaishvili
 tier: B
 triton_model_name: liverra-stunet-lesions
 triton_version: 1
+weights_sha256: 367c85d0f02713fd21655f2c94569b38f21520c340dc5d4f139eb5ca6ff16c10
+build_mode: stub

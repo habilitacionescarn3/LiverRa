@@ -85,7 +85,14 @@ def _download_phase_volumes(
             channels.append(np.zeros(TARGET_SHAPE, dtype=np.float16))
             continue
         raw = obj["Body"].read()
-        image = sitk.ReadImage(io.BytesIO(raw))  # type: ignore[arg-type]
+        # SimpleITK's ReadImage requires a filesystem path, not BytesIO
+        # (passing BytesIO causes a segfault on libsitk 2.5+). Use a temp
+        # file scoped to this iteration.
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+            tf.write(raw)
+            tf.flush()
+            image = sitk.ReadImage(tf.name)  # type: ignore[arg-type]
         resampled = sitk.Resample(
             image,
             [TARGET_SHAPE[2], TARGET_SHAPE[1], TARGET_SHAPE[0]],
@@ -149,8 +156,9 @@ def _upload_mask(
     key = f"analyses/{analysis_id}/parenchyma_mask.nii.gz"
 
     nii = nib.Nifti1Image(mask.astype(np.uint8), affine=np.eye(4))  # type: ignore[attr-defined]
-    buf = io.BytesIO()
-    nib.save(nii, buf)  # type: ignore[attr-defined]
+    # nibabel's save() no longer accepts BytesIO directly; use the bytes API.
+    raw_bytes = bytes(nii.to_bytes())  # type: ignore[attr-defined]
+    buf = io.BytesIO(raw_bytes)
     buf.seek(0)
     s3_client.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())
     return f"s3://{bucket}/{key}"

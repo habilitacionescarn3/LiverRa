@@ -1,10 +1,12 @@
 name: vista3d-refine
 family: refinement
 source_url: https://github.com/Project-MONAI/VISTA
-pinned_commit_sha: abc1234000000000000000000000000000000000
+pinned_commit_sha: 0000000000000000000000000000000000000000
 license_file: LICENSE
-integration_date: 2026-04-19
+integration_date: 2026-04-30
 approver: Levan Gogichaishvili
 tier: B
 triton_model_name: liverra-vista3d-refine
 triton_version: 1
+weights_sha256: ea3a506936f29ff4dd85209c546d5699908dac75d3bb2b33cd4c5fe6a5809c91
+build_mode: stub

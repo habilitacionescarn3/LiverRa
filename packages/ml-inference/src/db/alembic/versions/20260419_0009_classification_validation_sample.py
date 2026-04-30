@@ -28,7 +28,7 @@ from typing import Sequence, Union
 from alembic import op
 from sqlalchemy import text
 
-revision: str = "0009_classification_validation_sample"
+revision: str = "0009_classify_val_sample"
 down_revision: Union[str, None] = "0008_tenant_calibration"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -50,7 +50,7 @@ def upgrade() -> None:
                         'fnh', 'hemangioma', 'cyst'
                     )),
                 added_at timestamptz NOT NULL DEFAULT now(),
-                added_by uuid REFERENCES app_user(id) ON DELETE SET NULL,
+                added_by uuid REFERENCES "user"(id) ON DELETE SET NULL,
                 analysis_id uuid REFERENCES analysis(id) ON DELETE SET NULL,
                 lesion_id uuid REFERENCES lesion(id) ON DELETE SET NULL
             )

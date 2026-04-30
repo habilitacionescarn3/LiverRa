@@ -122,7 +122,7 @@ async def _persist_flr(
                         total_ml,
                         flr_ml,
                         flr_pct,
-                        created_at
+                        computed_at
                     )
                     VALUES (:aid, CAST(:pose AS jsonb), :total, :flr, :pct, now())
                     ON CONFLICT DO NOTHING

@@ -79,13 +79,41 @@ def create_celery_app() -> "Celery":
         enable_utc=True,
     )
 
-    # Discover tasks defined under both packages.
-    app.autodiscover_tasks(["src.tasks", "src.orchestrator"])
     return app
 
 
 # Module-level singleton — Celery's CLI imports this attribute.
 app = create_celery_app() if Celery is not None else None  # pragma: no branch
+
+
+# Eagerly import task modules so @app.task decorators register on import.
+# Done AFTER `app` is bound to avoid circular imports — the task modules
+# do `from src.workers.app import app`, which only resolves once this
+# module's namespace has `app` defined.
+if app is not None:
+    import importlib as _importlib
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+    for _mod in (
+        "src.tasks.cascade",
+        "src.tasks.anonymization",
+        "src.tasks.parenchyma",
+        "src.tasks.lesion_detection",
+        "src.tasks.couinaud",
+        "src.tasks.vessels",
+        "src.tasks.classification",
+        "src.tasks.flr_default",
+        "src.tasks.finalize_report",
+        "src.tasks.push_to_pacs",
+        "src.tasks.daily_merkle_root",
+        "src.tasks.recalibrate_temperature",
+        "src.orchestrator.cascade",
+    ):
+        try:
+            _importlib.import_module(_mod)
+        except Exception as _exc:  # noqa: BLE001 — best-effort registration
+            _logger.warning("failed to import task module %s: %s", _mod, _exc)
 
 
 __all__ = ["app", "create_celery_app"]

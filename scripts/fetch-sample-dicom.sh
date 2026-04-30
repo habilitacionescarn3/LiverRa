@@ -55,7 +55,10 @@ fi
 echo "[fetch-sample-dicom] picking study ${FIRST_STUDY}"
 
 INSTANCES_JSON="$(curl -sfL "${ROOT}/studies/${FIRST_STUDY}/instances")"
-INSTANCE_IDS=$(echo "$INSTANCES_JSON" | jq -r '.[].ID' | head -n "$MAX_INSTANCES")
+# Slice inside jq instead of piping to head — set -o pipefail catches the
+# SIGPIPE that head triggers when it closes the pipe early, swallowing the
+# whole pipeline silently.
+INSTANCE_IDS=$(echo "$INSTANCES_JSON" | jq -r ".[0:${MAX_INSTANCES}] | .[].ID")
 
 DOWNLOADED=0
 SKIPPED=0

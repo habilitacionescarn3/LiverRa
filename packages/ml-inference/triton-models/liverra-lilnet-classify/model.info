@@ -1,10 +1,12 @@
 name: lilnet-classify
 family: classification
 source_url: https://github.com/yangmeiyi/Liver
-pinned_commit_sha: def5678000000000000000000000000000000000
+pinned_commit_sha: 0000000000000000000000000000000000000000
 license_file: LICENSE
-integration_date: 2026-04-19
+integration_date: 2026-04-30
 approver: Levan Gogichaishvili
 tier: B
 triton_model_name: liverra-lilnet-classify
 triton_version: 1
+weights_sha256: 8bc97b9d5cc07eb99b16643dd8777e426956e096e24659412b8923882b30c249
+build_mode: stub

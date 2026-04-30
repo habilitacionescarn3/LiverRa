@@ -166,7 +166,13 @@ def _download_phase_volumes(
             logger.warning("missing phase %s: %s", phase, exc)
             out.append(np.zeros((1, 1, 1), dtype=np.float32))
             continue
-        img = sitk.ReadImage(io.BytesIO(obj["Body"].read()))  # type: ignore[arg-type]
+        # sitk.ReadImage(BytesIO) segfaults on libsitk 2.5+; use temp file.
+        raw = obj["Body"].read()
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+            tf.write(raw)
+            tf.flush()
+            img = sitk.ReadImage(tf.name)
         out.append(sitk.GetArrayFromImage(img).astype(np.float32))
     return out
 
@@ -458,7 +464,7 @@ def classify_lesion(
 )
 def classify_lesions_fanout(
     self: "Task",
-    lesion_detection_result: dict[str, Any],
+    lesion_detection_result: dict[str, Any] | None = None,
     analysis_id: str | None = None,
     study_id: str | None = None,
     **_kwargs: Any,

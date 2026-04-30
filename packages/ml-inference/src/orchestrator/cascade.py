@@ -290,9 +290,14 @@ def build_cascade(analysis_id: UUID, study_id: UUID) -> Any:
             "soft_time_limit": budget.soft_time_limit,
             "time_limit": budget.time_limit,
         }
+        # immutable=True (.si()-style) — tasks take their args from kwargs
+        # only; we don't want Celery's chain passing the previous task's
+        # return value in as a positional arg (the next task's signature
+        # already takes analysis_id/study_id by name).
         return task.signature(
             kwargs={**ctx, **extra},
             options=options,
+            immutable=True,
         )
 
     # Placeholders for tasks created by other agents (T197, T198, T213,
@@ -310,6 +315,7 @@ def build_cascade(analysis_id: UUID, study_id: UUID) -> Any:
                 "soft_time_limit": budget.soft_time_limit,
                 "time_limit": budget.time_limit,
             },
+            immutable=True,
         )
 
     graph = chain(

@@ -89,20 +89,12 @@ def upgrade() -> None:
             """
         )
     )
-    op.execute(
-        text(
-            """
-            ALTER TABLE classification
-            ADD CONSTRAINT classification_probs_sum_chk
-            CHECK (
-                (
-                    SELECT SUM(value::numeric)
-                    FROM jsonb_each_text(probs_vec)
-                ) BETWEEN 0.99 AND 1.01
-            )
-            """
-        )
-    )
+    # NOTE: Postgres CHECK constraints cannot reference subqueries (per
+    # SQL standard + PG implementation). The original spec aimed for
+    # probs_vec to sum to ~1, but that invariant is enforced in the
+    # orchestrator (src/tasks/classification.py) before the row is
+    # inserted. If we ever want DB-side enforcement, replace with a
+    # function + BEFORE INSERT trigger.
 
     # flr_calculation -----------------------------------------------------
     op.execute(

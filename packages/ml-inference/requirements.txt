@@ -18,6 +18,19 @@
 # tritonclient[all]>=2.50
 
 # ---------------------------------------------------------------------------
+# Model integration (docs/plans/model-integration-roadmap.md, Phase 2)
+# Pinned to match Triton 24.10's internal PyTorch 2.4.1 — version drift here
+# causes silent kernel crashes inside Triton.
+# torch+torchvision are installed first via the cu124 index URL; this file
+# serves as the dependency manifest for everything else.
+# ---------------------------------------------------------------------------
+torch==2.4.1
+torchvision==0.19.1
+monai==1.4.0
+uvicorn[standard]>=0.32
+alembic>=1.13
+
+# ---------------------------------------------------------------------------
 # Declared by T065-T071 (audit chain-of-hashes + PHI scrubber)
 # ---------------------------------------------------------------------------
 sqlalchemy>=2.0
@@ -31,7 +44,10 @@ celery[redis]>=5.4
 # Declared by T155-T166 (Triton client + cascade orchestration + sanity/checkpoint)
 # ---------------------------------------------------------------------------
 tritonclient[grpc,http]>=2.50
-numpy>=2.0
+# Pinned <2.0 because monai==1.4.0 requires numpy<2; MONAI 1.4 is itself
+# pinned by the roadmap to match Triton 24.10's internal PyTorch 2.4.1.
+# Revisit when we move to MONAI 1.5 / PyTorch 2.5+.
+numpy>=1.26,<2.0
 nibabel>=5.3
 SimpleITK>=2.4
 pydantic>=2.9

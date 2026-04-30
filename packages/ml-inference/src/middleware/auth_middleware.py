@@ -138,6 +138,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(p) for p in self._excluded_prefixes):
             return await call_next(request)
 
+        # Local-dev bypass — when LIVERRA_AUTH_BYPASS=true, populate
+        # request.state with a synthetic dev tenant + superuser and skip
+        # JWT validation entirely. Never enable in production.
+        if os.environ.get("LIVERRA_AUTH_BYPASS", "").lower() in {"1", "true", "yes"}:
+            _populate_dev_bypass_state(request)
+            return await call_next(request)
+
         # --- 1. Extract bearer token -----------------------------------
         auth_header = request.headers.get("authorization") or request.headers.get(
             "Authorization"
@@ -209,6 +216,46 @@ class AuthMiddleware(BaseHTTPMiddleware):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+# All permissions defined under @require_permission() across src/api/*.
+# Used by the dev-bypass path to grant a superuser.
+_DEV_BYPASS_PERMISSIONS: tuple[str, ...] = (
+    "admin.approve_deletion", "admin.cecho_pacs", "admin.configure_pacs",
+    "admin.coverage_override", "admin.invite_user", "admin.suspend_user",
+    "admin.view_audit", "analysis.cancel", "analysis.retry", "analysis.view",
+    "compliance.generate_audit_summary", "compliance.spot_check_ruo",
+    "compliance.toggle_claim_registry", "compliance.view_mbom",
+    "erasure.execute", "ops.case_unstick", "ops.queue_view",
+    "report.finalize", "report.pacs_push", "report.pacs_retry",
+    "report.retract", "report.view", "review.acquire_seat",
+    "review.override_classification", "review.refine_mask",
+    "review.reprompt_lesion", "study.upload", "study.view",
+)
+
+# Fixed dev-tenant + dev-user UUIDs so the seed script and the middleware
+# agree without IPC. Both rows are upserted by tools/seed-dev-tenant.py.
+DEV_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
+DEV_COGNITO_SUB = "00000000-0000-0000-0000-0000000000aa"
+
+
+def _populate_dev_bypass_state(request: Request) -> None:
+    request.state.tenant_id = DEV_TENANT_ID
+    request.state.auth_time = datetime.now(timezone.utc)  # always fresh — step-up passes
+    request.state.user = {
+        "id": DEV_COGNITO_SUB,
+        "email": "dev@liverra.local",
+        "cognito_sub": DEV_COGNITO_SUB,
+        "permissions": list(_DEV_BYPASS_PERMISSIONS),
+        "groups": ["liverra-dev"],
+    }
+    request.state.jwt_claims = {
+        "sub": DEV_COGNITO_SUB,
+        "email": "dev@liverra.local",
+        "custom:tenant_id": str(DEV_TENANT_ID),
+        "cognito:groups": ["liverra-dev"],
+        "auth_time": int(datetime.now(timezone.utc).timestamp()),
+    }
+
 
 def _build_validator_from_env() -> JwksValidator:
     """Build a JwksValidator from env vars.

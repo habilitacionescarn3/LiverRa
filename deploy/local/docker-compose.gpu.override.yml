@@ -1,0 +1,41 @@
+# LiverRa — Triton GPU override for the local stack.
+#
+# Used together with deploy/local/docker-compose.yml; the base file ships a
+# CPU-only Triton stub for frontend-only dev. This override adds:
+#   - GPU device claim (NVIDIA Container Toolkit must be installed).
+#   - Explicit model-control mode so Tier-A models are pre-loaded at boot
+#     and Tier-B models lazy-load on first inference call (research §C.1).
+#
+# Usage:
+#   docker compose \
+#     -f deploy/local/docker-compose.yml \
+#     -f deploy/local/docker-compose.gpu.override.yml \
+#     up -d triton
+#
+# Tier-A (always-loaded): parenchyma, lesions, couinaud-segments.
+# Tier-B (lazy-loaded):   lilnet-classify, vista3d-refine, medsam2-track.
+#
+# Note on model names: the --load-model flag here uses the directory names
+# under packages/ml-inference/triton-models/ (stunet-parenchyma etc.), not
+# the prefixed name declared inside each config.pbtxt's `name:` field
+# (liverra-stunet-parenchyma). Triton routes client requests by the pbtxt
+# name; --load-model uses the on-disk directory.
+
+services:
+  triton:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      tritonserver
+      --model-repository=/models
+      --model-control-mode=explicit
+      --load-model=liverra-stunet-parenchyma
+      --load-model=liverra-stunet-lesions
+      --load-model=liverra-couinaud-segments
+      --disable-auto-complete-config
+      --log-verbose=0

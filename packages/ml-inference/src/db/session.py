@@ -53,25 +53,50 @@ def _database_url() -> str:
     return url
 
 
-@lru_cache(maxsize=1)
+# Loop-keyed engine cache. Each running event loop gets its own engine
+# because asyncpg connections are pinned to the loop they were created in;
+# Celery workers run a fresh ``asyncio.run`` per task, so a singleton
+# engine across loops produces "Future attached to a different loop" errors.
+_ENGINES: dict[int, AsyncEngine] = {}
+_SESSIONMAKERS: dict[int, async_sessionmaker[AsyncSession]] = {}
+
+
+def _loop_key() -> int:
+    import asyncio
+    try:
+        return id(asyncio.get_running_loop())
+    except RuntimeError:
+        # Outside any loop (e.g. import time). Use a sentinel.
+        return 0
+
+
 def get_engine() -> AsyncEngine:
-    """Return the process-wide async engine (created on first call)."""
-    return create_async_engine(
-        _database_url(),
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
-        future=True,
-    )
+    """Return the engine bound to the current event loop (created lazily)."""
+    key = _loop_key()
+    eng = _ENGINES.get(key)
+    if eng is None:
+        eng = create_async_engine(
+            _database_url(),
+            pool_pre_ping=True,
+            pool_size=10,
+            max_overflow=20,
+            future=True,
+        )
+        _ENGINES[key] = eng
+    return eng
 
 
-@lru_cache(maxsize=1)
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(
-        bind=get_engine(),
-        expire_on_commit=False,
-        class_=AsyncSession,
-    )
+    key = _loop_key()
+    sm = _SESSIONMAKERS.get(key)
+    if sm is None:
+        sm = async_sessionmaker(
+            bind=get_engine(),
+            expire_on_commit=False,
+            class_=AsyncSession,
+        )
+        _SESSIONMAKERS[key] = sm
+    return sm
 
 
 # ---------------------------------------------------------------------------

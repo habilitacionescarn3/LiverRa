@@ -1,0 +1,62 @@
+{"build_sha":"79783595681543b483f5725fabd5f38bb29f5d69","generated_at":"2026-04-30T15:32:14Z","models":[{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "pictorial-couinaud",
+  "model_family": "segmentation",
+  "source_url": "https://github.com/xukun-zhang/Couinaud-Segmentation",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "d1bfa5a1f7b4f818165e0745bc47156fbb47dbba8248ce395c7872f312911e55",
+  "license_name": "MIT License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+},{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "lilnet-classify",
+  "model_family": "classification",
+  "source_url": "https://github.com/yangmeiyi/Liver",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "bd884056106d72ae5286b7df492ab4d0681a91f012d54f2cec993605ef2f5cf6",
+  "license_name": "MIT License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+},{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "medsam2-track",
+  "model_family": "tracking",
+  "source_url": "https://github.com/MedicineToken/Medical-SAM2",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "license_name": "                                 Apache License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+},{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "stu-net-lesions",
+  "model_family": "segmentation",
+  "source_url": "https://github.com/uni-medical/STU-Net",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "license_name": "                                 Apache License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+},{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "stu-net-parenchyma",
+  "model_family": "segmentation",
+  "source_url": "https://github.com/uni-medical/STU-Net",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "license_name": "                                 Apache License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+},{
+  "build_sha": "79783595681543b483f5725fabd5f38bb29f5d69",
+  "model_name": "vista3d-refine",
+  "model_family": "refinement",
+  "source_url": "https://github.com/Project-MONAI/VISTA",
+  "pinned_commit_sha": "0000000000000000000000000000000000000000",
+  "license_text_hash": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "license_name": "                                 Apache License",
+  "integration_date": "2026-04-30",
+  "approver": "Levan Gogichaishvili"
+}],"python_deps":[]
+}

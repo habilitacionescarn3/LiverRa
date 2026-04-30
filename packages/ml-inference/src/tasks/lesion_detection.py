@@ -88,7 +88,14 @@ def _download_nii(s3_client: Any, bucket: str, key: str) -> Any | None:
     except Exception as exc:
         logger.warning("S3 get_object failed key=%s: %s", key, exc)
         return None
-    return sitk.ReadImage(io.BytesIO(obj["Body"].read()))  # type: ignore[arg-type]
+    # Same fix as parenchyma: SimpleITK 2.5+ segfaults on BytesIO; use a
+    # short-lived temp file scoped to this read.
+    raw = obj["Body"].read()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        return sitk.ReadImage(tf.name)  # type: ignore[arg-type]
 
 
 def _parenchyma_bbox(mask: np.ndarray) -> tuple[slice, slice, slice]:
@@ -246,10 +253,9 @@ def _upload_lesion_mask(
     )
     key = f"analyses/{analysis_id}/lesions/{lesion_id}.nii.gz"
     nii = nib.Nifti1Image(mask.astype(np.uint8), affine=np.eye(4))  # type: ignore[attr-defined]
-    buf = io.BytesIO()
-    nib.save(nii, buf)  # type: ignore[attr-defined]
-    buf.seek(0)
-    s3_client.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())
+    # nibabel.save() no longer accepts BytesIO; serialize via to_bytes().
+    raw_bytes = bytes(nii.to_bytes())  # type: ignore[attr-defined]
+    s3_client.put_object(Bucket=bucket, Key=key, Body=raw_bytes)
     return f"s3://{bucket}/{key}"
 
 
