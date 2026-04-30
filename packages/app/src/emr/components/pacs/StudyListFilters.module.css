@@ -1,0 +1,31 @@
+/* StudyListFilters — Compact filter bar above study list */
+
+.filterBar {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  transition: border-color 0.2s ease;
+}
+
+.filterBar:focus-within {
+  border-color: var(--emr-accent);
+}
+
+.clearButton {
+  flex: 0 0 auto;
+  min-width: auto;
+}
+
+.noResults {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-sm);
+}

@@ -1,0 +1,183 @@
+/* UnmatchedStudiesQueue — Admin queue for unmatched imaging studies */
+
+.container {
+  padding: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.countBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--emr-warning);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.warningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--emr-error);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.refreshGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refreshDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emr-success);
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.refreshIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+}
+
+.timeInQueue {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+}
+
+.timeInQueueWarning {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-error);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+}
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--emr-accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--emr-accent);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.linkButton:hover {
+  background: var(--emr-accent);
+  color: var(--emr-text-inverse);
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modalityChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--emr-bg-hover);
+  margin-bottom: 12px;
+}
+
+/* Mobile Card */
+.mobileCard {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.mobileCard:last-child {
+  margin-bottom: 0;
+}
+
+/* Patient search result row — clickable with hover feedback */
+.patientResultRow {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--emr-border-color);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.patientResultRow:hover {
+  background: var(--emr-bg-hover);
+}

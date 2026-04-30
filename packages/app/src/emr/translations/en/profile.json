@@ -1,0 +1,93 @@
+{
+  "page": {
+    "title": "Profile",
+    "subtitle": "Manage your account, preferences, and security."
+  },
+  "header": {
+    "editProfile": "Edit profile",
+    "emailUnavailable": "Email unavailable",
+    "roleUnassigned": "No role assigned"
+  },
+  "sections": {
+    "account": "Account",
+    "preferences": "Preferences",
+    "security": "Security",
+    "compliance": "Compliance"
+  },
+  "fields": {
+    "email": "Email",
+    "emailReadonly": "Contact an admin to change your email.",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "How your name appears in audit logs and reports",
+    "displayNameHelper": "Visible to your team on cases, audit events, and reports.",
+    "role": "Role",
+    "locale": "Language",
+    "theme": "Theme",
+    "mfaStatus": "Multi-factor authentication",
+    "ruoAccepted": "RUO terms accepted",
+    "lastActive": "Last active",
+    "lastActiveNever": "Never",
+    "lastActiveFirstSession": "Welcome! This is your first session."
+  },
+  "locale": {
+    "en": "English",
+    "de": "Deutsch",
+    "ka": "ქართული",
+    "ru": "Русский"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "role": {
+    "hpb_surgeon": "HPB surgeon",
+    "radiologist": "Radiologist",
+    "fellow": "Fellow",
+    "admin": "Administrator",
+    "operations": "Operations",
+    "compliance": "Compliance reviewer",
+    "dpo": "Data protection officer"
+  },
+  "mfa": {
+    "enrolled": "Enrolled",
+    "notEnrolled": "Not enrolled",
+    "enrolledAt": "Enrolled on {{date}}",
+    "reset": "Reset MFA",
+    "resetBody": "For security, MFA reset is performed by an administrator. Click below to send a reset request; an admin will contact you within one business day.",
+    "resetCta": "Request MFA reset",
+    "resetSent": "Reset request sent. An admin will contact you.",
+    "resetAdmin": "Admin contact: {{admin}}"
+  },
+  "password": {
+    "title": "Password",
+    "description": "Self-serve password changes are coming soon. For now, contact your administrator."
+  },
+  "sessions": {
+    "title": "Active sessions",
+    "description": "Review devices currently signed in to your LiverRa account."
+  },
+  "comingSoon": "Coming soon",
+  "ruo": {
+    "acceptedAt": "Accepted on {{date}}",
+    "neverAccepted": "Not yet accepted — complete onboarding to accept.",
+    "reAccept": "Re-accept RUO terms",
+    "reAcceptBody": "If your organisation requires periodic re-acceptance, you can record a fresh signature here. This action requires step-up MFA.",
+    "reAcceptCta": "Re-accept now",
+    "reAccepted": "RUO terms re-accepted.",
+    "footerPill": "Research Use Only — outputs are not for clinical decision-making."
+  },
+  "actions": {
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "saving": "Saving…"
+  },
+  "toast": {
+    "saved": "Profile updated.",
+    "saveError": "Could not save — please retry."
+  },
+  "errors": {
+    "displayNameRequired": "Display name is required.",
+    "displayNameTooLong": "Display name must be 80 characters or fewer."
+  }
+}

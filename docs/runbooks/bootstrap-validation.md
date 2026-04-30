@@ -69,7 +69,7 @@ Expected services: `postgres`, `redis`, `medplum`, `orthanc`,
 `minio`, `triton` (or `mock-inference` on CPU), `frontend`.
 
 **Evidence:** `docker-compose-ps.txt`, `health-probes.json`.
-**Failure modes:** port conflicts (3000, 5432, 8042, 8888); fix by
+**Failure modes:** port conflicts (5173, 5432, 8042, 8888); fix by
 editing `.env` overrides.
 
 ### Step 4 — Database migrations + seeds
@@ -83,11 +83,11 @@ editing `.env` overrides.
 ### Step 5 — Frontend dev server
 
 - [ ] `npm run dev` (from repo root, Turbo orchestration) starts Vite
-  on port 3000
-- [ ] `curl http://localhost:3000/` returns HTTP 200 with HTML
+  on port 5173
+- [ ] `curl http://localhost:5173/` returns HTTP 200 with HTML
 - [ ] Browser loads app shell with RUO disclaimer visible
 
-**Evidence:** `vite-dev-log.txt`, `localhost-3000.png`.
+**Evidence:** `vite-dev-log.txt`, `localhost-5173.png`.
 
 ### Step 6 — Authenticated login + tenant selection
 

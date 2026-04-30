@@ -73,6 +73,9 @@ const ErasureWizardView = lazy(() => import('./emr/views/erasure/ErasureWizardVi
 const HelpIndexView = lazy(() => import('./emr/views/help/HelpIndexView'));
 const GlossaryView = lazy(() => import('./emr/views/help/GlossaryView'));
 
+const PacsStudiesView = lazy(() => import('./emr/views/pacs/PacsStudiesView'));
+const PacsStudyViewerView = lazy(() => import('./emr/views/pacs/PacsStudyViewerView'));
+
 // -----------------------------------------------------------------------------
 // Helpers — keep the router tree compact + readable.
 // -----------------------------------------------------------------------------
@@ -309,6 +312,30 @@ export const appRouter = createBrowserRouter([
           </Guarded>
         ),
         handle: { breadcrumb: () => 'New erasure request' },
+      },
+
+      // PACS (direct Orthanc browsing, parallel to /cases/*) ---------------
+      {
+        path: LIVERRA_ROUTES.PACS_STUDIES,
+        element: (
+          <Guarded requires={['study.view']}>
+            <Lazy>
+              <PacsStudiesView />
+            </Lazy>
+          </Guarded>
+        ),
+        handle: { breadcrumb: () => 'PACS studies' },
+      },
+      {
+        path: LIVERRA_ROUTES.PACS_STUDY_DETAIL,
+        element: (
+          <Guarded requires={['study.view']}>
+            <Lazy>
+              <PacsStudyViewerView />
+            </Lazy>
+          </Guarded>
+        ),
+        handle: { breadcrumb: () => 'PACS viewer' },
       },
 
       // Help / settings / demo ----------------------------------------------

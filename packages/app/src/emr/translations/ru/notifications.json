@@ -1,0 +1,15 @@
+{
+  "__comment__": "Russian notification copy — awaiting CODEOWNERS review. Missing keys fall back to English.",
+  "prefs": {
+    "page": {
+      "title": "__TODO_TRANSLATE__:Notification preferences",
+      "subtitle": "__TODO_TRANSLATE__:Choose which events send an email."
+    },
+    "groups": {
+      "clinical":    { "title": "__TODO_TRANSLATE__:Clinical events" },
+      "operational": { "title": "__TODO_TRANSLATE__:Operational events" },
+      "security":    { "title": "__TODO_TRANSLATE__:Security & compliance" }
+    },
+    "phiLocked": { "badge": "__TODO_TRANSLATE__:Required" }
+  }
+}

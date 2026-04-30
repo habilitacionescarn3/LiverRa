@@ -1,5 +1,6 @@
 {
   "tools": {
+    "ariaLabel": "Refinement tools",
     "heading": "Refine",
     "addMask": "Add Mask",
     "subtractMask": "Subtract Mask",
@@ -63,5 +64,32 @@
     "veinTrunks": "Vein trunks",
     "lesions": "Lesions",
     "keyHint": "Press {{key}} to cycle layer combos"
+  },
+  "view": {
+    "title": "Refine",
+    "subtitle": "Case {{caseRef}}",
+    "back": "Back to case",
+    "acquiring": "Acquiring review seat…",
+    "seatHeldBy": "Seat held by {{holder}}",
+    "seatTakenTitle": "Seat in use",
+    "seatTakenBody": "Another reviewer is editing this case. Try again shortly.",
+    "retryAcquire": "Retry",
+    "missingId": "Missing case identifier.",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoEmpty": "No edits to undo",
+    "editCount": "{{count}} edit",
+    "editCountPlural": "{{count}} edits",
+    "lastEdit": "Last edit: {{label}}",
+    "keyboardHint": "Keyboard shortcuts",
+    "keyboardHintShort": "Shortcuts",
+    "keyboardList": "V add · B subtract · L lesion · Ctrl+Z undo · Ctrl+Y redo · Esc clear",
+    "offlineBanner": "You are offline. Changes are queued and will sync on reconnect.",
+    "seatLostTitle": "Review seat lost",
+    "seatLostBody": "Your editing window expired. Reacquire the seat to continue.",
+    "dispatchError": "Could not save edit: {{message}}",
+    "permissionDeniedTooltip": "You do not have permission to refine masks.",
+    "toolsHeading": "Tools",
+    "overlayFlash": "Edit registered"
   }
 }

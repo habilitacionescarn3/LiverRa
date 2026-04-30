@@ -79,6 +79,7 @@
   },
   "viewer": {
     "ariaLabel": "LiverRa 3D viewer",
+    "loading": "Loading viewer…",
     "statusReady": "Ready",
     "statusLoading": "Loading volume…",
     "statusNotReady": "Analysis not ready",

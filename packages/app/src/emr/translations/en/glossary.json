@@ -1,4 +1,20 @@
 {
+  "page": {
+    "title": "Clinical glossary",
+    "subtitle": "Terminology used across LiverRa: Couinaud anatomy, vessels, lesion classes, and abbreviations.",
+    "searchPlaceholder": "Search terms, Latin names, or abbreviations…",
+    "clearFilter": "Clear filter",
+    "noMatches": "No terms match your search.",
+    "resultsCount": "{{count}} of {{total}} terms"
+  },
+  "categories": {
+    "all": "All",
+    "couinaud": "Couinaud segments",
+    "vessels": "Vessels",
+    "lesions": "Lesion classes",
+    "phases": "Contrast phases",
+    "abbreviations": "Abbreviations"
+  },
   "couinaud": {
     "I":    { "name": "Segment I",    "latin": "Lobus caudatus",                                     "role": "Caudate lobe" },
     "II":   { "name": "Segment II",   "latin": "Segmentum II (lobus hepatis sinister, laterale superius)",   "role": "Left lateral superior" },
@@ -12,5 +28,30 @@
   "vessels": {
     "portal":  { "name": "Portal vein",  "latin": "Vena portae hepatis", "role": "Afferent venous trunk — inflow from gut + spleen" },
     "hepatic": { "name": "Hepatic vein", "latin": "Venae hepaticae",     "role": "Efferent venous trunk — outflow to inferior vena cava" }
+  },
+  "lesions": {
+    "hcc":        { "name": "Hepatocellular carcinoma",  "abbr": "HCC", "role": "Primary liver malignancy arising from hepatocytes; typically cirrhotic background." },
+    "icc":        { "name": "Intrahepatic cholangiocarcinoma", "abbr": "ICC", "role": "Primary biliary-tract malignancy arising from intrahepatic bile ducts." },
+    "metastasis": { "name": "Metastasis", "abbr": "MET", "role": "Secondary malignancy — commonly colorectal, pancreatic, breast, or neuroendocrine primaries." },
+    "fnh":        { "name": "Focal nodular hyperplasia", "abbr": "FNH", "role": "Benign hyperplastic lesion; central scar characteristic on MRI." },
+    "hemangioma": { "name": "Hemangioma", "abbr": "HEM", "role": "Benign vascular lesion; peripheral nodular enhancement typical." },
+    "cyst":       { "name": "Simple cyst", "abbr": "CYST", "role": "Benign fluid-filled lesion; no enhancement expected." }
+  },
+  "phases": {
+    "native":   { "name": "Non-contrast (native)", "role": "Baseline CT acquired before contrast injection." },
+    "arterial": { "name": "Late arterial",         "role": "~30s post-injection; hepatic artery enhancement — HCC and FNH conspicuous." },
+    "portal":   { "name": "Portal venous",         "role": "~65–75s; liver parenchyma maximally enhanced — metastases conspicuous." },
+    "venous":   { "name": "Hepatic venous",        "role": "~3min; equilibrium phase — tumor washout detectable." },
+    "delayed":  { "name": "Delayed",               "role": "~5–10min; fibrous components retain contrast." }
+  },
+  "abbreviations": {
+    "flr":       { "name": "Future Liver Remnant", "abbr": "FLR", "role": "Post-resection liver volume expressed as % of total liver volume. Target ≥30–40% in healthy liver, higher with impairment." },
+    "alpps":     { "name": "Associating Liver Partition and Portal vein ligation for Staged hepatectomy", "abbr": "ALPPS", "role": "Two-stage hepatectomy technique that accelerates FLR hypertrophy." },
+    "ruo":       { "name": "Research Use Only", "abbr": "RUO", "role": "Regulatory scope — output is not cleared for clinical decision-making." },
+    "mrn":       { "name": "Medical Record Number", "abbr": "MRN", "role": "Hospital-assigned patient identifier." },
+    "sop_uid":   { "name": "SOP Instance UID", "abbr": "SOP UID", "role": "DICOM unique identifier per object — regenerated on every finalize." },
+    "dicom_seg": { "name": "DICOM Segmentation", "abbr": "SEG", "role": "Standard DICOM IOD for 3D mask export." },
+    "dicom_sr":  { "name": "DICOM Structured Report", "abbr": "SR", "role": "Standard DICOM IOD for structured clinical findings." },
+    "pacs":      { "name": "Picture Archiving and Communication System", "abbr": "PACS", "role": "Hospital image storage + routing system; DICOM-native." }
   }
 }

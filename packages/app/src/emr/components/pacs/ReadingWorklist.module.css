@@ -1,0 +1,685 @@
+/* ReadingWorklist — radiologist reading queue table */
+/* Utilitarian precision: every element is purposeful, clinical, authoritative */
+
+/* ================================================================ */
+/* Page Header                                                       */
+/* ================================================================ */
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+
+.titleGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.titleIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  flex-shrink: 0;
+}
+
+.titleText {
+  font-size: var(--emr-font-xl);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: -0.3px;
+}
+
+.titleCount {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.refreshButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 8px;
+  border: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.refreshButton:hover {
+  background: var(--emr-bg-hover);
+  color: var(--emr-accent);
+  border-color: var(--emr-accent);
+}
+
+/* ================================================================ */
+/* Priority Badges                                                    */
+/* ================================================================ */
+
+.priorityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  transition: all 0.15s ease;
+}
+
+.priorityStat {
+  background: var(--emr-error-alpha-12);
+  color: var(--emr-error);
+  border: 1px solid var(--emr-error-alpha-25);
+  box-shadow: 0 0 8px var(--emr-error-alpha-10);
+}
+
+.priorityUrgent {
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+  border: 1px solid var(--emr-warning-alpha-20);
+}
+
+.priorityRoutine {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-secondary);
+  border: 1px solid var(--emr-border-color);
+}
+
+/* Priority dot indicator for compact display */
+.priorityDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.priorityDotStat {
+  background: var(--emr-error);
+  box-shadow: 0 0 4px var(--emr-error-alpha-40);
+}
+
+.priorityDotUrgent {
+  background: var(--emr-warning);
+}
+
+.priorityDotRoutine {
+  background: var(--emr-text-secondary);
+  opacity: 0.4;
+}
+
+/* ================================================================ */
+/* Stats Bar                                                         */
+/* ================================================================ */
+
+.statsBar {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  min-width: 130px;
+  flex: 1;
+  transition: all 0.2s ease;
+}
+
+.statCard:hover {
+  border-color: var(--emr-accent-alpha-30);
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.statCardIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.statCardIconPending {
+  background: var(--emr-secondary-alpha-10);
+  color: var(--emr-secondary);
+}
+
+.statCardIconTAT {
+  background: var(--emr-accent-alpha-10);
+  color: var(--emr-accent);
+}
+
+.statCardIconOverdue {
+  background: var(--emr-error-alpha-12);
+  color: var(--emr-error);
+}
+
+.statCardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.statCardValue {
+  font-size: var(--emr-font-xl);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-text-primary);
+  line-height: 1.2;
+}
+
+.statCardLabel {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Alert variant for overdue stat */
+.statCardAlert {
+  border-color: var(--emr-error-alpha-20);
+  background: var(--emr-error-alpha-05);
+}
+
+.statCardAlert:hover {
+  border-color: var(--emr-error-alpha-30);
+}
+
+.statCardAlert .statCardValue {
+  color: var(--emr-error);
+}
+
+/* ================================================================ */
+/* Search & Filter Bar                                               */
+/* ================================================================ */
+
+.searchFilterBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+  flex-wrap: wrap;
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.quickFilterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  color: var(--emr-text-secondary);
+  transition: all 0.15s ease;
+  min-height: 28px;
+}
+
+.quickFilterChip:hover {
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+}
+
+.quickFilterChipActive {
+  background: var(--emr-error-alpha-12);
+  border-color: var(--emr-error-alpha-30);
+  color: var(--emr-error);
+}
+
+.quickFilterChipOverdue {
+  background: var(--emr-warning-alpha-12);
+  border-color: var(--emr-warning-alpha-30);
+  color: var(--emr-warning);
+}
+
+.clearFiltersLink {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.clearFiltersLink:hover {
+  color: var(--emr-accent);
+  background: var(--emr-accent-alpha-08);
+}
+
+/* ================================================================ */
+/* Overdue Indicator                                                  */
+/* ================================================================ */
+
+.overdueIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--emr-error);
+  font-weight: var(--emr-font-semibold);
+  font-size: var(--emr-font-sm);
+}
+
+.overdueDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emr-error);
+  animation: pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--emr-error-alpha-40);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* ================================================================ */
+/* Wait Time Display                                                  */
+/* ================================================================ */
+
+.waitTimeNormal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-sm);
+}
+
+.slaDot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* SLA progress bar (mini horizontal bar under wait time) */
+.slaBar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 60px;
+}
+
+.slaBarTrack {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--emr-border-color);
+  overflow: hidden;
+}
+
+.slaBarFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* ================================================================ */
+/* Auto-Refresh Indicator                                             */
+/* ================================================================ */
+
+.refreshIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--emr-bg-hover);
+}
+
+.refreshDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emr-success);
+  flex-shrink: 0;
+  animation: refreshPulse 3s ease-in-out infinite;
+}
+
+@keyframes refreshPulse {
+  0%, 80%, 100% { opacity: 1; }
+  40% { opacity: 0.3; }
+}
+
+/* ================================================================ */
+/* Overdue Count Badge (in header)                                    */
+/* ================================================================ */
+
+.overdueBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: var(--emr-error);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--emr-error-alpha-30);
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 2px 6px var(--emr-error-alpha-30); }
+  50% { box-shadow: 0 2px 12px var(--emr-error-alpha-50); }
+}
+
+/* ================================================================ */
+/* Empty State                                                        */
+/* ================================================================ */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: var(--emr-bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  border: 1px solid var(--emr-border-color);
+}
+
+.completeIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: var(--emr-success-alpha-10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  border: 1px solid var(--emr-success-alpha-20);
+}
+
+/* ================================================================ */
+/* Modality Chips                                                     */
+/* ================================================================ */
+
+.modalityChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+/* Per-modality colors -- makes scan types instantly recognizable */
+.modalityCT {
+  background: var(--emr-secondary-alpha-15);
+  color: var(--emr-secondary);
+  border: 1px solid var(--emr-secondary-alpha-20);
+}
+
+.modalityMR {
+  background: var(--emr-accent-alpha-15);
+  color: var(--emr-accent);
+  border: 1px solid var(--emr-accent-alpha-20);
+}
+
+.modalityXR {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+  border: 1px solid var(--emr-success-alpha-20);
+}
+
+.modalityUS {
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+  border: 1px solid var(--emr-warning-alpha-20);
+}
+
+.modalityMG {
+  background: var(--emr-primary-alpha-12);
+  color: var(--emr-primary);
+  border: 1px solid var(--emr-primary-alpha-20);
+}
+
+.modalityNM {
+  background: var(--emr-info-alpha-10);
+  color: var(--emr-info);
+  border: 1px solid var(--emr-info-alpha-15);
+}
+
+/* Default for unknown modalities */
+.modalityDefault {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+}
+
+/* ================================================================ */
+/* Mobile Card                                                        */
+/* ================================================================ */
+
+.mobileCard {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mobileCard:hover {
+  border-color: var(--emr-accent);
+  box-shadow: var(--emr-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.mobileCard:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+.mobileCard:active {
+  transform: translateY(0);
+}
+
+/* STAT card gets a red left border */
+.mobileCardStat {
+  border-left: 3px solid var(--emr-error);
+  background: var(--emr-error-alpha-05);
+}
+
+/* Urgent card gets an orange left border */
+.mobileCardUrgent {
+  border-left: 3px solid var(--emr-warning);
+}
+
+/* ================================================================ */
+/* Auto-advance Footer                                                */
+/* ================================================================ */
+
+.footerBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+  flex-wrap: wrap;
+}
+
+.footerHint {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kbdHint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-secondary);
+  font-family: monospace;
+}
+
+/* Stats badge (legacy, kept for fallback) */
+.statBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  background: var(--emr-bg-hover);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.statBadgeAlert {
+  color: var(--emr-error);
+  background: var(--emr-error-alpha-12);
+}
+
+/* ================================================================ */
+/* Responsive                                                         */
+/* ================================================================ */
+
+@media (max-width: 768px) {
+  .statsBar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .statCard {
+    min-width: 0;
+  }
+
+  .searchFilterBar {
+    padding: 8px 10px;
+  }
+
+  .pageHeader {
+    gap: 8px;
+  }
+
+  .titleIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .titleText {
+    font-size: var(--emr-font-lg);
+  }
+
+  .footerBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 576px) {
+  .statsBar {
+    gap: 6px;
+  }
+
+  .statCard {
+    padding: 8px 12px;
+  }
+
+  .statCardIcon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+  }
+}

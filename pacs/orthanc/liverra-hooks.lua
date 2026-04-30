@@ -18,7 +18,11 @@
 -- Only the SOP Instance UID, SOP Class UID, and Study Instance UID appear
 -- in logs — these are DICOM infrastructure identifiers, not PHI.
 
-local SIDECAR_URL = 'http://localhost:7070/orthanc-webhook'
+-- Sidecar URL is read from env. Leaving LIVERRA_ANON_SIDECAR_URL unset (or
+-- empty) disables the webhook entirely and accepts every instance — intended
+-- for local dev where there is no sidecar. Production MUST set this so the
+-- fail-closed path in FR-002 engages.
+local SIDECAR_URL = os.getenv('LIVERRA_ANON_SIDECAR_URL') or ''
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -61,6 +65,14 @@ end
 -- /instances. Returning `false` rejects the instance.
 
 function ReceivedInstanceFilter(instance)
+  if SIDECAR_URL == '' then
+    print(string.format(
+      '[liverra-hooks] sidecar disabled (LIVERRA_ANON_SIDECAR_URL unset); allowing %s',
+      safeInstanceId(instance)
+    ))
+    return true
+  end
+
   local ok, payload = pcall(function()
     return DumpJson(buildMetadata(instance), true)
   end)

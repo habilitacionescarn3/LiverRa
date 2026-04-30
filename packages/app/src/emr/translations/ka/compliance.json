@@ -98,6 +98,8 @@
       "ruo": "მხოლოდ კვლევითი გამოყენება",
       "under_conformity_assessment": "შესაბამისობის შეფასებაში",
       "cleared": "დაშვებული"
-    }
+    },
+    "emptyTitle": "No claims yet",
+    "emptyDescription": "No regulatory claims have been configured for this tenant."
   }
 }

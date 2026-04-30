@@ -8,7 +8,8 @@
     "addLesion": "დაზიანების დამატება",
     "shortcutHint": "B ფუნჯი  E რეზინი  P მონიშვნა  M მარკერი",
     "acquireSeatTooltip": "დასარედაქტირებლად მიიღეთ რედაქტირების უფლება",
-    "readOnlyTooltip": "მხოლოდ-წაკითხვის ხედი — საქმეს ამჟამად ამოწმებს სხვა მომხმარებელი"
+    "readOnlyTooltip": "მხოლოდ-წაკითხვის ხედი — საქმეს ამჟამად ამოწმებს სხვა მომხმარებელი",
+    "ariaLabel": "Refinement tools"
   },
   "classification": {
     "title": "AI კლასიფიკაციის გადაწერა",
@@ -64,5 +65,32 @@
     "veinTrunks": "Vein trunks",
     "lesions": "Lesions",
     "keyHint": "Press {{key}} to cycle layer combos"
+  },
+  "view": {
+    "title": "დახვეწა",
+    "subtitle": "საქმე {{caseRef}}",
+    "back": "საქმეში დაბრუნება",
+    "acquiring": "რედაქტირების უფლებამოსილების მიღება…",
+    "seatHeldBy": "უფლება უკავია {{holder}}-ს",
+    "seatTakenTitle": "რედაქტირების უფლება დაკავებულია",
+    "seatTakenBody": "ამ საქმეს სხვა მომხმარებელი ამუშავებს. სცადეთ ცოტა ხანში.",
+    "retryAcquire": "ხელახლა ცდა",
+    "missingId": "საქმის იდენტიფიკატორი აკლია.",
+    "undo": "გაუქმება",
+    "redo": "დაბრუნება",
+    "undoEmpty": "გასაუქმებელი ცვლილება არ არის",
+    "editCount": "{{count}} ცვლილება",
+    "editCountPlural": "{{count}} ცვლილება",
+    "lastEdit": "ბოლო ცვლილება: {{label}}",
+    "keyboardHint": "კლავიატურის მალსახმობები",
+    "keyboardHintShort": "მალსახმობები",
+    "keyboardList": "V დამატება · B მოცილება · L დაზიანება · Ctrl+Z უკან · Ctrl+Y წინ · Esc გასუფთავება",
+    "offlineBanner": "ოფლაინ ხართ. ცვლილებები შეინახება და სინქრონიზდება ქსელის აღდგენისას.",
+    "seatLostTitle": "რედაქტირების უფლება დაიკარგა",
+    "seatLostBody": "თქვენი რედაქტირების ფანჯარა ამოიწურა. გთხოვთ, ხელახლა მიიღოთ.",
+    "dispatchError": "ცვლილების შენახვა ვერ მოხერხდა: {{message}}",
+    "permissionDeniedTooltip": "ნიღბების რედაქტირების უფლება არ გაქვთ.",
+    "toolsHeading": "ხელსაწყოები",
+    "overlayFlash": "ცვლილება დაფიქსირდა"
   }
 }

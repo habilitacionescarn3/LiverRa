@@ -16,5 +16,54 @@
   "ruo": {
     "notice": "Research Use Only — not for clinical use"
   },
-  "placeholder": "TODO: translation pending"
+  "placeholder": "TODO: translation pending",
+  "back": "Back",
+  "cancel": "Cancel",
+  "close": "Close",
+  "confirm": "Confirm",
+  "continue": "Continue",
+  "error": "Error",
+  "genericError": "Something went wrong. Please try again.",
+  "loading": "Loading…",
+  "next": "Next",
+  "refresh": "Refresh",
+  "retry": "Retry",
+  "save": "Save",
+  "skip": "Skip",
+  "submitting": "Submitting…",
+  "delete": "Delete",
+  "ok": "OK",
+  "or": "or",
+  "tryAgain": "Try again",
+  "clearInput": "Clear input",
+  "fileInput": "File input",
+  "formError": "Form error",
+  "formErrorMessage": "Please fix the errors and try again.",
+  "invalidTime": "Invalid time",
+  "noOptionsFound": "No options found",
+  "permission": {
+    "accessDenied": "You don't have permission to do this."
+  },
+  "recordLock": {
+    "locked": "This record is locked by another user.",
+    "lockedWithOverride": "This record is locked by another user. You may request an override.",
+    "override": "Override lock",
+    "timeRemaining": "Lock expires in {{hours}}h {{minutes}}m"
+  },
+  "sensitiveData": {
+    "restricted": "Restricted",
+    "restrictedMessage": "Sensitive data is hidden. Contact your administrator if access is required."
+  },
+  "sessionRecovery": {
+    "discard": "Discard",
+    "resume": "Resume",
+    "title": "Resume your session?",
+    "unsavedWork": "We found unsaved work from your previous session."
+  },
+  "stepUp": {
+    "actionLabel": "Re-authenticate",
+    "explanation": "This action requires a fresh authentication to protect sensitive data.",
+    "reauthenticate": "Re-authenticate",
+    "title": "Confirm it's you"
+  }
 }

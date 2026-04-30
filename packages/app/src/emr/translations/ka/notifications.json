@@ -1,0 +1,10 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications",
+  "high": "High",
+  "urgent": "Urgent",
+  "unread": "Unread",
+  "unreadNotifications": "{{count}} unread notifications",
+  "markAllRead": "Mark all as read",
+  "viewAll": "View all"
+}

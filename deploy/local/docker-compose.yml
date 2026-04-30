@@ -50,6 +50,7 @@ services:
       ORTHANC__POSTGRESQL__USERNAME: ${POSTGRES_USER:-liverra}
       ORTHANC__POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-liverra}
       ORTHANC__POSTGRESQL__DATABASE: ${POSTGRES_DB:-liverra}
+      LIVERRA_ANON_SIDECAR_URL: ${LIVERRA_ANON_SIDECAR_URL:-}
     ports:
       - "4242:4242"   # DIMSE (DICOM protocol)
       - "8042:8042"   # REST + DICOMweb
@@ -58,6 +59,22 @@ services:
         condition: service_healthy
     volumes:
       - liverra_orthanc_data:/var/lib/orthanc/db
+    healthcheck:
+      # Orthanc's image ships python3 but no curl/wget. urllib keeps the
+      # healthcheck self-contained and arch-agnostic (ARM + x86).
+      test:
+        - CMD-SHELL
+        - >
+          python3 -c "import base64, urllib.request;
+          u='${ORTHANC_USERNAME:-orthanc}'; p='${ORTHANC_PASSWORD:-orthanc}';
+          t=base64.b64encode(f'{u}:{p}'.encode()).decode();
+          r=urllib.request.Request('http://localhost:8042/system',
+          headers={'Authorization':'Basic '+t});
+          urllib.request.urlopen(r, timeout=4).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   medplum:
     image: medplum/medplum-server:latest

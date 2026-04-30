@@ -1,0 +1,119 @@
+/**
+ * SegmentationPanel Styles
+ *
+ * Side panel for managing segmentation segments.
+ * Dark theme to match the PACS viewer aesthetic.
+ * PACS viewer panels intentionally use dark hardcoded colors because
+ * medical imaging is always viewed on dark backgrounds for contrast.
+ */
+
+.segmentation-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #1a1a1a;
+  color: #ddd;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.segmentation-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+/* Tool row — Brush / Threshold / Eraser buttons */
+.segmentation-panel-tools {
+  flex-shrink: 0;
+}
+
+/* Ensure 44x44px minimum tap targets on tool buttons */
+.segmentation-tool-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Segment list — scrollable area */
+.segmentation-panel-segments {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Each segment row — clickable to select */
+.segmentation-segment-row {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #222;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  border: 2px solid transparent;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.segmentation-segment-row:hover {
+  background: #2a2a2a;
+}
+
+/* Active segment — highlighted with accent border */
+.segmentation-segment-row--active {
+  border-color: var(--emr-accent, #3182ce);
+  background: #252525;
+}
+
+/* Action buttons (visibility toggle, delete) — 44px tap targets */
+.segmentation-action-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Add segment button */
+.segmentation-panel-add-btn {
+  flex-shrink: 0;
+}
+
+/* Inline add segment form */
+.segmentation-panel-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  background: #252525;
+  border: 1px solid #333;
+  flex-shrink: 0;
+}
+
+/* Threshold HU range section */
+.segmentation-panel-threshold {
+  padding: 8px;
+  border-radius: 4px;
+  background: #252525;
+  border: 1px solid #333;
+  flex-shrink: 0;
+}
+
+/* ---- Mobile responsive: narrow viewports ---- */
+@media (max-width: 576px) {
+  .segmentation-panel {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* Make segment rows stack the action buttons below the name */
+  .segmentation-segment-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  /* Add segment form: full-width buttons */
+  .segmentation-panel-add-form {
+    padding: 6px;
+  }
+}

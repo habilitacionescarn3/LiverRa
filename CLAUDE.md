@@ -118,7 +118,7 @@ LiverRa/
 
 ```bash
 npm install                 # Install all workspace deps
-npm run dev                 # Start Vite dev server on port 3000
+npm run dev                 # Start Vite dev server on port 5173
 npm run build               # Build all packages
 npm test                    # Run all tests
 npm run lint                # Lint all packages
@@ -130,9 +130,18 @@ pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000
 ```
 
-**Starting Dev Server (CRITICAL):** Always run on port 3000:
+**Starting Dev Server (CRITICAL):** Always run on port 5173:
 ```bash
-cd packages/app && npx vite --port 3000
+cd packages/app && npx vite --port 5173
+```
+
+**Upload + view a real DICOM (local Orthanc):** see `docs/how-to/upload-and-view-dicom.md`.
+Quick form:
+```bash
+docker compose -f deploy/local/docker-compose.yml up -d postgres orthanc
+./scripts/fetch-sample-dicom.sh && ./scripts/seed-orthanc.sh   # optional sample
+cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173
+# open http://localhost:5173/pacs/studies
 ```
 
 ---
@@ -160,6 +169,14 @@ cd packages/app && npx vite --port 3000
 - NEVER hardcode FHIR URLs
 - FHIR base URL: `http://liverra.ai/fhir`
 - Extension pattern: `http://liverra.ai/fhir/StructureDefinition/[name]`
+
+### i18n Locale Triad (CRITICAL)
+- **Target locales for new work: `en`, `ru`, `ka`.** `de` is retained for existing DACH-facing bundles but new features ship en/ru/ka first.
+- English is the source of truth; `ru` and `ka` use `__TODO_TRANSLATE__:<en-value>` markers pending CODEOWNERS medical-terminology review.
+- Missing keys fall back automatically (`ru → en`, `ka → en`, `de → en`) — never crash on absent translations.
+- Locale support is declared in two places; change BOTH: `packages/app/src/emr/contexts/TranslationContext.tsx` (`Locale` type + `SUPPORTED_LOCALES` + bundle caches) AND `packages/app/src/emr/services/localeService.ts` (`Locale` type + `SUPPORTED_LOCALES` + `INTL_TAG`).
+- When adding a new namespace, register it in `TRANSLATION_NAMESPACES` in `TranslationContext.tsx`.
+- Medical terminology in `de/ka/ru` files is CODEOWNERS-locked — never commit translations without medical reviewer sign-off.
 
 ### Unified Color System (CRITICAL — to be created)
 - Theme variables in `packages/app/src/emr/styles/theme.css` (port from MediMind, rebrand colors)
@@ -352,6 +369,25 @@ For a fresh clone or new team member:
 4. **If contributing code for the first time, run `/speckit.constitution`** — align with project principles
 5. Pick a feature from `specs/` or create a new one with `/speckit.specify`
 6. Follow the workflow: plan → tasks → implement
+
+---
+
+## 🏗️ View Implementation Tracker
+
+The 7 views listed below are currently being promoted from TODO stubs to production in a coordinated effort tracked in `docs/plans/todo-stubs-production-implementation.md`. Once all land, delete this section entirely.
+
+**In progress** (do not "clean up"; active implementation):
+- `packages/app/src/emr/views/help/HelpIndexView.tsx`
+- `packages/app/src/emr/views/help/GlossaryView.tsx`
+- `packages/app/src/emr/views/cases/LesionsPanelView.tsx`
+- `packages/app/src/emr/views/cases/RefinementView.tsx`
+- `packages/app/src/emr/views/cases/FinalizeWizardView.tsx`
+- `packages/app/src/emr/views/settings/ProfileView.tsx`
+- `packages/app/src/emr/views/settings/NotificationPreferencesView.tsx`
+
+**Intentionally minimal** (keep as-is until broader auth UX pass):
+- `packages/app/src/emr/views/auth/NotFoundView.tsx`
+- `packages/app/src/emr/views/auth/AuthCallbackView.tsx`
 
 ---
 

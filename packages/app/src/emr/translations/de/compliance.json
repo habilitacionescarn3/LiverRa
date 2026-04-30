@@ -98,6 +98,8 @@
       "ruo": "Nur Forschungsgebrauch",
       "under_conformity_assessment": "In Konformitätsbewertung",
       "cleared": "Zugelassen"
-    }
+    },
+    "emptyTitle": "No claims yet",
+    "emptyDescription": "No regulatory claims have been configured for this tenant."
   }
 }

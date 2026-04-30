@@ -1,0 +1,109 @@
+/* StudyManagementPanel — Study search, reassignment & deletion */
+
+.panel {
+  padding: 16px 0;
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.searchRow > :first-child {
+  flex: 1;
+  min-width: 200px;
+}
+
+.studyCard {
+  padding: 16px;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.studyCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.studyMeta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+/* Patient select card (in reassignment modal) */
+.patientCard {
+  padding: 10px 12px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 6px;
+}
+
+.patientResult {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--emr-border-color);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.patientResult:hover {
+  background: var(--emr-bg-hover);
+}
+
+/* Blocked deletion warning */
+.blockedBanner {
+  padding: 12px 16px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-error);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.reportList {
+  margin-top: 8px;
+  padding-left: 16px;
+}
+
+.reportList li {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  margin-bottom: 4px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .studyMeta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .searchRow {
+    flex-direction: column;
+  }
+
+  .searchRow > :first-child {
+    width: 100%;
+  }
+}

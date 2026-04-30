@@ -1,0 +1,99 @@
+/**
+ * ComparisonView Styles
+ *
+ * Side-by-side study comparison layout. Dark background (medical images need
+ * dark surroundings for contrast). Two viewport cells separated by a thin gap.
+ */
+
+/* ---- Root Container ---- */
+
+.comparison-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---- Top Toolbar ---- */
+
+.comparison-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 15;
+  flex-wrap: wrap;
+  min-height: 44px;
+}
+
+/* ---- Viewport Grid (1x2 side-by-side) ---- */
+
+.comparison-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: #222;
+  min-height: 0;
+}
+
+/* ---- Single Viewport Cell ---- */
+
+.comparison-viewport {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Viewport Label (top-left overlay) ---- */
+
+.comparison-viewport-label {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* ---- Canvas (where Cornerstone3D renders) ---- */
+
+.comparison-viewport-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* ---- Empty Prior Viewport ---- */
+
+.comparison-viewport-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+/* ---- Responsive: Stack vertically on narrow screens ---- */
+
+@media (max-width: 768px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .comparison-toolbar {
+    padding: 4px 8px;
+  }
+}

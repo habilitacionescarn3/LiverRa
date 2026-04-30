@@ -99,7 +99,7 @@ fi
 # ---------------------------------------------------------------------------
 cat <<EOF
 
-LiverRa dev env ready — open http://localhost:3000
+LiverRa dev env ready — open http://localhost:5173
 
 Next steps:
   cd packages/app && npm run dev

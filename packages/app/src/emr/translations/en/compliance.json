@@ -85,6 +85,8 @@
     "deniedTooltip": "You do not have compliance.toggle_claim_registry permission.",
     "loadError": "Failed to load the claim registry.",
     "tableAriaLabel": "Regulatory claim registry table",
+    "emptyTitle": "No claims yet",
+    "emptyDescription": "No regulatory claims have been configured for this tenant.",
     "key": {
       "parenchyma_volumetry": "Parenchyma volumetry",
       "flr": "Future liver remnant (FLR)",

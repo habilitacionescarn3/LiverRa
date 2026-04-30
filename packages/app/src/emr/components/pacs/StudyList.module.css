@@ -1,0 +1,295 @@
+/* StudyList — imaging studies table and mobile card layout */
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Status colors */
+.statusOrdered {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-secondary);
+}
+
+.statusScheduled {
+  background: var(--emr-accent-alpha-10);
+  color: var(--emr-accent);
+}
+
+.statusInProgress {
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+}
+
+.statusImagesAvailable {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+}
+
+.statusPreliminaryRead {
+  background: var(--emr-info-alpha-10);
+  color: var(--emr-info);
+}
+
+.statusReported {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+}
+
+/* Source badges */
+.sourceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  white-space: nowrap;
+}
+
+.sourcePacs {
+  background: var(--emr-accent-alpha-10);
+  color: var(--emr-secondary);
+}
+
+.sourceOrder {
+  background: var(--emr-warning-alpha-10);
+  color: var(--emr-warning);
+}
+
+.sourceLocal {
+  background: var(--emr-info-alpha-10);
+  color: var(--emr-info);
+}
+
+/* Priority indicator */
+.priorityStat {
+  color: var(--emr-error);
+  font-weight: var(--emr-font-bold);
+}
+
+.priorityUrgent {
+  color: var(--emr-warning);
+  font-weight: var(--emr-font-semibold);
+}
+
+/* Mobile card */
+.mobileCard {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.mobileCard:hover {
+  border-color: var(--emr-accent);
+}
+
+.modalityChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Pending orders section */
+.pendingSection {
+  margin-bottom: 16px;
+}
+
+.pendingCard {
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-left: 3px solid var(--emr-warning);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+}
+
+/* Pending order row indicator (for merged list items that are orders, not studies) */
+.pendingRow {
+  border-left: 3px dashed var(--emr-warning);
+  opacity: 0.85;
+}
+
+/* Priority badges — inline labels next to status badge */
+.priorityBadgeStat {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  background: var(--emr-error-alpha-12);
+  color: var(--emr-error);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.priorityBadgeUrgent {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Status + priority group */
+.statusGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Action button for viewing study */
+.viewButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.viewButton:hover {
+  background: var(--emr-bg-hover);
+  color: var(--emr-accent);
+}
+
+/* Keyboard focus ring for rows */
+.mobileCard:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* Empty state */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--emr-bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Findings indicator */
+.findingsIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+
+.findingsIndicator:hover {
+  background: var(--emr-bg-hover);
+}
+
+/* Report status badges */
+.reportBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reportPreliminary {
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+}
+
+.reportFinal {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+}
+
+/* Findings preview text */
+.findingsPreview {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  margin-top: 2px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.findingsPreview:hover {
+  color: var(--emr-text-primary);
+}
+
+/* Findings popover */
+.findingsPopoverContent {
+  max-width: 400px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.findingsPopoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--emr-border-color);
+}
+
+.findingsFullText {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-primary);
+  white-space: pre-wrap;
+  line-height: 1.5;
+}

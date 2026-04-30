@@ -90,7 +90,8 @@
       "reset": "Reset view"
     },
     "webgpuMissing": "WebGPU is unavailable. Falling back to CPU voxel counting — interactions may be slower.",
-    "parenchymaLabel": "Parenchyma overlay"
+    "parenchymaLabel": "Parenchyma overlay",
+    "loading": "Loading viewer…"
   },
   "flr": {
     "title": "Future Liver Remnant",

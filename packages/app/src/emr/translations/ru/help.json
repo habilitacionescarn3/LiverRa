@@ -1,0 +1,17 @@
+{
+  "__comment__": "Russian help copy — awaiting CODEOWNERS review. Missing keys fall back to English.",
+  "hub": {
+    "title": "__TODO_TRANSLATE__:Help & resources",
+    "subtitle": "__TODO_TRANSLATE__:Guides, keyboard shortcuts, and references for day-to-day use.",
+    "tiles": {
+      "sampleCase":  { "title": "__TODO_TRANSLATE__:Run the sample case",  "body": "__TODO_TRANSLATE__:Ship-ready demo dataset.",  "cta": "__TODO_TRANSLATE__:Open demo case" },
+      "glossary":    { "title": "__TODO_TRANSLATE__:Clinical glossary",    "body": "__TODO_TRANSLATE__:Couinaud, vessels, lesions, phases, abbreviations.", "cta": "__TODO_TRANSLATE__:Open glossary" },
+      "keyboard":    { "title": "__TODO_TRANSLATE__:Keyboard shortcuts",   "body": "__TODO_TRANSLATE__:Speed up refinement.",          "cta": "__TODO_TRANSLATE__:Show shortcuts" },
+      "ruoPolicy":   { "title": "__TODO_TRANSLATE__:RUO policy",           "body": "__TODO_TRANSLATE__:Research Use Only scope.",      "cta": "__TODO_TRANSLATE__:Read policy" },
+      "tutorials":   { "title": "__TODO_TRANSLATE__:Video tutorials",      "body": "__TODO_TRANSLATE__:Short walkthroughs.",            "cta": "__TODO_TRANSLATE__:Watch" },
+      "support":     { "title": "__TODO_TRANSLATE__:Contact support",      "body": "__TODO_TRANSLATE__:Reach engineering + compliance.", "cta": "__TODO_TRANSLATE__:Email support" }
+    },
+    "tutorials": { "comingSoon": "__TODO_TRANSLATE__:Coming soon" },
+    "role": { "label": "__TODO_TRANSLATE__:For your role" }
+  }
+}

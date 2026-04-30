@@ -1,0 +1,85 @@
+{
+  "title": "Notifications",
+  "empty": "No notifications",
+  "high": "High",
+  "urgent": "Urgent",
+  "unread": "Unread",
+  "unreadNotifications": "{{count}} unread notifications",
+  "markAllRead": "Mark all as read",
+  "viewAll": "View all",
+
+  "prefs": {
+    "page": {
+      "title": "Notification preferences",
+      "subtitle": "Choose which events send an email. PHI-incident alerts are always on by compliance policy.",
+      "saveError": "Failed to save preferences. Your change was reverted.",
+      "saving": "Saving…",
+      "saved": "Saved"
+    },
+    "groups": {
+      "clinical": {
+        "title": "Clinical events",
+        "description": "Case pipeline outcomes relevant to your reviews."
+      },
+      "operational": {
+        "title": "Operational events",
+        "description": "Queue health, PACS delivery, system maintenance."
+      },
+      "security": {
+        "title": "Security & compliance",
+        "description": "Account activity, invites, erasure confirmations, PHI incidents."
+      }
+    },
+    "events": {
+      "analysis_complete": {
+        "label": "Analysis complete",
+        "description": "Sent when one of your uploaded cases finishes all pipeline stages.",
+        "group": "clinical"
+      },
+      "analysis_failed": {
+        "label": "Analysis failed",
+        "description": "Sent when a pipeline stage fails with a non-retryable error.",
+        "group": "clinical"
+      },
+      "queued_long": {
+        "label": "Case queued over 15 min",
+        "description": "Sent when a queued case has waited longer than the ops SLO.",
+        "group": "operational"
+      },
+      "pacs_failed": {
+        "label": "PACS push failed",
+        "description": "Sent when a report delivery exhausts its retry budget.",
+        "group": "operational"
+      },
+      "maintenance_window": {
+        "label": "Maintenance window",
+        "description": "Sent 24h before a scheduled infrastructure change that may affect availability.",
+        "group": "operational"
+      },
+      "mfa_reset": {
+        "label": "MFA reset",
+        "description": "Sent when someone (you or an admin) resets your multi-factor credentials.",
+        "group": "security"
+      },
+      "invite_accepted": {
+        "label": "Invite accepted",
+        "description": "Sent to the inviter when a new user completes onboarding.",
+        "group": "security"
+      },
+      "erasure_confirmed": {
+        "label": "Erasure confirmed",
+        "description": "Sent to the requester when a GDPR Art. 17 erasure completes with tombstone.",
+        "group": "security"
+      },
+      "phi_incident": {
+        "label": "PHI incident",
+        "description": "Mandatory alert — cannot be disabled — sent if a PHI-touching error is detected.",
+        "group": "security"
+      }
+    },
+    "phiLocked": {
+      "badge": "Required",
+      "tooltip": "PHI-incident alerts are mandated by compliance policy and cannot be disabled."
+    }
+  }
+}

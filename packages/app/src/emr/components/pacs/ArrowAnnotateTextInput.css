@@ -1,0 +1,16 @@
+/* ArrowAnnotateTextInput — floating text input for arrow annotations */
+
+.arrow-annotate-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  pointer-events: auto;
+}
+
+.arrow-annotate-input-container {
+  width: 280px;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+}

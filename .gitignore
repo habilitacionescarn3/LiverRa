@@ -72,6 +72,10 @@ packages/ml-inference/triton-models/**/weights.bin
 *.dicom
 pacs/data/
 pacs/orthanc-db/
+fixtures/dicom/
+
+# Claude Code runtime state
+.claude/scheduled_tasks.lock
 
 # Playwright
 playwright-report/

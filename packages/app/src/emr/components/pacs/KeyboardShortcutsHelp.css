@@ -1,0 +1,139 @@
+/**
+ * KeyboardShortcutsHelp Overlay Styles
+ *
+ * A semi-transparent overlay that shows keyboard shortcut mappings.
+ * Dark theme to match the PACS viewer's dark background.
+ * Note: PACS viewer always uses a dark background regardless of app theme,
+ * so these colors are intentional (not hardcoded theme violations).
+ */
+
+.pacs-shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.pacs-shortcuts-panel {
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #e0e0e0;
+}
+
+/* ---- Header ---- */
+
+.pacs-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pacs-shortcuts-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--emr-font-lg);
+  font-weight: var(--emr-font-semibold);
+  color: #fff;
+}
+
+.pacs-shortcuts-close {
+  background: transparent;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.pacs-shortcuts-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ---- Body ---- */
+
+.pacs-shortcuts-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pacs-shortcuts-group-title {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--emr-accent);
+  margin: 0 0 8px 0;
+}
+
+.pacs-shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 400px) {
+  .pacs-shortcuts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Individual shortcut ---- */
+
+.pacs-shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.pacs-shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  font-family: monospace;
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-bold);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.pacs-shortcut-label {
+  font-size: var(--emr-font-sm);
+  color: #ccc;
+}
+
+/* ---- Footer ---- */
+
+.pacs-shortcuts-footer {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  font-size: var(--emr-font-xs);
+  color: #888;
+}

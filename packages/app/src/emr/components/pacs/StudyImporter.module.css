@@ -1,0 +1,815 @@
+/* StudyImporter — DICOM file upload component styles */
+/* Mobile-first: base styles for small screens, media queries for larger */
+/* All colors sourced from theme.css — auto-switches between light & dark */
+
+/* ============================================================================
+ * Shared fade-in animation
+ * ============================================================================ */
+
+@keyframes siFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes siPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+/* ============================================================================
+ * Dropzone (empty / idle state)
+ * ============================================================================ */
+
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--emr-border-color);
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+  background: var(--emr-bg-card);
+}
+
+.dropzone:hover {
+  border-color: var(--emr-accent);
+  background: var(--emr-bg-hover);
+  box-shadow: 0 0 0 4px var(--emr-secondary-alpha-10);
+}
+
+.dropzoneDragActive {
+  border-color: var(--emr-accent);
+  background: var(--emr-accent-alpha-08);
+  border-style: solid;
+  box-shadow: 0 0 0 4px var(--emr-secondary-alpha-10), var(--emr-shadow-md);
+}
+
+.dropzoneDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dropzoneDisabled:hover {
+  border-color: var(--emr-border-color);
+  background: var(--emr-bg-card);
+  box-shadow: none;
+}
+
+/* Circular icon container for the upload icon */
+.dropzoneIconCircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--emr-accent-alpha-08);
+  color: var(--emr-accent);
+  margin-bottom: 18px;
+  transition: transform 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 0 0 8px var(--emr-accent-alpha-08);
+}
+
+.dropzone:hover .dropzoneIconCircle {
+  transform: translateY(-2px);
+  background: var(--emr-accent-alpha-12);
+  box-shadow: 0 0 0 12px var(--emr-accent-alpha-08);
+}
+
+.dropzoneDragActive .dropzoneIconCircle {
+  transform: scale(1.12);
+  background: var(--emr-accent-alpha-20);
+  animation: siPulse 1.4s ease-in-out infinite;
+}
+
+.dropzoneTitle {
+  font-size: var(--emr-font-xl);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.dropzoneDescription {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  margin: 0 0 22px;
+  line-height: 1.55;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Separator line with "or drag & drop" text */
+.dropzoneDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+  margin: 20px auto 0;
+}
+
+.dropzoneDividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--emr-border-color);
+}
+
+.dropzoneDividerText {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+  font-weight: var(--emr-font-medium);
+}
+
+.hiddenInput {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .dropzone {
+    padding: 64px 40px;
+  }
+
+  .dropzoneIconCircle {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* ============================================================================
+ * Summary strip — valid/invalid/total counts at a glance
+ * ============================================================================ */
+
+.summaryStrip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+  animation: siFadeIn 0.3s ease;
+}
+
+.summaryChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.summaryChipLabel {
+  font-weight: var(--emr-font-normal);
+  color: var(--emr-text-secondary);
+}
+
+.summaryChipDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--emr-bg-card);
+}
+
+.summaryChipDotValid {
+  background: var(--emr-success);
+}
+
+.summaryChipDotInvalid {
+  background: var(--emr-warning);
+}
+
+.summaryChipDotTotal {
+  background: var(--emr-accent);
+}
+
+.summaryStripSpacer {
+  flex: 1;
+}
+
+.summaryTotalSize {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  font-weight: var(--emr-font-medium);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ============================================================================
+ * Study group cards — files grouped by DICOM study
+ * ============================================================================ */
+
+.studyGroupList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.studyGroupCard {
+  border: 1px solid var(--emr-border-color);
+  border-radius: 12px;
+  background: var(--emr-bg-card);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  animation: siFadeIn 0.3s ease;
+}
+
+.studyGroupCard:hover {
+  border-color: var(--emr-accent-alpha-20);
+  box-shadow: var(--emr-shadow-sm);
+}
+
+.studyGroupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(
+    135deg,
+    var(--emr-accent-alpha-08) 0%,
+    var(--emr-secondary-alpha-10) 100%
+  );
+  border-bottom: 1px solid var(--emr-border-color);
+}
+
+.studyModalityChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+.studyModalityChipUnknown {
+  background: var(--emr-text-secondary);
+}
+
+.studyHeaderInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.studyHeaderTitle {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.studyHeaderMeta {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.studyHeaderMetaSep {
+  opacity: 0.5;
+}
+
+.studyHeaderCount {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-accent);
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 3px 10px;
+  background: var(--emr-bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--emr-accent-alpha-20);
+}
+
+/* ============================================================================
+ * File rows (nested under study or as flat list)
+ * ============================================================================ */
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  transition: background-color 0.15s ease;
+  animation: siFadeIn 0.25s ease;
+}
+
+.fileItem:nth-child(even) {
+  background: var(--emr-bg-hover);
+}
+
+.fileItem:last-child {
+  border-bottom: none;
+}
+
+.fileItem:hover {
+  background: var(--emr-bg-hover);
+}
+
+.fileItemInvalid {
+  background: var(--emr-error-alpha-05);
+}
+
+.fileItemInvalid:hover {
+  background: var(--emr-error-alpha-10);
+}
+
+.fileInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fileName {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileSize {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+.fileStatusIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.fileStatusChip {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.fileStatusChipValid {
+  background: var(--emr-success-alpha-10);
+  color: var(--emr-success);
+}
+
+.fileStatusChipInvalid {
+  background: var(--emr-error-alpha-10);
+  color: var(--emr-error);
+}
+
+.removeFileButton {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--emr-text-secondary);
+  transition: color 0.15s ease, background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.removeFileButton:hover {
+  color: var(--emr-error);
+  background: var(--emr-error-alpha-10);
+}
+
+.removeFileButton:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+ * Action row (Remove All / Select Files / Select Folder  +  hero CTA)
+ * ============================================================================ */
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.actionRowSecondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ============================================================================
+ * Upload Progress (uploading state)
+ * ============================================================================ */
+
+.uploadProgressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 36px 24px;
+  background: var(--emr-bg-card);
+  border-radius: 14px;
+  border: 1px solid var(--emr-border-color);
+  text-align: center;
+  animation: siFadeIn 0.3s ease;
+}
+
+.uploadProgressIconWrap {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--emr-accent-alpha-12);
+  color: var(--emr-accent);
+  animation: siPulse 1.6s ease-in-out infinite;
+}
+
+.uploadProgressTitle {
+  font-size: var(--emr-font-lg);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+.uploadProgressLabel {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  letter-spacing: 0.2px;
+}
+
+.uploadProgressFile {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+/* Gradient progress track */
+.progressTrack {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--emr-bg-hover);
+  overflow: hidden;
+  border: 1px solid var(--emr-border-color);
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--emr-gradient-primary);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px var(--emr-accent-alpha-20);
+}
+
+.progressFillShimmer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--emr-white-alpha-50) 50%,
+    transparent 100%
+  );
+  animation: siShimmer 1.6s linear infinite;
+}
+
+@keyframes siShimmer {
+  from { transform: translateX(-60px); }
+  to { transform: translateX(600px); }
+}
+
+@media (min-width: 768px) {
+  .uploadProgressSection {
+    padding: 48px 32px;
+  }
+}
+
+/* ============================================================================
+ * Spinner state (validating / parsing)
+ * ============================================================================ */
+
+.spinnerState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 56px 24px;
+  background: var(--emr-bg-card);
+  border-radius: 14px;
+  border: 1px dashed var(--emr-border-color);
+}
+
+.spinnerStateLabel {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  font-weight: var(--emr-font-medium);
+}
+
+/* ============================================================================
+ * Patient Matching (matching state)
+ * ============================================================================ */
+
+.matchingSection {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: siFadeIn 0.3s ease;
+}
+
+.matchingHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.matchingHeaderTitle {
+  font-size: var(--emr-font-xl);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.matchingHeaderSubtitle {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+.dicomInfoCard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+}
+
+@media (min-width: 576px) {
+  .dicomInfoCard {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+  }
+}
+
+.dicomInfoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dicomInfoLabel {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: var(--emr-font-medium);
+}
+
+.dicomInfoValue {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  word-break: break-word;
+}
+
+.patientSearchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--emr-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--emr-bg-card);
+}
+
+.patientResultItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--emr-border-color);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-left-color 0.15s ease;
+  background: var(--emr-bg-card);
+  border-left: 3px solid transparent;
+}
+
+.patientResultItem:last-child {
+  border-bottom: none;
+}
+
+.patientResultItem:hover {
+  background: var(--emr-bg-hover);
+}
+
+.patientResultItemSelected {
+  background: var(--emr-accent-alpha-08);
+  border-left-color: var(--emr-accent);
+}
+
+.patientResultItemSelected:hover {
+  background: var(--emr-accent-alpha-12);
+}
+
+.patientResultItem:focus-visible {
+  outline: none;
+  background: var(--emr-accent-alpha-08);
+  border-left-color: var(--emr-accent);
+}
+
+.patientIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--emr-accent-alpha-08);
+  color: var(--emr-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.patientResultItemSelected .patientIconWrap {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+}
+
+/* ============================================================================
+ * Import Summary (complete state)
+ * ============================================================================ */
+
+.summarySection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 40px 24px;
+  text-align: center;
+  animation: siFadeIn 0.3s ease;
+}
+
+.summaryIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--emr-success-alpha-10);
+  box-shadow: 0 0 0 10px var(--emr-success-alpha-10);
+  color: var(--emr-success);
+}
+
+.summaryIconError {
+  background: var(--emr-error-alpha-10);
+  box-shadow: 0 0 0 10px var(--emr-error-alpha-10);
+  color: var(--emr-error);
+}
+
+.summaryTitle {
+  font-size: var(--emr-font-2xl);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-text-primary);
+  letter-spacing: -0.01em;
+  margin: 6px 0 0;
+}
+
+.summaryStats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.summaryStatSuccess {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-success);
+  font-weight: var(--emr-font-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.summaryStatFailed {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-error);
+  font-weight: var(--emr-font-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (min-width: 768px) {
+  .summarySection {
+    padding: 56px 32px;
+  }
+}
+
+/* ============================================================================
+ * Pre-selected Patient Banner
+ * ============================================================================ */
+
+.preSelectedBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    var(--emr-accent-alpha-08) 0%,
+    var(--emr-secondary-alpha-10) 100%
+  );
+  border: 1px solid var(--emr-accent-alpha-20);
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-primary);
+}
+
+.preSelectedBannerIcon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--emr-accent-alpha-12);
+  color: var(--emr-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preSelectedBannerName {
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}

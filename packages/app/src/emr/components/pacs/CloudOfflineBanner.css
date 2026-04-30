@@ -1,0 +1,61 @@
+/**
+ * CloudOfflineBanner Styles
+ *
+ * A warning bar that sits at the top of the PACS viewer when the LiverRa
+ * backend (FHIR shim + Orthanc) is unreachable. Uses amber/warning colors
+ * so it's visible against the dark viewer background but doesn't look like
+ * an error.
+ * Note: PACS viewer always uses dark background, so these colors are intentional.
+ */
+
+.pacs-cloud-offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: rgba(217, 119, 6, 0.15);
+  border-bottom: 1px solid rgba(217, 119, 6, 0.4);
+  color: #fbbf24;
+  font-size: var(--emr-font-xs);
+  z-index: 30;
+  flex-shrink: 0;
+}
+
+.pacs-cloud-offline-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pacs-cloud-offline-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 576px) {
+  .pacs-cloud-offline-text {
+    white-space: normal;
+  }
+}
+
+.pacs-cloud-offline-retry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: var(--emr-font-xs);
+  min-height: 28px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pacs-cloud-offline-retry:hover {
+  background: rgba(217, 119, 6, 0.2);
+  border-color: rgba(251, 191, 36, 0.6);
+}

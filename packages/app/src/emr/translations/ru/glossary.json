@@ -1,0 +1,19 @@
+{
+  "__comment__": "Russian medical terminology — awaiting CODEOWNERS review. Missing keys fall back to English.",
+  "page": {
+    "title": "__TODO_TRANSLATE__:Clinical glossary",
+    "subtitle": "__TODO_TRANSLATE__:Terminology used across LiverRa",
+    "searchPlaceholder": "__TODO_TRANSLATE__:Search terms, Latin names, or abbreviations…",
+    "clearFilter": "__TODO_TRANSLATE__:Clear filter",
+    "noMatches": "__TODO_TRANSLATE__:No terms match your search.",
+    "resultsCount": "__TODO_TRANSLATE__:{{count}} of {{total}} terms"
+  },
+  "categories": {
+    "all": "__TODO_TRANSLATE__:All",
+    "couinaud": "__TODO_TRANSLATE__:Couinaud segments",
+    "vessels": "__TODO_TRANSLATE__:Vessels",
+    "lesions": "__TODO_TRANSLATE__:Lesion classes",
+    "phases": "__TODO_TRANSLATE__:Contrast phases",
+    "abbreviations": "__TODO_TRANSLATE__:Abbreviations"
+  }
+}

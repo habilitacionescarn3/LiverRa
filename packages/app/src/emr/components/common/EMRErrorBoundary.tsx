@@ -5,6 +5,7 @@ import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { Alert, Anchor, Button, Stack, Text, Code, Box, Group } from '@mantine/core';
 import { IconAlertCircle, IconRefresh, IconExternalLink } from '@tabler/icons-react';
+import DOMPurify from 'dompurify';
 
 /**
  * Props for EMRErrorBoundary
@@ -129,11 +130,17 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
       onError(error, errorInfo);
     }
 
-    // Log to console with context
+    // Log to console with context. Sanitize error messages + component stacks
+    // before they hit the console — error strings can originate from API
+    // responses that echo back untrusted HTML/JS. If a developer later pastes
+    // console output into a rich-rendering context (wiki, doc tool), raw
+    // script tags could fire. DOMPurify neutralises that.
+    const safeMessage = DOMPurify.sanitize(String(error?.message ?? ''));
+    const safeStack = DOMPurify.sanitize(String(errorInfo?.componentStack ?? ''));
     console.error(
       `[EMRErrorBoundary${componentName ? ` - ${componentName}` : ''}]:`,
-      error,
-      errorInfo
+      safeMessage,
+      safeStack
     );
   }
 

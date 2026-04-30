@@ -117,7 +117,10 @@ async function loadBundle(lang: Lang): Promise<JsonObject> {
 }
 
 function keyExistsInBundle(key: string, bundle: JsonObject): boolean {
-  const parts = key.split('.');
+  // Runtime supports both `ns.key.path` (dot-namespace) and `ns:key.path`
+  // (colon-namespace) — see TranslationContext.splitKey(). Normalize to
+  // dot form before walking the merged bundle.
+  const parts = key.replace(':', '.').split('.');
   let node: unknown = bundle;
   for (const part of parts) {
     if (

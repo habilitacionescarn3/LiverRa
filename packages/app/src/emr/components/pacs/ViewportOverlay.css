@@ -1,0 +1,63 @@
+/**
+ * ViewportOverlay — HUD-style metadata display on PACS viewport.
+ *
+ * Four-corner layout using absolute positioning. All text is white with
+ * a dark shadow so it's readable on any medical image background
+ * (dark CT scans, bright X-rays, etc.).
+ *
+ * NOTE: This is intentionally NOT using theme.css semantic variables for
+ * backgrounds/text — PACS viewports always have a black (#000) background
+ * regardless of light/dark mode, so the overlay colors are fixed.
+ */
+
+.viewport-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ---- Corner Positioning ---- */
+
+.viewport-overlay-tl {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+
+.viewport-overlay-tr {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  text-align: right;
+}
+
+.viewport-overlay-bl {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+}
+
+.viewport-overlay-br {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  text-align: right;
+}
+
+/* ---- Text Styles ---- */
+
+.viewport-overlay-text {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.viewport-overlay-mono {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}

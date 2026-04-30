@@ -11,5 +11,15 @@
     "404": "Not found.",
     "500": "Server error. Please try again later."
   },
-  "requestAccess": "Request access from your administrator."
+  "requestAccess": "Request access from your administrator.",
+  "finalize": {
+    "generic": "Unable to finalize the report. Please try again.",
+    "seat_expired": "Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-expired": "Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-taken": "Another reviewer is currently holding the review seat.",
+    "no_review_seat": "No active review seat. Open the case to acquire one before finalizing.",
+    "analysis_not_complete": "The analysis is not yet complete. Finalize is only available for completed analyses.",
+    "finalize-failed": "The server rejected the finalize request. Please try again.",
+    "mfa_required": "Step-up multi-factor authentication is required to finalize."
+  }
 }

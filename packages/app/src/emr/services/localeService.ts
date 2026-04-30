@@ -16,9 +16,9 @@
  *     right Intl locale tag.
  */
 
-export type Locale = 'en' | 'de' | 'ka';
+export type Locale = 'en' | 'de' | 'ka' | 'ru';
 
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka'] as const;
+export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka', 'ru'] as const;
 export const DEFAULT_LOCALE: Locale = 'en';
 
 /** Canonical storage key; legacy MediMind key migrated transparently. */
@@ -112,6 +112,7 @@ const INTL_TAG: Record<Locale, string> = {
   en: 'en-GB',
   de: 'de-DE',
   ka: 'ka-GE',
+  ru: 'ru-RU',
 };
 
 /** Return the BCP 47 language tag used for `Intl.*` formatters. */

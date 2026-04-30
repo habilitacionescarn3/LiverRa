@@ -1,0 +1,14 @@
+{
+  "title": "Conflict detected",
+  "subtitle": "Your offline edit conflicts with the current server version.",
+  "chooseLabel": "Choose how to resolve",
+  "confirm": "Resolve conflict",
+  "option": {
+    "clientWins": "Keep my changes",
+    "clientWinsDescription": "Your local edits overwrite the server version.",
+    "serverWins": "Keep server changes",
+    "serverWinsDescription": "Discard your local edits and accept the server version.",
+    "manual": "Merge manually",
+    "manualDescription": "Open a side-by-side diff to merge the two versions."
+  }
+}

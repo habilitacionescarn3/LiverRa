@@ -231,7 +231,8 @@ export async function initCornerstone(): Promise<void> {
 
   // Step 2: Initialize the DICOM image loader (v4 API).
   // Registers web workers for decoding DICOM pixel data in background threads.
-  // The actual DICOMweb server URL is set per-request when loading studies.
+  // (The "Worker type already registered" warning that fires on HMR / Strict
+  // Mode double-init is filtered by `utils/installConsoleFilters.ts`.)
   initDICOMImageLoader();
 
   // Step 2.5: Configure HTJ2K progressive streaming
@@ -441,6 +442,13 @@ export function getOrCreateToolGroup(): cornerstoneTools.Types.IToolGroup {
   // not interactive). Use CS3D tool names (some differ, e.g.
   // FreehandROI → PlanarFreehandROI).
   for (const appName of Object.keys(TOOL_MAP)) {
+    // Crosshairs + ReferenceLines require ≥2 synced viewports (MPR layouts).
+    // The shared tool group backs the single-viewport stack viewer, where
+    // CS3D's Crosshairs.mouseMoveCallback crashes reading `.length` of
+    // undefined on every mousemove. MPR viewers must create their own
+    // tool group and opt these in.
+    if (appName === 'Crosshairs' || appName === 'ReferenceLines') continue;
+
     const cs3dName = getCS3DToolName(appName);
 
     if (appName === 'ArrowAnnotate') {
@@ -474,6 +482,8 @@ export function getOrCreateToolGroup(): cornerstoneTools.Types.IToolGroup {
     group.setToolEnabled('SegmentationDisplay');
   } catch {
     // CS3D 2.x folds this into the segmentation state helper; not fatal.
+    // The console.warn that Cornerstone itself prints is filtered by
+    // utils/installConsoleFilters.ts so it doesn't pollute the dev console.
   }
 
   // ---- Default mouse bindings ----

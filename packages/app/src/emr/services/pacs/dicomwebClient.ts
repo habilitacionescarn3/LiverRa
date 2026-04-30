@@ -20,6 +20,8 @@
 // multi-tenant routing in the edge proxy.
 // ============================================================================
 
+import { captureException } from '../observability/sentryInit';
+
 // ============================================================================
 // Error Types
 // ============================================================================
@@ -164,7 +166,10 @@ function resolveDefaultBaseUrl(): string {
   } catch {
     // import.meta.env not available (e.g., during SSR/tests) — fall through
   }
-  return 'http://localhost:8042/dicom-web';
+  // Relative path: rides the Vite dev proxy in dev (configured in
+  // vite.config.ts), and in prod it hits the same-origin nginx terminus that
+  // validates Cognito JWT + forwards to Orthanc.
+  return '/dicom-web';
 }
 
 // ============================================================================
@@ -184,12 +189,6 @@ export class DicomWebClient {
   private readonly baseUrl: string;
   private readonly getAccessToken: () => string | null;
   private readonly getTenantId: () => string | null;
-  /**
-   * In-flight request cache for deduplication — if two components request
-   * the same URL simultaneously, we reuse the same Promise instead of
-   * making two identical HTTP calls.
-   */
-  private readonly inflightRequests = new Map<string, Promise<DicomJsonObject[]>>();
 
   constructor(options: DicomWebClientOptions) {
     const base = options.baseUrl ?? resolveDefaultBaseUrl();
@@ -450,7 +449,13 @@ export class DicomWebClient {
         return this.parseStowXmlResponse(responseText, totalFiles);
       }
     } catch (err) {
-      console.error('[STOW-RS] Failed to parse response — treating as upload failure:', err);
+      // Route through the PHI-scrubbing Sentry pipeline instead of raw
+      // console — STOW-RS responses may contain patient metadata in error
+      // bodies. Keep a dev-only console trace for local debugging.
+      captureException(err, { source: 'dicomwebClient.parseStowResponse' });
+      if (import.meta.env.DEV) {
+        console.error('[STOW-RS] Failed to parse response — treating as upload failure:', err);
+      }
       return {
         successCount: 0,
         failedCount: totalFiles,
@@ -465,9 +470,14 @@ export class DicomWebClient {
     let json: unknown;
     try {
       json = JSON.parse(text);
-    } catch {
-      const preview = text.slice(0, 500);
-      console.error('[STOW-RS] Invalid JSON response:', preview);
+    } catch (err) {
+      // Response body may contain PHI — scrub via Sentry pipeline rather
+      // than logging raw previews. Keep dev-only console for local debug.
+      captureException(err, { source: 'dicomwebClient.parseStowJsonResponse' });
+      if (import.meta.env.DEV) {
+        const preview = text.slice(0, 500);
+        console.error('[STOW-RS] Invalid JSON response:', preview);
+      }
       if (text.trimStart().startsWith('<')) {
         throw new Error(
           'Server returned an error page instead of data. Contact your administrator.'
@@ -542,27 +552,16 @@ export class DicomWebClient {
   }
 
   private async fetchJson(url: string, signal?: AbortSignal): Promise<DicomJsonObject[]> {
+    // Note: we deliberately do NOT maintain an in-flight request dedup
+    // cache here. Under React Strict Mode's mount→cleanup→remount cycle,
+    // a dedup cache ends up handing the remount a stale aborted promise
+    // from the first mount, which silently fails and leaves the viewer
+    // with no image. TanStack Query already dedupes at the query-key
+    // level for consumers that need it.
     if (signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError');
     }
-
-    const inflight = this.inflightRequests.get(url);
-    if (inflight) {
-      return inflight;
-    }
-
-    const fetchPromise = this.doFetch(url, signal);
-
-    this.inflightRequests.set(url, fetchPromise);
-    fetchPromise
-      .finally(() => {
-        this.inflightRequests.delete(url);
-      })
-      .catch(() => {
-        /* rejection handled by caller */
-      });
-
-    return fetchPromise;
+    return this.doFetch(url, signal);
   }
 
   private async doFetch(url: string, signal?: AbortSignal): Promise<DicomJsonObject[]> {
@@ -590,9 +589,15 @@ export class DicomWebClient {
       }
       try {
         return JSON.parse(text) as DicomJsonObject[];
-      } catch {
-        const preview = text.slice(0, 500);
-        console.error('[DICOMweb] Invalid JSON response from', url, ':', preview);
+      } catch (err) {
+        // Response body can include patient identifiers when Orthanc echoes
+        // study data back on parse errors. Send through the PHI scrubber;
+        // keep dev-only console for local triage.
+        captureException(err, { source: 'dicomwebClient.doFetch', url });
+        if (import.meta.env.DEV) {
+          const preview = text.slice(0, 500);
+          console.error('[DICOMweb] Invalid JSON response from', url, ':', preview);
+        }
         if (text.trimStart().startsWith('<')) {
           throw new DicomWebError(
             'Server returned an error page instead of imaging data.',

@@ -1,0 +1,123 @@
+/**
+ * CineControls — Cine playback bar for multi-frame DICOM images.
+ *
+ * Sits at the bottom of each viewport cell (not the whole viewer).
+ * Uses a semi-transparent dark background since the PACS viewer
+ * always has a black canvas behind it. PACS overlays intentionally
+ * use direct colors (#000, #e0e0e0) — this is a medical imaging
+ * convention, not a theme violation.
+ */
+
+.cine-controls {
+  flex-shrink: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+/* ---- Transport buttons (prev / play-pause / next) ---- */
+
+.cine-controls-transport {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* ---- Progress slider ---- */
+
+.cine-controls-progress {
+  flex: 1;
+  min-width: 60px;
+}
+
+/* ---- Frame counter (e.g. "12 / 45") ---- */
+
+.cine-controls-frame-counter {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 56px;
+  text-align: center;
+}
+
+/* ---- Speed control (label + slider) ---- */
+
+.cine-controls-speed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cine-controls-speed-label {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+/* ---- Active state for toggle buttons (e.g., ping-pong) ---- */
+
+.cine-controls-active {
+  background: rgba(49, 130, 206, 0.2);
+  border-radius: 4px;
+}
+
+/* ---- Speed multiplier preset buttons ---- */
+
+.cine-controls-speed-presets {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cine-speed-btn {
+  background: transparent;
+  border: none;
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.cine-speed-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.cine-speed-btn-active {
+  background: rgba(49, 130, 206, 0.35);
+  color: #bee3f8;
+}
+
+/* ---- Responsive: hide speed controls on very narrow viewports ---- */
+
+@media (max-width: 500px) {
+  .cine-controls-speed {
+    display: none;
+  }
+
+  .cine-controls-speed-presets {
+    display: none;
+  }
+}

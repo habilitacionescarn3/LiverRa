@@ -1,0 +1,13 @@
+{
+  "timeout": {
+    "title": "Session about to expire",
+    "description": "You will be signed out automatically if there is no activity.",
+    "remainingTime": "Time remaining: {{time}}",
+    "progressLabel": "Session expiration progress",
+    "stayLoggedIn": "Stay signed in",
+    "logoutNow": "Sign out now",
+    "hipaaNote": "HIPAA requires automatic sign-out after inactivity to protect patient data.",
+    "announcement": "Your session has expired. You have been signed out.",
+    "warningAnnouncement": "Your session will expire soon. Press Stay signed in to continue."
+  }
+}

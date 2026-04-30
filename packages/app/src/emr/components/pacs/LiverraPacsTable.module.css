@@ -1,0 +1,61 @@
+/* LiverraPacsTable — minimal styling for the Phase-3 EMRTable shim.
+ * Intentionally narrow: the real EMRTable port will replace this whole
+ * file + its consumers.
+ */
+
+.table {
+  --liverra-table-header-bg: var(--emr-bg-card);
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-primary);
+}
+
+.table th {
+  background: var(--liverra-table-header-bg);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  border-bottom: 1px solid var(--emr-border-color);
+}
+
+.table tr {
+  transition: background 120ms ease-in-out;
+}
+
+.table tr:hover {
+  background: var(--emr-bg-hover, rgba(var(--emr-accent-rgb, 0, 120, 200), 0.04));
+}
+
+.compact th,
+.compact td {
+  padding-block: calc(var(--emr-spacing-xs, 6px) / 1);
+}
+
+.stickyHeader thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.striped tbody tr:nth-of-type(odd) {
+  background: var(--emr-bg-subtle, rgba(0, 0, 0, 0.02));
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--emr-spacing-2xl, 48px) var(--emr-spacing-md, 16px);
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--emr-bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--emr-spacing-sm, 12px);
+  border: 1px solid var(--emr-border-color);
+}

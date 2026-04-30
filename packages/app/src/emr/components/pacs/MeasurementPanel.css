@@ -1,0 +1,245 @@
+/* ============================================================================
+ * MeasurementPanel Styles (ported from MediMind)
+ * ============================================================================
+ * Sidebar panel showing grouped measurements from the PACS viewer.
+ * Uses theme CSS variables — no hardcoded colors.
+ * ============================================================================ */
+
+.measurement-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--emr-bg-card);
+  border-radius: var(--emr-radius-md);
+  border: 1px solid var(--emr-border-color);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.measurement-panel-header {
+  padding: 4px 0;
+}
+
+.measurement-count-badge {
+  background: var(--emr-accent);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  min-width: 20px;
+}
+
+/* Empty state */
+.measurement-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 8px;
+}
+
+/* Author groups container */
+.measurement-panel-groups {
+  gap: 6px;
+}
+
+/* Individual author section */
+.measurement-author-section {
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-radius-sm);
+  background: var(--emr-bg-card);
+  overflow: hidden;
+}
+
+/* Author header — clickable to expand/collapse */
+.measurement-author-header {
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.measurement-author-header:hover {
+  background: var(--emr-bg-hover);
+}
+
+.measurement-author-header:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: -2px;
+}
+
+/* Measurement list inside collapsed section */
+.measurement-list {
+  padding: 4px 8px 6px;
+  border-top: 1px solid var(--emr-border-color);
+}
+
+/* Single measurement row */
+.measurement-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--emr-radius-sm);
+  transition: background 0.1s ease;
+}
+
+.measurement-row:hover {
+  background: var(--emr-bg-hover);
+}
+
+/* Per-row action buttons — subtle until hovered */
+.measurement-row-action {
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.measurement-row:hover .measurement-row-action {
+  opacity: 1;
+}
+
+/* Measurement icon */
+.measurement-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* Measurement values (right side) */
+.measurement-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.measurement-value-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--emr-font-xs);
+  white-space: nowrap;
+}
+
+.measurement-value-label {
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-xs);
+}
+
+.measurement-value-number {
+  color: var(--emr-text-primary);
+  font-weight: var(--emr-font-semibold);
+  font-size: var(--emr-font-xs);
+}
+
+/* T034: Tracking mode toggle (Tracked/Untracked) */
+.measurement-tracking-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.tracking-toggle-group {
+  display: flex;
+  border-radius: var(--emr-radius-sm);
+  border: 1px solid var(--emr-border-color);
+  overflow: hidden;
+}
+
+.tracking-toggle-btn {
+  flex: 1;
+  padding: 4px 12px;
+  border: none;
+  background: var(--emr-bg-card);
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+.tracking-toggle-btn:hover {
+  background: var(--emr-bg-hover);
+}
+
+.tracking-toggle-btn.tracking-toggle-active {
+  background: var(--emr-accent);
+  color: var(--emr-text-inverse);
+}
+
+.tracking-hint {
+  font-size: var(--emr-font-xs);
+  padding: 0 2px;
+}
+
+/* T034: Untracked rows — dashed left border and muted text */
+.measurement-row-untracked {
+  border-left: 2px dashed var(--emr-text-secondary);
+  padding-left: 4px;
+}
+
+.measurement-row-untracked .measurement-value-number {
+  color: var(--emr-text-secondary);
+}
+
+/* T035: Clickable measurement rows — cursor and hover */
+.measurement-row-clickable {
+  cursor: pointer;
+}
+
+.measurement-row-clickable:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: -2px;
+}
+
+/* T036: Context menu for promote-to-tracked */
+.measurement-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-radius-sm);
+  box-shadow: var(--emr-shadow-md);
+  padding: 4px;
+  min-width: 160px;
+}
+
+.measurement-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--emr-text-primary);
+  font-size: var(--emr-font-xs);
+  cursor: pointer;
+  border-radius: var(--emr-radius-sm);
+  transition: background 0.1s ease;
+  white-space: nowrap;
+}
+
+.measurement-context-menu-item:hover {
+  background: var(--emr-bg-hover);
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .measurement-panel {
+    max-height: 300px;
+  }
+
+  .measurement-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .measurement-values {
+    justify-content: flex-start;
+  }
+}

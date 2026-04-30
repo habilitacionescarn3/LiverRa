@@ -121,6 +121,6 @@ services:
       VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY}
       VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST}
     ports:
-      - "3000:3000"
+      - "5173:5173"
 
 # No volumes: all durable state lives in RDS, Elasticache, S3.

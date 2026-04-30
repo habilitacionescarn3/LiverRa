@@ -35,10 +35,16 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-/** Supported UI locales. Explicitly excludes MediMind's `ru`. */
-export type Locale = 'en' | 'de' | 'ka';
+/**
+ * Supported UI locales.
+ *
+ * Triad: en (primary), ru (Georgia market), ka (Georgian). de is retained for
+ * the DACH commercial push but new features target en/ru/ka — ru and ka fall
+ * back to en until CODEOWNERS medical-terminology review lands.
+ */
+export type Locale = 'en' | 'de' | 'ka' | 'ru';
 
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka'] as const;
+export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka', 'ru'] as const;
 export const DEFAULT_LOCALE: Locale = 'en';
 
 /** Namespaces correspond to one JSON file per `translations/<locale>/<ns>.json`. */
@@ -58,9 +64,12 @@ export type TranslationNamespace =
   | 'erasure'
   | 'help'
   | 'glossary'
+  | 'profile'
+  | 'notifications'
   | 'errors'
   | 'ruo'
-  | 'sync';
+  | 'sync'
+  | 'pacs';
 
 export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
@@ -78,9 +87,12 @@ export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'erasure',
   'help',
   'glossary',
+  'profile',
+  'notifications',
   'errors',
   'ruo',
   'sync',
+  'pacs',
 ] as const;
 
 /** Recursive type for nested JSON translation values. */
@@ -104,6 +116,7 @@ const bundleCache: Record<Locale, Partial<Record<TranslationNamespace, Translati
   en: {},
   de: {},
   ka: {},
+  ru: {},
 };
 
 /** In-flight loads to deduplicate concurrent imports. */
@@ -111,6 +124,7 @@ const inFlight: Record<Locale, Partial<Record<TranslationNamespace, Promise<Tran
   en: {},
   de: {},
   ka: {},
+  ru: {},
 };
 
 async function loadBundle(locale: Locale, ns: TranslationNamespace): Promise<TranslationBundle> {
@@ -168,13 +182,30 @@ function interpolate(text: string, params?: Record<string, unknown>): string {
   });
 }
 
-/** Parse `"ns:key.path"` → `["ns", "key.path"]`; unprefixed → `["common", path]`. */
+/**
+ * Parse `"ns:key.path"` → `["ns", "key.path"]`.
+ * For dot-prefixed keys like `"pacs.header.title"` (the convention used by
+ * MediMind-ported PACS components), if the first dot-segment matches a known
+ * namespace, split there. Otherwise default to `common` so calls like
+ * `t('actions.save')` still hit `common.json > actions > save`.
+ *
+ * Callers can opt OUT of the dot-prefix dispatch by using an explicit colon
+ * form (`"common:pacs.wasnt.in.pacs"`) — useful when a `common.json` key
+ * happens to collide with a namespace name.
+ */
 function splitKey(key: string): [TranslationNamespace, string] {
   const colonIdx = key.indexOf(':');
   if (colonIdx > 0) {
     const ns = key.slice(0, colonIdx) as TranslationNamespace;
     const rest = key.slice(colonIdx + 1);
     if (TRANSLATION_NAMESPACES.includes(ns)) return [ns, rest];
+  }
+  const dotIdx = key.indexOf('.');
+  if (dotIdx > 0) {
+    const maybeNs = key.slice(0, dotIdx) as TranslationNamespace;
+    if (TRANSLATION_NAMESPACES.includes(maybeNs)) {
+      return [maybeNs, key.slice(dotIdx + 1)];
+    }
   }
   return ['common', key];
 }
@@ -274,7 +305,7 @@ export function TranslationProvider({
 
       // Primary resolution.
       let value = resolveKey(bundleCache[locale][ns], keyPath);
-      // de → en / ka → en fallback.
+      // de/ka/ru → en fallback.
       if (value === undefined && locale !== 'en') {
         value = resolveKey(bundleCache.en[ns], keyPath);
       }

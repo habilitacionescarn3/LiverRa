@@ -1,0 +1,12 @@
+{
+  "title": "Override classification",
+  "subtitle": "Replace the AI-predicted tumor class with a manual one.",
+  "newClassLabel": "New classification",
+  "newClassPlaceholder": "Select a tumor class",
+  "reasonLabel": "Reason for override",
+  "reasonPlaceholder": "Explain why the AI class is being overridden (required for audit)",
+  "reasonTooShort": "Please provide a more detailed reason.",
+  "missingFields": "Please fill in all required fields.",
+  "submit": "Record override",
+  "genericError": "Could not save the classification override. Please try again."
+}

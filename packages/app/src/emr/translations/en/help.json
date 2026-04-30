@@ -44,5 +44,94 @@
       "ruo": "Research use only",
       "brand": "liverra.ai"
     }
+  },
+  "hub": {
+    "title": "Help & resources",
+    "subtitle": "Guides, keyboard shortcuts, and references for day-to-day use.",
+    "tiles": {
+      "sampleCase": {
+        "title": "Run the sample case",
+        "body": "Ship-ready demo dataset that exercises upload → 3D → lesions → finalize end-to-end.",
+        "cta": "Open demo case"
+      },
+      "glossary": {
+        "title": "Clinical glossary",
+        "body": "Couinaud segments, vessels, lesion classes, contrast phases, abbreviations.",
+        "cta": "Open glossary"
+      },
+      "keyboard": {
+        "title": "Keyboard shortcuts",
+        "body": "Speed up refinement with V (VISTA3D add), B (subtract), L (lesion prompt), Ctrl-Z / Ctrl-Y.",
+        "cta": "Show shortcuts"
+      },
+      "ruoPolicy": {
+        "title": "RUO policy",
+        "body": "What Research Use Only means for your outputs, how scope narrows when claims clear conformity.",
+        "cta": "Read policy"
+      },
+      "tutorials": {
+        "title": "Video tutorials",
+        "body": "Short walkthroughs: upload a study, review a case, sign off a report.",
+        "cta": "Watch"
+      },
+      "support": {
+        "title": "Contact support",
+        "body": "Reach engineering + compliance via the support inbox.",
+        "cta": "Email support"
+      }
+    },
+    "tutorials": {
+      "comingSoon": "Coming soon"
+    },
+    "role": {
+      "label": "For your role",
+      "surgeon":     ["finalize", "refinement"],
+      "radiologist": ["refinement", "lesionDetection"],
+      "admin":       ["support", "ruoPolicy"],
+      "operations":  ["support"],
+      "compliance":  ["ruoPolicy"],
+      "dpo":         ["ruoPolicy", "support"],
+      "fellow":      ["sampleCase", "glossary"]
+    },
+    "modals": {
+      "keyboard": {
+        "title": "Keyboard shortcuts",
+        "close": "Close",
+        "sections": {
+          "global": "Global",
+          "viewer": "3D viewer",
+          "refine": "Refinement"
+        },
+        "rows": {
+          "searchCases":    { "keys": "/",      "label": "Focus case search" },
+          "nextCase":       { "keys": "J",      "label": "Next case" },
+          "prevCase":       { "keys": "K",      "label": "Previous case" },
+          "pan":            { "keys": "Space",  "label": "Pan viewer" },
+          "zoomIn":         { "keys": "+",      "label": "Zoom in" },
+          "zoomOut":        { "keys": "-",      "label": "Zoom out" },
+          "sliceUp":        { "keys": "↑",      "label": "Next slice" },
+          "sliceDown":      { "keys": "↓",      "label": "Previous slice" },
+          "vistaAdd":       { "keys": "V",      "label": "VISTA3D add" },
+          "vistaSubtract":  { "keys": "B",      "label": "VISTA3D subtract" },
+          "lesionPrompt":   { "keys": "L",      "label": "MedSAM-2 lesion prompt" },
+          "undo":           { "keys": "Ctrl+Z", "label": "Undo last edit" },
+          "redo":           { "keys": "Ctrl+Y", "label": "Redo" }
+        }
+      },
+      "ruo": {
+        "title": "Research Use Only — what it means",
+        "close": "Close",
+        "intro": "Every output from LiverRa v1 is marked Research Use Only. That means outputs inform but do not replace clinical judgement.",
+        "whatItMeans": "What \"RUO\" means",
+        "whatItMeansBody": "Volumes, lesion classes, FLR percentages, and segmentations are shown for investigative and planning context. Treatment decisions remain the responsibility of a qualified physician.",
+        "narrowing": "How the scope narrows",
+        "narrowingBody": "As individual claims (parenchyma volumetry, FLR, segmentation, vessels, lesion detection + classification, surgical planning) clear conformity assessment, the disclaimer text automatically narrows for that claim. See the Claim registry.",
+        "close2": "Got it"
+      }
+    },
+    "footer": {
+      "version": "Version {{version}}",
+      "support": "support@liverra.ai"
+    }
   }
 }

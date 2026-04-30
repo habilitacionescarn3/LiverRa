@@ -8,7 +8,8 @@
     "addLesion": "Läsion hinzufügen",
     "shortcutHint": "B Pinsel  E radieren  P Prompt  M Marker",
     "acquireSeatTooltip": "Bearbeitungsplatz übernehmen, um zu ändern",
-    "readOnlyTooltip": "Nur-Lese-Ansicht — ein anderer Prüfer bearbeitet diesen Fall"
+    "readOnlyTooltip": "Nur-Lese-Ansicht — ein anderer Prüfer bearbeitet diesen Fall",
+    "ariaLabel": "Refinement tools"
   },
   "classification": {
     "title": "KI-Klassifikation überschreiben",
@@ -64,5 +65,32 @@
     "veinTrunks": "Vein trunks",
     "lesions": "Lesions",
     "keyHint": "Press {{key}} to cycle layer combos"
+  },
+  "view": {
+    "title": "Feinschliff",
+    "subtitle": "Fall {{caseRef}}",
+    "back": "Zurück zum Fall",
+    "acquiring": "Bearbeitungsplatz wird geholt…",
+    "seatHeldBy": "Bearbeitungsplatz gehört {{holder}}",
+    "seatTakenTitle": "Bearbeitungsplatz belegt",
+    "seatTakenBody": "Ein anderer Prüfer bearbeitet diesen Fall. Versuchen Sie es gleich erneut.",
+    "retryAcquire": "Erneut versuchen",
+    "missingId": "Fall-ID fehlt.",
+    "undo": "Rückgängig",
+    "redo": "Wiederherstellen",
+    "undoEmpty": "Keine Änderungen zum Rückgängigmachen",
+    "editCount": "{{count}} Änderung",
+    "editCountPlural": "{{count}} Änderungen",
+    "lastEdit": "Letzte Änderung: {{label}}",
+    "keyboardHint": "Tastenkürzel",
+    "keyboardHintShort": "Kürzel",
+    "keyboardList": "V hinzufügen · B subtrahieren · L Läsion · Strg+Z zurück · Strg+Y vor · Esc leeren",
+    "offlineBanner": "Sie sind offline. Änderungen werden bei erneuter Verbindung synchronisiert.",
+    "seatLostTitle": "Bearbeitungsplatz verloren",
+    "seatLostBody": "Ihr Bearbeitungsfenster ist abgelaufen. Bitte erneut holen.",
+    "dispatchError": "Änderung konnte nicht gespeichert werden: {{message}}",
+    "permissionDeniedTooltip": "Keine Berechtigung für Maskenbearbeitung.",
+    "toolsHeading": "Werkzeuge",
+    "overlayFlash": "Änderung erfasst"
   }
 }

@@ -1,0 +1,323 @@
+/* StudyCardGrid — Horizontal single-row layout for imaging studies.
+   Each study is a full-width card with content spread in one row. */
+
+/* ==================== GRID → VERTICAL STACK (one card per line) ==================== */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ==================== CARD (horizontal row) ==================== */
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  padding-left: 17px; /* 14px + 3px for accent border */
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: var(--emr-shadow-card);
+  transition: transform 0.2s ease,
+              box-shadow 0.2s ease,
+              border-color 0.2s ease;
+  overflow: hidden;
+}
+
+/* Left accent border — 3px strip for priority */
+.card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 10px 0 0 10px;
+  background: var(--emr-secondary);
+  opacity: 0.3;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+/* Hover effect */
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--emr-shadow-card-hover);
+  border-color: var(--emr-secondary);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* Selected state */
+.selected {
+  border-color: var(--emr-accent);
+  box-shadow: 0 0 0 2px var(--emr-accent-alpha-10), var(--emr-shadow-card);
+}
+
+/* ==================== PRIORITY BORDERS ==================== */
+.priorityStat::before {
+  background: var(--emr-error);
+  opacity: 1;
+}
+
+.priorityUrgent::before {
+  background: var(--emr-warning);
+  opacity: 1;
+}
+
+/* STAT pulsing glow */
+.priorityStat {
+  animation: statPulse 2s ease-in-out infinite;
+}
+
+@keyframes statPulse {
+  0%, 100% { box-shadow: var(--emr-shadow-card); }
+  50% { box-shadow: var(--emr-shadow-card), -3px 0 8px rgba(239, 68, 68, 0.25); }
+}
+
+/* ==================== MODALITY ICON BOX ==================== */
+.modalityIcon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--emr-bg-accent-secondary);
+  border-radius: 8px;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: color 0.2s ease;
+}
+
+/* Gradient fill on hover (borrowed from PACSPatientCard) */
+.modalityIcon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--emr-gradient-secondary);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.modalityIcon span {
+  position: relative;
+  z-index: 1;
+}
+
+.card:hover .modalityIcon::before {
+  opacity: 1;
+}
+
+.card:hover .modalityIcon {
+  color: var(--emr-text-inverse);
+}
+
+/* ==================== INFO ZONE (description + date) ==================== */
+.infoZone {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardDescription {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.cardDate {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* ==================== BODY PART ==================== */
+.bodyPart {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--emr-border-color);
+}
+
+/* ==================== IMAGE COUNT ==================== */
+.imageCount {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--emr-border-color);
+}
+
+.imageCountValue {
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+/* ==================== BADGES ZONE ==================== */
+.badgeZone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--emr-border-color);
+}
+
+/* ==================== ACTIONS ZONE ==================== */
+.actionZone {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover .actionZone {
+  opacity: 1;
+}
+
+/* Small action button (view / compare) */
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.actionBtn:hover {
+  background: var(--emr-bg-hover);
+  color: var(--emr-accent);
+}
+
+/* ==================== STAGGERED ENTRANCE ANIMATION ==================== */
+.animated {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: cardSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes cardSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.delay0 { animation-delay: 0.03s; }
+.delay1 { animation-delay: 0.06s; }
+.delay2 { animation-delay: 0.09s; }
+.delay3 { animation-delay: 0.12s; }
+.delay4 { animation-delay: 0.15s; }
+.delay5 { animation-delay: 0.18s; }
+.delay6 { animation-delay: 0.21s; }
+.delay7 { animation-delay: 0.24s; }
+.delay8 { animation-delay: 0.27s; }
+.delay9 { animation-delay: 0.30s; }
+
+/* ==================== PENDING ORDER CARD ==================== */
+.pendingCard {
+  border-left: 3px dashed var(--emr-accent);
+  opacity: 0.85;
+}
+
+/* Override the default ::before on pending cards so it doesn't clash with dashed border */
+.pendingCard::before {
+  display: none;
+}
+
+/* ==================== RESPONSIVE ==================== */
+
+/* Tablet: hide body part, let badges wrap */
+@media (max-width: 992px) {
+  .bodyPart {
+    display: none;
+  }
+
+  .badgeZone {
+    border-left: none;
+    padding-left: 0;
+  }
+}
+
+/* Small tablet: stack badges below */
+@media (max-width: 768px) {
+  .card {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .imageCount {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .badgeZone {
+    flex-wrap: wrap;
+  }
+
+  /* Actions always visible on touch */
+  .actionZone {
+    opacity: 1;
+  }
+}
+
+/* ==================== ACCESSIBILITY ==================== */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .card::before,
+  .modalityIcon,
+  .modalityIcon::before,
+  .actionZone {
+    transition: none;
+  }
+
+  .animated {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .priorityStat {
+    animation: none;
+    box-shadow: var(--emr-shadow-card), -3px 0 8px rgba(239, 68, 68, 0.25);
+  }
+}

@@ -139,15 +139,19 @@ export function UploadProgress({
   useEffect(() => {
     if (predictedWarmSec !== undefined) return;
     let cancelled = false;
-    fetch(`${apiBaseUrl}/system/health`)
-      .then((r) => (r.ok ? r.json() : undefined))
+    fetch(`${apiBaseUrl}/system/health`, { credentials: 'include' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`health check failed: ${r.status}`);
+        return r.json();
+      })
       .then((payload: { gpu?: { predicted_warm_s?: number } } | undefined) => {
         if (!cancelled && payload?.gpu?.predicted_warm_s !== undefined) {
           setPredictedWarmSec(payload.gpu.predicted_warm_s);
         }
       })
-      .catch(() => {
-        // Health endpoint unavailable — silent fallback.
+      .catch((err) => {
+        // Health endpoint unavailable — fail silently but log for triage.
+        console.warn('[UploadProgress] health check failed:', err);
       });
     return () => {
       cancelled = true;

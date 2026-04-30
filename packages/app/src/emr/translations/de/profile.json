@@ -1,0 +1,39 @@
+{
+  "__comment__": "German profile copy — awaiting CODEOWNERS review. Missing keys fall back to English.",
+  "page": {
+    "title": "__TODO_TRANSLATE__:Profile",
+    "subtitle": "__TODO_TRANSLATE__:Manage your account, preferences, and security."
+  },
+  "header": {
+    "editProfile": "__TODO_TRANSLATE__:Edit profile",
+    "emailUnavailable": "__TODO_TRANSLATE__:Email unavailable",
+    "roleUnassigned": "__TODO_TRANSLATE__:No role assigned"
+  },
+  "sections": {
+    "account":     "__TODO_TRANSLATE__:Account",
+    "preferences": "__TODO_TRANSLATE__:Preferences",
+    "security":    "__TODO_TRANSLATE__:Security",
+    "compliance":  "__TODO_TRANSLATE__:Compliance"
+  },
+  "actions": {
+    "save":   "__TODO_TRANSLATE__:Save changes",
+    "cancel": "__TODO_TRANSLATE__:Cancel"
+  },
+  "fields": {
+    "lastActiveNever": "__TODO_TRANSLATE__:Never",
+    "lastActiveFirstSession": "__TODO_TRANSLATE__:Welcome! This is your first session.",
+    "displayNameHelper": "__TODO_TRANSLATE__:Visible to your team on cases, audit events, and reports."
+  },
+  "password": {
+    "title": "__TODO_TRANSLATE__:Password",
+    "description": "__TODO_TRANSLATE__:Self-serve password changes are coming soon. For now, contact your administrator."
+  },
+  "sessions": {
+    "title": "__TODO_TRANSLATE__:Active sessions",
+    "description": "__TODO_TRANSLATE__:Review devices currently signed in to your LiverRa account."
+  },
+  "comingSoon": "__TODO_TRANSLATE__:Coming soon",
+  "ruo": {
+    "footerPill": "__TODO_TRANSLATE__:Research Use Only — outputs are not for clinical decision-making."
+  }
+}

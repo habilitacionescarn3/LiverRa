@@ -8,6 +8,8 @@
   },
   "finalize": {
     "title": "Bericht finalisieren",
+    "subtitle": "Wandeln Sie diese abgeschlossene Analyse in einen signierten, audit-sicheren Bericht um.",
+    "backToCase": "Zurück zum Fall",
     "submit": "Jetzt finalisieren",
     "step": {
       "check": "Vorprüfung",
@@ -22,7 +24,10 @@
       "shipDesc": "Erfordert Step-up-MFA"
     },
     "check": {
-      "body": "Bestätigen Sie, dass alle Messungen, Läsionen und die FLR-Ebene geprüft wurden."
+      "body": "Bestätigen Sie, dass alle Messungen, Läsionen und die FLR-Ebene geprüft wurden.",
+      "reviewedConfirm": "Ich habe alle Messungen, Läsionen und die FLR-Ebene geprüft.",
+      "notReadyTitle": "Analyse nicht bereit",
+      "notReady": "Diese Analyse ist nicht bereit für die Finalisierung — Status: {{status}}"
     },
     "watermark": {
       "heading": "NUR ZU FORSCHUNGSZWECKEN — NICHT FÜR KLINISCHE ENTSCHEIDUNGEN",
@@ -31,14 +36,30 @@
     },
     "pacs": {
       "enable": "SEG + SR an konfigurierte PACS-Ziele übermitteln",
+      "skip": "Jetzt überspringen — später manuell aus dem Bericht versenden",
       "hint": "Sie können das auch überspringen und den Versand später von der Berichts-Seite starten."
     },
     "review": {
       "notesLabel": "Anmerkungen für den Bericht (optional)",
-      "hint": "Die vollständige Vorschau ist nach Abschluss der Finalisierung auf der Berichts-Seite verfügbar."
+      "hint": "Die vollständige Vorschau ist nach Abschluss der Finalisierung auf der Berichts-Seite verfügbar.",
+      "summary": {
+        "title": "Zusammenfassung",
+        "analysisId": "Analyse-ID",
+        "status": "Status",
+        "pacsPlan": "PACS-Plan"
+      }
     },
     "ship": {
       "body": "Die Finalisierung erfordert eine Step-up-MFA-Prüfung."
+    },
+    "error": {
+      "title": "Finalisierung fehlgeschlagen"
+    },
+    "success": {
+      "title": "Bericht finalisiert",
+      "subtitle": "PDF, DICOM-SEG und DICOM-SR werden erstellt.",
+      "reportIdLabel": "Bericht-ID",
+      "viewReport": "Bericht anzeigen"
     }
   },
   "pdf": {

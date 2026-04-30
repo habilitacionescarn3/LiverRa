@@ -1,0 +1,87 @@
+/* StatusTimelinePopover — clickable status badge + timeline popover */
+
+.triggerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.4;
+}
+
+.triggerBadge:hover {
+  opacity: 0.85;
+  box-shadow: 0 0 0 2px var(--emr-accent);
+}
+
+.triggerBadge:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* Status-specific colors (same as StudyList badges) */
+.status-ordered {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-secondary);
+}
+
+.status-scheduled {
+  background: var(--emr-accent-alpha-10);
+  color: var(--emr-accent);
+}
+
+.status-in-progress {
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+}
+
+.status-images-available {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+}
+
+.status-preliminary-read {
+  background: var(--emr-info-alpha-10);
+  color: var(--emr-info);
+}
+
+.status-reported {
+  background: var(--emr-success-alpha-12);
+  color: var(--emr-success);
+}
+
+/* Priority indicators inside the trigger */
+.statIndicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  background: var(--emr-error-alpha-12);
+  color: var(--emr-error);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+
+.urgentIndicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  background: var(--emr-warning-alpha-12);
+  color: var(--emr-warning);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}

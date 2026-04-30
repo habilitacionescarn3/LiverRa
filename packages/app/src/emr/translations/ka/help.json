@@ -44,5 +44,8 @@
       "ruo": "Research use only",
       "brand": "liverra.ai"
     }
+  },
+  "hub": {
+    "tutorials": { "comingSoon": "__TODO_TRANSLATE__:Coming soon" }
   }
 }

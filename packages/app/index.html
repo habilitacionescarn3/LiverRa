@@ -7,23 +7,44 @@
     <title>LiverRa — AI Liver Diagnostics & Surgical Planning</title>
     <meta name="description" content="AI-powered liver CT/MRI analysis for HPB surgeons" />
 
-    <!-- T079: Preload primary UI fonts so Georgian + Latin glyphs are
-         resolved before first paint. Font files are served from
-         /fonts/ in the Vite public dir (to be added by the theme agent). -->
-    <link
-      rel="preload"
-      as="font"
-      type="font/woff2"
-      crossorigin
-      href="/fonts/NotoSans-Regular.woff2"
-    />
-    <link
-      rel="preload"
-      as="font"
-      type="font/woff2"
-      crossorigin
-      href="/fonts/NotoSansGeorgian-Regular.woff2"
-    />
+    <!-- T079: Font preload links removed until the theme agent ships the
+         actual .woff2 files under /fonts/. Preloading non-existent assets
+         produces a Chrome "was preloaded but not used" warning on every
+         pageload. Re-add when the files are in place. -->
+
+    <!-- Console noise filter: installed inline so it wraps console.warn
+         BEFORE any React/Cornerstone bundle loads. Suppresses known dev-
+         time Cornerstone3D / Chromium warnings that aren't actionable.
+         Production builds inherit the same wrapper (still harmless there). -->
+    <script>
+      (function () {
+        var needles = [
+          "Worker type 'dicomImageLoader' is already registered",
+          "'SegmentationDisplay' is not registered with the library",
+          'Tool SegmentationDisplay not added to toolGroup',
+          'For crosshairs to operate, at least two viewports must be given',
+          'Canvas2D: Multiple readback operations using getImageData',
+          'GL Driver Message',
+          'CornerstoneRender: using GPU rendering',
+        ];
+        function suppress(args) {
+          if (!args || !args.length) return false;
+          var first = args[0];
+          if (typeof first !== 'string') return false;
+          for (var i = 0; i < needles.length; i++) {
+            if (first.indexOf(needles[i]) !== -1) return true;
+          }
+          return false;
+        }
+        ['warn', 'log', 'info'].forEach(function (k) {
+          var orig = console[k].bind(console);
+          console[k] = function () {
+            if (suppress(arguments)) return;
+            orig.apply(console, arguments);
+          };
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,136 @@
+/* ============================================================================
+ * KeyImageGallery Styles (ported from MediMind)
+ * ============================================================================
+ * Sidebar panel for flagged key images in the PACS viewer.
+ * Uses theme CSS variables — no hardcoded colors.
+ * ============================================================================ */
+
+.key-image-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--emr-bg-card);
+  border-radius: var(--emr-radius-md);
+  border: 1px solid var(--emr-border-color);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.key-image-gallery-header {
+  padding: 4px 0;
+}
+
+.key-image-count-badge {
+  background: var(--emr-warning);
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-xs);
+  min-width: 20px;
+}
+
+.key-image-flag-input {
+  padding: 4px 0;
+}
+
+.key-image-gallery-loading {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.key-image-gallery-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 8px;
+}
+
+.key-image-grid {
+  gap: 8px;
+}
+
+/* Individual key image card */
+.key-image-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-radius-sm);
+  background: var(--emr-bg-card);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+
+.key-image-card:hover {
+  border-color: var(--emr-accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.key-image-card:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 1px;
+}
+
+/* Thumbnail area */
+.key-image-thumbnail {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+  background: var(--emr-bg-hover);
+}
+
+.key-image-frame-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: var(--emr-font-xs);
+  background: var(--emr-bg-card);
+  color: var(--emr-text-primary);
+  border: 1px solid var(--emr-border-color);
+}
+
+/* Info section below the thumbnail */
+.key-image-info {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; /* Allow text truncation */
+}
+
+/* Unflag button — positioned in the top-left corner, visible on hover */
+.key-image-unflag {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  background: var(--emr-bg-card);
+  border-radius: 50%;
+}
+
+.key-image-card:hover .key-image-unflag {
+  opacity: 1;
+}
+
+/* Touch devices: no hover, so always show the unflag button */
+@media (hover: none) {
+  .key-image-unflag {
+    opacity: 0.7;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 576px) {
+  .key-image-gallery {
+    max-height: 300px;
+  }
+
+  .key-image-thumbnail {
+    height: 48px;
+  }
+}

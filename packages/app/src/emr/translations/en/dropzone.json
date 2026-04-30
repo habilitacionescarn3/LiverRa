@@ -1,0 +1,12 @@
+{
+  "defaultTitle": "Drop files here or click to upload",
+  "defaultDescription": "Attach files by drag and drop or by selecting them from your device.",
+  "chooseFile": "Choose file",
+  "takePhoto": "Take photo",
+  "removeFile": "Remove file",
+  "upTo": "Up to {{size}}",
+  "error": {
+    "invalidType": "Unsupported file type.",
+    "tooLarge": "File is too large."
+  }
+}

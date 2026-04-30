@@ -294,6 +294,13 @@ export const FULL_MENU_ITEMS: readonly MenuNavItem[] = [
     permission: 'study.view',
   },
   {
+    key: 'pacs-studies',
+    translationKey: 'nav:pacs_studies',
+    path: LIVERRA_ROUTES.PACS_STUDIES,
+    icon: renderTablerIcon(IconServer),
+    permission: 'study.view',
+  },
+  {
     key: 'demo',
     translationKey: 'nav:demo',
     path: LIVERRA_ROUTES.DEMO_CASE,

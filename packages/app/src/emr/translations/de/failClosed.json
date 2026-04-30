@@ -1,0 +1,57 @@
+{
+  "cashier": {
+    "title": "Cashier service unavailable",
+    "message": "The cashier service is temporarily unreachable. Payments cannot be processed right now.",
+    "alternative": "You can retry in a moment or use a manual backup process.",
+    "retryLabel": "Retry",
+    "suggestion1": "Check your network connection.",
+    "suggestion2": "Wait a moment and retry.",
+    "suggestion3": "Contact support if the problem persists."
+  },
+  "emergencyAccess": {
+    "title": "Emergency access check failed",
+    "message": "We could not verify your emergency-access rights.",
+    "retryLabel": "Retry",
+    "breakGlassLabel": "Request break-glass access",
+    "autoRetrying": "Automatically retrying…",
+    "autoRetryExhausted": "Automatic retries exhausted. Please retry manually.",
+    "suggestion1": "Check your network connection.",
+    "suggestion2": "Verify your credentials.",
+    "suggestion3": "Request break-glass access if this is an emergency."
+  },
+  "pharmacyDDI": {
+    "title": "Drug interaction check unavailable",
+    "message": "The drug-drug interaction (DDI) service is unreachable.",
+    "alternative": "You can retry or request a supervised override.",
+    "retryLabel": "Retry",
+    "overrideLabel": "Request override",
+    "suggestion1": "Check your network connection.",
+    "suggestion2": "Wait a moment and retry.",
+    "suggestion3": "Request an override from a pharmacist if urgent."
+  },
+  "roleAssignment": {
+    "title": "Role assignment failed",
+    "message": "Your user role could not be determined.",
+    "alternative": "Sign out and back in, or contact your administrator.",
+    "suggestion1": "Sign out and sign in again.",
+    "suggestion2": "Refresh the page.",
+    "suggestion3": "Contact your administrator for role reassignment."
+  },
+  "shiftOverlap": {
+    "title": "Shift overlap detected",
+    "message": "Your shift assignment overlaps with another scheduled shift.",
+    "alternative": "Verify your shift calendar or request an override.",
+    "verifyLabel": "Verify shift",
+    "suggestion1": "Check your shift calendar.",
+    "suggestion2": "Ask your scheduler to resolve the overlap.",
+    "suggestion3": "Contact your supervisor."
+  },
+  "warehouse": {
+    "title": "Warehouse service unavailable",
+    "message": "The inventory warehouse is temporarily unreachable.",
+    "alternative": "Retry shortly or use an offline stock sheet.",
+    "suggestion1": "Check your network connection.",
+    "suggestion2": "Wait a moment and retry.",
+    "suggestion3": "Use a paper backup if critical."
+  }
+}

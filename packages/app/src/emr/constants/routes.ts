@@ -54,6 +54,10 @@ export const LIVERRA_ROUTES = {
   ERASURE: '/erasure',
   ERASURE_NEW: '/erasure/new',
 
+  // --- pacs (direct Orthanc browsing, no AI pipeline) ---------------------
+  PACS_STUDIES: '/pacs/studies',
+  PACS_STUDY_DETAIL: '/pacs/studies/:studyInstanceUid',
+
   // --- help / settings / demo ---------------------------------------------
   HELP: '/help',
   HELP_GLOSSARY: '/help/glossary',
