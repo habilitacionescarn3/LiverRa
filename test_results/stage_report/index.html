@@ -1,0 +1,108 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>LiverRa stage report — bf2e1383-0788-4acc-8e46-3c3f21b8f935</title>
+<style>
+body{font-family:-apple-system,system-ui,Segoe UI,Helvetica,sans-serif;color:#222;
+     max-width:1080px;margin:24px auto;padding:0 16px;line-height:1.45}
+h1{margin-bottom:0}
+h2{margin-top:1.6em;border-bottom:1px solid #eee;padding-bottom:.3em}
+.meta{color:#666;font-size:.92em;margin:0 0 .8em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em;margin:.6em 0}
+th,td{border:1px solid #ddd;padding:6px 9px;text-align:left}
+th{background:#f3f3f3}
+section{margin-bottom:1.8em}
+.warn{color:#a55;font-weight:bold}
+.ok{color:#383;font-weight:bold}
+code{background:#f6f6f6;padding:1px 5px;border-radius:3px}
+</style></head><body>
+
+<h1>LiverRa stage report</h1>
+<p class="meta">
+  analysis_id: <code>bf2e1383-0788-4acc-8e46-3c3f21b8f935</code> &nbsp;|&nbsp;
+  status: <strong>completed</strong> &nbsp;|&nbsp;
+  duration: 409.0 s &nbsp;|&nbsp;
+  pipeline: <code>totalsegmentator-v2</code>
+</p>
+
+<h2>Pipeline checkpoints</h2>
+<table>
+  <thead><tr><th>#</th><th>stage</th><th>model_version</th><th>license</th><th>Δ from start</th><th>output_uri</th></tr></thead>
+  <tbody><tr><td>1</td><td>anonymization</td><td><code>ctp+presidio@v1-passthrough</code></td><td><code>n/a</code></td><td>0.01s</td><td><code>s3://liverra-dev/anonymized/00000000-0000-0000-0000-0000000000bb.zip</code></td></tr><tr><td>2</td><td>parenchyma</td><td><code>totalsegmentator-v2</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>319.94s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/bf2e1383-0788-4acc-8e46-3c3f21b8f935/parenchyma_mask.nii.gz</code></td></tr><tr><td>3</td><td>vessels</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>407.54s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/bf2e1383-0788-4acc-8e46-3c3f21b8f935/vessels.nii.gz</code></td></tr><tr><td>4</td><td>couinaud</td><td><code>stub-couinaud@v1</code></td><td><code>n/a-dev-stub</code></td><td>407.70s</td><td><code>s3://liverra-dev/stub/bf2e1383-0788-4acc-8e46-3c3f21b8f935/couinaud.nii.gz</code></td></tr><tr><td>5</td><td>lesion_detection</td><td><code>totalsegmentator-v2-liver_vessels</code></td><td><code>cc-by-nc-sa-4.0</code></td><td>408.93s</td><td><code>s3://liverra-analyses-eu-central-1/analyses/bf2e1383-0788-4acc-8e46-3c3f21b8f935/lesions/</code></td></tr><tr><td>7</td><td>flr_init</td><td><code>heuristic-axial-midpoint@v1</code></td><td><code>n/a-heuristic</code></td><td>408.96s</td><td><code>flr://analyses/bf2e1383-0788-4acc-8e46-3c3f21b8f935</code></td></tr></tbody>
+</table>
+
+<h2>FLR summary</h2>
+<p><strong>Total liver:</strong> 1829.10 ml &nbsp;<strong>FLR:</strong> 385.58 ml (21.08 %) <span class='warn'>(heuristic — NOT validated)</span></p>
+
+
+        <section>
+          <h2>Stage 1 — Anonymization (passthrough)</h2>
+          <p class="meta">Input CT was already de-identified by the upload step. No PHI fields present in the source DICOMs.</p>
+          
+          
+        </section>
+        
+        <section>
+          <h2>Stage 2 — Parenchyma (TotalSegmentator v2)</h2>
+          <p class="meta">Total liver volume: <strong>1829 ml</strong> (3,774,503 voxels). Components: 1 (largest = 100.0% of volume; 0 islands &lt; 5 ml). Bbox z=[356..607].</p>
+          <img src="stage2_parenchyma.png" alt="stage2_parenchyma" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+        <section>
+          <h2>Stage 3 — Vessels (TotalSegmentator liver_vessels)</h2>
+          <p class="meta">Vessel tree: <strong>5.0 ml inside liver</strong> + 5.7 ml outside (IVC + caval portion). Containment: 46.9%.</p>
+          <img src="stage3_vessels.png" alt="stage3_vessels" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+        <section>
+          <h2>Stage 4 — Couinaud — STUB</h2>
+          <p class="meta">No real Couinaud segmentation yet. Heuristic split using TS's IVC + portal-vein outputs is queued.</p>
+          <img src="stage4_couinaud.png" alt="stage4_couinaud" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+        <section>
+          <h2>Stage 5 — Lesion detection</h2>
+          <p class="meta"><strong>1 liver-contained lesion candidate(s)</strong> (threshold ≥ 0.05 ml). Biggest: 151.2 ml at z=504 y=243 x=107.</p>
+          <img src="stage5_lesions.png" alt="stage5_lesions" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+        <section>
+          <h2>Stage 6 — Classification — STUB</h2>
+          <p class="meta">No real classifier wired. LiLNet integration is multi-day work (per PHASE_3_GAPS.md).</p>
+          <img src="stage6_classification.png" alt="stage6_classification" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+        <section>
+          <h2>Stage 7 — FLR (axial midpoint heuristic)</h2>
+          <p class="meta">Total 1829 ml &nbsp; FLR 386 ml (21.1%). Plane crossed at native z=481. <span class='warn'>(heuristic — NOT validated)</span></p>
+          <img src="stage7_flr.png" alt="stage7_flr" style="max-width:100%;border:1px solid #ccc;border-radius:4px;">
+          
+        </section>
+        
+
+<h2>Concerns / next steps</h2>
+<ul>
+  <li>Liver mask passes rough auto-QC; not yet clinically validated.</li>
+  <li>Tumor channel: lesions correctly circled but TS's <code>liver_tumor</code> task is known to over-segment in some patients — needs a per-case radiologist review.</li>
+  <li>Couinaud (stage 4) is still a passthrough stub — no segment-aware FLR yet.</li>
+  <li>Classification (stage 6) has no real model wired — placeholder uniform probabilities only when lesions exist.</li>
+  <li>FLR uses an axial midpoint; real surgical FLR requires a portal-vein-territory plane defined by the surgeon.</li>
+</ul>
+
+<h2>Improvement ideas (queued)</h2>
+<ul>
+  <li><strong>Connected-component cleanup</strong> on the liver mask — drop islands &lt; 5 ml, fill holes.</li>
+  <li><strong>Heuristic Couinaud</strong> using TS's IVC + portal-vein outputs to define the principal hepatic plane (Cantlie line) and the right/middle/left portal divisions.</li>
+  <li><strong>Per-lesion 4-phase enhancement curve</strong> — sample the same VOI from non_contrast / arterial / portal_venous / delayed; this is the LiLNet input and is clinically interpretable on its own.</li>
+  <li><strong>Per-slice radiologist PDF</strong> — one page per axial slice in the liver bbox, contour overlay, in DICOM viewing order.</li>
+  <li><strong>Side-by-side 4-phase viewer</strong> — same Z slice across all 4 phases (radiology gold standard).</li>
+  <li><strong>3D mesh render</strong> via plotly or vtk — interactive view for the surgeon.</li>
+  <li><strong>Dome / left-lobe completeness flags</strong> — alert if left lobe &lt; 20% or superior z-extent &lt; 80% of typical.</li>
+  <li><strong>Pre-op vs post-op compare view</strong> — when we have follow-up scans.</li>
+</ul>
+
+<p class="meta">Generated 2026-04-30T17:49:38+00:00 UTC</p>
+</body></html>
