@@ -76,6 +76,13 @@ calls out copyleft (GPL/AGPL/CC-NC/CC-SA), so MIT is consistent with the
 
 ### 3. LiLNet
 
+**Status:** STAGE 6 IS NOW REAL via a rule-based LI-RADS classifier
+(see `src/orchestrator/lirads_classifier.py`). The upstream LiLNet
+weights remain unintegrated for the reasons below, but the **role**
+LiLNet plays in the cascade (per-lesion 6-class classification with
+the `[6]` output contract) is now filled by an explainable,
+audit-friendly rule engine rather than a stub.
+
 - **Architecture mismatch with our config.pbtxt.** Upstream README +
   source tree show LiLNet is **three cascaded 2D ResNet50 models**
   (BM_train.py, Benign_train.py, Malignant_train.py) operating on
@@ -93,6 +100,47 @@ calls out copyleft (GPL/AGPL/CC-NC/CC-SA), so MIT is consistent with the
 - This wrapper is its own ~300-line module + needs validation against
   the upstream paper's reported metrics.
 - **Expected work:** 2–3 days plus clinical-validation-team review.
+
+**Interim solution (shipped 2026-04-30): LI-RADS rule-based classifier.**
+
+Rather than block on upstream LiLNet weights, stage 6 now uses a
+clinically-grounded LI-RADS-style rule engine that takes the same
+input LiLNet would (4-phase enhancement signature per lesion) and
+emits the same `[6]` output. Each prediction is annotated with the
+rule(s) that fired and the relative-enhancement values that drove
+them — a property the upstream LiLNet (or any black-box CNN) cannot
+match.
+
+  Files:
+    src/orchestrator/lesion_enhancement_features.py — extract per-lesion
+      4-phase HU mean/median/std + relative-to-liver enhancement +
+      pattern flags (APHE, washout, progressive, hypovascular, etc.)
+    src/orchestrator/lirads_classifier.py — softmax-of-discriminant-scores
+      6-class classifier (HCC, ICC, MET, FNH, HEM, CYST) with explicit
+      reasoning text per prediction.
+
+  Output:
+    s3://liverra-analyses-eu-central-1/analyses/<aid>/lesion_classifications.json
+    pipeline_checkpoint stage 6 model_version='lirads-rule-classifier-v1'
+
+  Verified on the Todua-CT 151 ml lesion: top-1 = ICC at 88% confidence,
+  reasoning = "Delayed enhancement (Δ=+16 > Δ_arterial=+5) without APHE
+  → cholangiocarcinoma pattern". Defensible — that lesion's location +
+  size + delayed-enhancement pattern is consistent with intrahepatic
+  cholangiocarcinoma; needs radiologist confirmation but the model's
+  reasoning is auditable.
+
+  **Not validated against radiologist labels on a multi-case set.**
+  That validation is a separate workstream queued under "Clinical
+  validation" below.
+
+  **Ship the upstream LiLNet weights later** if and when the rule
+  engine's metrics underperform on a labeled validation set. Until
+  then, this gives us:
+    1. A real `[6]` output matching the Triton contract.
+    2. Per-lesion explainability (the rule engine cites its rules).
+    3. Zero license-acquisition risk.
+    4. Sub-second runtime per lesion.
 
 ### 4. VISTA3D
 

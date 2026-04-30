@@ -432,38 +432,130 @@ def render_stage5_lesions(vols: dict, out_path: Path) -> dict | None:
     return {"lesions": lesions, "n_components": n}
 
 
-def render_stage6_classification(lesion_info: dict | None, out_path: Path) -> dict:
-    """Per-lesion class-probability bar chart — stub mode shows placeholder."""
-    fig, ax = plt.subplots(figsize=(9, 4))
+def _load_classifications_json(aid: str) -> dict | None:
+    """Download lesion_classifications.json from MinIO (written by real_cascade.py)."""
+    import boto3
+    s3 = boto3.client("s3", region_name=os.environ.get("AWS_REGION", "eu-central-1"))
+    try:
+        obj = s3.get_object(
+            Bucket="liverra-analyses-eu-central-1",
+            Key=f"analyses/{aid}/lesion_classifications.json",
+        )
+        import json as _json
+        return _json.loads(obj["Body"].read().decode("utf-8"))
+    except Exception:
+        return None
+
+
+def render_stage6_classification(aid: str, out_path: Path) -> dict:
+    """Per-lesion 4-phase enhancement curve + class-probability bar chart
+    + human-readable reasoning, fed by the LI-RADS-style classifier."""
+    cls_data = _load_classifications_json(aid)
     classes = ["hcc", "icc", "metastasis", "fnh", "hemangioma", "cyst"]
-    if not lesion_info or not lesion_info.get("lesions"):
-        ax.text(0.5, 0.5, "Stage 6 — Classification\n\nSkipped: 0 liver-contained lesions",
+
+    if not cls_data or not cls_data.get("lesions"):
+        fig, ax = plt.subplots(figsize=(9, 4))
+        ax.text(0.5, 0.5,
+                "Stage 6 — LI-RADS classification\n\nSkipped: 0 lesions to classify",
                 ha="center", va="center", fontsize=11, family="monospace")
         ax.axis("off")
-    else:
-        # No real classifier wired yet — show "uniform unknown" with "stub" warning
-        n = min(len(lesion_info["lesions"]), 3)
-        ax.text(0.5, 0.92,
-                "Stage 6 — Classification (LiLNet)  •  STUB: model not wired",
-                ha="center", va="top", fontsize=11, family="monospace",
-                transform=ax.transAxes,
-                bbox=dict(boxstyle="round", facecolor="#fff7d0", edgecolor="orange"))
-        # Show flat bars per lesion as placeholder
-        x_pos = np.arange(len(classes))
-        for i, les in enumerate(lesion_info["lesions"][:n]):
-            ax.bar(x_pos + i * 0.25, np.full(len(classes), 1.0 / len(classes)),
-                   width=0.22, label=f"lesion {les['id']} ({les['volume_ml']:.0f} ml)",
-                   alpha=0.6)
-        ax.set_xticks(x_pos)
-        ax.set_xticklabels(classes)
-        ax.set_ylabel("class probability (placeholder = uniform)")
-        ax.set_ylim(0, 1)
-        ax.legend(fontsize=8, loc="upper right")
-        ax.grid(True, alpha=0.3)
-    plt.tight_layout()
+        plt.savefig(out_path, dpi=130, bbox_inches="tight")
+        plt.close()
+        return {"note": "no lesions"}
+
+    lesions = cls_data["lesions"][:5]  # cap render at 5 for readability
+    n = len(lesions)
+    fig = plt.figure(figsize=(15, 3.5 * n))
+    gs = fig.add_gridspec(n, 3, width_ratios=[1.2, 1.0, 1.6], hspace=0.55, wspace=0.3)
+
+    fig.suptitle(
+        f"Stage 6 — LI-RADS-style classification ({cls_data['classifier_version']})  "
+        f"•  rule-based, explainable, NOT clinically validated",
+        fontsize=10,
+    )
+
+    phase_labels = ["NC", "A", "PV", "D"]
+    phase_keys = ["non_contrast", "arterial", "portal_venous", "delayed"]
+
+    for row, les in enumerate(lesions):
+        feats = les["features"]
+        cls = les["classification"]
+
+        # Panel 1 — 4-phase enhancement curve (HU values)
+        ax1 = fig.add_subplot(gs[row, 0])
+        lesion_hu = [feats["phases"].get(p, {}).get("lesion_mean_hu", 0) for p in phase_keys]
+        bg_hu = [feats["phases"].get(p, {}).get("background_liver_hu", 0) for p in phase_keys]
+        ax1.plot(phase_labels, lesion_hu, "o-", color="red", linewidth=2,
+                 markersize=8, label="lesion HU")
+        ax1.plot(phase_labels, bg_hu, "s-", color="gray", linewidth=1.5,
+                 markersize=6, label="background liver HU")
+        ax1.set_ylabel("HU", fontsize=9)
+        ax1.set_title(
+            f"lesion {les['lesion_id']} • {les['volume_ml']:.1f} ml • enhancement curve",
+            fontsize=9,
+        )
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(fontsize=8, loc="best")
+
+        # Panel 2 — class probability bar chart
+        ax2 = fig.add_subplot(gs[row, 1])
+        probs = cls["probabilities"]
+        prob_vals = [probs.get(c, 0) for c in classes]
+        bar_colors = ["#d62728" if c == cls["top1"] else "#aaaaaa" for c in classes]
+        ax2.barh(classes, prob_vals, color=bar_colors, alpha=0.85)
+        ax2.set_xlim(0, 1)
+        ax2.set_xlabel("probability", fontsize=8)
+        ax2.invert_yaxis()
+        ax2.set_title(
+            f"top-1: {cls['top1']} ({cls['top1_confidence']:.0%})",
+            fontsize=10, color="#a02020", weight="bold",
+        )
+        ax2.tick_params(axis='y', labelsize=8)
+        ax2.tick_params(axis='x', labelsize=7)
+        for i, v in enumerate(prob_vals):
+            ax2.text(v + 0.02, i, f"{v:.2f}", va="center", fontsize=7)
+
+        # Panel 3 — reasoning text
+        ax3 = fig.add_subplot(gs[row, 2])
+        ax3.axis("off")
+        lines = ["Reasoning:"]
+        for r in cls["reasoning"]:
+            # word-wrap roughly at 60 chars
+            words = r.split()
+            line, line_len = "", 0
+            for w in words:
+                if line_len + len(w) > 60:
+                    lines.append("  " + line)
+                    line, line_len = w + " ", len(w) + 1
+                else:
+                    line += w + " "
+                    line_len += len(w) + 1
+            if line:
+                lines.append("  " + line)
+            lines.append("")
+        # Add raw HU values for audit
+        rel = cls["input_summary"]
+        lines.append(
+            f"Relative enhancement (lesion − bg, HU):\n"
+            f"  arterial: {rel['rel_arterial']:+.0f}   "
+            f"portal_venous: {rel['rel_portal_venous']:+.0f}   "
+            f"delayed: {rel['rel_delayed']:+.0f}"
+        )
+        ax3.text(0.0, 0.98, "\n".join(lines), family="monospace",
+                 fontsize=8, verticalalignment="top",
+                 transform=ax3.transAxes)
+
     plt.savefig(out_path, dpi=130, bbox_inches="tight")
     plt.close()
-    return {"note": "stub classifier"}
+    return {
+        "n_lesions": len(lesions),
+        "classifier": cls_data.get("classifier_version", "?"),
+        "top1_per_lesion": [
+            {"id": l["lesion_id"], "top1": l["classification"]["top1"],
+             "confidence": l["classification"]["top1_confidence"]}
+            for l in lesions
+        ],
+    }
 
 
 def render_stage7_flr(vols: dict, flr_row, aid: str, out_path: Path) -> dict:
@@ -788,12 +880,26 @@ def main() -> int:
         "image": OUT_DIR / "stage5_lesions.png",
     })
 
-    # Stage 6
-    print("  rendering stage 6 (classification — stub)…")
-    s6 = render_stage6_classification(s5, OUT_DIR / "stage6_classification.png")
+    # Stage 6 — real LI-RADS-style classifier
+    print("  rendering stage 6 (LI-RADS classifier)…")
+    s6 = render_stage6_classification(aid, OUT_DIR / "stage6_classification.png")
+    if s6.get("top1_per_lesion"):
+        labels = [
+            f"#{e['id']}: <strong>{e['top1']}</strong> ({e['confidence']:.0%})"
+            for e in s6["top1_per_lesion"]
+        ]
+        s6_meta = (
+            f"<strong>{s6['n_lesions']} lesion(s) classified</strong> via "
+            f"{s6['classifier']} — top-1 per lesion: " + " &nbsp;|&nbsp; ".join(labels) +
+            ". <span class='warn'>(rule-based, NOT clinically validated)</span>"
+        )
+        s6_title = "Classification (LI-RADS rule-based)"
+    else:
+        s6_meta = s6.get("note", "no classifications available")
+        s6_title = "Classification — skipped"
     sections.append({
-        "stage_no": 6, "title": "Classification — STUB",
-        "meta": "No real classifier wired. LiLNet integration is multi-day work (per PHASE_3_GAPS.md).",
+        "stage_no": 6, "title": s6_title,
+        "meta": s6_meta,
         "image": OUT_DIR / "stage6_classification.png",
     })
 
