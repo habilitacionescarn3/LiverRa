@@ -15,6 +15,7 @@ License: TotalSegmentator code is Apache-2.0; weights are CC-BY-NC-SA-4.0.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -28,6 +29,14 @@ import numpy as np
 import psycopg
 import SimpleITK as sitk
 from totalsegmentator.python_api import totalsegmentator
+
+# Heuristic Couinaud + segment-aware FLR
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # …/ml-inference/
+from src.orchestrator.couinaud_heuristic import compute_couinaud
+from src.orchestrator.flr_segment_aware import (
+    RESECTION_PATTERNS,
+    compute_flr as compute_segment_aware_flr,
+)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -175,7 +184,18 @@ def axial_midpoint_flr(mask_zyx: np.ndarray) -> tuple[dict, int, int]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--resection-pattern",
+        choices=sorted(RESECTION_PATTERNS),
+        default="right_hepatectomy",
+        help="Hepatectomy pattern for the segment-aware FLR (default: right_hepatectomy).",
+    )
+    args = parser.parse_args()
+    resection_pattern = args.resection_pattern
+
     print(LICENSE_BANNER)
+    print(f"[config] resection_pattern={resection_pattern}")
     t0 = time.perf_counter()
 
     analysis_id = str(uuid.uuid4())
@@ -211,7 +231,7 @@ def main() -> int:
     download_phase(STUDY_ID, "portal_venous", ct_path)
     print(f"      {ct_path.name}  ({ct_path.stat().st_size/1e6:.1f} MB)  +{time.perf_counter()-t0:.2f}s")
 
-    print(f"\n[3/7] TotalSegmentator (task=total, roi=liver)")
+    print(f"\n[3/7] TotalSegmentator (task=total, roi=liver,IVC,gallbladder)")
     seg_dir = workdir / "ts_total"
     seg_dir.mkdir(exist_ok=True)
     t_seg = time.perf_counter()
@@ -219,7 +239,7 @@ def main() -> int:
         input=str(ct_path),
         output=str(seg_dir),
         task="total",
-        roi_subset=["liver"],
+        roi_subset=["liver", "inferior_vena_cava", "gallbladder"],
         device="gpu",
         ml=False,
         quiet=True,
@@ -233,6 +253,20 @@ def main() -> int:
     voxels = int((sitk.GetArrayFromImage(liver_native) > 0).sum())
     print(f"      ✓ {liver_path.name}  +{time.perf_counter()-t_seg:.1f}s")
     print(f"      total liver volume: {total_ml:,.1f} ml  ({voxels:,} voxels)")
+
+    # Capture the new landmarks if TS produced them; fall back to None.
+    ivc_path = seg_dir / "inferior_vena_cava.nii.gz"
+    gb_path = seg_dir / "gallbladder.nii.gz"
+    ivc_native = sitk.ReadImage(str(ivc_path)) if ivc_path.exists() else None
+    gb_native = sitk.ReadImage(str(gb_path)) if gb_path.exists() else None
+    if ivc_native is not None:
+        print(f"      ✓ {ivc_path.name}  ({int((sitk.GetArrayFromImage(ivc_native)>0).sum()):,} voxels)")
+    else:
+        print(f"      ! {ivc_path.name} missing — caudate (segment I) will fall back to anatomical prior")
+    if gb_native is not None:
+        print(f"      ✓ {gb_path.name}  ({int((sitk.GetArrayFromImage(gb_native)>0).sum()):,} voxels)")
+    else:
+        print(f"      ! {gb_path.name} missing — Cantlie line will fall back to anatomical prior")
 
     print(f"\n[4/7] Resample liver mask → 128³ + upload")
     liver_128 = resample_mask_to(liver_native, TARGET_SHAPE)
@@ -324,16 +358,56 @@ def main() -> int:
                 license_hash="n/a-dev-stub",
             )
 
-        # Stage 4 — Couinaud (kept as stub per plan).
+        # Stage 4 — Couinaud (anatomical heuristic via Cantlie + portal
+        # bifurcation; replaces the stub used in earlier sessions).
+        print(f"\n[5b/7] Couinaud heuristic (Cantlie + portal bifurcation)")
+        t_cou = time.perf_counter()
+        liver_arr_native = sitk.GetArrayFromImage(liver_native).astype(np.uint8)
+        ivc_arr = sitk.GetArrayFromImage(ivc_native).astype(np.uint8) if ivc_native is not None else None
+        gb_arr = sitk.GetArrayFromImage(gb_native).astype(np.uint8) if gb_native is not None else None
+        vessels_arr = None
+        if vessels_done and (portal_native is not None or hepatic_native is not None):
+            v_src = portal_native if portal_native is not None else hepatic_native
+            vessels_arr = sitk.GetArrayFromImage(v_src).astype(np.uint8)
+        sx, sy, sz = liver_native.GetSpacing()  # (X, Y, Z) in mm
+        couinaud_native_arr = compute_couinaud(
+            liver=liver_arr_native,
+            ivc=ivc_arr,
+            gallbladder=gb_arr,
+            vessels=vessels_arr,
+            voxel_spacing=(sx, sy, sz),
+        )
+        # Wrap as a SimpleITK image at native CT geometry so the resample
+        # below + the show_results.py renderer can handle it.
+        couinaud_native = sitk.GetImageFromArray(couinaud_native_arr)
+        couinaud_native.CopyInformation(liver_native)
+        # Resample to 128³ NEAREST_NEIGHBOR for the downstream contract.
+        couinaud_128 = resample_mask_to(couinaud_native, TARGET_SHAPE)
+        cast_u8 = sitk.CastImageFilter()
+        cast_u8.SetOutputPixelType(sitk.sitkUInt8)
+        couinaud_128 = cast_u8.Execute(couinaud_128)
+        couinaud_uri = upload_nii(
+            couinaud_128, f"analyses/{analysis_id}/couinaud.nii.gz"
+        )
         insert_checkpoint(
             conn,
             analysis_id,
             4,
             "couinaud",
-            f"s3://liverra-dev/stub/{analysis_id}/couinaud.nii.gz",
-            "stub-couinaud@v1",
-            license_hash="n/a-dev-stub",
+            couinaud_uri,
+            "couinaud-heuristic-v1",
+            license_hash="n/a-heuristic",
         )
+        # Print per-segment voxel counts (sanity)
+        per_seg_v = {sid: int((couinaud_native_arr == sid).sum()) for sid in range(1, 9)}
+        voxel_ml_native = float(np.prod(liver_native.GetSpacing())) / 1000.0
+        per_seg_ml = {sid: round(per_seg_v[sid] * voxel_ml_native, 1) for sid in per_seg_v}
+        print(f"      ✓ {couinaud_uri.split('/')[-1]}  +{time.perf_counter()-t_cou:.2f}s")
+        seg_str = "  ".join(
+            f"{name}={per_seg_ml[i]}ml"
+            for i, name in zip(range(1, 9), ["I","II","III","IV","V","VI","VII","VIII"])
+        )
+        print(f"      per-segment: {seg_str}")
 
     # Stage 5 — lesion detection from liver_tumor mask.
     lesion_count = 0
@@ -364,20 +438,21 @@ def main() -> int:
         )
 
     # ----------------------------------------------------------------------
-    # Stage 7 — FLR (axial midpoint, on the 128³ mask but volumes from native)
+    # Stage 7 — FLR (segment-aware: total minus segments removed by the
+    # selected resection pattern, computed on the native-res Couinaud mask)
     # ----------------------------------------------------------------------
-    print(f"\n[7/7] FLR heuristic (axial midpoint)")
-    arr_128 = sitk.GetArrayFromImage(liver_128)
-    plane, flr_voxels_128, total_voxels_128 = axial_midpoint_flr(arr_128)
-    if total_voxels_128 > 0:
-        # Scale FLR volume from 128³ to native resolution.
-        flr_fraction = flr_voxels_128 / total_voxels_128
-        flr_ml = total_ml * flr_fraction
-    else:
-        flr_ml = 0.0
-    flr_pct = (flr_ml / total_ml * 100.0) if total_ml > 0 else 0.0
+    print(f"\n[7/7] FLR (segment-aware: pattern={resection_pattern})")
+    plane, flr_ml, total_ml_seg = compute_segment_aware_flr(
+        couinaud_native_arr, voxel_ml_native, pattern=resection_pattern
+    )
+    flr_pct = (flr_ml / total_ml_seg * 100.0) if total_ml_seg > 0 else 0.0
+    # Use TS's native-res total volume for display (more accurate than the
+    # sum-of-segments which can be slightly different due to rounding +
+    # caudate carve-out)
     print(f"      total: {total_ml:,.1f} ml  |  FLR: {flr_ml:,.1f} ml  ({flr_pct:.1f} %)")
-    print(f"      plane: {plane}")
+    print(f"      pattern: {resection_pattern}")
+    print(f"      removed segments: {plane['removed_segments']}")
+    print(f"      remnant segments: {plane['remnant_segments']}")
 
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         conn.execute(
@@ -400,7 +475,7 @@ def main() -> int:
             7,
             "flr_init",
             f"flr://analyses/{analysis_id}",
-            "heuristic-axial-midpoint@v1",
+            f"flr-segment-aware-{resection_pattern}@v1",
             license_hash="n/a-heuristic",
         )
         # Mark Analysis completed.

@@ -26,6 +26,7 @@ from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
+import matplotlib.colors
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -224,28 +225,128 @@ def render_stage3_vessels(vols: dict, out_path: Path) -> dict | None:
     }
 
 
-def render_stage4_couinaud(vols: dict, out_path: Path, is_stub: bool) -> dict:
-    """Heuristic 4-quadrant Couinaud split if vessels available; otherwise stub note."""
-    fig, ax = plt.subplots(figsize=(8, 5))
-    if is_stub:
+def _load_couinaud_native(aid: str) -> np.ndarray | None:
+    """Re-compute the native-resolution Couinaud mask if landmark masks
+    are still on disk under /tmp/real_cascade/<aid_prefix>/.
+
+    The 128³ mask in MinIO loses the high-res segment boundaries we want
+    for visualization; the native-res TS landmark outputs are still on
+    disk after a real_cascade.py run.
+    """
+    base = WORKDIR_ROOT / aid[:8]
+    liver_p = base / "ts_total/liver.nii.gz"
+    if not liver_p.exists():
+        return None
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from src.orchestrator.couinaud_heuristic import compute_couinaud  # noqa: E402
+
+    liver_img = sitk.ReadImage(str(liver_p))
+    liver = sitk.GetArrayFromImage(liver_img).astype(np.uint8)
+    ivc_p = base / "ts_total/inferior_vena_cava.nii.gz"
+    gb_p = base / "ts_total/gallbladder.nii.gz"
+    vp = base / "ts_vessels/liver_vessels.nii.gz"
+    ivc = sitk.GetArrayFromImage(sitk.ReadImage(str(ivc_p))).astype(np.uint8) if ivc_p.exists() else None
+    gb = sitk.GetArrayFromImage(sitk.ReadImage(str(gb_p))).astype(np.uint8) if gb_p.exists() else None
+    vessels = sitk.GetArrayFromImage(sitk.ReadImage(str(vp))).astype(np.uint8) if vp.exists() else None
+    sx, sy, sz = liver_img.GetSpacing()
+    return compute_couinaud(liver, ivc, gb, vessels, voxel_spacing=(sx, sy, sz))
+
+
+# tab10-ish palette — distinct, projector-friendly
+_SEG_COLORS = [
+    "#1f77b4",  # 1 caudate (blue)
+    "#ff7f0e",  # 2 II  (orange)
+    "#2ca02c",  # 3 III (green)
+    "#d62728",  # 4 IV  (red)
+    "#9467bd",  # 5 V   (purple)
+    "#8c564b",  # 6 VI  (brown)
+    "#e377c2",  # 7 VII (pink)
+    "#17becf",  # 8 VIII (cyan)
+]
+
+
+def render_stage4_couinaud(vols: dict, aid: str, out_path: Path) -> dict:
+    """Render 8-color Couinaud overlay on liver slices + per-segment table.
+
+    Falls back to a "stub" placeholder if the native-res Couinaud mask
+    cannot be reconstructed (the source landmark masks aren't on disk).
+    """
+    cou = _load_couinaud_native(aid)
+    if cou is None:
+        # Fallback — no source data; show the placeholder.
+        fig, ax = plt.subplots(figsize=(8, 5))
         ax.text(0.5, 0.5,
                 "Stage 4 — Couinaud segmentation\n\n"
-                "Status: STUB (not implemented)\n\n"
-                "A real Couinaud split needs portal-vein bifurcation +\n"
-                "right hepatic vein landmarks. We have those from\n"
-                "TotalSegmentator's liver_vessels output but the\n"
-                "anatomical heuristic isn't wired yet.\n\n"
-                "Tracked in docs/plans/PHASE_3_GAPS.md.",
+                "No native-resolution landmark masks on disk.\n"
+                "Re-run real_cascade.py to regenerate.",
                 ha="center", va="center", fontsize=11, family="monospace",
-                bbox=dict(boxstyle="round,pad=0.6", facecolor="#fff7d0", edgecolor="orange"))
+                bbox=dict(boxstyle="round,pad=0.6",
+                          facecolor="#fff7d0", edgecolor="orange"))
         ax.axis("off")
-    else:
-        # placeholder — would render 8-color overlay
-        ax.text(0.5, 0.5, "Couinaud placeholder", ha="center", va="center")
+        plt.savefig(out_path, dpi=130, bbox_inches="tight")
+        plt.close()
+        return {"note": "fallback"}
+
+    ct = vols["ct"]
+    voxel_ml = vols["voxel_ml"]
+    (zmin, zmax), (ymin, ymax), (xmin, xmax) = bbox(cou)
+
+    # Per-segment volumes (in mL)
+    per_seg_ml = {sid: round(int((cou == sid).sum()) * voxel_ml, 1) for sid in range(1, 9)}
+    seg_names = ["I (caudate)", "II", "III", "IV", "V", "VI", "VII", "VIII"]
+
+    # Build a lookup → color image (Z, Y, X, 4) only filled where cou>0
+    z_show = np.linspace(zmin, zmax, 4, dtype=int)
+    y_show = np.linspace(ymin + (ymax - ymin) // 4,
+                         ymax - (ymax - ymin) // 4, 2, dtype=int)
+    x_show = np.linspace(xmin + (xmax - xmin) // 4,
+                         xmax - (xmax - xmin) // 4, 2, dtype=int)
+
+    fig = plt.figure(figsize=(14, 9))
+    gs = fig.add_gridspec(3, 4, height_ratios=[1, 1, 0.8], hspace=0.35, wspace=0.05)
+
+    def overlay(ax, ct_slice: np.ndarray, cou_slice: np.ndarray, title: str) -> None:
+        ax.imshow(hu_window(ct_slice), cmap="gray", origin="lower")
+        for sid in range(1, 9):
+            mask = (cou_slice == sid)
+            if not mask.any():
+                continue
+            rgba = np.zeros((*mask.shape, 4))
+            color = matplotlib.colors.to_rgb(_SEG_COLORS[sid - 1])
+            rgba[mask] = [*color, 0.45]
+            ax.imshow(rgba, origin="lower")
+        ax.set_title(title, fontsize=8)
         ax.axis("off")
+
+    for i, z in enumerate(z_show):
+        ax = fig.add_subplot(gs[0, i])
+        overlay(ax, ct[z], cou[z], f"axial z={z}")
+    for i, y in enumerate(y_show):
+        ax = fig.add_subplot(gs[1, i*2:(i+1)*2])
+        overlay(ax, ct[:, y, :], cou[:, y, :], f"coronal y={y}")
+    # 2 sagittal in row 1 col 0..3
+    for i, x in enumerate(x_show):
+        ax = fig.add_subplot(gs[2, i*2:(i+1)*2])
+        # Per-segment table (left half) + sagittal slice (right half)?
+        # Simpler: make this row two sagittals.
+        overlay(ax, ct[:, :, x], cou[:, :, x], f"sagittal x={x}")
+
+    # Add a per-segment legend / volume table to the figure title area
+    legend_lines = []
+    for sid, name in zip(range(1, 9), seg_names):
+        legend_lines.append(f"{name}: {per_seg_ml[sid]:>6.1f} ml")
+    legend_text = "  •  ".join(legend_lines)
+    fig.suptitle(
+        f"Stage 4 — Couinaud heuristic (Cantlie + portal bifurcation)\n"
+        f"{legend_text}",
+        fontsize=10,
+    )
     plt.savefig(out_path, dpi=130, bbox_inches="tight")
     plt.close()
-    return {"note": "stub" if is_stub else "real"}
+    return {
+        "per_segment_ml": per_seg_ml,
+        "total_ml": round(sum(per_seg_ml.values()), 1),
+    }
 
 
 def render_stage5_lesions(vols: dict, out_path: Path) -> dict | None:
@@ -365,8 +466,13 @@ def render_stage6_classification(lesion_info: dict | None, out_path: Path) -> di
     return {"note": "stub classifier"}
 
 
-def render_stage7_flr(vols: dict, flr_row, out_path: Path) -> dict:
-    """Coronal slice with the resection plane drawn; FLR portion green, rest red."""
+def render_stage7_flr(vols: dict, flr_row, aid: str, out_path: Path) -> dict:
+    """Coronal + sagittal with segment-aware green (FLR) / red (removed) overlay.
+
+    Reads the resection pattern from ``flr_row.plane_pose`` and uses the
+    native-resolution Couinaud mask to color voxels by remnant vs.
+    removed segment.
+    """
     if not flr_row:
         fig, ax = plt.subplots(figsize=(8, 4))
         ax.text(0.5, 0.5, "no flr_calculation row", ha="center", va="center")
@@ -378,80 +484,100 @@ def render_stage7_flr(vols: dict, flr_row, out_path: Path) -> dict:
     plane = plane_pose if isinstance(plane_pose, dict) else json.loads(plane_pose)
 
     ct, liver = vols["ct"], vols["liver"]
-    # Plane is on a 128³ mask. Map z_index to native CT Z.
     (zmin, zmax), (ymin, ymax), (xmin, xmax) = bbox(liver)
-    # The 128³ z_index sits inside the 128³ bbox of the resampled mask, so we
-    # convert proportionally to the native bbox.
-    z_idx_128 = plane.get("z_index", 64)
-    bbox_z_128 = plane.get("bbox_z", [0, 127])
-    if bbox_z_128[1] > bbox_z_128[0]:
-        # Convert z_index in 128³ frame to native frame using liver bbox.
-        frac = (z_idx_128 - bbox_z_128[0]) / max(1, (bbox_z_128[1] - bbox_z_128[0]))
-        z_native = int(zmin + frac * (zmax - zmin))
+
+    # Try to load the native Couinaud mask for segment-aware rendering.
+    cou = _load_couinaud_native(aid) if "pattern" in plane else None
+    pattern = plane.get("pattern", "axial_midpoint")
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+
+    if cou is not None and pattern in {
+        "right_hepatectomy", "left_hepatectomy", "extended_right",
+        "extended_left", "right_anterior_sectionectomy",
+        "left_lateral_sectionectomy",
+    }:
+        # Map names → IDs for masking
+        name_to_id = {"I": 1, "II": 2, "III": 3, "IV": 4,
+                      "V": 5, "VI": 6, "VII": 7, "VIII": 8}
+        removed_ids = {name_to_id[n] for n in plane.get("removed_segments", [])
+                       if n in name_to_id}
+        remnant_ids = {name_to_id[n] for n in plane.get("remnant_segments", [])
+                       if n in name_to_id}
+
+        def _render(ax, ct_slice, cou_slice, title):
+            ax.imshow(hu_window(ct_slice), cmap="gray", origin="lower")
+            green = np.zeros((*cou_slice.shape, 4))
+            red = np.zeros((*cou_slice.shape, 4))
+            for sid in remnant_ids:
+                m = (cou_slice == sid)
+                green[m] = [0.2, 0.9, 0.2, 0.45]
+            for sid in removed_ids:
+                m = (cou_slice == sid)
+                red[m] = [1.0, 0.3, 0.3, 0.45]
+            ax.imshow(green, origin="lower")
+            ax.imshow(red, origin="lower")
+            ax.set_title(title, fontsize=9)
+            ax.axis("off")
+
+        y_mid = (ymin + ymax) // 2
+        x_mid = (xmin + xmax) // 2
+        _render(axes[0], ct[:, y_mid, :], cou[:, y_mid, :],
+                f"coronal y={y_mid} — green=remnant, red=removed")
+        _render(axes[1], ct[:, :, x_mid], cou[:, :, x_mid],
+                f"sagittal x={x_mid}")
+
+        # Per-segment table
+        per_seg = plane.get("per_segment_ml", {})
+        lines = [
+            f"FLR — segment-aware",
+            f"  pattern: {pattern}",
+            "",
+            f"  total liver:  {total_ml} ml",
+            f"  FLR (green):  {flr_ml} ml  ({flr_pct} %)",
+            f"  remnant (red): {float(total_ml)-float(flr_ml):.2f} ml",
+            "",
+            f"  removed: {', '.join(plane.get('removed_segments', []))}",
+            f"  remnant: {', '.join(plane.get('remnant_segments', []))}",
+            "",
+            "  per-segment volumes:",
+        ]
+        for name in ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"]:
+            v = per_seg.get(name, 0)
+            tag = "removed" if name in plane.get("removed_segments", []) else "remnant"
+            lines.append(f"    {name:5s} {v:>7.1f} ml  ({tag})")
+        lines += [
+            "",
+            "⚠ Heuristic Couinaud — NOT validated",
+            "   against radiologist annotations.",
+        ]
+        axes[2].axis("off")
+        axes[2].text(0.0, 0.98, "\n".join(lines),
+                     family="monospace", fontsize=9,
+                     verticalalignment="top", transform=axes[2].transAxes)
     else:
-        z_native = (zmin + zmax) // 2
+        # Fallback to the old axial-midpoint rendering if no Couinaud or pattern.
+        for ax in axes[:2]:
+            ax.text(0.5, 0.5,
+                    "axial-midpoint plane (legacy mode)\n"
+                    "Couinaud mask not loaded.",
+                    ha="center", va="center", fontsize=10)
+            ax.axis("off")
+        axes[2].axis("off")
+        axes[2].text(0.0, 0.95,
+                     f"total: {total_ml} ml\nFLR: {flr_ml} ml ({flr_pct} %)\n\n"
+                     f"plane: {plane}",
+                     family="monospace", fontsize=9,
+                     verticalalignment="top", transform=axes[2].transAxes)
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 5))
-    # coronal at liver mid-Y
-    y_mid = (ymin + ymax) // 2
-    ct_c = hu_window(ct[:, y_mid, :])
-    axes[0].imshow(ct_c, cmap="gray", origin="lower")
-    # split liver into FLR (above plane) and remnant (below)
-    liver_c = liver[:, y_mid, :].astype(np.float32)
-    above = liver_c.copy(); above[:z_native, :] = 0  # NB origin lower means z_native < image_top
-    below = liver_c.copy(); below[z_native:, :] = 0
-    overlay_above = np.zeros((*liver_c.shape, 4))
-    overlay_above[above > 0] = [0.2, 0.9, 0.2, 0.45]  # green = FLR
-    overlay_below = np.zeros((*liver_c.shape, 4))
-    overlay_below[below > 0] = [1.0, 0.3, 0.3, 0.45]  # red = remnant
-    axes[0].imshow(overlay_above, origin="lower")
-    axes[0].imshow(overlay_below, origin="lower")
-    axes[0].axhline(z_native, color="white", linewidth=1.5, linestyle="--")
-    axes[0].set_title(f"coronal y={y_mid} — FLR (green) above plane z={z_native}", fontsize=9)
-    axes[0].axis("off")
-
-    # sagittal at mid X
-    x_mid = (xmin + xmax) // 2
-    ct_s = hu_window(ct[:, :, x_mid])
-    axes[1].imshow(ct_s, cmap="gray", origin="lower")
-    liver_s = liver[:, :, x_mid].astype(np.float32)
-    above = liver_s.copy(); above[:z_native, :] = 0
-    below = liver_s.copy(); below[z_native:, :] = 0
-    overlay_above = np.zeros((*liver_s.shape, 4))
-    overlay_above[above > 0] = [0.2, 0.9, 0.2, 0.45]
-    overlay_below = np.zeros((*liver_s.shape, 4))
-    overlay_below[below > 0] = [1.0, 0.3, 0.3, 0.45]
-    axes[1].imshow(overlay_above, origin="lower")
-    axes[1].imshow(overlay_below, origin="lower")
-    axes[1].axhline(z_native, color="white", linewidth=1.5, linestyle="--")
-    axes[1].set_title(f"sagittal x={x_mid}", fontsize=9)
-    axes[1].axis("off")
-
-    # numerical summary
-    axes[2].axis("off")
-    axes[2].text(0.0, 0.95,
-                 f"FLR — heuristic: axial midpoint\n\n"
-                 f"  total liver:  {total_ml} ml\n"
-                 f"  FLR (green):  {flr_ml} ml  ({flr_pct} %)\n"
-                 f"  remnant (red): {float(total_ml)-float(flr_ml):.2f} ml\n\n"
-                 f"  plane: {plane}\n\n"
-                 f"⚠ NOT clinically validated.\n"
-                 f"   Real FLR needs:\n"
-                 f"   - Couinaud-aware resection plane\n"
-                 f"   - Portal-vein territory mapping\n"
-                 f"   - Surgeon-defined cut surface",
-                 family="monospace", fontsize=10, verticalalignment="top",
-                 transform=axes[2].transAxes)
     plt.tight_layout()
     plt.savefig(out_path, dpi=130, bbox_inches="tight")
     plt.close()
-
     return {
         "total_ml": float(total_ml),
         "flr_ml": float(flr_ml),
         "flr_pct": float(flr_pct),
         "plane": plane,
-        "z_native": z_native,
     }
 
 
@@ -618,12 +744,28 @@ def main() -> int:
         "image": OUT_DIR / "stage3_vessels.png",
     })
 
-    # Stage 4
-    print("  rendering stage 4 (couinaud — stub)…")
-    s4 = render_stage4_couinaud(vols, OUT_DIR / "stage4_couinaud.png", is_stub=True)
+    # Stage 4 — real heuristic when source landmarks are present
+    print("  rendering stage 4 (couinaud heuristic)…")
+    s4 = render_stage4_couinaud(vols, aid, OUT_DIR / "stage4_couinaud.png")
+    if "per_segment_ml" in s4:
+        per = s4["per_segment_ml"]
+        seg_summary = "  •  ".join(
+            f"{name}={per[sid]} ml" for sid, name in
+            zip(range(1, 9), ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"])
+        )
+        s4_meta = (
+            f"Heuristic Couinaud (Cantlie line + portal bifurcation). "
+            f"<strong>Total {s4['total_ml']:.0f} ml.</strong> "
+            f"Per segment: {seg_summary}. "
+            f"<span class='warn'>(NOT validated against radiologist annotations)</span>"
+        )
+        s4_title = "Couinaud (heuristic)"
+    else:
+        s4_meta = "Native-resolution landmark masks not on disk; re-run real_cascade.py."
+        s4_title = "Couinaud — fallback"
     sections.append({
-        "stage_no": 4, "title": "Couinaud — STUB",
-        "meta": "No real Couinaud segmentation yet. Heuristic split using TS's IVC + portal-vein outputs is queued.",
+        "stage_no": 4, "title": s4_title,
+        "meta": s4_meta,
         "image": OUT_DIR / "stage4_couinaud.png",
     })
 
@@ -657,16 +799,22 @@ def main() -> int:
 
     # Stage 7
     print("  rendering stage 7 (FLR)…")
-    s7 = render_stage7_flr(vols, run["flr"], OUT_DIR / "stage7_flr.png")
-    sections.append({
-        "stage_no": 7, "title": "FLR (axial midpoint heuristic)",
-        "meta": (
-            f"Total {s7['total_ml']:.0f} ml &nbsp; "
-            f"FLR {s7['flr_ml']:.0f} ml ({s7['flr_pct']:.1f}%). "
-            f"Plane crossed at native z={s7['z_native']}. "
+    s7 = render_stage7_flr(vols, run["flr"], aid, OUT_DIR / "stage7_flr.png")
+    if s7:
+        plane = s7.get("plane", {})
+        pattern = plane.get("pattern", "n/a")
+        s7_meta = (
+            f"<strong>Pattern: {pattern}</strong> &nbsp;|&nbsp; "
+            f"Total {s7['total_ml']:.0f} ml &nbsp;|&nbsp; "
+            f"FLR {s7['flr_ml']:.0f} ml ({s7['flr_pct']:.1f}%) &nbsp;|&nbsp; "
+            f"removed: {', '.join(plane.get('removed_segments', []))} &nbsp;|&nbsp; "
             f"<span class='warn'>(heuristic — NOT validated)</span>"
-            if s7 else "FLR row not present."
-        ),
+        )
+    else:
+        s7_meta = "FLR row not present."
+    sections.append({
+        "stage_no": 7, "title": "FLR (segment-aware heuristic)",
+        "meta": s7_meta,
         "image": OUT_DIR / "stage7_flr.png",
     })
 

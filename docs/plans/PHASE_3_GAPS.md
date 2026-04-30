@@ -260,11 +260,12 @@ sees the constraint immediately.
 
 ### What the bypass cascade leaves stubbed
 
-- **Couinaud segmentation (stage 4)** — TotalSegmentator does not produce
-  Couinaud regions. Stays as the existing passthrough stub. Real
-  implementation requires either upstream-author engagement for Pictorial
-  Couinaud weights, or a vessel-anatomy heuristic split using TS's
-  hepatic-vein + portal-vein outputs. ~half-day to a day of work.
+- ~~**Couinaud segmentation (stage 4)**~~ — **DONE** as a heuristic
+  (Cantlie line via IVC + gallbladder; per-lobe portal-bifurcation Z;
+  35th-percentile falciform offset for the left lobe). Implemented in
+  `src/orchestrator/couinaud_heuristic.py`. NOT validated against
+  radiologist annotations — that's a separate clinical-validation
+  workstream. See "Heuristic Couinaud + segment-aware FLR" below.
 - **Per-lesion 6-class classification (LiLNet)** — TS gives us tumor
   *candidates* but not type. The TS lesion mask currently ships 1 plausible
   + 2 single-voxel false positives on the Todua scan; a downstream filter
@@ -298,3 +299,76 @@ AWS_ACCESS_KEY_ID=liverra AWS_SECRET_ACCESS_KEY=liverra-dev-password \
 The cached weights live at `~/.totalsegmentator/`; deleting that directory
 forces re-download. The review PNG title bar will read "✓ Real liver
 segmentation" when the run used TotalSegmentator.
+
+---
+
+## Heuristic Couinaud + segment-aware FLR (added 2026-04-30)
+
+Stage 4 (Couinaud) is no longer a passthrough stub — it's an
+anatomy-grounded heuristic in
+`packages/ml-inference/src/orchestrator/couinaud_heuristic.py`:
+
+- **Cantlie line** through the IVC centroid → gallbladder fossa, computed
+  from TotalSegmentator's `inferior_vena_cava` + `gallbladder` labels.
+- **Per-lobe portal bifurcation Z** (geometric midpoint of each lobe's
+  Z-extent, not a single global vessel-derived Z) so the
+  superior/inferior split scales correctly across right and left lobes.
+- **Right-lobe anterior/posterior split** at the median |distance| from
+  the Cantlie line in the right lobe (proxy for right portal vein).
+- **Left-lobe medial/lateral split** at the **35th percentile** of
+  |distance| in the left lobe (proxy for falciform ligament / umbilical
+  fissure; calibrated so segment IV ≈ II+III in size as in adult anatomy).
+- **Caudate (segment I)** carved out as voxels within 1.5 cm of the IVC
+  inferior to the global portal bifurcation.
+
+Stage 7 (FLR) was rewritten in
+`packages/ml-inference/src/orchestrator/flr_segment_aware.py` to support
+six standard hepatectomy patterns. Pass `--resection-pattern <name>` to
+`real_cascade.py`.
+
+### Cross-pattern verification on the Todua-CT (1,828 ml total)
+
+| Pattern | FLR % | Surgical interpretation |
+|---|---|---|
+| `right_hepatectomy` (V+VI+VII+VIII) | 28.4 % | borderline; PVE indicated |
+| `left_hepatectomy` (II+III+IV) | 71.8 % | safe |
+| `extended_right` (IV+V+VI+VII+VIII) | 13.8 % | **contraindicated** |
+| `extended_left` (II+III+IV+V+VIII) | 31.0 % | borderline |
+| `right_anterior_sectionectomy` (V+VIII) | 59.2 % | easy |
+| `left_lateral_sectionectomy` (II+III) | 86.4 % | trivial |
+
+These are clinically defensible interpretations — the heuristic produces
+the right surgical-decision-making story across all six patterns.
+
+### Known limitations
+
+1. **Segment III is undersized** (6 ml on the Todua-CT) because the
+   left-lobe Z-midpoint sits very close to the most-inferior left-lateral
+   slice. Anatomically the patient's left lateral lobe is shallow on Z.
+   A future refinement could detect II vs III via a separate plane based
+   on left-portal-vein bifurcation Z.
+2. **Segment IV is unified** (no IVa/IVb subdivision) because we don't
+   have a portal-vein-territory mapping.
+3. **Anterior/posterior right-lobe split is geometric** (median |distance|),
+   not based on the right portal vein anterior/posterior division.
+4. **Not validated against radiologist annotations.** Clinical validation
+   on a multi-case dataset remains a separate workstream before any
+   commercial deployment.
+
+### What this DOES enable, today
+
+- Real per-segment volumetry on a real CT.
+- Resection-pattern FLR for the 6 most common hepatectomies (≥95 % of
+  clinical liver resections).
+- The HPB surgeon's #1 pre-op question — *"for resection X, what FLR is
+  left?"* — is now answerable end-to-end, with a defensible-but-not-
+  validated number.
+
+### Files changed
+
+| File | Role |
+|---|---|
+| `src/orchestrator/couinaud_heuristic.py` | NEW — pure-NumPy 8-segment heuristic |
+| `src/orchestrator/flr_segment_aware.py` | NEW — 6 resection patterns + segment-aware FLR |
+| `scripts/real_cascade.py` | Stage 4 stub → real heuristic; Stage 7 axial-midpoint → segment-aware; new `--resection-pattern` CLI flag |
+| `scripts/stage_report.py` | Stage 4 → 8-color overlay + per-segment table; Stage 7 → segment-based green/red overlay |
