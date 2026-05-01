@@ -18,13 +18,13 @@
 import {
   Alert,
   Badge,
+  Box,
   Code,
   Group,
   Skeleton,
   Stack,
   Table,
   Text,
-  Title,
 } from '@mantine/core';
 import { IconFileShredder, IconPlus } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -32,7 +32,10 @@ import { useNavigate } from 'react-router-dom';
 
 import {
   EMRButton,
+  EMRCard,
   EMREmptyState as EMREmpty,
+  EMRErrorBoundary,
+  EMRPageHeader,
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
 
@@ -85,7 +88,7 @@ function StatusBadge({ status }: { status: ErasureRequestRow['status'] }): JSX.E
   );
 }
 
-export default function ErasureRequestListView(): JSX.Element {
+function ErasureRequestListInner(): JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const query = useQuery<ErasureRequestRow[], Error>({
@@ -96,23 +99,21 @@ export default function ErasureRequestListView(): JSX.Element {
 
   return (
     <Stack gap="md" p="md" data-testid="erasure-request-list">
-      <Group justify="space-between" wrap="wrap">
-        <Group gap={8}>
-          <IconFileShredder size={28} />
-          <Title order={2}>{t('erasure:list.title')}</Title>
-        </Group>
-        <EMRButton
-          onClick={() => navigate('/erasure/new')}
-          leftSection={<IconPlus size={16} />}
-          variant="danger"
-          data-testid="erasure-new-btn"
-        >
-          {t('erasure:list.new_request')}
-        </EMRButton>
-      </Group>
-      <Text c="dimmed" fz="sm">
-        {t('erasure:list.subtitle')}
-      </Text>
+      <EMRPageHeader
+        icon={IconFileShredder}
+        title={t('erasure:list.title')}
+        subtitle={t('erasure:list.subtitle')}
+        actions={
+          <EMRButton
+            onClick={() => navigate('/erasure/new')}
+            leftSection={<IconPlus size={16} />}
+            variant="danger"
+            data-testid="erasure-new-btn"
+          >
+            {t('erasure:list.new_request')}
+          </EMRButton>
+        }
+      />
 
       {query.isError ? (
         <Alert color="red" title={t('erasure:list.error_title')}>
@@ -121,19 +122,29 @@ export default function ErasureRequestListView(): JSX.Element {
       ) : null}
 
       {query.isLoading ? (
-        <Stack gap="xs" data-testid="erasure-list-loading" aria-label={t('common:loading')}>
-          <Skeleton height={32} radius="sm" />
-          <Skeleton height={32} radius="sm" />
-          <Skeleton height={32} radius="sm" />
-          <Skeleton height={32} radius="sm" />
-        </Stack>
+        <EMRCard>
+          <Stack
+            gap="xs"
+            data-testid="erasure-list-loading"
+            aria-label={t('common:loading')}
+          >
+            <Skeleton height={32} radius="sm" />
+            <Skeleton height={32} radius="sm" />
+            <Skeleton height={32} radius="sm" />
+            <Skeleton height={32} radius="sm" />
+          </Stack>
+        </EMRCard>
       ) : (query.data ?? []).length === 0 ? (
-        <EMREmpty
-          title={t('erasure:list.empty')}
-          description={t('erasure:list.subtitle')}
-          data-testid="erasure-list-empty"
-        />
+        <EMRCard>
+          <EMREmpty
+            title={t('erasure:list.empty')}
+            description={t('erasure:list.subtitle')}
+            data-testid="erasure-list-empty"
+          />
+        </EMRCard>
       ) : (
+        <EMRCard>
+        <Box style={{ overflowX: 'auto' }}>
         <Table striped withRowBorders data-testid="erasure-list-table">
           <Table.Thead>
             <Table.Tr>
@@ -143,6 +154,9 @@ export default function ErasureRequestListView(): JSX.Element {
               <Table.Th>{t('erasure:list.col.requested_at')}</Table.Th>
               <Table.Th>{t('erasure:list.col.tombstone')}</Table.Th>
               <Table.Th>{t('erasure:list.col.pdf')}</Table.Th>
+              <Table.Th aria-label={t('erasure:list.col.actions')}>
+                {t('erasure:list.col.actions')}
+              </Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -189,11 +203,31 @@ export default function ErasureRequestListView(): JSX.Element {
                     '—'
                   )}
                 </Table.Td>
+                <Table.Td>
+                  <EMRButton
+                    onClick={() => navigate(`/erasure/${row.id}`)}
+                    size="sm"
+                    variant="subtle"
+                    data-testid={`erasure-view-${row.id}`}
+                  >
+                    {t('erasure:list.view')}
+                  </EMRButton>
+                </Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>
         </Table>
+        </Box>
+        </EMRCard>
       )}
     </Stack>
+  );
+}
+
+export default function ErasureRequestListView(): JSX.Element {
+  return (
+    <EMRErrorBoundary componentName="ErasureRequestListView">
+      <ErasureRequestListInner />
+    </EMRErrorBoundary>
   );
 }

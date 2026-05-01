@@ -12,15 +12,9 @@
  *
  *   No PHI on screen. The backend already projects PHI-free columns and
  *   the UI only renders the documented allowlist (see StuckCasePanel).
- *
- * Data:
- *   - `useOpsQueue()` polls every 5 s (T444).
- *   - Mutations in StuckCasePanel invalidate the `['ops','queue']` key so
- *     the dashboard refreshes automatically.
  */
 
 import {
-  Alert,
   Badge,
   Box,
   Card,
@@ -28,19 +22,30 @@ import {
   Group,
   ScrollArea,
   Stack,
+  Switch,
   Table,
   Text,
-  Title,
 } from '@mantine/core';
-import { IconAlertTriangle, IconCpu, IconSnowflake } from '@tabler/icons-react';
-import { useState } from 'react';
+import {
+  IconActivity,
+  IconAlertTriangle,
+  IconCheck,
+  IconCpu,
+  IconRefresh,
+  IconShieldCheck,
+  IconSnowflake,
+} from '@tabler/icons-react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useOpsQueue, type OpsAnalysisSummary } from '../../hooks/useOpsQueue';
 import { QueueDepthGauge } from '../../components/ops/QueueDepthGauge';
 import { StuckCasePanel } from '../../components/ops/StuckCasePanel';
 import {
+  EMRAlert as Alert,
+  EMRButton,
   EMREmptyState as EMREmpty,
+  EMRPageHeader,
   EMRTableSkeleton as Skeleton,
 } from '../../components/common';
 
@@ -64,13 +69,24 @@ function StuckTable({
   if (items.length === 0) {
     return (
       <Box data-testid="ops-stuck-empty">
-        <EMREmpty title={t('ops:table.empty')} />
+        <EMREmpty
+          icon={IconShieldCheck}
+          title={t('ops:header.noStuckTitle') || 'Pipeline is healthy'}
+          description={t('ops:header.noStuckDescription') || 'No analyses have been stuck for more than 15 minutes.'}
+        />
       </Box>
     );
   }
   return (
     <ScrollArea>
-      <Table highlightOnHover withRowBorders striped data-testid="ops-stuck-table">
+      <Table
+        highlightOnHover
+        withRowBorders
+        striped
+        verticalSpacing="sm"
+        horizontalSpacing="md"
+        data-testid="ops-stuck-table"
+      >
         <Table.Thead>
           <Table.Tr>
             <Table.Th>{t('ops:table.analysis_id')}</Table.Th>
@@ -83,18 +99,23 @@ function StuckTable({
         <Table.Tbody>
           {items.map((item) => {
             const isSel = item.analysis_id === selectedId;
+            const stuckSeverity = (item.stuck_minutes ?? 0) >= 30 ? 'red' : 'yellow';
             return (
               <Table.Tr
                 key={item.analysis_id}
                 onClick={() => onSelect(item.analysis_id)}
                 style={{
                   cursor: 'pointer',
-                  backgroundColor: isSel ? 'var(--emr-bg-card-hover, transparent)' : undefined,
+                  backgroundColor: isSel
+                    ? 'var(--emr-bg-card-hover, var(--emr-gray-50))'
+                    : undefined,
+                  outline: isSel ? '2px solid var(--emr-secondary)' : undefined,
+                  outlineOffset: -2,
                 }}
                 data-testid={`ops-stuck-row-${item.analysis_id}`}
               >
                 <Table.Td>
-                  <Text fz="xs" ff="monospace">
+                  <Text fz="xs" ff="monospace" fw={600}>
                     {item.analysis_id.slice(0, 8)}…
                   </Text>
                 </Table.Td>
@@ -103,19 +124,28 @@ function StuckTable({
                     size="sm"
                     variant="light"
                     color={item.status === 'running' ? 'blue' : 'yellow'}
+                    style={{ textTransform: 'none' }}
                   >
                     {item.status}
                   </Badge>
                 </Table.Td>
-                <Table.Td>{item.last_stage ?? '—'}</Table.Td>
-                <Table.Td>{fmtMinutes(item.stuck_minutes)}</Table.Td>
+                <Table.Td>
+                  <Text fz="sm">{item.last_stage ?? '—'}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Badge size="sm" variant="light" color={stuckSeverity} style={{ textTransform: 'none' }}>
+                    {fmtMinutes(item.stuck_minutes)}
+                  </Badge>
+                </Table.Td>
                 <Table.Td>
                   {item.error_slug ? (
-                    <Text fz="xs" ff="monospace">
+                    <Text fz="xs" ff="monospace" c="var(--emr-error)">
                       {item.error_slug}
                     </Text>
                   ) : (
-                    '—'
+                    <Text fz="xs" c="var(--emr-text-secondary)">
+                      —
+                    </Text>
                   )}
                 </Table.Td>
               </Table.Tr>
@@ -127,51 +157,133 @@ function StuckTable({
   );
 }
 
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+  testId,
+}: {
+  icon: React.ComponentType<{ size?: number }>;
+  label: string;
+  value: string;
+  testId: string;
+}): JSX.Element {
+  return (
+    <Card
+      shadow="xs"
+      padding="md"
+      radius="md"
+      withBorder
+      style={{ minWidth: 160, flex: '1 1 160px' }}
+    >
+      <Stack gap={6} align="center" data-testid={testId}>
+        <Icon size={26} />
+        <Text fw={700} fz="xl">
+          {value}
+        </Text>
+        <Text fz="xs" c="dimmed" ta="center">
+          {label}
+        </Text>
+      </Stack>
+    </Card>
+  );
+}
+
 export default function OpsQueueView(): JSX.Element {
-  const { t } = useTranslation();
-  const { view, isLoading, isError, error } = useOpsQueue();
+  const { t, locale } = useTranslation();
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const { view, isLoading, isError, error, refetch } = useOpsQueue({
+    refetchIntervalMs: autoRefresh ? 5_000 : 0,
+  });
   const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (view) setLastUpdated(new Date());
+  }, [view]);
+
+  const lastUpdatedLabel = useMemo(() => {
+    if (!lastUpdated) return null;
+    return lastUpdated.toLocaleTimeString(locale);
+  }, [lastUpdated, locale]);
+
+  const handleManualRefresh = (): void => {
+    void refetch();
+  };
 
   return (
-    <Stack gap="md" p="md" data-testid="ops-queue-view">
-      <Group justify="space-between" wrap="wrap">
-        <Title order={2}>{t('ops:page.title')}</Title>
-        <Badge color="gray" variant="light">
-          {t('ops:page.no_phi_badge')}
-        </Badge>
-      </Group>
-      <Text c="dimmed" fz="sm">
-        {t('ops:page.subtitle')}
-      </Text>
+    <Stack gap="lg" p={{ base: 'sm', md: 'lg' } as unknown as string} data-testid="ops-queue-view">
+      <EMRPageHeader
+        icon={IconActivity}
+        title={t('ops:page.title')}
+        subtitle={t('ops:page.subtitle')}
+        actions={
+          <Group gap="xs" wrap="wrap">
+            <Badge color="green" variant="light" leftSection={<IconShieldCheck size={12} />}>
+              {t('ops:page.no_phi_badge')}
+            </Badge>
+            {lastUpdatedLabel && (
+              <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)">
+                {t('ops:header.lastUpdated', { time: lastUpdatedLabel }) || `Last updated ${lastUpdatedLabel}`}
+              </Text>
+            )}
+            <Switch
+              size="sm"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.currentTarget.checked)}
+              label={
+                autoRefresh
+                  ? t('ops:header.autoRefreshOn') || 'Auto-refresh on (every 5s)'
+                  : t('ops:header.autoRefreshOff') || 'Auto-refresh paused'
+              }
+              aria-label={t('ops:header.autoRefresh') || 'Auto-refresh'}
+            />
+            <EMRButton
+              variant="ghost"
+              icon={IconRefresh}
+              onClick={handleManualRefresh}
+            >
+              {t('ops:header.refresh') || 'Refresh now'}
+            </EMRButton>
+          </Group>
+        }
+      />
 
       {isError ? (
         <Alert
-          icon={<IconAlertTriangle size={18} />}
-          color="red"
+          variant="error"
+          icon={IconAlertTriangle}
           title={t('ops:errors.load_title')}
           data-testid="ops-queue-error"
         >
-          {error?.message ?? t('ops:errors.load_body')}
+          <Group justify="space-between" wrap="wrap" gap="sm">
+            <Text fz="var(--emr-font-sm)" style={{ flex: 1, minWidth: 0 }}>
+              {error?.message ?? t('ops:errors.load_body')}
+            </Text>
+            <EMRButton size="sm" variant="secondary" onClick={handleManualRefresh}>
+              {t('common:retry') || 'Retry'}
+            </EMRButton>
+          </Group>
         </Alert>
       ) : null}
 
-      {/* Gauges row. Responsive: wraps on mobile. */}
-      <Group gap="lg" wrap="wrap" justify="flex-start">
-        <Card shadow="xs" padding="md" radius="md" withBorder>
+      {/* Gauges + metrics row. Responsive: wraps on mobile. */}
+      <Group gap="md" wrap="wrap" align="stretch">
+        <Card shadow="xs" padding="md" radius="md" withBorder style={{ minWidth: 180 }}>
           <QueueDepthGauge
             label={t('ops:gauges.queued')}
             count={view?.queued.length ?? 0}
             testId="ops-gauge-queued"
           />
         </Card>
-        <Card shadow="xs" padding="md" radius="md" withBorder>
+        <Card shadow="xs" padding="md" radius="md" withBorder style={{ minWidth: 180 }}>
           <QueueDepthGauge
             label={t('ops:gauges.running')}
             count={view?.running.length ?? 0}
             testId="ops-gauge-running"
           />
         </Card>
-        <Card shadow="xs" padding="md" radius="md" withBorder>
+        <Card shadow="xs" padding="md" radius="md" withBorder style={{ minWidth: 180 }}>
           <QueueDepthGauge
             label={t('ops:gauges.stuck')}
             count={view?.stuck_over_15min.length ?? 0}
@@ -181,43 +293,67 @@ export default function OpsQueueView(): JSX.Element {
           />
         </Card>
 
-        <Card shadow="xs" padding="md" radius="md" withBorder>
-          <Stack gap={4} align="center" data-testid="ops-gpu-panel">
-            <IconCpu size={28} />
-            <Text fw={700} fz="xl">
-              {(view?.gpu_utilization_pct ?? 0).toFixed(0)}%
-            </Text>
-            <Text fz="xs" c="dimmed">
-              {t('ops:gauges.gpu_utilization')}
-            </Text>
-          </Stack>
-        </Card>
+        <MetricCard
+          icon={IconCpu}
+          label={t('ops:gauges.gpu_utilization')}
+          value={`${(view?.gpu_utilization_pct ?? 0).toFixed(0)}%`}
+          testId="ops-gpu-panel"
+        />
 
-        <Card shadow="xs" padding="md" radius="md" withBorder>
-          <Stack gap={4} align="center" data-testid="ops-cold-start-panel">
-            <IconSnowflake size={28} />
-            <Text fw={700} fz="xl">
-              {(view?.cold_start_rate_last_hour ?? 0).toFixed(2)}
-            </Text>
-            <Text fz="xs" c="dimmed">
-              {t('ops:gauges.cold_starts')}
-            </Text>
-          </Stack>
-        </Card>
+        <MetricCard
+          icon={IconSnowflake}
+          label={t('ops:gauges.cold_starts')}
+          value={(view?.cold_start_rate_last_hour ?? 0).toFixed(2)}
+          testId="ops-cold-start-panel"
+        />
       </Group>
 
-      <Divider label={t('ops:sections.stuck_cases')} labelPosition="left" />
+      <Divider
+        label={
+          <Group gap={6}>
+            <IconAlertTriangle size={14} />
+            <Text fz="var(--emr-font-sm)" fw={600}>
+              {t('ops:sections.stuck_cases')}
+            </Text>
+            {view && view.stuck_over_15min.length > 0 && (
+              <Badge size="sm" color="yellow" variant="light">
+                {view.stuck_over_15min.length}
+              </Badge>
+            )}
+          </Group>
+        }
+        labelPosition="left"
+      />
 
       {isLoading ? (
         <Skeleton rows={5} columns={5} data-testid="ops-stuck-loading" />
       ) : (
-        <Group align="flex-start" wrap="nowrap" gap="md" style={{ alignItems: 'stretch' }}>
-          <Box style={{ flex: 1, minWidth: 0 }}>
-            <StuckTable
-              items={view?.stuck_over_15min ?? []}
-              onSelect={setSelectedAnalysisId}
-              selectedId={selectedAnalysisId}
-            />
+        <Group align="flex-start" wrap="wrap" gap="md" style={{ alignItems: 'stretch' }}>
+          <Box style={{ flex: '1 1 480px', minWidth: 0 }}>
+            {view && view.stuck_over_15min.length > 0 && (
+              <Box
+                style={{
+                  borderRadius: 'var(--emr-border-radius-lg)',
+                  border: '1px solid var(--emr-gray-200)',
+                  overflow: 'hidden',
+                  background: 'var(--emr-bg-card)',
+                  boxShadow: 'var(--emr-shadow-sm)',
+                }}
+              >
+                <StuckTable
+                  items={view.stuck_over_15min}
+                  onSelect={setSelectedAnalysisId}
+                  selectedId={selectedAnalysisId}
+                />
+              </Box>
+            )}
+            {(!view || view.stuck_over_15min.length === 0) && (
+              <EMREmpty
+                icon={IconCheck}
+                title={t('ops:header.noStuckTitle') || 'Pipeline is healthy'}
+                description={t('ops:header.noStuckDescription') || 'No analyses have been stuck for more than 15 minutes.'}
+              />
+            )}
           </Box>
           {selectedAnalysisId ? (
             <Card
@@ -231,6 +367,21 @@ export default function OpsQueueView(): JSX.Element {
                 analysisId={selectedAnalysisId}
                 onClose={() => setSelectedAnalysisId(null)}
               />
+            </Card>
+          ) : view && view.stuck_over_15min.length > 0 ? (
+            <Card
+              shadow="xs"
+              padding="md"
+              radius="md"
+              withBorder
+              style={{ flex: '0 0 360px', maxWidth: 420 }}
+            >
+              <Stack gap="xs" align="center" justify="center" style={{ minHeight: 200 }}>
+                <IconActivity size={28} color="var(--emr-text-secondary)" />
+                <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)" ta="center">
+                  {t('ops:header.selectCase') || 'Select a stuck case from the table to view actions.'}
+                </Text>
+              </Stack>
             </Card>
           ) : null}
         </Group>

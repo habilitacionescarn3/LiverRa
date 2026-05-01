@@ -18,18 +18,14 @@
  * fetch.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
-  Alert,
   Badge,
   Box,
-  Button,
   Group,
-  Loader,
   Stack,
   Table,
   Text,
-  Title,
 } from '@mantine/core';
 import { Dropzone, type FileRejection } from '@mantine/dropzone';
 import { useNavigate } from 'react-router-dom';
@@ -37,13 +33,24 @@ import { useQuery } from '@tanstack/react-query';
 import {
   IconAlertTriangle,
   IconCloudUpload,
+  IconDatabase,
   IconFolderOpen,
   IconRefresh,
+  IconRobot,
   IconX,
 } from '@tabler/icons-react';
 
+import {
+  EMRAlert,
+  EMRButton,
+  EMREmptyState,
+  EMRErrorBoundary,
+  EMRPageHeader,
+  EMRTableSkeleton,
+} from '../../components/common';
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
 import { useStowUpload, NoDicomFilesError } from '../../hooks/useStowUpload';
+import { useTriggerAnalysis } from '../../hooks/useTriggerAnalysis';
 import type {
   DicomJsonObject,
   DicomWebClientHandle,
@@ -171,13 +178,19 @@ function useStudies(client: DicomWebClientHandle) {
 // View
 // ---------------------------------------------------------------------------
 
-export default function PacsStudiesView(): JSX.Element {
+function PacsStudiesViewBody(): ReactElement {
   const navigate = useNavigate();
   const client = useDicomWebClient();
   const { data, isPending, isError, error, refetch, isFetching } = useStudies(client);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Set the document title so this view is recognisable in browser history /
+  // tab strip without depending on a shared hook.
+  useEffect(() => {
+    document.title = 'PACS studies · LiverRa';
+  }, []);
 
   const upload = useStowUpload({
     onUploaded: (result) => {
@@ -244,35 +257,36 @@ export default function PacsStudiesView(): JSX.Element {
   }
 
   return (
-    <Stack gap="lg" p="md" data-testid="pacs-studies-view">
-      <Group justify="space-between" align="flex-end">
-        <Box>
-          <Title order={2}>PACS studies</Title>
-          <Text size="sm" c="dimmed">
-            DICOM studies stored locally on Orthanc. Upload a study to view it in the
-            LiverRa viewer. AI analysis pipelines are not run from this page.
-          </Text>
-        </Box>
-        <Group gap="xs">
-          <Button
-            variant="default"
-            leftSection={<IconFolderOpen size={16} />}
-            onClick={() => folderInputRef.current?.click()}
-            disabled={upload.isPending}
-            data-testid="pacs-select-folder"
-          >
-            Select folder
-          </Button>
-          <Button
-            variant="subtle"
-            leftSection={<IconRefresh size={16} />}
-            onClick={() => refetch()}
-            loading={isFetching}
-          >
-            Refresh
-          </Button>
-        </Group>
-      </Group>
+    <Stack gap="lg" p={{ base: 'md', md: 'lg' }} data-testid="pacs-studies-view">
+      <EMRPageHeader
+        icon={IconDatabase}
+        title="PACS studies"
+        subtitle="DICOM studies stored locally on Orthanc. Upload a study to view it in the LiverRa viewer."
+        badge={
+          rows.length > 0 ? { count: rows.length, variant: 'primary' } : undefined
+        }
+        actions={
+          <Group gap="xs" wrap="wrap">
+            <EMRButton
+              variant="secondary"
+              icon={IconFolderOpen}
+              onClick={() => folderInputRef.current?.click()}
+              disabled={upload.isPending}
+              data-testid="pacs-select-folder"
+            >
+              Select folder
+            </EMRButton>
+            <EMRButton
+              variant="ghost"
+              icon={IconRefresh}
+              onClick={() => refetch()}
+              loading={isFetching}
+            >
+              Refresh
+            </EMRButton>
+          </Group>
+        }
+      />
 
       {/*
         Hidden input for whole-directory selection. Mantine's Dropzone does
@@ -291,111 +305,274 @@ export default function PacsStudiesView(): JSX.Element {
         tabIndex={-1}
       />
 
-      <Dropzone
-        onDrop={handleDrop}
-        onReject={handleReject}
-        loading={upload.isPending}
-        multiple
-        data-testid="pacs-dropzone"
-        // No `accept` prop on purpose: DICOM files almost never carry a
-        // standard MIME type (file.type is usually ''), so any MIME-based
-        // filter silently drops them before onDrop fires. Real validation
-        // happens in parseDicomFiles (DICM magic-byte check).
-        // `useFsAccessApi: false` forces the classic <input type="file">
-        // picker, avoiding Chrome's showOpenFilePicker MIME strictness.
-        useFsAccessApi={false}
-        getFilesFromEvent={collectFiles}
-        maxSize={2 * 1024 * 1024 * 1024 /* 2 GB */}
+      <Box
+        style={{
+          borderRadius: 'var(--emr-border-radius-lg, 12px)',
+          overflow: 'hidden',
+          border: '1px solid var(--emr-border-color, var(--emr-gray-200))',
+          background: 'var(--emr-bg-card)',
+        }}
       >
-        <Group justify="center" gap="md" mih={120} style={{ pointerEvents: 'none' }}>
-          <Dropzone.Accept>
-            <IconCloudUpload size={44} />
-          </Dropzone.Accept>
-          <Dropzone.Reject>
-            <IconX size={44} />
-          </Dropzone.Reject>
-          <Dropzone.Idle>
-            <IconCloudUpload size={44} />
-          </Dropzone.Idle>
-          <Box>
-            <Text size="lg" fw={500}>
-              Drag DICOM files or a folder here
-            </Text>
-            <Text size="sm" c="dimmed">
-              Single .dcm, multiple files, or a whole series folder. Uploads go
-              directly to Orthanc via STOW-RS.
-            </Text>
-          </Box>
-        </Group>
-      </Dropzone>
+        <Dropzone
+          onDrop={handleDrop}
+          onReject={handleReject}
+          loading={upload.isPending}
+          multiple
+          data-testid="pacs-dropzone"
+          // No `accept` prop on purpose: DICOM files almost never carry a
+          // standard MIME type (file.type is usually ''), so any MIME-based
+          // filter silently drops them before onDrop fires. Real validation
+          // happens in parseDicomFiles (DICM magic-byte check).
+          // `useFsAccessApi: false` forces the classic <input type="file">
+          // picker, avoiding Chrome's showOpenFilePicker MIME strictness.
+          useFsAccessApi={false}
+          getFilesFromEvent={collectFiles}
+          maxSize={2 * 1024 * 1024 * 1024 /* 2 GB */}
+          styles={{
+            root: {
+              border: 'none',
+              background: 'transparent',
+            },
+          }}
+        >
+          <Group
+            justify="center"
+            gap="md"
+            mih={140}
+            style={{ pointerEvents: 'none', padding: 16 }}
+            wrap="wrap"
+          >
+            <Dropzone.Accept>
+              <IconCloudUpload size={48} color="var(--emr-success)" />
+            </Dropzone.Accept>
+            <Dropzone.Reject>
+              <IconX size={48} color="var(--emr-error)" />
+            </Dropzone.Reject>
+            <Dropzone.Idle>
+              <IconCloudUpload size={48} color="var(--emr-secondary)" />
+            </Dropzone.Idle>
+            <Box style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+              <Text fz="var(--emr-font-lg)" fw={600} c="var(--emr-text-primary)">
+                Drag DICOM files or a folder here
+              </Text>
+              <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
+                Single .dcm, multiple files, or a whole series folder. Uploads go
+                directly to Orthanc via STOW-RS (max 2 GB).
+              </Text>
+            </Box>
+          </Group>
+        </Dropzone>
+      </Box>
 
       {uploadError && (
-        <Alert color="red" icon={<IconAlertTriangle size={16} />} title="Upload issue">
+        <EMRAlert
+          variant="error"
+          icon={IconAlertTriangle}
+          title="Upload issue"
+          withCloseButton
+          onClose={() => setUploadError(null)}
+        >
           {uploadError}
-        </Alert>
+        </EMRAlert>
       )}
 
       {isError && (
-        <Alert color="red" icon={<IconAlertTriangle size={16} />} title="Cannot reach Orthanc">
-          {(error as Error)?.message ?? 'DICOMweb request failed.'} Check that Orthanc
-          is running (<code>docker compose -f deploy/local/docker-compose.yml ps</code>).
-        </Alert>
+        <EMRAlert
+          variant="error"
+          icon={IconAlertTriangle}
+          title="Cannot reach Orthanc"
+        >
+          <Stack gap="xs">
+            <Text size="sm">
+              {(error as Error)?.message ?? 'DICOMweb request failed.'}
+            </Text>
+            <Text size="xs" c="var(--emr-text-secondary)">
+              Check that Orthanc is running:{' '}
+              <code style={{ fontFamily: 'var(--emr-font-mono, monospace)' }}>
+                docker compose -f deploy/local/docker-compose.yml ps
+              </code>
+            </Text>
+            <Box>
+              <EMRButton
+                size="sm"
+                variant="secondary"
+                icon={IconRefresh}
+                onClick={() => refetch()}
+              >
+                Retry
+              </EMRButton>
+            </Box>
+          </Stack>
+        </EMRAlert>
       )}
 
-      {isPending && (
-        <Group justify="center" py="xl">
-          <Loader />
-          <Text>Loading studies…</Text>
-        </Group>
-      )}
+      {isPending && <EMRTableSkeleton rows={6} columns={6} />}
 
       {!isPending && !isError && rows.length === 0 && (
-        <Alert color="gray" title="No studies yet">
-          Drop a DICOM file above to upload your first study.
-        </Alert>
+        <EMREmptyState
+          icon={IconDatabase}
+          title="No studies yet"
+          description="Drop a DICOM file or folder above to upload your first study, then run AI on it."
+          action={{
+            label: 'Select folder',
+            onClick: () => folderInputRef.current?.click(),
+            icon: IconFolderOpen,
+          }}
+          data-testid="pacs-studies-empty"
+        />
       )}
 
       {rows.length > 0 && (
-        <Table highlightOnHover striped withTableBorder data-testid="pacs-studies-table">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Patient ID</Table.Th>
-              <Table.Th>Patient name</Table.Th>
-              <Table.Th>Study date</Table.Th>
-              <Table.Th>Description</Table.Th>
-              <Table.Th>Modality</Table.Th>
-              <Table.Th ta="right">Instances</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map((r) => (
-              <Table.Tr
-                key={r.key}
-                style={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/pacs/studies/${encodeURIComponent(r.uid)}`)}
-                data-testid={`pacs-study-row-${r.uid}`}
-              >
-                <Table.Td>{r.patientId}</Table.Td>
-                <Table.Td>{r.patientName}</Table.Td>
-                <Table.Td>{r.studyDate}</Table.Td>
-                <Table.Td>{r.description}</Table.Td>
-                <Table.Td>
-                  <Group gap={4}>
-                    {r.modalities.length === 0 ? (
-                      <Text c="dimmed" size="sm">—</Text>
-                    ) : (
-                      r.modalities.map((m) => (
-                        <Badge key={m} size="sm" variant="light">{m}</Badge>
-                      ))
-                    )}
-                  </Group>
-                </Table.Td>
-                <Table.Td ta="right">{r.instanceCount}</Table.Td>
+        <Box
+          style={{
+            borderRadius: 'var(--emr-border-radius-lg, 12px)',
+            border: '1px solid var(--emr-border-color, var(--emr-gray-200))',
+            overflow: 'hidden',
+            background: 'var(--emr-bg-card)',
+          }}
+        >
+          <Table
+            highlightOnHover
+            verticalSpacing="sm"
+            horizontalSpacing="md"
+            data-testid="pacs-studies-table"
+          >
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Patient ID</Table.Th>
+                <Table.Th>Patient name</Table.Th>
+                <Table.Th>Study date</Table.Th>
+                <Table.Th>Description</Table.Th>
+                <Table.Th>Modality</Table.Th>
+                <Table.Th ta="right">Instances</Table.Th>
+                <Table.Th ta="right">Actions</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((r) => {
+                const open = (): void =>
+                  navigate(`/pacs/studies/${encodeURIComponent(r.uid)}`);
+                return (
+                  <Table.Tr
+                    key={r.key}
+                    data-testid={`pacs-study-row-${r.uid}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={open}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        open();
+                      }
+                    }}
+                    tabIndex={0}
+                  >
+                    <Table.Td>
+                      <Text fz="var(--emr-font-sm)" fw={500}>
+                        {r.patientId}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text fz="var(--emr-font-sm)">{r.patientName}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
+                        {r.studyDate}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text
+                        fz="var(--emr-font-sm)"
+                        style={{
+                          maxWidth: 240,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {r.description}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={4} wrap="wrap">
+                        {r.modalities.length === 0 ? (
+                          <Text c="dimmed" size="sm">—</Text>
+                        ) : (
+                          r.modalities.map((m) => (
+                            <Badge key={m} size="sm" variant="light">{m}</Badge>
+                          ))
+                        )}
+                      </Group>
+                    </Table.Td>
+                    <Table.Td ta="right">
+                      <Text fz="var(--emr-font-sm)" fw={500}>
+                        {r.instanceCount}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td
+                      ta="right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <RunAIButton
+                        studyInstanceUid={r.uid}
+                        patientRef={r.patientId || undefined}
+                      />
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </Box>
       )}
     </Stack>
   );
 }
+
+export default function PacsStudiesView(): ReactElement {
+  return (
+    <EMRErrorBoundary componentName="PacsStudiesView">
+      <PacsStudiesViewBody />
+    </EMRErrorBoundary>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// RunAIButton — wired to POST /api/v1/analyses/from-orthanc
+// ---------------------------------------------------------------------------
+
+interface RunAIButtonProps {
+  studyInstanceUid: string;
+  patientRef?: string;
+}
+
+function RunAIButton({ studyInstanceUid, patientRef }: RunAIButtonProps): ReactElement {
+  const navigate = useNavigate();
+  const trigger = useTriggerAnalysis();
+
+  return (
+    <EMRButton
+      size="sm"
+      variant="primary"
+      icon={IconRobot}
+      loading={trigger.isPending}
+      disabled={trigger.isPending}
+      onClick={() => {
+        // Stop the row click handler from firing — clicking "Run AI" should
+        // start the analysis, not open the viewer.
+        // EMRButton wraps Mantine's Button; the onClick is fired post-event.
+        trigger.mutate(
+          { studyInstanceUid, patientRef },
+          {
+            onSuccess: (data) => {
+              navigate(`/cases/${encodeURIComponent(data.analysisId)}`);
+            },
+          },
+        );
+      }}
+      data-testid={`run-ai-${studyInstanceUid}`}
+    >
+      {trigger.isPending ? 'Starting…' : 'Run AI'}
+    </EMRButton>
+  );
+}
+

@@ -33,8 +33,9 @@
     },
     "empty": {
       "title": "No analyses yet",
-      "description": "Upload your first liver CT/MRI study to kick off an automated segmentation + FLR analysis.",
-      "upload": "Upload a study"
+      "description": "Open the PACS studies list and run AI on a study to kick off your first automated segmentation + FLR analysis.",
+      "upload": "Upload a study",
+      "fromPacs": "Browse PACS studies"
     },
     "error": {
       "title": "Could not load cases",

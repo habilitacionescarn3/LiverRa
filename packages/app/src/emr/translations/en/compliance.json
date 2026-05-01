@@ -13,7 +13,13 @@
     "emptyTitle": "No models listed",
     "emptyDescription": "The current build has no Model Bill of Materials entries yet.",
     "tableAriaLabel": "Model Bill of Materials table",
-    "loadError": "Failed to load the Model Bill of Materials."
+    "loadError": "Failed to load the Model Bill of Materials.",
+    "downloadJson": "Download JSON",
+    "filterLicense": "License",
+    "filterAll": "All licenses",
+    "summaryModels": "{{n}} models",
+    "summaryApproved": "{{n}} approved",
+    "summaryPending": "{{n}} pending"
   },
   "audit": {
     "title": "Audit summary",
@@ -34,7 +40,20 @@
     "colActor": "Actor",
     "colSubject": "Subject",
     "colOutcome": "Outcome",
-    "tableAriaLabel": "Audit events table"
+    "tableAriaLabel": "Audit events table",
+    "summary": {
+      "title": "Compliance overview",
+      "subtitle": "Snapshot of audit, erasure, and RUO claim signals (last 30 days).",
+      "totalEvents": "Total events",
+      "successRate": "Success rate",
+      "deniedEvents": "Denied",
+      "erasurePending": "Pending erasure requests",
+      "ruoCleared": "Cleared claims",
+      "ruoUnderAssessment": "Under assessment",
+      "ruoOnly": "RUO only",
+      "byCategory": "Events by category",
+      "noData": "No data in this window."
+    }
   },
   "chain": {
     "verifying": "Verifying chain…",

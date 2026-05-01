@@ -9,10 +9,12 @@
     "subtitle": "Invite, suspend, and manage clinicians for your tenant.",
     "invite": "Invite user",
     "suspend": "Suspend",
+    "resetMfa": "Reset MFA",
     "error": "Failed to load users",
     "empty": {
       "title": "No users yet",
-      "description": "Send your first invite to bring a clinician onto your tenant."
+      "description": "Invite your first clinician to bring them onto your tenant.",
+      "cta": "Invite your first user"
     },
     "status": {
       "active": "Active",
@@ -23,7 +25,15 @@
       "email": "Email",
       "role": "Role",
       "status": "Status",
+      "lastActive": "Last active",
       "actions": "Actions"
+    },
+    "lastActive": {
+      "never": "Never",
+      "justNow": "Just now",
+      "minutesAgo": "{{n}} min ago",
+      "hoursAgo": "{{n}} h ago",
+      "daysAgo": "{{n}} d ago"
     }
   },
   "invite": {
@@ -45,15 +55,25 @@
   },
   "pacs": {
     "title": "PACS destination",
-    "subtitle": "Configure where finalized studies are pushed.",
+    "subtitle": "Configure where finalized studies are pushed back to your hospital PACS.",
+    "section": {
+      "endpoint": "DICOM endpoint",
+      "endpointHelp": "The AE title, host, and port your PACS listens on for C-STORE.",
+      "security": "Transport security",
+      "securityHelp": "Pin a certificate fingerprint to detect MITM tampering."
+    },
     "aeTitle": "AE title",
+    "aeTitleHelp": "Up to 16 chars, letters/digits/dash only.",
     "host": "Host / IP",
+    "hostHelp": "Reachable hostname or IPv4 address from the LiverRa edge appliance.",
     "port": "Port",
+    "portHelp": "Default DICOM port is 104; DICOM-TLS commonly uses 2762.",
     "useTls": "Use DICOM-TLS",
-    "certFingerprint": "Cert fingerprint",
+    "certFingerprint": "Certificate SHA-256 fingerprint",
     "testEcho": "Test with C-ECHO",
     "echoOk": "C-ECHO succeeded",
     "echoFail": "C-ECHO failed",
+    "echoIdle": "Run a C-ECHO before saving to verify the destination is reachable.",
     "roundTrip": "Round-trip",
     "saved": "PACS destination saved."
   },
@@ -61,10 +81,13 @@
     "title": "Audit browser",
     "subtitle": "PHI-free chain-of-hashes audit events for this tenant.",
     "filters": {
+      "title": "Filter events",
       "from": "From",
       "to": "To",
       "category": "Category",
-      "all": "All"
+      "all": "All categories",
+      "clear": "Clear filters",
+      "showing": "Showing {{n}} events"
     },
     "empty": {
       "title": "No events",
@@ -77,6 +100,19 @@
       "actor": "Actor",
       "outcome": "Outcome",
       "summary": "Summary"
+    },
+    "outcome": {
+      "success": "Success",
+      "denied": "Denied",
+      "error": "Error"
+    },
+    "drawer": {
+      "title": "Audit event detail",
+      "subtitle": "Sequence #{{seq}}",
+      "json": "Raw event JSON",
+      "copyJson": "Copy JSON",
+      "copied": "Copied to clipboard",
+      "open": "View detail"
     }
   },
   "deleteRequest": {

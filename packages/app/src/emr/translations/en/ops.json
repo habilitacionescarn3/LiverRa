@@ -59,5 +59,15 @@
   "errors": {
     "load_title": "Could not load queue",
     "load_body": "The ops endpoint is unreachable. Retrying automatically."
+  },
+  "header": {
+    "refresh": "Refresh now",
+    "autoRefresh": "Auto-refresh",
+    "autoRefreshOn": "Auto-refresh on (every 5s)",
+    "autoRefreshOff": "Auto-refresh paused",
+    "lastUpdated": "Last updated {{time}}",
+    "selectCase": "Select a stuck case from the table to view actions.",
+    "noStuckTitle": "Pipeline is healthy",
+    "noStuckDescription": "No analyses have been stuck for more than 15 minutes."
   }
 }

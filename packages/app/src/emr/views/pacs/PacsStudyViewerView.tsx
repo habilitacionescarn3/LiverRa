@@ -22,17 +22,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Alert,
   Box,
-  Button,
   Group,
   Loader,
   Select,
   Stack,
   Text,
-  Title,
 } from '@mantine/core';
-import { IconAlertTriangle, IconArrowLeft } from '@tabler/icons-react';
+import {
+  IconAlertTriangle,
+  IconEye,
+} from '@tabler/icons-react';
+
+import {
+  EMRAlert,
+  EMRPageHeader,
+} from '../../components/common';
 import { Enums, type RenderingEngine, type Types } from '@cornerstonejs/core';
 import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
 
@@ -107,6 +112,13 @@ export default function PacsStudyViewerView(): JSX.Element {
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [windowCenter, setWindowCenter] = useState<number | undefined>(undefined);
   const [windowWidth, setWindowWidth] = useState<number | undefined>(undefined);
+
+  // Document title — surfaces a recognisable string in the browser tab strip.
+  useEffect(() => {
+    const base = t('pacs.header.title') ?? 'PACS viewer';
+    const short = studyInstanceUid ? studyInstanceUid.slice(-12) : '';
+    document.title = short ? `${base} · ${short} · LiverRa` : `${base} · LiverRa`;
+  }, [t, studyInstanceUid]);
 
   // ---- 1. Init Cornerstone + enable a stack viewport ---------------------
   // Uses the shared engine + tool group from cornerstoneInit. On unmount we
@@ -426,37 +438,39 @@ export default function PacsStudyViewerView(): JSX.Element {
 
   if (!studyInstanceUid) {
     return (
-      <Alert color="red" m="md" title="Missing study UID">
-        Route parameter <code>:studyInstanceUid</code> was not supplied.
-      </Alert>
+      <Box p={{ base: 'md', md: 'lg' }}>
+        <EMRAlert
+          variant="error"
+          icon={IconAlertTriangle}
+          title="Missing study UID"
+        >
+          Route parameter <code>:studyInstanceUid</code> was not supplied.
+        </EMRAlert>
+      </Box>
     );
   }
 
   return (
     <PACSErrorBoundary onRetry={handleRetry} t={t}>
-      <Stack gap="md" p="md" data-testid="pacs-study-viewer">
-        <Group justify="space-between" align="center" wrap="wrap">
-          <Group gap="md">
-            <Button
-              variant="subtle"
-              leftSection={<IconArrowLeft size={16} />}
-              onClick={() => navigate('/pacs/studies')}
-            >
-              {t('pacs.header.backToStudies')}
-            </Button>
-            <Box>
-              <Title order={3}>{t('pacs.header.title')}</Title>
-              <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
-                {studyInstanceUid}
-              </Text>
-            </Box>
-          </Group>
-          <WindowPresets
-            activePreset={activePreset}
-            onPresetChange={handlePresetChange}
-            disabled={isLoading}
-          />
-        </Group>
+      <Stack
+        gap="md"
+        p={{ base: 'md', md: 'lg' }}
+        data-testid="pacs-study-viewer"
+      >
+        <EMRPageHeader
+          icon={IconEye}
+          title={t('pacs.header.title')}
+          subtitle={studyInstanceUid}
+          showBack
+          onBack={() => navigate('/pacs/studies')}
+          actions={
+            <WindowPresets
+              activePreset={activePreset}
+              onPresetChange={handlePresetChange}
+              disabled={isLoading}
+            />
+          }
+        />
 
         {seriesOptions.length > 1 && (
           <Select
@@ -472,9 +486,13 @@ export default function PacsStudyViewerView(): JSX.Element {
         )}
 
         {loadError && (
-          <Alert color="red" icon={<IconAlertTriangle size={16} />} title={t('pacs.error.viewerCrashTitle')}>
+          <EMRAlert
+            variant="error"
+            icon={IconAlertTriangle}
+            title={t('pacs.error.viewerCrashTitle')}
+          >
             {loadError}
-          </Alert>
+          </EMRAlert>
         )}
 
         <Box
@@ -486,10 +504,11 @@ export default function PacsStudyViewerView(): JSX.Element {
           style={{
             width: '100%',
             height: 'min(70vh, 720px)',
-            background: 'black',
+            background: '#000',
             position: 'relative',
-            borderRadius: 4,
+            borderRadius: 'var(--emr-border-radius-lg, 12px)',
             overflow: 'hidden',
+            border: '1px solid var(--emr-border-color, var(--emr-gray-200))',
           }}
         >
           {/* DICOM burn-in overlays (patient + W/L + frame). Rendered in the

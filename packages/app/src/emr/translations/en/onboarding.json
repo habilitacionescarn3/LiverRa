@@ -57,6 +57,21 @@
     "subtitle": "Explore the full pipeline on synthetic data. Re-open any time from the Help menu.",
     "body": "The demo case has no real patient data. PACS push is disabled; outputs are watermarked \"Sample data\".",
     "open": "Open demo case",
-    "navLabel": "Demo case"
+    "navLabel": "Demo case",
+    "heroTitle": "See LiverRa end to end in 30 seconds",
+    "feature": {
+      "segmentation": {
+        "title": "AI segmentation",
+        "body": "Liver parenchyma, 8 Couinaud segments, vessels, and lesions — all auto-segmented."
+      },
+      "flr": {
+        "title": "FLR & volumetry",
+        "body": "Future Liver Remnant calculation with surgical-grade volumetric outputs."
+      },
+      "ruo": {
+        "title": "Research Use Only",
+        "body": "Synthetic data, watermarked exports, PACS push disabled — safe to explore."
+      }
+    }
   }
 }

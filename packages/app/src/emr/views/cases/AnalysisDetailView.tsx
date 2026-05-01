@@ -135,6 +135,15 @@ function AnalysisDetailViewInner({
 
   const { data: analysis, loading, error } = useAnalysisStub(id, apiBaseUrl, initialAnalysis);
 
+  // Document title — keep the analysis study UID visible in the browser tab.
+  useEffect(() => {
+    const base = t('analysis:detail.crumbs.cases') ?? 'Analysis';
+    const studyShort = analysis?.studyUidShort ?? id ?? '';
+    document.title = studyShort
+      ? `${base}: ${studyShort} · LiverRa`
+      : `${base} · LiverRa`;
+  }, [analysis?.studyUidShort, id, t]);
+
   // Resizable drawer state — collapses to a sheet on mobile.
   const [drawerWidth, setDrawerWidth] = useState<number>(DEFAULT_DRAWER_WIDTH);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('segments');

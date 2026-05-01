@@ -56,6 +56,16 @@ const ORTHANC_DEV_PASSWORD = process.env.ORTHANC_DEV_PASSWORD ?? 'orthanc';
 // but the default Orthanc container publishes IPv4 only, so `localhost` 500s.
 const ORTHANC_DEV_ORIGIN = process.env.ORTHANC_DEV_ORIGIN ?? 'http://127.0.0.1:8042';
 
+// Production safety: refuse to build if dev-bypass is enabled. Prevents an
+// accidental `VITE_LIVERRA_DEV_BYPASS=true` slipping into a Netlify build
+// and exposing an authless app on the public internet.
+if (process.env.NODE_ENV === 'production' && process.env.VITE_LIVERRA_DEV_BYPASS === 'true') {
+  throw new Error(
+    'PRODUCTION SAFETY: VITE_LIVERRA_DEV_BYPASS=true is not allowed in NODE_ENV=production. '
+    + 'Unset it in Netlify env vars before deploying.',
+  );
+}
+
 export default defineConfig({
   plugins: [liverraDevApiStub(), react()],
   server: {
@@ -78,6 +88,14 @@ export default defineConfig({
             proxyReq.setHeader('authorization', `Basic ${creds}`);
           });
         },
+      },
+      // Real-backend mode: forward /api/v1/* to local FastAPI on 8090.
+      // Only used when VITE_LIVERRA_MOCK_API=false; otherwise the
+      // liverraDevApiStub() middleware (above) intercepts these requests
+      // first and serves dev-mocks.ts fixtures.
+      '/api': {
+        target: 'http://127.0.0.1:8090',
+        changeOrigin: true,
       },
     },
   },

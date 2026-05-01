@@ -99,12 +99,13 @@
     "title": "Report",
     "loading": "Loading report…",
     "error": "Unable to load this report.",
-    "finalizedAt": "Finalized at:",
+    "finalizedAt": "Finalized at",
     "supersededBy": "Superseded by",
     "retracted": "This report has been retracted.",
     "retract": "Retract",
     "sampleData": "SAMPLE DATA",
-    "noId": "No report id in URL."
+    "noId": "No report id in URL.",
+    "noIdDescription": "Open a finalized analysis from your cases list to view its report."
   },
   "artifact": {
     "seg": "DICOM-SEG (liver + segments + lesions)",

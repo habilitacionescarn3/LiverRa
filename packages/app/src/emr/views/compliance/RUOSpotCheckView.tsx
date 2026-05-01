@@ -35,12 +35,14 @@ import {
   IconCheck,
   IconX,
   IconCamera,
+  IconShieldCheck,
 } from '@tabler/icons-react';
 
 import {
   EMRButton,
   EMRCard,
   EMREmptyState,
+  EMRErrorBoundary,
   EMRPageHeader,
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
@@ -174,7 +176,7 @@ function ArtifactThumbnail({
   );
 }
 
-export default function RUOSpotCheckView(): ReactElement {
+function RUOSpotCheckInner(): ReactElement {
   const { t } = useTranslation();
   const { items, isLoading, isError, error, sample, setPassFlag, reset } =
     useRUOSpotCheck();
@@ -192,6 +194,7 @@ export default function RUOSpotCheckView(): ReactElement {
   return (
     <Stack gap="md" p="md" data-testid="ruo-spot-check-view">
       <EMRPageHeader
+        icon={IconShieldCheck}
         title={t('compliance:spotCheck.title')}
         subtitle={t('compliance:spotCheck.subtitle')}
       />
@@ -270,5 +273,13 @@ export default function RUOSpotCheckView(): ReactElement {
         </SimpleGrid>
       )}
     </Stack>
+  );
+}
+
+export default function RUOSpotCheckView(): ReactElement {
+  return (
+    <EMRErrorBoundary componentName="RUOSpotCheckView">
+      <RUOSpotCheckInner />
+    </EMRErrorBoundary>
   );
 }

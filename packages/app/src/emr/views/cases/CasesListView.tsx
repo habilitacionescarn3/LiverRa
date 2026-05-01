@@ -338,6 +338,12 @@ function CasesListViewInner({
 
   const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
 
+  // Document title for the browser tab.
+  useEffect(() => {
+    const base = t('analysis:cases.title') ?? 'Cases';
+    document.title = `${base} · LiverRa`;
+  }, [t]);
+
   const { data, loading, error, refetch } = useCasesListStub(filters, apiBaseUrl, initialData);
 
   const setFilter = useCallback(
@@ -480,15 +486,16 @@ function CasesListViewInner({
         <Skeleton rows={10} columns={isMobile ? 2 : 6} />
       )}
 
-      {/* Empty state */}
+      {/* Empty state — point users to the PACS list, where AI runs are
+          actually triggered (see PacsStudiesView's RunAIButton). */}
       {!loading && !error && data && data.items.length === 0 && (
         <EmptyState
+          icon={IconFolderOpen}
           title={t('analysis:cases.empty.title')}
           description={t('analysis:cases.empty.description')}
-          illustration="/assets/empty-states/no-cases.svg"
           action={{
-            label: t('analysis:cases.empty.upload'),
-            onClick: () => navigate('/emr/upload'),
+            label: t('analysis:cases.empty.fromPacs') ?? 'Browse PACS studies',
+            onClick: () => navigate('/pacs/studies'),
             icon: IconFolderOpen,
           }}
         />

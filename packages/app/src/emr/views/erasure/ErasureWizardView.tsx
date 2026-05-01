@@ -26,13 +26,17 @@ import {
   Stack,
   Stepper,
   Text,
-  Title,
 } from '@mantine/core';
 import { IconAlertTriangle, IconShieldLock } from '@tabler/icons-react';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { EMRButton } from '../../components/common';
+import {
+  EMRButton,
+  EMRCard,
+  EMRErrorBoundary,
+  EMRPageHeader,
+} from '../../components/common';
 import { EMRTextInput, EMRTextarea } from '../../components/shared/EMRFormFields';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { ErasureConfirmation } from '../../components/erasure/ErasureConfirmation';
@@ -102,7 +106,7 @@ async function pollStatus(
   throw new Error('timeout');
 }
 
-export default function ErasureWizardView(): JSX.Element {
+function ErasureWizardInner(): JSX.Element {
   const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [studyId, setStudyId] = useState('');
@@ -169,15 +173,16 @@ export default function ErasureWizardView(): JSX.Element {
 
   return (
     <Stack gap="md" p="md" data-testid="erasure-wizard">
-      <Group gap={8}>
-        <IconShieldLock size={26} />
-        <Title order={2}>{t('erasure:wizard.title')}</Title>
-      </Group>
+      <EMRPageHeader
+        icon={IconShieldLock}
+        title={t('erasure:wizard.title')}
+      />
 
       <Alert color="red" icon={<IconAlertTriangle size={18} />} variant="light">
         {t('erasure:wizard.irreversible_warning')}
       </Alert>
 
+      <EMRCard>
       <Stepper active={step} onStepClick={(i) => (i < step ? setStep(i) : undefined)}>
         <Stepper.Step
           label={t('erasure:wizard.step.select_label')}
@@ -280,6 +285,7 @@ export default function ErasureWizardView(): JSX.Element {
           </Stack>
         </Stepper.Step>
       </Stepper>
+      </EMRCard>
 
       <Group justify="flex-end" wrap="wrap" gap="sm">
         {step > 0 && step < 4 ? (
@@ -304,5 +310,13 @@ export default function ErasureWizardView(): JSX.Element {
         ) : null}
       </Group>
     </Stack>
+  );
+}
+
+export default function ErasureWizardView(): JSX.Element {
+  return (
+    <EMRErrorBoundary componentName="ErasureWizardView">
+      <ErasureWizardInner />
+    </EMRErrorBoundary>
   );
 }

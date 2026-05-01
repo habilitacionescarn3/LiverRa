@@ -13,13 +13,15 @@
     "error_title": "Could not load requests",
     "download_pdf": "PDF",
     "case_not_found": "Case not found.",
+    "view": "View",
     "col": {
       "request_id": "Request",
       "study_id": "Study",
       "status": "Status",
       "requested_at": "Requested",
       "tombstone": "Tombstone",
-      "pdf": "PDF"
+      "pdf": "PDF",
+      "actions": "Actions"
     }
   },
   "wizard": {

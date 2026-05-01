@@ -39,11 +39,12 @@ import {
   Table,
   Text,
 } from '@mantine/core';
-import { IconAlertCircle, IconCertificate } from '@tabler/icons-react';
+import { IconAlertCircle, IconCertificate, IconClipboardCheck } from '@tabler/icons-react';
 
 import {
   EMRCard,
   EMREmptyState as EMREmpty,
+  EMRErrorBoundary,
   EMRPageHeader,
 } from '../../components/common';
 import { EMRSelect, EMRTextInput } from '../../components/shared/EMRFormFields';
@@ -149,7 +150,7 @@ function ClaimRow({
   );
 }
 
-export default function ClaimRegistryView(): ReactElement {
+function ClaimRegistryInner(): ReactElement {
   const { t } = useTranslation();
   const { rows, isLoading, isError, error, update, isUpdating } = useClaimRegistry();
   const [activeKey, setActiveKey] = useState<ClaimKey | null>(null);
@@ -189,6 +190,7 @@ export default function ClaimRegistryView(): ReactElement {
   return (
     <Stack gap="md" p="md" data-testid="claim-registry-view">
       <EMRPageHeader
+        icon={IconClipboardCheck}
         title={t('compliance:claim.title')}
         subtitle={t('compliance:claim.subtitle')}
       />
@@ -249,5 +251,13 @@ export default function ClaimRegistryView(): ReactElement {
         </Box>
       </EMRCard>
     </Stack>
+  );
+}
+
+export default function ClaimRegistryView(): ReactElement {
+  return (
+    <EMRErrorBoundary componentName="ClaimRegistryView">
+      <ClaimRegistryInner />
+    </EMRErrorBoundary>
   );
 }
