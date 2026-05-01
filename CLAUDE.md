@@ -98,6 +98,36 @@ LiverRa/
 
 ---
 
+## 🌐 Current Dev Setup — Hybrid Local + Remote Triton (May 2026)
+
+**Why hybrid:** This laptop runs everything except the GPU/ML inference server. Triton + the 6 cascade models live on Irakli's PC; we connect to it over Tailscale. This means you develop the frontend, FastAPI orchestrator, FHIR/PACS plumbing, etc. locally with hot-reload, and remote-call only the heavy GPU inference.
+
+**Network:** Tailscale tunnel.
+- This laptop: `100.110.147.104` (macbook-air)
+- Irakli's Triton host: `100.124.94.29` (`liverra-triton-host`) — owned by `irakli-ff@`
+- Latency: ~26ms warm / ~80ms cold ping. All 6 models READY.
+
+**Local services** (`docker compose -f deploy/local/docker-compose.yml up -d postgres redis orthanc minio medplum` — note: NO triton):
+- Postgres 5432 · Redis 6379 · Orthanc 4242/8042 · MinIO 9000-9001 · Medplum 8103
+- Frontend (Vite): `cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173`
+
+**Key `.env` overrides for remote Triton:**
+```
+ML_INFERENCE_URL=http://localhost:9000      # local FastAPI orchestrator
+TRITON_URL=http://100.124.94.29:8001
+TRITON_GRPC_URL=100.124.94.29:8001
+TRITON_HTTP_URL=http://100.124.94.29:8000
+```
+
+**Known gotchas:**
+- **Redis port conflict with MediMind** — only one project's redis can use 6379 at a time. To switch: `docker stop medimind-local-redis && docker start liverra-redis` (and vice versa).
+- **Medplum config** — compose passes `command: ["env"]` so it reads from `MEDPLUM_*` env vars; signing keys are dev-only stubs. The `medplum` Postgres database must exist (`docker exec liverra-postgres psql -U liverra -c "CREATE DATABASE medplum;"`).
+- **Tailscale 2-device gate** — first-time accounts can't accept share invites until they have ≥2 devices; install Tailscale on a phone to satisfy the gate.
+
+**To resume tomorrow:** `docker compose -f deploy/local/docker-compose.yml start` + restart Vite. Tailscale auto-reconnects. Triton on Irakli's machine should be left running (`docker start liverra-triton` on his side if rebooted).
+
+---
+
 ## 🚦 WORKFLOW RULE (MANDATORY)
 
 **Before writing application code, ALWAYS:**
