@@ -1,0 +1,45 @@
+# Cloudflare Tunnel config for exposing local FastAPI to public Netlify.
+#
+# Setup (one-time, on Lasha's laptop):
+#   brew install cloudflare/cloudflare/cloudflared
+#   cloudflared tunnel login                          # browser flow
+#   cloudflared tunnel create liverra-api             # creates a UUID tunnel
+#   cloudflared tunnel route dns liverra-api <hostname>
+#   cp deploy/cloudflared/config.example.yml ~/.cloudflared/config.yml
+#   # Replace <UUID> + <HOSTNAME> below.
+#   cloudflared tunnel run liverra-api                # foreground
+#   # OR run as launchd service (auto-restart on macOS):
+#   sudo cloudflared service install
+#
+# Smoke test from any network:
+#   curl https://<HOSTNAME>/api/v1/system/health  → 200 OK
+#
+# Tunnel ingress allowlist deliberately exposes ONLY the API + DICOMweb
+# paths. Everything else returns 404 — internal admin/debug paths stay
+# private even if the daemon is running.
+
+tunnel: <UUID>
+credentials-file: /Users/toko/.cloudflared/<UUID>.json
+
+ingress:
+  # FastAPI surface (analyses, auth, etc.)
+  - hostname: <HOSTNAME>
+    path: /api/.*
+    service: http://localhost:8090
+    originRequest:
+      noTLSVerify: false
+      connectTimeout: 30s
+
+  # DICOMweb (Orthanc) — needed for image fetch from browser
+  - hostname: <HOSTNAME>
+    path: /dicom-web/.*
+    service: http://localhost:8042
+    originRequest:
+      httpHostHeader: localhost
+      # Orthanc requires basic auth; cloudflared can't inject it cleanly
+      # — better to put a tiny nginx in front. For dev, leaving Orthanc
+      # creds wide-open in the tunnel ingress is dangerous; production
+      # wraps Orthanc in nginx + Cognito JWT.
+
+  # Catch-all: refuse anything else
+  - service: http_status:404

@@ -1,0 +1,43 @@
+# LiverRa Netlify deployment config.
+#
+# Plan: this site fronts a Vite SPA build. The frontend speaks HTTPS to a
+# Cloudflare Tunnel that bridges to Lasha's local FastAPI on port 8090.
+# Triton + the 6 ML models stay private on Irakli's PC (Tailscale only).
+#
+# Required env vars (set in Netlify UI → Site settings → Environment):
+#   VITE_LIVERRA_API_BASE_URL=https://<tunnel-host>/api/v1
+#   VITE_LIVERRA_MOCK_API=false
+#   VITE_LIVERRA_DEV_BYPASS=false      # CRITICAL: must be false in prod
+#   VITE_DICOM_WEB_BASE=https://<tunnel-host>/dicom-web
+
+[build]
+  base = "packages/app"
+  # `publish` is relative to `base` per Netlify docs.
+  publish = "dist"
+  command = "npm install --prefix ../.. --workspaces=false --include-workspace-root && npm run build"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NPM_VERSION = "11"
+
+# SPA fallback — every client-side route serves index.html.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers for the static SPA. CSP is intentionally permissive on
+# `connect-src` because the tunnel host is set per-deploy via env var; the
+# Vite build inlines it into the bundle.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
