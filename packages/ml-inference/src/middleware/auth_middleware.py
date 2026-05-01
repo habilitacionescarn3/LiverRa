@@ -52,6 +52,7 @@ PROBLEM_JSON = "application/problem+json"
 DEFAULT_EXCLUDED_PREFIXES: tuple[str, ...] = (
     "/api/v1/system/health",
     "/api/v1/system/version",
+    "/api/v1/auth/login",  # password gate — public by design
     "/docs",
     "/redoc",
     "/openapi.json",
@@ -118,7 +119,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         excluded_prefixes: Iterable[str] = DEFAULT_EXCLUDED_PREFIXES,
     ) -> None:
         super().__init__(app)
-        self._validator = validator or _build_validator_from_env()
+        # Dev bypass skips validator construction (Cognito env not required).
+        bypass_active = os.environ.get("LIVERRA_AUTH_BYPASS", "").lower() in {"1", "true", "yes"}
+        if validator is not None:
+            self._validator = validator
+        elif bypass_active:
+            self._validator = None  # never used — dispatch short-circuits
+        else:
+            self._validator = _build_validator_from_env()
         self._excluded_prefixes = tuple(excluded_prefixes)
 
     # ------------------------------------------------------------------

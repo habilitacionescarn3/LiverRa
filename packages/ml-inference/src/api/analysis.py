@@ -30,7 +30,9 @@ Cross-refs:
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -59,6 +61,27 @@ class CreateAnalysisRequest(BaseModel):
     """Body for ``POST /analyses`` — the study to enqueue."""
 
     study_id: UUID = Field(..., description="UUID of the accepted Study row.")
+
+
+class CreateAnalysisFromOrthancRequest(BaseModel):
+    """Body for ``POST /analyses/from-orthanc`` — convenience for "Run AI" UX.
+
+    Takes a DICOM StudyInstanceUID (already on local PACS) and either
+    finds the matching Study row or creates one in 'accepted' state, then
+    enqueues an analysis. Bridges the gap between PACS browser UX and the
+    canonical study_id-based POST /analyses.
+    """
+
+    study_instance_uid: str = Field(
+        ...,
+        description="DICOM StudyInstanceUID present on local Orthanc.",
+        min_length=1,
+        max_length=128,
+    )
+    patient_ref: Optional[str] = Field(
+        None,
+        description="Optional patient identifier; defaults to study UID hash.",
+    )
 
 
 class AnalysisDetailResponse(BaseModel):
@@ -241,10 +264,22 @@ async def _emit_analysis_audit(
 def _dispatch_cascade(analysis_id: UUID, *, start_stage: int = 0) -> Optional[str]:
     """Enqueue the cascade Celery task. Returns the task_id if dispatched.
 
-    The cascade task itself (``tasks.cascade.run_cascade``) is owned by the
-    inference-orchestrator agent. We import lazily so this router is
-    importable in environments without Celery wired yet.
+    When LIVERRA_CASCADE_DEMO_MODE=true, dispatches the demo_cascade task
+    instead of the real one — simulates 7 stages with synthetic output
+    over ~30s. Lets clinicians evaluate the full UX without depending on
+    real 4-phase liver CT input or a fully-wired DICOM→NIfTI pipeline.
+    Unset the env var to use the real cascade.
     """
+    demo_mode = os.environ.get("LIVERRA_CASCADE_DEMO_MODE", "").lower() in {"1", "true", "yes"}
+    if demo_mode:
+        try:
+            from ..tasks.demo_cascade import demo_cascade  # type: ignore[import-not-found]
+            async_result = demo_cascade.delay(str(analysis_id), start_stage)
+            return str(async_result.id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("demo_cascade dispatch failed: %s", exc)
+            return None
+
     try:
         from ..tasks.cascade import run_cascade  # type: ignore[import-not-found]
     except Exception:  # noqa: BLE001
@@ -370,6 +405,219 @@ async def create_analysis(
         analysis_id=created["id"],
         status="queued",
         queued_at=created["queued_at"],
+    )
+
+
+@router.post(
+    "/from-orthanc",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AnalysisQueuedResponse,
+    summary="Run AI on a study that's already on local PACS (idempotent)",
+)
+@require_permission("study.upload")
+async def create_analysis_from_orthanc(
+    body: CreateAnalysisFromOrthancRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> AnalysisQueuedResponse:
+    """Find-or-create a Study row for an Orthanc StudyInstanceUID, then
+    enqueue an analysis. Idempotent: re-running on the same UID returns
+    the existing active analysis if one is queued/running.
+    """
+    tenant_id: UUID = request.state.tenant_id
+
+    # 1. Find or create the study row (in 'accepted' state for demo).
+    existing_study = await session.execute(
+        text(
+            """
+            SELECT id, ingestion_outcome
+            FROM study
+            WHERE study_instance_uid = :uid AND tenant_id = :tid
+            """
+        ),
+        {"uid": body.study_instance_uid, "tid": str(tenant_id)},
+    )
+    study_row = existing_study.mappings().first()
+    if study_row:
+        study_uuid = study_row["id"]
+    else:
+        patient_ref = body.patient_ref or f"orthanc-{body.study_instance_uid[-12:]}"
+        new_study = await session.execute(
+            text(
+                """
+                INSERT INTO study (tenant_id, study_instance_uid, patient_ref,
+                                   ingestion_outcome)
+                VALUES (:tid, :uid, :pref, 'accepted')
+                RETURNING id
+                """
+            ),
+            {
+                "tid": str(tenant_id),
+                "uid": body.study_instance_uid,
+                "pref": patient_ref,
+            },
+        )
+        study_uuid = new_study.mappings().one()["id"]
+
+    # 2. Idempotency — return active analysis if one already exists.
+    existing_analysis = await session.execute(
+        text(
+            """
+            SELECT id, status, queued_at
+            FROM analysis
+            WHERE study_id = :sid AND tenant_id = :tid
+              AND status IN ('queued','running')
+            ORDER BY queued_at DESC
+            LIMIT 1
+            """
+        ),
+        {"sid": str(study_uuid), "tid": str(tenant_id)},
+    )
+    active = existing_analysis.mappings().first()
+    if active:
+        return AnalysisQueuedResponse(
+            analysis_id=active["id"],
+            status=active["status"],
+            queued_at=active["queued_at"],
+        )
+
+    # 3. Stage Orthanc study → NIfTI in MinIO (no-op in demo mode where
+    #    the cascade ignores S3 inputs anyway). Failure here is non-fatal:
+    #    the cascade will fail at parenchyma with a clear error_slug if
+    #    inputs are missing in real-cascade mode. Skip if env opts out.
+    demo_mode = os.environ.get("LIVERRA_CASCADE_DEMO_MODE", "").lower() in {"1", "true", "yes"}
+    skip_stage = os.environ.get("LIVERRA_SKIP_DICOM_STAGE", "").lower() in {"1", "true", "yes"}
+    staged_phases: dict[str, str] = {}
+    if not demo_mode and not skip_stage:
+        try:
+            from ..services.dicom_to_nifti import stage_orthanc_study_to_minio
+
+            staged_phases = stage_orthanc_study_to_minio(
+                body.study_instance_uid, study_uuid,
+            )
+            if staged_phases:
+                # Persist phase coverage so the cascade orchestrator knows
+                # which phases were successfully staged.
+                await session.execute(
+                    text(
+                        """
+                        UPDATE study
+                           SET phase_coverage = :pc::jsonb
+                         WHERE id = :sid
+                        """
+                    ),
+                    {
+                        "sid": str(study_uuid),
+                        "pc": json.dumps({p: True for p in staged_phases}),
+                    },
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "DICOM→NIfTI stage failed for study %s: %s — cascade may "
+                "fail at parenchyma. Set LIVERRA_CASCADE_DEMO_MODE=true "
+                "for demo mode that ignores S3 inputs.",
+                body.study_instance_uid, exc,
+            )
+
+    # 4. Insert new Analysis + dispatch cascade.
+    pipeline_version = request.app.state.__dict__.get(
+        "liverra_pipeline_version", "0.0.0-dev"
+    )
+    insert_row = await session.execute(
+        text(
+            """
+            INSERT INTO analysis (tenant_id, study_id, status, pipeline_version)
+            VALUES (:tid, :sid, 'queued', :pv)
+            RETURNING id, queued_at
+            """
+        ),
+        {"tid": str(tenant_id), "sid": str(study_uuid), "pv": pipeline_version},
+    )
+    created = insert_row.mappings().one()
+
+    _dispatch_cascade(created["id"])
+
+    return AnalysisQueuedResponse(
+        analysis_id=created["id"],
+        status="queued",
+        queued_at=created["queued_at"],
+    )
+
+
+class AnalysisListItem(BaseModel):
+    """Compact analysis row for list views (CasesListView)."""
+
+    id: UUID
+    study_id: UUID
+    study_instance_uid: Optional[str] = None
+    patient_ref: Optional[str] = None
+    status: str
+    queued_at: datetime
+    completed_at: Optional[datetime] = None
+    pipeline_version: str
+
+
+class AnalysisListResponse(BaseModel):
+    """Paginated list response — cursor-based per plan §query keys."""
+
+    items: list[AnalysisListItem]
+    next_page_token: Optional[str] = None
+
+
+@router.get(
+    "",
+    response_model=AnalysisListResponse,
+    summary="List analyses for the current tenant (paginated)",
+)
+@require_permission("analysis.view")
+async def list_analyses(
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    limit: int = 25,
+    page_token: Optional[str] = None,
+    status_filter: Optional[str] = None,
+) -> AnalysisListResponse:
+    """Tenant-scoped list of analyses, newest first.
+
+    Cursor pagination: ``next_page_token`` is the queued_at ISO timestamp
+    of the last row returned. Pass it as ``page_token`` for the next page.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    limit = max(1, min(limit, 100))
+
+    where_clauses = ["a.tenant_id = :tid"]
+    params: dict[str, Any] = {"tid": str(tenant_id), "limit": limit + 1}
+    if page_token:
+        where_clauses.append("a.queued_at < :cursor")
+        params["cursor"] = page_token
+    if status_filter:
+        where_clauses.append("a.status = :status")
+        params["status"] = status_filter
+
+    where_sql = " AND ".join(where_clauses)
+    result = await session.execute(
+        text(
+            f"""
+            SELECT a.id, a.study_id, a.status, a.queued_at, a.completed_at,
+                   a.pipeline_version, s.study_instance_uid, s.patient_ref
+            FROM analysis a
+            LEFT JOIN study s ON s.id = a.study_id
+            WHERE {where_sql}
+            ORDER BY a.queued_at DESC
+            LIMIT :limit
+            """
+        ),
+        params,
+    )
+    rows = list(result.mappings())
+    has_more = len(rows) > limit
+    page_rows = rows[:limit]
+    next_token = (
+        page_rows[-1]["queued_at"].isoformat() if has_more and page_rows else None
+    )
+    return AnalysisListResponse(
+        items=[AnalysisListItem(**dict(r)) for r in page_rows],
+        next_page_token=next_token,
     )
 
 

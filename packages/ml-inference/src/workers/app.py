@@ -97,6 +97,7 @@ if app is not None:
     _logger = _logging.getLogger(__name__)
     for _mod in (
         "src.tasks.cascade",
+        "src.tasks.demo_cascade",
         "src.tasks.anonymization",
         "src.tasks.parenchyma",
         "src.tasks.lesion_detection",

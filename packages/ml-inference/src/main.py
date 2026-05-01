@@ -65,9 +65,19 @@ _singletons: dict[str, Any] = {}
 
 
 def _cors_origins() -> list[str]:
-    raw = os.environ.get(
-        "CORS_ORIGINS", "http://localhost:3000,http://localhost:5173"
+    """Default CORS origins: localhost + Netlify deploys.
+
+    `https://*.netlify.app` covers preview branches; the production
+    origin should be added explicitly via CORS_ORIGINS env var when a
+    custom domain is set up.
+    """
+    default = (
+        "http://localhost:3000,http://localhost:5173,"
+        "http://localhost:5174,http://localhost:5175,"
+        "http://localhost:5176,http://localhost:5177,"
+        "https://liverra.netlify.app"
     )
+    raw = os.environ.get("CORS_ORIGINS", default)
     return [o.strip() for o in raw.split(",") if o.strip()]
 
 
@@ -263,7 +273,67 @@ def create_app() -> FastAPI:
     except Exception as exc:
         _strict_boot("export router", exc)
 
-    # TODO(T140+): mount ingest, review routers.
+    # --- Ingest router (T140 — DICOM upload tickets + tus chunks) -------
+    try:
+        from src.api.ingest import router as ingest_router
+
+        if ingest_router is not None:
+            app.include_router(ingest_router, prefix="/api/v1", tags=["ingest"])
+    except Exception as exc:
+        _strict_boot("ingest router", exc)
+
+    # --- Review router (T237+ — refinement seat + mask edits) -----------
+    try:
+        from src.api.review import router as review_router
+
+        app.include_router(
+            review_router, prefix="/api/v1/reviews", tags=["review"]
+        )
+    except Exception as exc:
+        _strict_boot("review router", exc)
+
+    # --- Onboarding router (T153 — RUO accept + MFA + onboarding-status)
+    try:
+        from src.api.onboarding import router as onboarding_router
+
+        # Router has its own prefix=/auth → final paths are /api/v1/auth/...
+        app.include_router(onboarding_router, prefix="/api/v1", tags=["onboarding"])
+    except Exception as exc:
+        _strict_boot("onboarding router", exc)
+
+    # --- Admin router (T080 — RBAC + tenant + PACS destination) ---------
+    try:
+        from src.api.admin import router as admin_router
+
+        # Router has its own prefix=/admin → final paths are /api/v1/admin/...
+        app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
+    except Exception as exc:
+        _strict_boot("admin router", exc)
+
+    # --- Ops router (T320 — uses dedicated registration helper) ---------
+    try:
+        from src.api.OpsRouteRegistrations import register_ops_routes
+
+        register_ops_routes(app)
+    except Exception as exc:
+        _strict_boot("ops router", exc)
+
+    # --- Erasure router (T332 — GDPR erasure workflow) ------------------
+    try:
+        from src.api.ErasureRouteRegistrations import register_erasure_routes
+
+        register_erasure_routes(app)
+    except Exception as exc:
+        _strict_boot("erasure router", exc)
+
+    # --- Auth router (password gate for public Netlify deploy) ----------
+    try:
+        from src.api.auth import router as auth_router
+
+        app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+    except Exception as exc:
+        _strict_boot("auth router", exc)
+
     return app
 
 
