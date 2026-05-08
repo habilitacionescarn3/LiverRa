@@ -592,6 +592,12 @@ async def create_analysis_from_orthanc(
     )
     created = insert_row.mappings().one()
 
+    # Commit BEFORE dispatching: the cascade tasks (real_cascade_task,
+    # ingest_study) open fresh sync connections and must see this row.
+    # Without an explicit commit the INSERT lives in an uncommitted async
+    # transaction and the sync lookups in _dispatch_cascade return None.
+    await session.commit()
+
     _dispatch_cascade(created["id"])
 
     return AnalysisQueuedResponse(
