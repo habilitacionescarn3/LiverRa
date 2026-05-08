@@ -413,6 +413,55 @@ def run_real_cascade(
             "couinaud-heuristic-v1",
             license_hash="n/a-heuristic",
         )
+        # Segmentation rows for the report — one per mask the UI surfaces.
+        # AI-generated, so generation_source='ai'. sop_instance_uid is a
+        # synthetic per-mask UID (no DICOM-SR roundtrip in this dev path).
+        conn.execute(
+            """
+            INSERT INTO segmentation
+                (analysis_id, generation_source, mask_uri, sop_instance_uid,
+                 anatomy_category, anatomy_detail, volume_ml, mask_url, snomed_code)
+            VALUES (%s, 'ai', %s, %s, 'liver', 'parenchyma', %s, %s, '10200004')
+            """,
+            (
+                analysis_id,
+                parenchyma_uri,
+                f"liverra.{analysis_id}.parenchyma",
+                round(float(total_ml), 2),
+                parenchyma_uri,
+            ),
+        )
+        if vessels_done and (portal_native is not None or hepatic_native is not None):
+            conn.execute(
+                """
+                INSERT INTO segmentation
+                    (analysis_id, generation_source, mask_uri, sop_instance_uid,
+                     anatomy_category, anatomy_detail, volume_ml, mask_url, snomed_code)
+                VALUES (%s, 'ai', %s, %s, 'vessels', 'liver_vessels', %s, %s, '57195005')
+                """,
+                (
+                    analysis_id,
+                    vessel_uri,
+                    f"liverra.{analysis_id}.vessels",
+                    round(float(v_ml), 2),
+                    vessel_uri,
+                ),
+            )
+        conn.execute(
+            """
+            INSERT INTO segmentation
+                (analysis_id, generation_source, mask_uri, sop_instance_uid,
+                 anatomy_category, anatomy_detail, volume_ml, mask_url, snomed_code)
+            VALUES (%s, 'ai', %s, %s, 'liver', 'couinaud', %s, %s, '10200004')
+            """,
+            (
+                analysis_id,
+                couinaud_uri,
+                f"liverra.{analysis_id}.couinaud",
+                round(float(total_ml), 2),
+                couinaud_uri,
+            ),
+        )
         # Print per-segment voxel counts (sanity)
         per_seg_v = {sid: int((couinaud_native_arr == sid).sum()) for sid in range(1, 9)}
         voxel_ml_native = float(np.prod(liver_native.GetSpacing())) / 1000.0
@@ -561,6 +610,65 @@ def run_real_cascade(
                 classifier_version,
                 license_hash="n/a-rule-based",
             )
+            # Lesion rows — one per classified lesion. The UI's lesions list +
+            # report rendering both read from this table. bbox3d is required
+            # (jsonb), so derive it from the connected-component label array.
+            sx, sy, sz = liver_native.GetSpacing()  # mm
+            for cls_entry in classifications:
+                lid = cls_entry["lesion_id"]
+                features = cls_entry["features"]
+                cls = cls_entry["classification"]
+                # bbox3d in voxel coords + mm sizing — UI uses for centroid /
+                # render bounds. (Z, Y, X) order matches sitk array layout.
+                coords = np.argwhere(labeled == lid)
+                if coords.size == 0:
+                    bbox = {}
+                else:
+                    z_min, y_min, x_min = coords.min(axis=0).tolist()
+                    z_max, y_max, x_max = coords.max(axis=0).tolist()
+                    longest_axis_mm = float(max(
+                        (z_max - z_min + 1) * sz,
+                        (y_max - y_min + 1) * sy,
+                        (x_max - x_min + 1) * sx,
+                    ))
+                    bbox = {
+                        "x": int(x_min), "y": int(y_min), "z": int(z_min),
+                        "dx": int(x_max - x_min + 1),
+                        "dy": int(y_max - y_min + 1),
+                        "dz": int(z_max - z_min + 1),
+                        "spacing_mm": [float(sx), float(sy), float(sz)],
+                    }
+                # Couinaud segment for this lesion: majority vote over the
+                # voxels in the CC against the couinaud_native_arr label map.
+                cou_seg = None
+                if coords.size > 0:
+                    seg_labels = couinaud_native_arr[
+                        coords[:, 0], coords[:, 1], coords[:, 2]
+                    ]
+                    seg_labels = seg_labels[seg_labels > 0]
+                    if seg_labels.size > 0:
+                        cou_seg = int(np.bincount(seg_labels).argmax())
+                conn.execute(
+                    """
+                    INSERT INTO lesion
+                        (analysis_id, bbox3d, discovery_source,
+                         couinaud_segment, couinaud_location,
+                         diameter_mm, longest_diameter_mm, volume_ml,
+                         classification, mask_uri)
+                    VALUES (%s, %s::jsonb, 'ai', %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        analysis_id,
+                        json.dumps(bbox),
+                        cou_seg,
+                        cou_seg,
+                        round(longest_axis_mm, 2) if coords.size > 0 else None,
+                        round(longest_axis_mm, 2) if coords.size > 0 else None,
+                        round(float(features.get("volume_ml") or 0.0), 2),
+                        cls.get("top1"),
+                        f"s3://{ANALYSES_BUCKET}/analyses/{analysis_id}/lesions/{lid}.nii.gz",
+                    ),
+                )
         else:
             insert_checkpoint(
                 conn,
@@ -590,16 +698,25 @@ def run_real_cascade(
     print(f"      remnant segments: {plane['remnant_segments']}")
 
     with psycopg.connect(DB_URL, autocommit=True) as conn:
+        # author='ai_default' is what the API's /results endpoint queries to
+        # populate flr_default — keep this in sync with api/analysis.py.
+        # remnant_volume_ml + remnant_pct_functional duplicate flr_ml/flr_pct
+        # under the v2 column names the report renderer uses.
         conn.execute(
             """
             INSERT INTO flr_calculation
-              (analysis_id, plane_pose, total_ml, flr_ml, flr_pct, computed_at)
-            VALUES (%s, %s::jsonb, %s, %s, %s, now())
+              (analysis_id, plane_pose, total_ml, flr_ml, flr_pct,
+               resected_volume_ml, remnant_volume_ml, remnant_pct_functional,
+               author, computed_at)
+            VALUES (%s, %s::jsonb, %s, %s, %s, %s, %s, %s, 'ai_default', now())
             """,
             (
                 analysis_id,
                 json.dumps(plane),
                 round(total_ml, 2),
+                round(flr_ml, 2),
+                round(flr_pct, 2),
+                round(max(total_ml - flr_ml, 0.0), 2),
                 round(flr_ml, 2),
                 round(flr_pct, 2),
             ),
