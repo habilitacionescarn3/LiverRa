@@ -64,12 +64,10 @@ STAGE_NAME: str = "vessels"
 #: structures for liver veins.
 VESSEL_INSIDE_PARENCHYMA_MIN: float = 0.90
 
-#: Vessel binarization threshold. Pictorial Couinaud's vessel head
-#: outputs continuous probabilities; 0.5 was the original default but
-#: empirically allowed gross over-segmentation (33M voxels for portal
-#: vein vs ~600K parenchyma — 170% the size of the liver). 0.7 is the
-#: conservative default for thin tubular structures. Override with
-#: ``LIVERRA_VESSEL_THRESHOLD`` for calibration studies.
+#: Vessel binarization threshold. nnU-Net standard is 0.5, but the
+#: currently loaded Triton model produces grossly oversegmented output;
+#: 0.7 trims the noise. Revert to 0.5 once real liver weights deploy.
+#: Override with ``LIVERRA_VESSEL_THRESHOLD`` at runtime.
 VESSEL_THRESHOLD_DEFAULT: float = 0.7
 
 #: Maximum fraction of parenchyma volume that vessels (portal OR
@@ -448,6 +446,9 @@ def _vessels_download_portal_venous_128(s3_client, study_id: UUID) -> tuple[np.n
         x = min(arr.shape[2], _TARGET_SHAPE[2])
         out[:z, :y, :x] = arr[:z, :y, :x]
         arr = out
+    # F10 — normalization disabled until real STU-Net liver weights
+    # land on Triton (see parenchyma.py). The volume sanity gate below
+    # (F3.2) drops oversegmented vessel masks to empty.
     # Return the SOURCE image (pre-resample) as reference so the upload
     # step can produce a mask at native CT resolution — viewers then
     # render dense per-slice overlays instead of sparse dots.

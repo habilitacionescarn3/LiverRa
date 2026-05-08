@@ -419,6 +419,8 @@ async def _run(
                 continue
             arr = sitk.GetArrayFromImage(img)  # type: ignore[union-attr]
             cropped = _crop_and_resample(arr, bbox, TARGET_SHAPE)
+            # F10 — normalization disabled until real weights land
+            # (see parenchyma.py).
             channels.append(cropped)
         return np.stack(channels, axis=0)
 

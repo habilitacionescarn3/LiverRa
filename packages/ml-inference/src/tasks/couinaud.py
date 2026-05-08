@@ -478,6 +478,9 @@ def _download_portal_venous_128(s3_client, study_id: UUID) -> tuple[np.ndarray, 
         x = min(arr.shape[2], _TARGET_SHAPE[2])
         out[:z, :y, :x] = arr[:z, :y, :x]
         arr = out
+    # F10 — normalization disabled until real weights land (see
+    # parenchyma.py). The heuristic Couinaud fallback (F4) still
+    # produces 8 populated segments using portal/hepatic vein landmarks.
     # Return SOURCE image so upload can resample mask to source grid.
     return arr, image
 

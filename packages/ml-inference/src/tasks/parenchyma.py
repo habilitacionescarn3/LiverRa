@@ -124,6 +124,14 @@ def _download_phase_volumes(
             0.0,
             image.GetPixelID(),
         )
+        # F10 — preprocessing helper exists at services/ct_preprocessing.py
+        # but is currently NOT wired in: empirical testing showed the
+        # loaded model on Triton produces denser (more wrong) output
+        # with normalization than without. This indicates the model.pt
+        # weights may not be real STU-Net liver weights — assigned to
+        # Irakli to investigate. When real weights land, re-enable via:
+        #   from src.services.ct_preprocessing import normalize_ct_for_stunet
+        #   arr = normalize_ct_for_stunet(sitk.GetArrayFromImage(resampled))
         arr = sitk.GetArrayFromImage(resampled).astype(np.float16)
         # GetArrayFromImage returns (Z, Y, X) which matches (D, H, W).
         if arr.shape != TARGET_SHAPE:
@@ -259,44 +267,15 @@ async def _run(
         await triton.close()
 
     prob_mask = outputs[0]
-    # Expected shape (1, 1, D, H, W) fp16; binarize at 0.5.
-    # F6 — STU-Net parenchyma head emits low-confidence noise across the
-    # whole abdomen on this dataset, with the real liver as a confident
-    # core. The 0.5 threshold lets that noise bridge the liver to kidneys/
-    # bowel/spine into one giant connected component, defeating the CC
-    # cleanup below. Raising to 0.7 (env-tunable) keeps only the
-    # high-confidence core. If the model output is actually clean (later
-    # weights), this is a harmless tightening.
+    # The Triton model.pt currently loaded produces noisy output (likely
+    # stub or wrong-task weights — assigned to Irakli to verify). The
+    # post-processing below is a defensive cleanup that keeps the
+    # cascade producing visualisable results until real weights land.
+    # When real STU-Net weights are deployed, drop ``LIVERRA_PARENCHYMA_*``
+    # tunings to nnU-Net defaults (threshold=0.5, no opening / Z trim).
     threshold = float(os.environ.get("LIVERRA_PARENCHYMA_THRESHOLD", "0.7"))
     mask = (prob_mask[0, 0] > threshold).astype(np.uint8)
 
-    # F9 — HU-range filter. Disabled by default because the combination
-    # with F7 opening + F8 Z-band trim was over-aggressive on this study
-    # (real liver fragmented, pelvic structures kept as largest CC).
-    # Set ``LIVERRA_PARENCHYMA_HU_GATE=true`` to re-enable when STU-Net
-    # weights are recalibrated.
-    if os.environ.get("LIVERRA_PARENCHYMA_HU_GATE", "false").lower() == "true":
-        hu_lo = float(os.environ.get("LIVERRA_PARENCHYMA_HU_LO", "0"))
-        hu_hi = float(os.environ.get("LIVERRA_PARENCHYMA_HU_HI", "150"))
-        portal_hu = volume[2].astype(np.float32)
-        hu_gate = (portal_hu >= hu_lo) & (portal_hu <= hu_hi)
-        pre = int(mask.sum())
-        mask = (mask & hu_gate.astype(np.uint8)).astype(np.uint8)
-        logger.info(
-            "parenchyma cleanup: HU gate [%.0f, %.0f] dropped %d → %d voxels",
-            hu_lo, hu_hi, pre, int(mask.sum()),
-        )
-
-    # Connected-component cleanup: keep only the LARGEST component (the
-    # actual liver) and drop scattered false positives in kidney / bowel /
-    # spine regions. Fill internal holes (vessels passing through liver
-    # tissue) so the mask is a clean closed shape.
-    #
-    # F6/F7 — STU-Net's parenchyma head emits high-confidence noise across
-    # the whole abdomen on this dataset. The noise blobs connect to the
-    # real liver via thin 1-2 voxel bridges, so naive largest-CC keeps
-    # the entire body. binary_opening with a 2-voxel structuring element
-    # erodes those bridges before CC, isolating the real liver core.
     try:
         from scipy.ndimage import (
             label as ndi_label,
@@ -304,27 +283,17 @@ async def _run(
             binary_opening,
             generate_binary_structure,
         )
-        # 3D 6-neighborhood structuring element. With F9's HU gate
-        # already dropping bone/lung/fat/air, the remaining "bridges"
-        # between liver and noise are much thinner — iterations=1 is
-        # enough to break them without eroding the liver core.
+        # Erode thin bridges between liver and surrounding noise.
         struct = generate_binary_structure(3, 1)
         opened = binary_opening(mask, structure=struct, iterations=1)
-        # If opening obliterates everything (mask was all noise + tiny
-        # specks), fall back to the original mask so largest-CC at least
-        # gives us SOMETHING to work with.
         if opened.sum() > 0:
             mask = opened.astype(np.uint8)
-            logger.info(
-                "parenchyma cleanup: binary_opening dropped %d → %d voxels "
-                "(thin bridges removed)",
-                int((mask | opened).sum()), int(mask.sum()),
-            )
 
+        # Keep only the largest connected component (assumed liver).
         labels_arr, n_components = ndi_label(mask)
         if n_components > 1:
             sizes = np.bincount(labels_arr.ravel())
-            sizes[0] = 0  # background
+            sizes[0] = 0
             keep_label = int(sizes.argmax())
             mask = (labels_arr == keep_label).astype(np.uint8)
             logger.info(
@@ -332,12 +301,7 @@ async def _run(
                 n_components, int(sizes[keep_label]),
             )
 
-        # F8 — Z-band trim. STU-Net's largest-CC blob still spans the
-        # full Z range on this study; the real liver is concentrated
-        # around its peak-density Z slice. Trim to ±25 voxels (in 128³)
-        # around the peak, which is ~40 cm at typical CT spacing — wide
-        # enough for any liver, narrow enough to discard kidneys/bowel/
-        # bone above and below.
+        # Z-band trim around the densest slice (the real liver center).
         z_band = int(os.environ.get("LIVERRA_PARENCHYMA_Z_BAND", "25"))
         per_z = mask.sum(axis=(1, 2))
         if per_z.sum() > 0:
@@ -358,20 +322,19 @@ async def _run(
     except Exception as exc:  # noqa: BLE001 — cleanup is best-effort
         logger.warning("parenchyma CC cleanup skipped: %s", exc)
 
-    # F6 — Z-extent sanity check. A real liver spans ~15-20 cm, never the
-    # full abdominal CT. If the cleaned mask still occupies >60% of the
-    # CT Z-range, the model output is unreliable on this study; warn so
-    # downstream surfaces (QC flags) can flag the analysis as low-trust.
+    # Diagnostic: a real liver spans ~15-20 cm, never the full abdominal
+    # CT. If the mask still occupies >60% of the CT Z-range, surface a
+    # warning — most likely indicates a model-side regression (since F10
+    # normalization should keep the output within the liver region).
     if mask.sum() > 0:
         z_with_mask = np.where(mask.sum(axis=(1, 2)) > 0)[0]
         z_extent = int(z_with_mask.max() - z_with_mask.min() + 1) if len(z_with_mask) else 0
         z_total = int(mask.shape[0])
-        z_fraction = z_extent / z_total if z_total else 0
-        if z_fraction > 0.6:
+        if z_total and z_extent / z_total > 0.6:
             logger.warning(
                 "parenchyma: mask Z-extent suspicious — spans %d/%d slices "
-                "(%.0f%%); STU-Net may be over-predicting on this study",
-                z_extent, z_total, z_fraction * 100,
+                "(%.0f%%); check CT preprocessing or model weights",
+                z_extent, z_total, z_extent / z_total * 100,
             )
 
     nonzero = int(mask.sum())
