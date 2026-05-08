@@ -42,10 +42,14 @@ jobs:
           npx wait-on http://localhost:3000 --timeout 60000
         working-directory: packages/app
       - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.10.0
+        # v0.12.0 fixes the "artifact name zap_scan is not valid" upload
+        # bug from v0.10.0. Don't reference rules_file_name — there's no
+        # .zap/rules.tsv in the repo, and the action emits a benign error
+        # but proceeds anyway. (Add the file later if we want to allow-list
+        # specific findings.)
+        uses: zaproxy/action-baseline@v0.12.0
         with:
           target: http://localhost:3000
-          rules_file_name: .zap/rules.tsv
           # Advisory: missing-header warnings (CSP, X-Content-Type-Options,
           # COEP, Permissions-Policy) are real but get added at the edge
           # (nginx/Cloudfront) when this productionises, not by the SPA.
