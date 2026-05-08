@@ -1,5 +1,20 @@
 FROM python:3.12-slim
 
+# Pull fixed Debian package versions (resolves CVEs that surface in
+# python:3.12-slim's bundled libs at any given tag pin) and tidy up
+# apt cache to keep the image small.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Run the FastAPI process as a dedicated non-root user. UID 10001 is
+# outside the typical host range so volume-mount ownership stays
+# unambiguous; home is /app so any inadvertent writes (logs, caches)
+# land inside the container layer.
+RUN useradd --system --create-home --home-dir /app \
+    --shell /usr/sbin/nologin --uid 10001 appuser
+
 WORKDIR /app
 
 RUN pip install --no-cache-dir \
@@ -9,7 +24,9 @@ RUN pip install --no-cache-dir \
     "psycopg[binary]>=3.2,<3.3" \
     "pydantic>=2.9,<3.0"
 
-COPY main.py /app/main.py
+COPY --chown=appuser:appuser main.py /app/main.py
+
+USER appuser
 
 EXPOSE 7070
 
