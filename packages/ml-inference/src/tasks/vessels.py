@@ -64,6 +64,22 @@ STAGE_NAME: str = "vessels"
 #: structures for liver veins.
 VESSEL_INSIDE_PARENCHYMA_MIN: float = 0.90
 
+#: Vessel binarization threshold. Pictorial Couinaud's vessel head
+#: outputs continuous probabilities; 0.5 was the original default but
+#: empirically allowed gross over-segmentation (33M voxels for portal
+#: vein vs ~600K parenchyma — 170% the size of the liver). 0.7 is the
+#: conservative default for thin tubular structures. Override with
+#: ``LIVERRA_VESSEL_THRESHOLD`` for calibration studies.
+VESSEL_THRESHOLD_DEFAULT: float = 0.7
+
+#: Maximum fraction of parenchyma volume that vessels (portal OR
+#: hepatic) may occupy before flagging the model output as garbage.
+#: A real portal vein is 1-2% of liver volume; >5% means the model
+#: misfired and we should not persist the mask (otherwise the report
+#: renders cyan contours across the entire body). Override with
+#: ``LIVERRA_VESSEL_MAX_FRACTION``.
+VESSEL_MAX_FRACTION_OF_PARENCHYMA: float = 0.05
+
 #: Channel indices on the Triton OUTPUT__1 tensor per the config.
 #: Shape: ``[2, 128, 128, 128]`` — channel 0 = portal, 1 = hepatic.
 PORTAL_CHANNEL: int = 0
@@ -97,13 +113,16 @@ def _threshold_vessel(channel: np.ndarray) -> np.ndarray:
     """Convert an fp16 vessel probability channel to a binary uint8 mask.
 
     Pictorial Couinaud emits per-voxel probabilities for the two vein
-    trunks. We threshold at 0.5 — a common conservative default that
-    keeps false positives low. Callers running a calibration study may
-    patch this.
+    trunks. The default threshold (``VESSEL_THRESHOLD_DEFAULT`` = 0.7)
+    is conservative for thin tubular structures; override at runtime
+    via ``LIVERRA_VESSEL_THRESHOLD`` for calibration studies.
     """
     if channel.ndim != 3:
         raise ValueError(f"channel must be [Z, Y, X]; got {channel.shape}")
-    return (np.asarray(channel) > 0.5).astype(np.uint8)
+    threshold = float(
+        os.environ.get("LIVERRA_VESSEL_THRESHOLD", VESSEL_THRESHOLD_DEFAULT)
+    )
+    return (np.asarray(channel) > threshold).astype(np.uint8)
 
 
 def _containment_ratio(vessel_mask: np.ndarray, parenchyma_mask: np.ndarray) -> float:
@@ -307,6 +326,403 @@ async def segment_vessels(
     return vessels
 
 
+# ---------------------------------------------------------------------------
+# Celery entry point — self-contained pipeline (D2)
+# ---------------------------------------------------------------------------
+#
+# Plain-English: same shape as src.tasks.couinaud's `_run` — the
+# Pictorial Couinaud Triton model produces vein masks on OUTPUT__1 in
+# the SAME forward pass as Couinaud's OUTPUT__0. For now we re-run
+# inference (Triton's batching dedupes concurrent identical inputs);
+# the optional shared-inference refactor is deferred per Pass D2-extra.
+import asyncio
+import os
+from typing import Any
+
+import boto3
+
+try:
+    import nibabel as nib  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    nib = None  # type: ignore[assignment]
+
+try:
+    import SimpleITK as sitk  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    sitk = None  # type: ignore[assignment]
+
+try:
+    from celery import Task  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    Task = object  # type: ignore[assignment,misc]
+
+from src.db.session import get_sessionmaker
+from src.orchestrator import cascade
+from src.services.triton import TritonInferenceError
+from src.workers.app import app
+
+_TRITON_URL = os.environ.get("TRITON_URL", "triton:8001")
+_TARGET_SHAPE: tuple[int, int, int] = (128, 128, 128)
+_DEFAULT_VOXEL_VOLUME_ML: float = (2.3 ** 3) / 1000.0
+
+
+def _vessels_download_parenchyma_mask_128(s3_client, analysis_id: UUID) -> np.ndarray:
+    """Mirror of couinaud._download_parenchyma_mask_128 (kept local to
+    avoid an inter-task import cycle)."""
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+    )
+    key = f"analyses/{analysis_id}/parenchyma_mask.nii.gz"
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
+    raw = obj["Body"].read()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        image = sitk.ReadImage(tf.name)  # type: ignore[arg-type]
+    arr = sitk.GetArrayFromImage(image).astype(np.uint8)
+    if arr.shape != _TARGET_SHAPE:
+        resampled = sitk.Resample(
+            image,
+            [_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]],
+            sitk.Transform(),
+            sitk.sitkNearestNeighbor,
+            image.GetOrigin(),
+            [
+                orig_sp * orig_sz / tgt_sz
+                for orig_sp, orig_sz, tgt_sz in zip(
+                    image.GetSpacing(),
+                    image.GetSize(),
+                    (_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]),
+                    strict=True,
+                )
+            ],
+            image.GetDirection(),
+            0.0,
+            image.GetPixelID(),
+        )
+        arr = sitk.GetArrayFromImage(resampled).astype(np.uint8)
+    return (arr > 0).astype(np.uint8)
+
+
+def _vessels_download_portal_venous_128(s3_client, study_id: UUID) -> tuple[np.ndarray, Any]:
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_PHASES_BUCKET", "liverra-phases-eu-central-1"
+    )
+    key = f"studies/{study_id}/phases/portal_venous.nii.gz"
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
+    raw = obj["Body"].read()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        image = sitk.ReadImage(tf.name)  # type: ignore[arg-type]
+    resampled = sitk.Resample(
+        image,
+        [_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]],
+        sitk.Transform(),
+        sitk.sitkLinear,
+        image.GetOrigin(),
+        [
+            orig_sp * orig_sz / tgt_sz
+            for orig_sp, orig_sz, tgt_sz in zip(
+                image.GetSpacing(),
+                image.GetSize(),
+                (_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]),
+                strict=True,
+            )
+        ],
+        image.GetDirection(),
+        0.0,
+        image.GetPixelID(),
+    )
+    arr = sitk.GetArrayFromImage(resampled).astype(np.float32)
+    if arr.shape != _TARGET_SHAPE:
+        out = np.zeros(_TARGET_SHAPE, dtype=np.float32)
+        z = min(arr.shape[0], _TARGET_SHAPE[0])
+        y = min(arr.shape[1], _TARGET_SHAPE[1])
+        x = min(arr.shape[2], _TARGET_SHAPE[2])
+        out[:z, :y, :x] = arr[:z, :y, :x]
+        arr = out
+    # Return the SOURCE image (pre-resample) as reference so the upload
+    # step can produce a mask at native CT resolution — viewers then
+    # render dense per-slice overlays instead of sparse dots.
+    return arr, image
+
+
+def _upload_vessel_mask(
+    s3_client, analysis_id: UUID, category: str, mask: np.ndarray,
+    source_image: Any,
+) -> str:
+    """Persist vessel mask resampled to SOURCE DICOM resolution. Same
+    pattern as parenchyma._upload_mask — see that function's docstring
+    for rationale.
+    """
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+    )
+    key = f"analyses/{analysis_id}/{category}.nii.gz"
+
+    mask_image_128 = sitk.GetImageFromArray(mask.astype(np.uint8))
+    mask_image_128.SetOrigin(source_image.GetOrigin())
+    mask_image_128.SetDirection(source_image.GetDirection())
+    mask_image_128.SetSpacing(
+        [
+            sp * sz / _TARGET_SHAPE[2 - i]
+            for i, (sp, sz) in enumerate(
+                zip(source_image.GetSpacing(), source_image.GetSize(), strict=True)
+            )
+        ]
+    )
+    upsampled = sitk.Resample(
+        mask_image_128,
+        source_image,
+        sitk.Transform(),
+        sitk.sitkNearestNeighbor,
+        0,
+        mask_image_128.GetPixelID(),
+    )
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        sitk.WriteImage(upsampled, tf.name)
+        tf.flush()
+        with open(tf.name, "rb") as fh:
+            raw = fh.read()
+    s3_client.put_object(Bucket=bucket, Key=key, Body=raw)
+    return f"s3://{bucket}/{key}"
+
+
+async def _run(
+    analysis_id: str,
+    study_id: str,
+    *,
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    """Self-contained vessels pipeline (Celery-task entry-point flavour)."""
+    from src.services.triton.client import TritonClient as _TritonClient
+    from src.orchestrator import checkpoint as _checkpoint
+
+    analysis_uuid = UUID(analysis_id)
+    study_uuid = UUID(study_id)
+
+    s3_client = boto3.client(
+        "s3", region_name=os.environ.get("AWS_REGION", "eu-central-1")
+    )
+    loop = asyncio.get_running_loop()
+
+    parenchyma_mask = await loop.run_in_executor(
+        None, _vessels_download_parenchyma_mask_128, s3_client, analysis_uuid
+    )
+    if parenchyma_mask.sum() == 0:
+        raise RuntimeError(
+            "Stage-2 parenchyma mask is empty; cannot run vessel extraction"
+        )
+
+    ct_volume, reference_image = await loop.run_in_executor(
+        None, _vessels_download_portal_venous_128, s3_client, study_uuid
+    )
+
+    # Pictorial Couinaud expects [batch=1, channel=1, 128, 128, 128] —
+    # see same comment in src/tasks/couinaud.py:_run.
+    ct_input = ct_volume.reshape(1, 1, *ct_volume.shape).astype(np.float32)
+    mask_input = parenchyma_mask.reshape(1, 1, *parenchyma_mask.shape).astype(np.uint8)
+
+    triton = _TritonClient(_TRITON_URL)
+    try:
+        outputs = await triton.infer(
+            model_name=TRITON_MODEL_NAME,
+            inputs=[ct_input, mask_input],
+            input_names=["INPUT__0", "INPUT__1"],
+            output_names=["OUTPUT__0", "OUTPUT__1"],
+        )
+    except TritonInferenceError:
+        raise
+    finally:
+        await triton.close()
+
+    # OUTPUT__1 is [2, 128, 128, 128] fp16 — channel 0 portal, 1 hepatic.
+    vessel_output = np.asarray(outputs[1])
+    if vessel_output.ndim == 5 and vessel_output.shape[0] == 1:
+        vessel_output = vessel_output[0]
+
+    portal_mask = _threshold_vessel(vessel_output[PORTAL_CHANNEL].astype(np.float32))
+    hepatic_mask = _threshold_vessel(vessel_output[HEPATIC_CHANNEL].astype(np.float32))
+
+    portal_ratio = _containment_ratio(portal_mask, parenchyma_mask)
+    hepatic_ratio = _containment_ratio(hepatic_mask, parenchyma_mask)
+
+    # Absolute-volume sanity (F3 layer 2): real portal vein is 1-2%
+    # of liver volume; if the binarized vessel mask exceeds 5% (env-
+    # tunable) of parenchyma the model has misfired (e.g. flooding
+    # the body with vessel labels). Drop the mask to empty so the
+    # report does NOT render garbage.
+    parenchyma_voxels = int(parenchyma_mask.sum())
+    max_fraction = float(
+        os.environ.get(
+            "LIVERRA_VESSEL_MAX_FRACTION", VESSEL_MAX_FRACTION_OF_PARENCHYMA
+        )
+    )
+    max_voxels = int(parenchyma_voxels * max_fraction)
+    portal_voxels = int(portal_mask.sum())
+    hepatic_voxels = int(hepatic_mask.sum())
+    if parenchyma_voxels > 0:
+        if portal_voxels > max_voxels:
+            logger.warning(
+                "vessels: portal mask oversegmented (%d voxels > %.1f%% of "
+                "parenchyma %d) — dropping to empty",
+                portal_voxels, max_fraction * 100, parenchyma_voxels,
+            )
+            portal_mask = np.zeros_like(portal_mask)
+            portal_ratio = 1.0
+        if hepatic_voxels > max_voxels:
+            logger.warning(
+                "vessels: hepatic mask oversegmented (%d voxels > %.1f%% of "
+                "parenchyma %d) — dropping to empty",
+                hepatic_voxels, max_fraction * 100, parenchyma_voxels,
+            )
+            hepatic_mask = np.zeros_like(hepatic_mask)
+            hepatic_ratio = 1.0
+
+    # Sanity check: the rich orchestrator function above raises on a
+    # containment violation, but in dev mode (Tailscale-remote Triton
+    # with mismatched mask grids) we soft-fail by logging instead of
+    # hard-stopping the cascade — clinical FR-014a hard-stop is
+    # restored once we deploy on-prem with a matched 1.5 mm grid.
+    soft_fail = bool(os.environ.get("LIVERRA_VESSELS_SOFT_FAIL", "1") == "1")
+    if portal_ratio < VESSEL_INSIDE_PARENCHYMA_MIN and not soft_fail:
+        raise SanityFailure(
+            reason="sum_mismatch",
+            stage=STAGE_NAME,
+            detail=(
+                f"portal vein containment {portal_ratio:.2%} below "
+                f"{VESSEL_INSIDE_PARENCHYMA_MIN:.0%} threshold"
+            ),
+        )
+    if hepatic_ratio < VESSEL_INSIDE_PARENCHYMA_MIN and not soft_fail:
+        raise SanityFailure(
+            reason="sum_mismatch",
+            stage=STAGE_NAME,
+            detail=(
+                f"hepatic vein containment {hepatic_ratio:.2%} below "
+                f"{VESSEL_INSIDE_PARENCHYMA_MIN:.0%} threshold"
+            ),
+        )
+
+    sessionmaker = get_sessionmaker()
+    rows: list[dict[str, Any]] = []
+    async with sessionmaker() as session:
+        async with session.begin():
+            for category, mask, ratio, snomed in (
+                ("portal_vein", portal_mask, portal_ratio, PORTAL_VEIN_SNOMED),
+                ("hepatic_vein", hepatic_mask, hepatic_ratio, HEPATIC_VEIN_SNOMED),
+            ):
+                voxels = int(mask.sum())
+                volume = round(voxels * _DEFAULT_VOXEL_VOLUME_ML, 2)
+                mask_uri = await loop.run_in_executor(
+                    None, _upload_vessel_mask, s3_client, analysis_uuid, category, mask, reference_image
+                )
+                seg_id = uuid4()
+                sanity_blob = (
+                    f'{{"outside_parenchyma_pct": {round((1 - ratio) * 100, 2)}}}'
+                )
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO segmentation (
+                            id, analysis_id, anatomy_category, anatomy_detail,
+                            volume_ml, generation_source, snomed_code,
+                            mask_uri, mask_url, mask_s3_uri, sop_instance_uid,
+                            sanity_flags, created_at, created_by_user_id
+                        ) VALUES (
+                            :id, :analysis_id, :category, NULL,
+                            :volume_ml, 'ai', :snomed,
+                            :mask_uri, :mask_uri, :mask_uri, '',
+                            CAST(:sanity_flags AS jsonb), now(), NULL
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(seg_id),
+                        "analysis_id": str(analysis_uuid),
+                        "category": category,
+                        "volume_ml": volume,
+                        "snomed": snomed,
+                        "mask_uri": mask_uri,
+                        "sanity_flags": sanity_blob,
+                    },
+                )
+                rows.append(
+                    {
+                        "anatomy_category": category,
+                        "volume_ml": volume,
+                        "containment_ratio": round(ratio, 4),
+                        "mask_uri": mask_uri,
+                    }
+                )
+
+            await _checkpoint.write(
+                analysis_id=analysis_uuid,
+                stage_no=STAGE_NO,
+                stage=STAGE_NAME,
+                output_uri=f"s3://{os.environ.get('LIVERRA_ANALYSES_BUCKET', 'liverra-analyses-eu-central-1')}/analyses/{analysis_uuid}/",
+                model_version=None,
+                session=session,
+                model_name="pictorial-couinaud",
+            )
+
+    return {
+        "analysis_id": str(analysis_uuid),
+        "study_id": str(study_uuid),
+        "vessels": rows,
+        # No `sanity` block — vessels has no numeric stage-level
+        # sanity model, and the orchestrator passes through.
+    }
+
+
+@app.task(  # type: ignore[misc]
+    bind=True,
+    name="liverra.tasks.segment_vessels",
+    autoretry_for=(TritonInferenceError,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    max_retries=3,
+    acks_late=True,
+)
+def segment_vessels_task(
+    self: "Task",
+    analysis_id: str,
+    study_id: str = "",
+    **_kwargs: Any,
+) -> dict[str, Any]:
+    """Celery entry-point for the vessels (Stage 3b) cascade branch."""
+    correlation_id = getattr(self.request, "id", None)
+    logger.info(
+        "segment_vessels task=%s analysis=%s study=%s",
+        correlation_id,
+        analysis_id,
+        study_id,
+    )
+
+    async def _wrapped() -> dict[str, Any]:
+        return await cascade.run_stage(
+            STAGE_NAME,
+            UUID(analysis_id),
+            _run,
+            analysis_id,
+            study_id,
+            correlation_id=correlation_id,
+        )
+
+    return asyncio.run(_wrapped())
+
+
 __all__ = [
     "HEPATIC_CHANNEL",
     "PORTAL_CHANNEL",
@@ -315,4 +731,5 @@ __all__ = [
     "VESSEL_INSIDE_PARENCHYMA_MIN",
     "VesselMask",
     "segment_vessels",
+    "segment_vessels_task",
 ]

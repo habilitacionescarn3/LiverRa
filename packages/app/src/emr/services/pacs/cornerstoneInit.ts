@@ -23,6 +23,7 @@
 import * as cornerstone from '@cornerstonejs/core';
 import * as cornerstoneTools from '@cornerstonejs/tools';
 import cornerstoneDICOMImageLoader, { init as initDICOMImageLoader } from '@cornerstonejs/dicom-image-loader';
+import type { NiftiMask } from './niftiLoader';
 
 // ============================================================================
 // Types
@@ -866,6 +867,283 @@ export function getCurrentAnnotationsJson(): string {
     return JSON.stringify(allAnnotations);
   } catch {
     return '[]';
+  }
+}
+
+// ============================================================================
+// Pass D5 — Segmentation labelmap helpers (MPR overlay)
+// ============================================================================
+//
+// Plain-English: a "labelmap" is a 3-D mask volume that lives next to the CT
+// volume in Cornerstone's cache and shares its coordinate system. When you
+// attach the labelmap to a viewport, Cornerstone automatically paints it on
+// every plane (axial / sagittal / coronal) and updates as you scroll — no
+// per-slice canvas blitting required. This is how MPR mode renders the
+// parenchyma overlay across all 3 planes.
+//
+// Why we resample 128³ → 512×512×674 in JS instead of asking the server to
+// ship a full-resolution mask: the cascade pipeline writes 128³ binary masks
+// (~2 MB) for bandwidth + S3 storage reasons. Cornerstone's derived volume
+// inherits the reference CT grid, so we have to copy our small mask into
+// that bigger grid via nearest-neighbor before it can render. The whole
+// pipeline runs once per analysis on the client (≈80 ms for 128³ → 512×512×674
+// on M1) so this is acceptable.
+//
+// Coordinate-system caveat: this assumes both volumes cover the same
+// physical extent with identical axis alignment. The cascade generates the
+// mask by resampling onto the CT's own grid in SimpleITK (LPS, axial top-down)
+// then downsamples to 128³ — so the two grids ARE aligned by construction.
+// If a future cascade ever ships a mask with a different orientation, the
+// fix is to consult `nifti.header` (sform/qform) and transpose accordingly.
+// ============================================================================
+
+/**
+ * Build a Cornerstone3D labelmap segmentation volume from a NIfTI mask,
+ * derived from a reference CT volume so it inherits the CT's grid + spacing.
+ *
+ * Plain-English: "transcribe the AI's binary mask into a coordinate system
+ * that Cornerstone can paint across axial / sagittal / coronal slices."
+ *
+ * @param referenceVolumeId  ID of the already-cached CT volume
+ * @param nifti              Parsed NIfTI mask (typically 128³ uint8)
+ * @param segmentationId     Stable ID for this labelmap (also used as volumeId)
+ */
+export async function createLabelmapFromNifti(
+  referenceVolumeId: string,
+  nifti: NiftiMask,
+  segmentationId: string,
+): Promise<void> {
+  // CS3D 4.x exposes createAndCacheDerivedLabelmapVolume (sync, returns an
+  // IImageVolume). It picks up dims/spacing/origin/direction from the
+  // reference CT and pre-allocates a Uint8Array scalar buffer of the right
+  // size. We then write the mask voxels into it.
+  const segVol = (cornerstone.volumeLoader as unknown as {
+    createAndCacheDerivedLabelmapVolume: (
+      refId: string,
+      opts: { volumeId: string },
+    ) => cornerstone.Types.IImageVolume;
+  }).createAndCacheDerivedLabelmapVolume(referenceVolumeId, {
+    volumeId: segmentationId,
+  });
+
+  // CS3D 4.15 derived volumes are ready immediately (no async load needed),
+  // but we guard anyway so a future API change is non-fatal.
+  const maybeLoad = (segVol as unknown as { load?: () => Promise<void> }).load;
+  if (typeof maybeLoad === 'function') {
+    try {
+      await maybeLoad.call(segVol);
+    } catch {
+      /* not fatal — derived labelmaps don't need a remote load */
+    }
+  }
+
+  const voxelManager = (segVol as unknown as {
+    voxelManager?: {
+      dimensions?: [number, number, number];
+      getCompleteScalarDataArray?: () => ArrayLike<number>;
+      setCompleteScalarDataArray?: (data: ArrayLike<number>) => void;
+    };
+  }).voxelManager;
+
+  const refDims =
+    voxelManager?.dimensions ??
+    ((segVol as unknown as { dimensions?: [number, number, number] }).dimensions ?? [0, 0, 0]);
+  const [refX, refY, refZ] = refDims;
+  const [niX, niY, niZ] = nifti.dims;
+  if (refX <= 0 || refY <= 0 || refZ <= 0 || niX <= 0 || niY <= 0 || niZ <= 0) {
+    throw new Error(
+      `[cornerstoneInit] createLabelmapFromNifti: invalid dims ref=${refDims.join('×')} nifti=${nifti.dims.join('×')}`,
+    );
+  }
+
+  // Acquire the writable scalar buffer. CS3D 4.x usually returns a
+  // typed array directly; we treat it as a Uint8Array because that's what
+  // createAndCacheDerivedLabelmapVolume allocates (Uint8Array targetBuffer).
+  const rawScalar = voxelManager?.getCompleteScalarDataArray?.();
+  if (!rawScalar) {
+    throw new Error(
+      '[cornerstoneInit] createLabelmapFromNifti: voxelManager has no getCompleteScalarDataArray()',
+    );
+  }
+  const scalar = rawScalar as Uint8Array;
+
+  // Nearest-neighbor resample: for each destination voxel (x,y,z) in the
+  // reference grid, look up the closest source voxel in the NIfTI grid.
+  // Two-level loop hoisting (precompute z + y indices into the NIfTI buffer)
+  // keeps this fast — ~80 ms for 128³ → 512×512×674 on an M1 in dev.
+  for (let z = 0; z < refZ; z++) {
+    const niz = Math.min(niZ - 1, Math.floor((z / refZ) * niZ));
+    const niSliceBase = niz * niX * niY;
+    const refSliceBase = z * refX * refY;
+    for (let y = 0; y < refY; y++) {
+      const niy = Math.min(niY - 1, Math.floor((y / refY) * niY));
+      const niRowBase = niSliceBase + niy * niX;
+      const refRowBase = refSliceBase + y * refX;
+      for (let x = 0; x < refX; x++) {
+        const nix = Math.min(niX - 1, Math.floor((x / refX) * niX));
+        scalar[refRowBase + x] = nifti.voxels[niRowBase + nix];
+      }
+    }
+  }
+
+  // Persist back if API requires explicit write. In CS3D 4.x the array
+  // returned by getCompleteScalarDataArray is the same backing buffer, so
+  // mutations are usually live — but calling setCompleteScalarDataArray is
+  // the safe API contract.
+  if (typeof voxelManager?.setCompleteScalarDataArray === 'function') {
+    voxelManager.setCompleteScalarDataArray(scalar);
+  }
+
+  // Some CS versions need an explicit "modified" trigger so the renderer
+  // re-uploads the labelmap texture. Best-effort.
+  const maybeModified = (segVol as unknown as { modified?: () => void }).modified;
+  if (typeof maybeModified === 'function') {
+    try {
+      maybeModified.call(segVol);
+    } catch {
+      /* non-fatal */
+    }
+  }
+}
+
+/**
+ * Register a labelmap with Cornerstone's segmentation state and attach it
+ * to one or more viewports. After this returns, scrolling any of those
+ * viewports will paint the labelmap on every plane automatically.
+ *
+ * Idempotent: re-calling for the same segmentationId is a no-op for the
+ * registration step but re-attaches representations to viewports (safe).
+ */
+export async function attachLabelmapToViewports(
+  segmentationId: string,
+  viewportIds: string[],
+  color: [number, number, number, number] = [86, 199, 119, 100],
+): Promise<void> {
+  const segNs = cornerstoneTools.segmentation;
+  const repType = cornerstoneTools.Enums.SegmentationRepresentations.Labelmap;
+
+  // addSegmentations: register the labelmap with the segmentation state.
+  // Skip if already present so re-renders don't throw.
+  let existing: unknown;
+  try {
+    existing = (segNs as unknown as {
+      state: { getSegmentation: (id: string) => unknown };
+    }).state.getSegmentation(segmentationId);
+  } catch {
+    existing = null;
+  }
+  if (!existing) {
+    (segNs as unknown as {
+      addSegmentations: (
+        input: Array<{
+          segmentationId: string;
+          representation: { type: string; data: { volumeId: string } };
+        }>,
+      ) => void;
+    }).addSegmentations([
+      {
+        segmentationId,
+        representation: {
+          type: repType,
+          data: { volumeId: segmentationId },
+        },
+      },
+    ]);
+  }
+
+  // Attach the labelmap representation to each viewport. CS3D 4.x's
+  // addSegmentationRepresentations is sync (returns void) but we await
+  // any potential Promise it may return in future versions.
+  for (const vpId of viewportIds) {
+    try {
+      const result = (segNs as unknown as {
+        addSegmentationRepresentations: (
+          viewportId: string,
+          repInput: Array<{ segmentationId: string; type: string }>,
+        ) => void | Promise<void>;
+      }).addSegmentationRepresentations(vpId, [
+        { segmentationId, type: repType },
+      ]);
+      if (result && typeof (result as Promise<void>).then === 'function') {
+        await result;
+      }
+    } catch (e) {
+      console.warn('[cornerstoneInit] addSegmentationRepresentations failed', vpId, e);
+    }
+
+    // Set per-segment colour (segment index 1 = the only non-zero label
+    // in a binary parenchyma mask). RGBA 0-255.
+    try {
+      const colorApi = (segNs as unknown as {
+        config?: {
+          color?: {
+            setSegmentIndexColor?: (
+              viewportId: string,
+              segmentationId: string,
+              segmentIndex: number,
+              color: [number, number, number, number],
+            ) => void;
+          };
+        };
+      }).config?.color;
+      colorApi?.setSegmentIndexColor?.(vpId, segmentationId, 1, color);
+    } catch {
+      /* color API may differ across CS releases — non-fatal */
+    }
+  }
+}
+
+/**
+ * Toggle visibility of a previously-attached labelmap segmentation in a
+ * specific viewport. Non-throwing — logs warnings only, so rapid toggle
+ * never blanks the viewer.
+ */
+export function setLabelmapVisibility(
+  viewportId: string,
+  segmentationId: string,
+  visible: boolean,
+): void {
+  try {
+    const repType = cornerstoneTools.Enums.SegmentationRepresentations.Labelmap;
+    const visibilityApi = (cornerstoneTools.segmentation as unknown as {
+      config?: {
+        visibility?: {
+          setSegmentationRepresentationVisibility?: (
+            viewportId: string,
+            specifier: { segmentationId: string; type?: unknown },
+            visibility: boolean,
+          ) => void;
+        };
+      };
+    }).config?.visibility;
+    visibilityApi?.setSegmentationRepresentationVisibility?.(
+      viewportId,
+      { segmentationId, type: repType },
+      visible,
+    );
+  } catch (e) {
+    console.warn('[cornerstoneInit] setLabelmapVisibility failed', e);
+  }
+}
+
+/**
+ * Remove a labelmap segmentation from the segmentation state entirely.
+ * Used when the analysis ID changes so we don't leak labelmaps across
+ * cases. Best-effort; failures are logged not thrown.
+ */
+export function removeLabelmapSegmentation(segmentationId: string): void {
+  try {
+    const segNs = cornerstoneTools.segmentation as unknown as {
+      removeSegmentation?: (id: string) => void;
+    };
+    segNs.removeSegmentation?.(segmentationId);
+  } catch (e) {
+    console.warn('[cornerstoneInit] removeLabelmapSegmentation failed', e);
+  }
+  try {
+    cornerstone.cache.removeVolumeLoadObject(segmentationId);
+  } catch {
+    /* not in cache — fine */
   }
 }
 

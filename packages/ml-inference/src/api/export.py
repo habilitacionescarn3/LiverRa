@@ -31,6 +31,7 @@ from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -196,17 +197,46 @@ async def _emit_export_audit(
 async def _load_report(
     session: AsyncSession, report_id: UUID, tenant_id: UUID
 ) -> Optional[dict[str, Any]]:
+    # The actual `report` schema (see Alembic 20260419_0004_review_report)
+    # uses `review_id` / `pdf_uri` / `seg_sop_uid` / `sr_sop_uid` /
+    # `supersedes_report_id`, has no `tenant_id` (it lives on `analysis`),
+    # and stores no explicit `status` / `retraction_reason` /
+    # `sample_case_flag` columns. We translate at the SQL boundary so the
+    # ReportProjection model + every caller that reads keys like
+    # `sample_case_flag` keeps working without a migration.
     row = (
         await session.execute(
             text(
                 """
-                SELECT id, analysis_id, surgeon_review_id, tenant_id, status,
-                       finalized_at, superseded_by_report_id, retracted_at,
-                       retraction_reason, pdf_s3_uri, seg_sop_instance_uid,
-                       sr_sop_instance_uid,
-                       COALESCE(sample_case_flag, false) AS sample_case_flag
-                FROM report
-                WHERE id = :id AND tenant_id = :tid
+                SELECT
+                    r.id,
+                    r.analysis_id,
+                    r.review_id           AS surgeon_review_id,
+                    r.pdf_uri             AS pdf_s3_uri,
+                    r.seg_sop_uid         AS seg_sop_instance_uid,
+                    r.sr_sop_uid          AS sr_sop_instance_uid,
+                    r.finalized_at,
+                    r.retracted_at,
+                    (
+                        SELECT rr.id
+                        FROM report rr
+                        WHERE rr.supersedes_report_id = r.id
+                        LIMIT 1
+                    )                     AS superseded_by_report_id,
+                    CASE
+                        WHEN r.retracted_at IS NOT NULL THEN 'retracted'
+                        WHEN EXISTS (
+                            SELECT 1 FROM report rr
+                            WHERE rr.supersedes_report_id = r.id
+                        ) THEN 'superseded'
+                        WHEN r.finalized_at IS NULL THEN 'finalizing'
+                        ELSE 'finalized'
+                    END                   AS status,
+                    NULL::text            AS retraction_reason,
+                    false                 AS sample_case_flag
+                FROM report r
+                JOIN analysis a ON a.id = r.analysis_id
+                WHERE r.id = :id AND a.tenant_id = :tid
                 """
             ),
             {"id": str(report_id), "tid": str(tenant_id)},
@@ -216,17 +246,70 @@ async def _load_report(
 
 
 async def _enqueue_finalize(
-    *, analysis_id: UUID, review_id: UUID, user_id: UUID, tenant_id: UUID, locale: str
+    *,
+    session: AsyncSession,
+    analysis_id: UUID,
+    review_id: UUID,
+    user_id: UUID,
+    tenant_id: UUID,
+    locale: str,
 ) -> UUID:
-    """T427: hand off to Celery and return the pre-allocated ``report_id``.
+    """T427: persist a placeholder Report row + dispatch the Celery task.
 
-    We pre-reserve the Report row in ``finalizing`` status so the UI can
-    poll ``GET /reports/{id}`` immediately. The Celery task flips it to
-    ``finalized`` once artifacts land in S3.
+    Plain-English: the heavy SEG/SR/PDF builders in ``tasks/finalize_report``
+    are still scaffolded (raise NotImplementedError) pending the
+    mask-fetcher integration. Until they land, we still need ``GET
+    /reports/{id}`` to return 200 immediately so the wizard's success
+    screen + ReportView load. So we INSERT a minimal row here with
+    placeholder artifact URIs; once the real builders ship they can flip
+    the row in place (or delete + reinsert).
     """
     from uuid import uuid4 as _uuid4
 
     report_id = _uuid4()
+
+    # Compute the next per-analysis version number. The (analysis_id,
+    # version) unique index means we can't reuse 1 for a re-finalize.
+    next_version = (
+        await session.execute(
+            text(
+                "SELECT COALESCE(MAX(version), 0) + 1 AS v FROM report "
+                "WHERE analysis_id = :aid"
+            ),
+            {"aid": str(analysis_id)},
+        )
+    ).scalar_one()
+
+    # Placeholder artifact URIs — the columns are NOT NULL but no content
+    # constraint. The PDF URI points at the analysis-level on-demand
+    # renderer so a future GET /reports/{id}/pdf route can redirect there
+    # if no SEG/SR builder has run yet.
+    pdf_uri_placeholder = f"/api/v1/analyses/{analysis_id}/report/pdf"
+
+    # The session arrives inside an outer ``session.begin()`` (see
+    # ``db.session.get_db``) — calling commit/rollback ourselves would
+    # break that context manager. Let the framework commit on success;
+    # any INSERT error propagates as a 500 so it's visible, not silently
+    # swallowed.
+    await session.execute(
+        text(
+            """
+            INSERT INTO report
+                (id, analysis_id, review_id, version,
+                 pdf_uri, seg_sop_uid, sr_sop_uid)
+            VALUES
+                (:id, :aid, :rid, :ver, :pdf, '', '')
+            """
+        ),
+        {
+            "id": str(report_id),
+            "aid": str(analysis_id),
+            "rid": str(review_id),
+            "ver": int(next_version),
+            "pdf": pdf_uri_placeholder,
+        },
+    )
+
     try:
         from ..tasks.finalize_report import finalize_report  # type: ignore[attr-defined]
 
@@ -268,13 +351,18 @@ async def finalize_review(
     user_id = getattr(user, "id", None) if user else None
     locale = (getattr(user, "locale_preference", None) or "en") if user else "en"
 
-    # Confirm the review exists + is ours + has an analysis bound.
+    # Confirm the review exists + the analysis is in our tenant.
+    # surgeon_review has no tenant_id of its own; ownership lives on
+    # analysis. Two-table JOIN so a missing review *and* a cross-tenant
+    # review both surface as "not found" (FR-032a — never disclose).
     review = (
         await session.execute(
             text(
                 """
-                SELECT id, analysis_id FROM surgeon_review
-                WHERE id = :rid AND tenant_id = :tid
+                SELECT sr.id, sr.analysis_id
+                FROM surgeon_review sr
+                JOIN analysis a ON a.id = sr.analysis_id
+                WHERE sr.id = :rid AND a.tenant_id = :tid
                 """
             ),
             {"rid": str(review_id), "tid": str(tenant_id)},
@@ -285,6 +373,7 @@ async def finalize_review(
 
     analysis_id = UUID(str(review["analysis_id"]))
     report_id = await _enqueue_finalize(
+        session=session,
         analysis_id=analysis_id,
         review_id=review_id,
         user_id=UUID(str(user_id)) if user_id else uuid4(),
@@ -292,22 +381,13 @@ async def finalize_review(
         locale=locale,
     )
 
-    # Pre-create the Report row in ``finalizing`` so UI polling works immediately.
-    await session.execute(
-        text(
-            """
-            INSERT INTO report (id, tenant_id, surgeon_review_id, analysis_id, status)
-            VALUES (:id, :tid, :rid, :aid, 'finalizing')
-            ON CONFLICT (id) DO NOTHING
-            """
-        ),
-        {
-            "id": str(report_id),
-            "tid": str(tenant_id),
-            "rid": str(review_id),
-            "aid": str(analysis_id),
-        },
-    )
+    # NOTE: the prior code pre-created a Report row in "finalizing" status,
+    # but the actual report schema (migration 0004) has neither a `status`
+    # nor `tenant_id` column and requires `version` + `pdf_uri` +
+    # `seg_sop_uid` + `sr_sop_uid` (NOT NULL, no defaults). The Celery
+    # task is responsible for inserting the row once artifacts exist.
+    # The polling endpoint at `_load_report` is also out of sync with the
+    # current schema and needs its own fix; tracked separately.
 
     seq_no = await _emit_export_audit(
         request,
@@ -345,6 +425,98 @@ async def get_report(
     if row is None:
         raise _not_found(str(uuid4()))
     return ReportProjection(**row)
+
+
+@router.get(
+    "/reports/{report_id}/deliveries",
+    response_model=list[ReportDeliveryProjection],
+    summary="List PACS deliveries for a Report (one row per destination × artifact)",
+)
+@require_permission("report.view")
+async def list_report_deliveries(
+    report_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> list[ReportDeliveryProjection]:
+    """Return all ``report_delivery`` rows for a report.
+
+    Plain-English: feeds the PACS Push panel with one row per delivery
+    attempt. Tenant scoping rides on the parent report (verified via
+    ``_load_report``) — no separate JOIN needed.
+
+    Schema-vs-projection note: the underlying ``report_delivery`` table
+    uses ``state``/``attempt_count``/``destination_id`` (Alembic 0004),
+    whereas the projection model exposes
+    ``status``/``retry_count``/``destination_ae_title``. The state value
+    domain also differs (``pending|in_flight|delivered|failed|retracted``
+    in DB vs. ``pending|sending|acknowledged|failed|manual_fallback`` on
+    the wire). We translate at the SQL boundary so neither side has to
+    care about the other's vocabulary.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    if await _load_report(session, report_id, tenant_id) is None:
+        raise _not_found(str(uuid4()))
+
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    report_id,
+                    'seg'::text                    AS artifact_type,
+                    destination_id                 AS destination_ae_title,
+                    CASE state
+                        WHEN 'in_flight' THEN 'sending'
+                        WHEN 'delivered' THEN 'acknowledged'
+                        WHEN 'retracted' THEN 'manual_fallback'
+                        ELSE state
+                    END                            AS status,
+                    attempt_count                  AS retry_count,
+                    next_attempt_at,
+                    last_error,
+                    CASE WHEN state = 'delivered'
+                        THEN updated_at ELSE NULL
+                    END                            AS acknowledged_at
+                FROM report_delivery
+                WHERE report_id = :rid
+                ORDER BY created_at ASC
+                """
+            ),
+            {"rid": str(report_id)},
+        )
+    ).mappings().all()
+    return [ReportDeliveryProjection(**dict(r)) for r in rows]
+
+
+@router.get(
+    "/reports/{report_id}/pdf",
+    summary="PDF bytes for a finalized Report (delegates to analysis renderer)",
+)
+@require_permission("report.view")
+async def get_report_pdf_proxy(
+    report_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> RedirectResponse:
+    """Resolve the report's analysis_id and 307 to the analysis PDF route.
+
+    Plain-English: the heavy SEG/SR/PDF builder pipeline isn't wired yet,
+    so the report row's ``pdf_uri`` points at the analysis-level
+    on-demand renderer (``/analyses/{id}/report/pdf``). Rather than
+    duplicating the render-or-cache logic, we 307-redirect — preserves
+    method, the iframe follows transparently, and the analysis route
+    keeps being the single source of truth for PDF rendering.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    row = await _load_report(session, report_id, tenant_id)
+    if row is None:
+        raise _not_found(str(uuid4()))
+    analysis_id = row["analysis_id"]
+    return RedirectResponse(
+        url=f"/api/v1/analyses/{analysis_id}/report/pdf",
+        status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    )
 
 
 @router.post(
@@ -539,17 +711,24 @@ async def retract_report(
     if report is None:
         raise _not_found(str(uuid4()))
 
+    # Schema reality check: the actual `report` table (Alembic 0004) has
+    # neither `retraction_reason` nor `status` nor `tenant_id` columns —
+    # tenancy lives on `analysis`, retraction is just `retracted_at IS
+    # NOT NULL`, and the reason isn't persisted (it's emitted into the
+    # AuditEvent below for the regulatory trail). Tenant scoping happens
+    # via the JOIN to keep cross-tenant retracts impossible.
     await session.execute(
         text(
             """
             UPDATE report
-            SET retracted_at = now(),
-                retraction_reason = :reason,
-                status = 'retracted'
-            WHERE id = :id AND tenant_id = :tid
+            SET retracted_at = now()
+            FROM analysis a
+            WHERE report.id = :id
+              AND report.analysis_id = a.id
+              AND a.tenant_id = :tid
             """
         ),
-        {"reason": body.reason, "id": str(report_id), "tid": str(tenant_id)},
+        {"id": str(report_id), "tid": str(tenant_id)},
     )
 
     seq_no = await _emit_export_audit(

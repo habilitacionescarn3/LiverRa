@@ -107,19 +107,38 @@ def _checkpoint_stub(analysis_id: str, stage_no: int, stage: str) -> dict:
     }
 
 
-@app.task(name="liverra.tasks.segment_vessels")
-def segment_vessels(analysis_id: str, study_id: str = "") -> dict:
-    """Dev passthrough — real impl in src.tasks.vessels.segment_vessels.
-    Writes a stage-3a checkpoint so the chord can complete."""
-    logger.info("segment_vessels (stub) analysis=%s", analysis_id)
-    return _checkpoint_stub(analysis_id, 3, "vessels")
+# NOTE: stub Celery tasks for `liverra.tasks.segment_vessels` and
+# `liverra.tasks.segment_couinaud` lived here through Pass C. They were
+# deleted in Pass D2 because the real implementations now register
+# under those names via @app.task decorators in src/tasks/couinaud.py
+# and src/tasks/vessels.py (search for `segment_couinaud_task` /
+# `segment_vessels_task`). The cascade graph in
+# src/orchestrator/cascade.py:340-344 dispatches by Celery task name,
+# so the chord branches resolve directly to the new implementations.
 
 
-@app.task(name="liverra.tasks.segment_couinaud")
-def segment_couinaud(analysis_id: str, study_id: str = "") -> dict:
-    """Dev passthrough — real impl in src.tasks.couinaud.segment_couinaud."""
-    logger.info("segment_couinaud (stub) analysis=%s", analysis_id)
-    return _checkpoint_stub(analysis_id, 4, "couinaud")
+@app.task(name="liverra.tasks.mark_cascade_complete", bind=True, acks_late=True)
+def mark_cascade_complete(self, analysis_id: str, study_id: str) -> dict:
+    """Final chain step — flip Analysis row to 'completed'.
+
+    Without this, the cascade chain ends after `compute_initial_flr`
+    and the Analysis row is left in 'running' forever (UI hangs at
+    "Pipeline Running"). Idempotent: only updates rows still in
+    'running' state.
+    """
+    import psycopg
+    sync_url = os.environ.get(
+        "DATABASE_URL_SYNC",
+        "postgresql://liverra:liverra@localhost:5432/liverra",
+    )
+    with psycopg.connect(sync_url, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE analysis SET status='completed', completed_at=now() "
+            "WHERE id = %s AND status = 'running'",
+            (analysis_id,),
+        )
+    logger.info("mark_cascade_complete: analysis=%s marked completed", analysis_id)
+    return {"analysis_id": analysis_id, "status": "completed"}
 
 
 def revoke_cascade(analysis_id: str) -> None:

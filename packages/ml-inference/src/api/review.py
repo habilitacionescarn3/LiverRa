@@ -189,7 +189,18 @@ class TakeoverRequestBody(BaseModel):
 
 
 def _user_id(request: Request) -> UUID:
-    uid = getattr(request.state, "user_id", None)
+    # AuthMiddleware populates request.state.user (a dict in both the
+    # JWT and dev-bypass paths). The lone outlier was reading
+    # request.state.user_id, which no middleware ever sets — that 401
+    # was being silently rewritten to 404 by the global FORBIDDEN→
+    # NOT_FOUND handler (FR-032a), which presented as the "endpoint
+    # missing" gate on the frontend.
+    user = getattr(request.state, "user", None)
+    uid: Any = None
+    if isinstance(user, dict):
+        uid = user.get("id") or user.get("cognito_sub")
+    elif user is not None:
+        uid = getattr(user, "id", None) or getattr(user, "cognito_sub", None)
     if uid is None:
         raise ProblemDetailException(
             slug=ErrorSlug.FORBIDDEN,

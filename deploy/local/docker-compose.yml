@@ -76,6 +76,33 @@ services:
       retries: 10
       start_period: 15s
 
+  anon-sidecar:
+    # Local-dev DICOM anonymizer. Calls Orthanc's built-in anonymize
+    # endpoint to scrub PHI tags. NOT regulatory-grade — production
+    # uses CTP/MIRC per docs/research/07-technical-architecture.md.
+    build:
+      context: ../../packages/ml-inference/anon_sidecar
+      dockerfile: Dockerfile
+    container_name: liverra-anon-sidecar
+    environment:
+      ORTHANC_URL: http://orthanc:8042
+      ORTHANC_USERNAME: ${ORTHANC_USERNAME:-orthanc}
+      ORTHANC_PASSWORD: ${ORTHANC_PASSWORD:-orthanc}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-liverra}:${POSTGRES_PASSWORD:-liverra}@postgres:5432/${POSTGRES_DB:-liverra}
+    ports:
+      - "7070:7070"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      orthanc:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:7070/health\", timeout=3)'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   medplum:
     image: medplum/medplum-server:latest
     container_name: liverra-medplum

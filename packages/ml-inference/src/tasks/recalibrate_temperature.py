@@ -37,7 +37,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import boto3
 import numpy as np
@@ -55,7 +55,7 @@ except ImportError:  # pragma: no cover
 from sqlalchemy import text as sa_text
 
 from src.db.session import get_sessionmaker
-from src.services.audit import emit_audit_event
+from src.services.audit.chain_of_hashes import AuditChainWriter
 from src.services.calibration import DEFAULT_TEMPERATURE
 from src.services.mbom.reader import get_default_reader
 from src.services.triton import TritonClient, TritonInferenceError
@@ -292,23 +292,27 @@ async def _run(tenant_id: str) -> dict[str, Any]:
                     "sample_count": len(logits_rows),
                 },
             )
-            await emit_audit_event(
-                session=session,
-                tenant_id=tenant_uuid,
-                category="model_recalibrated",
-                action="U",
-                subject_type="Tenant",
-                subject_ref=str(tenant_uuid),
-                detail={
-                    "model_name": MODEL_NAME,
-                    "model_version": model_version,
-                    "new_temperature": float(new_temperature),
-                    "sample_count": len(logits_rows),
-                    "fit_window": [
-                        TEMPERATURE_SEARCH_MIN,
-                        TEMPERATURE_SEARCH_MAX,
+            await AuditChainWriter().write(
+                {
+                    "resourceType": "AuditEvent",
+                    "id": str(uuid4()),
+                    "category": "model_recalibrated",
+                    "action": "U",
+                    "recorded": datetime.now(timezone.utc).isoformat(),
+                    "entity": [
+                        {"what": {"reference": f"Tenant/{tenant_uuid}"}},
+                    ],
+                    "extension": [
+                        {"url": "liverra:model_name", "valueString": MODEL_NAME},
+                        {"url": "liverra:model_version", "valueString": model_version},
+                        {"url": "liverra:new_temperature", "valueDecimal": float(new_temperature)},
+                        {"url": "liverra:sample_count", "valueInteger": len(logits_rows)},
+                        {"url": "liverra:fit_window_min", "valueDecimal": TEMPERATURE_SEARCH_MIN},
+                        {"url": "liverra:fit_window_max", "valueDecimal": TEMPERATURE_SEARCH_MAX},
                     ],
                 },
+                tenant_uuid,
+                session,
             )
 
     logger.info(

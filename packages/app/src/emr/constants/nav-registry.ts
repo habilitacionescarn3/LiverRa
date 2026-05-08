@@ -20,7 +20,6 @@
 import { createElement, type ReactNode } from 'react';
 import {
   IconFolder,
-  IconPlayerPlay,
   IconListDetails,
   IconUsers,
   IconServer,
@@ -30,7 +29,7 @@ import {
   IconCertificate,
   IconTrash,
   IconHelpCircle,
-  IconUser,
+  IconSettings,
   type Icon as TablerIcon,
 } from '@tabler/icons-react';
 
@@ -270,9 +269,24 @@ export function flattenNav(items: readonly NavItem[]): NavItem[] {
 export interface MenuNavItem {
   key: string;
   translationKey: string;
-  path: string;
+  /** Route path. Optional: group parents (with `children`) omit it. */
+  path?: string;
   icon: ReactNode;
   permission?: LiverraPermission;
+  /**
+   * Nested items. When present, this item renders as a Mantine `Menu`
+   * dropdown instead of a navigable button. Children may declare a
+   * `groupLabel` (translation key) to introduce a `Menu.Label` section
+   * header inside the dropdown.
+   */
+  children?: readonly MenuNavItem[];
+  /**
+   * Translation key for a section header rendered above this child inside
+   * a parent's dropdown. Only the first child in a contiguous run needs
+   * to set it; subsequent children with the same logical group leave it
+   * undefined.
+   */
+  groupLabel?: string;
 }
 
 function renderTablerIcon(IconComp: TablerIcon, size = 20): ReactNode {
@@ -280,10 +294,19 @@ function renderTablerIcon(IconComp: TablerIcon, size = 20): ReactNode {
 }
 
 /**
- * Full, flat menu covering every production surface in the app. The menu
- * component filters by permission at render time, so users only see what
- * their role grants. With the dev-bypass user (all permissions) every
- * entry is visible — the whole app becomes clickable.
+ * Primary top-bar menu — 4 items + 1 nested Admin dropdown.
+ *
+ * Surgeons (the 95% user) see only Cases / PACS Studies / Help by default;
+ * Admin / compliance / DPO routes collapse into the Admin dropdown and only
+ * render section headers whose children have at least one permission match.
+ *
+ * Demo + Profile are intentionally NOT in this list — Demo lives on the
+ * Cases page header + empty state, Profile + Sign-out + Language live in
+ * the avatar menu (see UserMenuButton.tsx). The underlying routes remain
+ * registered in AppRoutes.tsx so direct URLs still work.
+ *
+ * Shape: each item may carry `children` (renders as Mantine Menu) and each
+ * child may carry `groupLabel` (renders as Menu.Label section header).
  */
 export const FULL_MENU_ITEMS: readonly MenuNavItem[] = [
   {
@@ -301,84 +324,80 @@ export const FULL_MENU_ITEMS: readonly MenuNavItem[] = [
     permission: 'study.view',
   },
   {
-    key: 'demo',
-    translationKey: 'nav:demo',
-    path: LIVERRA_ROUTES.DEMO_CASE,
-    icon: renderTablerIcon(IconPlayerPlay),
-  },
-  {
-    key: 'ops-queue',
-    translationKey: 'nav:ops_queue',
-    path: LIVERRA_ROUTES.OPS_QUEUE,
-    icon: renderTablerIcon(IconListDetails),
-    permission: 'ops.queue_view',
-  },
-  {
-    key: 'admin-users',
-    translationKey: 'nav:admin_users',
-    path: LIVERRA_ROUTES.ADMIN_USERS,
-    icon: renderTablerIcon(IconUsers),
-    permission: 'admin.user_create',
-  },
-  {
-    key: 'admin-pacs',
-    translationKey: 'nav:admin_pacs',
-    path: LIVERRA_ROUTES.ADMIN_PACS_CONFIG,
-    icon: renderTablerIcon(IconServer),
-    permission: 'pacs.config_read',
-  },
-  {
-    key: 'admin-audit',
-    translationKey: 'nav:admin_audit',
-    path: LIVERRA_ROUTES.ADMIN_AUDIT,
-    icon: renderTablerIcon(IconFileText),
-    permission: 'audit.view',
-  },
-  {
-    key: 'compliance-mbom',
-    translationKey: 'nav:compliance_mbom',
-    path: LIVERRA_ROUTES.COMPLIANCE_MBOM,
-    icon: renderTablerIcon(IconPackage),
-    permission: 'mbom.view',
-  },
-  {
-    key: 'compliance-audit',
-    translationKey: 'nav:compliance_audit',
-    path: LIVERRA_ROUTES.COMPLIANCE_AUDIT_SUMMARY,
-    icon: renderTablerIcon(IconFileText),
-    permission: 'audit.view',
-  },
-  {
-    key: 'compliance-spotcheck',
-    translationKey: 'nav:compliance_spotcheck',
-    path: LIVERRA_ROUTES.COMPLIANCE_RUO_SPOT_CHECK,
-    icon: renderTablerIcon(IconCheckbox),
-    permission: 'compliance.view',
-  },
-  {
-    key: 'compliance-claims',
-    translationKey: 'nav:compliance_claim_registry',
-    path: LIVERRA_ROUTES.COMPLIANCE_CLAIM_REGISTRY,
-    icon: renderTablerIcon(IconCertificate),
-    permission: 'claim_registry.view',
-  },
-  {
-    key: 'erasure',
-    translationKey: 'nav:erasure_requests',
-    path: LIVERRA_ROUTES.ERASURE,
-    icon: renderTablerIcon(IconTrash),
-    permission: 'erasure.execute',
-  },
-  {
     key: 'help',
     translationKey: 'nav:help',
     path: LIVERRA_ROUTES.HELP,
     icon: renderTablerIcon(IconHelpCircle),
   },
   {
-    key: 'profile',
-    translationKey: 'nav:profile',
-    path: LIVERRA_ROUTES.PROFILE,
-    icon: renderTablerIcon(IconUser),
+    key: 'admin',
+    translationKey: 'nav:administration',
+    icon: renderTablerIcon(IconSettings),
+    children: [
+      // ─── Administration ───
+      {
+        key: 'admin-users',
+        groupLabel: 'nav:group_administration',
+        translationKey: 'nav:admin_users',
+        path: LIVERRA_ROUTES.ADMIN_USERS,
+        icon: renderTablerIcon(IconUsers),
+        permission: 'admin.user_create',
+      },
+      {
+        key: 'admin-pacs',
+        translationKey: 'nav:admin_pacs',
+        path: LIVERRA_ROUTES.ADMIN_PACS_CONFIG,
+        icon: renderTablerIcon(IconServer),
+        permission: 'pacs.config_read',
+      },
+      {
+        key: 'admin-audit',
+        translationKey: 'nav:admin_audit',
+        path: LIVERRA_ROUTES.ADMIN_AUDIT,
+        icon: renderTablerIcon(IconFileText),
+        permission: 'audit.view',
+      },
+      // ─── Compliance ───
+      {
+        key: 'compliance-mbom',
+        groupLabel: 'nav:group_compliance',
+        translationKey: 'nav:compliance_mbom',
+        path: LIVERRA_ROUTES.COMPLIANCE_MBOM,
+        icon: renderTablerIcon(IconPackage),
+        permission: 'mbom.view',
+      },
+      {
+        key: 'compliance-spotcheck',
+        translationKey: 'nav:compliance_spotcheck',
+        path: LIVERRA_ROUTES.COMPLIANCE_RUO_SPOT_CHECK,
+        icon: renderTablerIcon(IconCheckbox),
+        permission: 'compliance.view',
+      },
+      {
+        key: 'compliance-claims',
+        translationKey: 'nav:compliance_claim_registry',
+        path: LIVERRA_ROUTES.COMPLIANCE_CLAIM_REGISTRY,
+        icon: renderTablerIcon(IconCertificate),
+        permission: 'claim_registry.view',
+      },
+      // ─── Data Protection ───
+      {
+        key: 'erasure',
+        groupLabel: 'nav:group_dpo',
+        translationKey: 'nav:erasure_requests',
+        path: LIVERRA_ROUTES.ERASURE,
+        icon: renderTablerIcon(IconTrash),
+        permission: 'erasure.execute',
+      },
+      // ─── Operations ───
+      {
+        key: 'ops-queue',
+        groupLabel: 'nav:group_operations',
+        translationKey: 'nav:ops_queue',
+        path: LIVERRA_ROUTES.OPS_QUEUE,
+        icon: renderTablerIcon(IconListDetails),
+        permission: 'ops.queue_view',
+      },
+    ],
   },
 ];

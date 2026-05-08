@@ -167,13 +167,13 @@ class SeatManager:
                 text(
                     """
                     SELECT sr.id, sr.user_id, sr.seat_held_until,
-                           u.display_name
+                           u.email AS display_name
                     FROM surgeon_review sr
                     LEFT JOIN "user" u ON u.id = sr.user_id
                     WHERE sr.analysis_id = :aid AND sr.finalized_at IS NULL
                     ORDER BY sr.created_at DESC
                     LIMIT 1
-                    FOR UPDATE
+                    FOR UPDATE OF sr
                     """
                 ),
                 {"aid": str(analysis_id)},
@@ -320,7 +320,7 @@ class SeatManager:
                 text(
                     """
                     SELECT sr.id, sr.user_id, sr.seat_held_until,
-                           u.display_name
+                           u.email AS display_name
                     FROM surgeon_review sr
                     LEFT JOIN "user" u ON u.id = sr.user_id
                     WHERE sr.analysis_id = :aid AND sr.finalized_at IS NULL

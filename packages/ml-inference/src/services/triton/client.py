@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -236,10 +237,16 @@ class TritonClient:
 
         start = time.monotonic()
         try:
+            # Bump gRPC client timeout for slower remote-GPU paths (Tailscale).
+            # Default tritonclient timeout is too tight (~60s) for the 1.4B
+            # parameter Pictorial-Couinaud model when streamed across the
+            # Tailscale tunnel — 600s gives generous headroom.
+            client_timeout_s = float(os.environ.get("LIVERRA_TRITON_CLIENT_TIMEOUT_S", "600"))
             response = await self._client.infer(
                 model_name=model_name,
                 inputs=infer_inputs,
                 outputs=infer_outputs,
+                client_timeout=client_timeout_s,
             )
         except Exception as exc:  # pragma: no cover — surfaces network errors
             raise TritonInferenceError(

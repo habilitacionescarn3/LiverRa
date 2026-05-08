@@ -69,7 +69,15 @@ export type TranslationNamespace =
   | 'errors'
   | 'ruo'
   | 'sync'
-  | 'pacs';
+  | 'pacs'
+  | 'classificationOverride'
+  | 'conflict'
+  | 'dropzone'
+  | 'failClosed'
+  | 'navigation'
+  | 'review'
+  | 'session'
+  | 'takeover';
 
 export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
@@ -93,6 +101,14 @@ export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'ruo',
   'sync',
   'pacs',
+  'classificationOverride',
+  'conflict',
+  'dropzone',
+  'failClosed',
+  'navigation',
+  'review',
+  'session',
+  'takeover',
 ] as const;
 
 /** Recursive type for nested JSON translation values. */
@@ -235,6 +251,16 @@ interface TranslationProviderProps {
 const DEFAULT_PRELOAD_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
   'errors',
+  // Preload `auth` so public/unauthenticated views (404, signin, callback,
+  // unauthorized) render English copy on first paint without flashing raw
+  // keys while the namespace's dynamic import is still in flight.
+  'auth',
+  // Preload `ruo` because the persistent RUO disclaimer renders on every
+  // authenticated screen (it's mounted by `EMRPage`) and uses `useMemo` over
+  // the `t` callback. If the bundle were lazy, the memo would lock to the
+  // raw key on first render and never recover (the `t` callback identity is
+  // stable across bundle loads).
+  'ruo',
 ];
 
 export function TranslationProvider({

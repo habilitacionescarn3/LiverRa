@@ -17,11 +17,11 @@
 
 import { Box, Menu, Skeleton, Text, UnstyledButton } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconDotsVertical, type Icon as TablerIcon } from '@tabler/icons-react';
+import { IconChevronDown, IconDotsVertical, type Icon as TablerIcon } from '@tabler/icons-react';
 import { memo, useCallback, useMemo, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { useHasPermission, usePermissionContext } from '../../contexts/PermissionContext';
+import { usePermissionContext } from '../../contexts/PermissionContext';
 import { useTranslation } from '../../contexts/TranslationContext';
 import type { LiverraPermission } from '../../constants/permissions.gen';
 
@@ -32,12 +32,16 @@ export interface NavItem {
   key: string;
   /** Translation key (with namespace, e.g. `nav:cases`). */
   translationKey: string;
-  /** Route path. */
-  path: string;
+  /** Route path. Optional: parents with `children` omit it. */
+  path?: string;
   /** Rendered icon element. */
   icon: ReactNode | TablerIcon;
   /** Permission required to see this item. Omit = always visible. */
   permission?: LiverraPermission;
+  /** Nested entries — when present this item renders as a Menu dropdown. */
+  children?: readonly NavItem[];
+  /** Translation key for a Menu.Label section header above this child. */
+  groupLabel?: string;
 }
 
 export interface EMRMainMenuProps {
@@ -72,24 +76,37 @@ export const EMRMainMenu = memo(function EMRMainMenu({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { loading: permissionsLoading } = usePermissionContext();
+  const { loading: permissionsLoading, permissions } = usePermissionContext();
 
   const isMobile = useMediaQuery(`(max-width: ${mobileBreakpointPx}px)`) ?? false;
 
   const touchStartX = useRef<number>(0);
   const [swiping, setSwiping] = useState(false);
 
-  // Permission-filter visible items. Items without a `permission` field are
-  // always visible. We call `useHasPermission` for every item — stable order
-  // is guaranteed because `items` does not change between renders.
-  const grantedMask = items.map((item) => (item.permission ? useHasPermission(item.permission) : true));
-  const visibleItems = useMemo(
-    () => items.filter((_, idx) => grantedMask[idx]),
-    [items, grantedMask.join(',')],
+  // Permission-filter visible items. Read the permission Set once (no
+  // hooks-in-loop violation) and filter both the top-level list and any
+  // nested children. A parent group with children is dropped only when
+  // every child is filtered out — otherwise it stays so the dropdown can
+  // still surface its surviving children.
+  const hasPerm = useCallback(
+    (perm?: LiverraPermission) => !perm || permissions.has(perm),
+    [permissions],
   );
 
+  const visibleItems = useMemo(() => {
+    return items
+      .filter((item) => {
+        if (!hasPerm(item.permission)) return false;
+        if (item.children && item.children.length > 0) {
+          return item.children.some((c) => hasPerm(c.permission));
+        }
+        return true;
+      });
+  }, [items, hasPerm]);
+
   const isActive = useCallback(
-    (path: string) => location.pathname === path || location.pathname.startsWith(path + '/'),
+    (path: string | undefined) =>
+      Boolean(path) && (location.pathname === path || location.pathname.startsWith(path + '/')),
     [location.pathname],
   );
 
@@ -106,9 +123,11 @@ export const EMRMainMenu = memo(function EMRMainMenu({
       const currentIndex = visibleItems.findIndex((i) => isActive(i.path));
       if (Math.abs(deltaX) > threshold) {
         if (deltaX > 0 && currentIndex > 0) {
-          navigate(visibleItems[currentIndex - 1].path);
+          const prev = visibleItems[currentIndex - 1];
+          if (prev.path) navigate(prev.path);
         } else if (deltaX < 0 && currentIndex < visibleItems.length - 1) {
-          navigate(visibleItems[currentIndex + 1].path);
+          const next = visibleItems[currentIndex + 1];
+          if (next.path) navigate(next.path);
         }
       }
       setSwiping(false);
@@ -139,12 +158,70 @@ export const EMRMainMenu = memo(function EMRMainMenu({
     );
   }
 
+  /**
+   * Render dropdown contents — emits a Menu.Label whenever a child carries
+   * a `groupLabel` (introduces a new section header) and a Menu.Item per
+   * leaf. Children whose `permission` isn't granted are skipped.
+   */
+  const renderGroupedChildren = (children: readonly NavItem[]): ReactNode[] => {
+    const out: ReactNode[] = [];
+    for (const child of children) {
+      if (!hasPerm(child.permission)) continue;
+      if (child.groupLabel) {
+        out.push(
+          <Menu.Label key={`label-${child.key}`}>{t(child.groupLabel)}</Menu.Label>,
+        );
+      }
+      const childActive = isActive(child.path);
+      out.push(
+        <Menu.Item
+          key={child.key}
+          leftSection={renderIcon(child.icon)}
+          onClick={() => child.path && navigate(child.path)}
+          className={childActive ? styles.overflowItemActive : ''}
+          data-testid={`menu-${child.key}`}
+        >
+          {t(child.translationKey)}
+        </Menu.Item>,
+      );
+    }
+    return out;
+  };
+
   const renderMenuItem = (item: NavItem): ReactNode => {
+    // Group dropdown — render as Mantine Menu, not navigable button.
+    if (item.children && item.children.length > 0) {
+      const visibleChildren = item.children.filter((c) => hasPerm(c.permission));
+      if (visibleChildren.length === 0) return null;
+      const anyChildActive = visibleChildren.some((c) => isActive(c.path));
+      return (
+        <Menu key={item.key} position="bottom-end" shadow="lg" width={280} withArrow>
+          <Menu.Target>
+            <UnstyledButton
+              className={`${styles.menuItem} ${anyChildActive ? styles.active : ''}`}
+              data-testid={`menu-${item.key}`}
+              aria-label={t(item.translationKey)}
+              aria-haspopup="menu"
+            >
+              <span className={styles.menuIcon}>{renderIcon(item.icon)}</span>
+              <span className={styles.menuLabel}>{t(item.translationKey)}</span>
+              <IconChevronDown size={14} style={{ marginLeft: 4 }} />
+              {anyChildActive && <span className={styles.activeIndicator} />}
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown className={styles.overflowDropdown}>
+            {renderGroupedChildren(visibleChildren)}
+          </Menu.Dropdown>
+        </Menu>
+      );
+    }
+
+    // Plain leaf — original render.
     const active = isActive(item.path);
     return (
       <UnstyledButton
         key={item.key}
-        onClick={() => navigate(item.path)}
+        onClick={() => item.path && navigate(item.path)}
         className={`${styles.menuItem} ${active ? styles.active : ''}`}
         data-testid={`menu-${item.key}`}
         aria-label={t(item.translationKey)}
@@ -167,11 +244,35 @@ export const EMRMainMenu = memo(function EMRMainMenu({
         data-testid="mobile-nav-bar"
       >
         {primary.map((item) => {
+          // Nested group on mobile — open a Menu instead of navigating.
+          if (item.children && item.children.length > 0) {
+            const visibleChildren = item.children.filter((c) => hasPerm(c.permission));
+            if (visibleChildren.length === 0) return null;
+            const anyChildActive = visibleChildren.some((c) => isActive(c.path));
+            return (
+              <Menu key={item.key} shadow="lg" width={240} position="top-end" withArrow>
+                <Menu.Target>
+                  <UnstyledButton
+                    className={`${styles.mobileNavItem} ${anyChildActive ? styles.active : ''}`}
+                    data-testid={`mobile-menu-${item.key}`}
+                    aria-label={t(item.translationKey)}
+                    aria-haspopup="menu"
+                  >
+                    <span className={styles.mobileNavIcon}>{renderIcon(item.icon)}</span>
+                    <Text className={styles.mobileNavLabel}>{t(item.translationKey)}</Text>
+                  </UnstyledButton>
+                </Menu.Target>
+                <Menu.Dropdown className={styles.overflowDropdown}>
+                  {renderGroupedChildren(visibleChildren)}
+                </Menu.Dropdown>
+              </Menu>
+            );
+          }
           const active = isActive(item.path);
           return (
             <UnstyledButton
               key={item.key}
-              onClick={() => navigate(item.path)}
+              onClick={() => item.path && navigate(item.path)}
               className={`${styles.mobileNavItem} ${active ? styles.active : ''}`}
               data-testid={`mobile-menu-${item.key}`}
               aria-label={t(item.translationKey)}
@@ -199,12 +300,18 @@ export const EMRMainMenu = memo(function EMRMainMenu({
             </Menu.Target>
             <Menu.Dropdown className={styles.overflowDropdown}>
               {overflow.map((item) => {
+                // Nested group inside overflow — emit children as flat items.
+                if (item.children && item.children.length > 0) {
+                  return renderGroupedChildren(
+                    item.children.filter((c) => hasPerm(c.permission)),
+                  );
+                }
                 const active = isActive(item.path);
                 return (
                   <Menu.Item
                     key={item.key}
                     leftSection={renderIcon(item.icon)}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => item.path && navigate(item.path)}
                     className={active ? styles.overflowItemActive : ''}
                   >
                     {t(item.translationKey)}

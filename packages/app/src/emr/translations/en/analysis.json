@@ -6,6 +6,7 @@
     "queued": "Queued",
     "running": "Running",
     "done": "Done",
+    "completed": "Completed",
     "failed": "Failed",
     "cancelled": "Cancelled"
   },
@@ -52,6 +53,7 @@
     "title": "Analysis • {{studyUid}}",
     "back": "Back to cases",
     "downloadReport": "Download report",
+    "openFinalize": "Finalize & generate report",
     "drawerAria": "Case details drawer",
     "resizeAria": "Resize drawer",
     "mprAria": "Multi-planar preview strip",
@@ -72,15 +74,87 @@
       "segmentsPlaceholder": "Couinaud segments I–VIII and per-segment volumes will appear here.",
       "lesionsPlaceholder": "Detected lesions and LiLNet classifications will appear here.",
       "measurementsPlaceholder": "Linear + volumetric measurements will appear here.",
-      "notesPlaceholder": "Surgeon notes attached to this case will appear here."
+      "notesPlaceholder": "Surgeon notes attached to this case will appear here.",
+      "loading": "Loading…",
+      "openRefinement": "Open Refinement",
+      "segmentsEmpty": {
+        "title": "No segments yet",
+        "description": "Couinaud segments and vessel masks will appear here once the cascade finishes."
+      },
+      "measurementsEmpty": {
+        "title": "No measurements yet",
+        "description": "Linear and volumetric measurements added in Refinement will appear here."
+      },
+      "notesEmpty": {
+        "title": "No notes yet",
+        "description": "Surgeon notes attached during Refinement will appear here."
+      }
     },
+    "cascadeTimeline": {
+      "title": "Pipeline activity",
+      "modelVersion": "Model",
+      "outputUri": "Output",
+      "licenseHash": "License hash",
+      "summary": {
+        "complete": "Pipeline complete",
+        "runningStage": "Running stage {{current}} of {{total}}",
+        "failed": "Pipeline failed",
+        "queued": "Queued",
+        "stageCount_one": "{{count}} stage · {{total}} total",
+        "stageCount_other": "{{count}} stages · {{total}} total",
+        "expand": "Show pipeline details",
+        "collapse": "Hide pipeline details",
+        "liverVolume": "Liver {{ml}} ml",
+        "lesionCount_one": "{{count}} lesion",
+        "lesionCount_other": "{{count}} lesions",
+        "flr": "FLR {{pct}}%"
+      }
+    },
+    "workspace": {
+      "title": "Case workspace",
+      "subtitle": "Browse segments, lesions and notes"
+    },
+    "viewerCard": {
+      "lastUpdated": "Last updated · {{when}}",
+      "studyLabel": "Study {{uid}}"
+    },
+    "flr": {
+      "subtitle": "Primary surgical decision input"
+    },
+    "ruoBadge": "RUO — Not for clinical use",
     "crumbs": {
       "cases": "Cases"
+    }
+  },
+  "stages": {
+    "ingest": "DICOM ingest",
+    "anonymization": "Anonymisation",
+    "parenchyma": "Parenchyma segmentation",
+    "vessels": "Vessel segmentation",
+    "couinaud": "Couinaud segmentation",
+    "lesion_detection": "Lesion detection",
+    "classification": "Lesion classification",
+    "flr_init": "FLR calculation"
+  },
+  "anatomy": {
+    "liver": "Liver (parenchyma)",
+    "portal_vein": "Portal vein",
+    "hepatic_vein": "Hepatic vein",
+    "couinaud": {
+      "I": "Couinaud I",
+      "II": "Couinaud II",
+      "III": "Couinaud III",
+      "IV": "Couinaud IV",
+      "V": "Couinaud V",
+      "VI": "Couinaud VI",
+      "VII": "Couinaud VII",
+      "VIII": "Couinaud VIII"
     }
   },
   "viewer": {
     "ariaLabel": "LiverRa 3D viewer",
     "loading": "Loading viewer…",
+    "loadingSeries": "Loading series…",
     "statusReady": "Ready",
     "statusLoading": "Loading volume…",
     "statusNotReady": "Analysis not ready",
@@ -92,7 +166,52 @@
       "reset": "Reset view"
     },
     "webgpuMissing": "WebGPU is unavailable. Falling back to CPU voxel counting — interactions may be slower.",
-    "parenchymaLabel": "Parenchyma overlay"
+    "parenchymaLabel": "Parenchyma overlay",
+    "noStudy": "No DICOM study attached to this analysis.",
+    "loadFailed": "Could not load DICOM series.",
+    "maskLoadFailed": "Mask overlay could not be loaded.",
+    "sliceCounter": "Slice {{current}} / {{total}}",
+    "layers": {
+      "title": "Layers",
+      "ariaLabel": "Layer visibility toggles",
+      "parenchyma": "Parenchyma",
+      "couinaud": {
+        "master": "Couinaud (8 segments)",
+        "expandAria": "Expand Couinaud sub-segments",
+        "i": "Segment I (caudate)",
+        "ii": "Segment II",
+        "iii": "Segment III",
+        "iv": "Segment IV",
+        "v": "Segment V",
+        "vi": "Segment VI",
+        "vii": "Segment VII",
+        "viii": "Segment VIII"
+      },
+      "portalVein": "Portal vein",
+      "hepaticVein": "Hepatic vein",
+      "lesions": "Lesions",
+      "flrPlane": "FLR cutting plane",
+      "notReady": "Mask not yet available.",
+      "couinaudDeferred": "Couinaud overlay rendering ships in a later release.",
+      "vesselsDeferred": "Vessel overlay rendering ships in a later release.",
+      "noLesions": "No lesions detected on this study.",
+      "noFlrPlane": "FLR cutting plane not available for this analysis."
+    },
+    "viewMode": {
+      "title": "View",
+      "ariaLabel": "View mode",
+      "axial": "Axial",
+      "mpr": "MPR (3-up)",
+      "switchToAxial": "Show axial only",
+      "switchToMpr": "Show 3-up MPR (axial / sagittal / coronal)",
+      "panelTitle": {
+        "axial": "Axial",
+        "sagittal": "Sagittal",
+        "coronal": "Coronal"
+      },
+      "mprUnavailable": "MPR view unavailable on this device.",
+      "mobileForcedAxial": "MPR is disabled on small screens for legibility."
+    }
   },
   "flr": {
     "title": "Future Liver Remnant",
@@ -116,5 +235,10 @@
   "coldStart": {
     "warming": "Models warming up",
     "timeRemaining": "~{{seconds}}s remaining. Your analysis will start automatically."
+  },
+  "finalize": {
+    "noSeatTitle": "Acquire review lock to finalize",
+    "noSeatBody": "Finalizing creates a regulatory audit lock. We need to check out the review seat for this case before you can sign off the report.",
+    "acquireLockCta": "Acquire review lock"
   }
 }

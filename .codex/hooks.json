@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "scripts/careful-guard.sh",
+            "statusMessage": "Checking for destructive commands..."
+          }
+        ]
+      }
+    ]
+  }
+}

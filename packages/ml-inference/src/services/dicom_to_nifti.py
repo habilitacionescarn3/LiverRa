@@ -52,21 +52,27 @@ PHASES_BUCKET = os.environ.get("S3_PHASES_BUCKET", "liverra-phases-eu-central-1"
 PHASE_PATTERNS: dict[str, list[str]] = {
     "arterial": [r"\barter", r"\bart\b", r"\b25s\b", r"\b30s\b"],
     "portal_venous": [r"\bportal", r"\bpv\b", r"\bvenous", r"\b60s\b", r"\b70s\b"],
-    "delayed": [r"\bdelay", r"\b3min\b", r"\b5min\b", r"\b15min\b"],
+    "delayed": [r"\bdelay", r"\blate\b", r"\b3min\b", r"\b5min\b", r"\b15min\b"],
     "non_contrast": [r"\bnon[- ]?contrast", r"\bplain\b", r"\bpre[- ]?contrast"],
 }
 
 
-def _detect_phase(series_description: str) -> str:
-    """Best-effort phase detection from SeriesDescription. Defaults to arterial."""
+def _detect_phase(series_description: str) -> str | None:
+    """Phase detection from SeriesDescription. Returns None if no
+    phase keyword matches — caller should SKIP unrecognised series
+    rather than dump them into the arterial slot, which used to claim
+    the slot before the real arterial-phase series got processed
+    (e.g. junk "Patient Protocol" 2-slice scout series displacing the
+    actual 600-slice "Arterial Phase" series in iteration order).
+    """
     if not series_description:
-        return "arterial"
+        return None
     desc = series_description.lower()
     for phase, patterns in PHASE_PATTERNS.items():
         for pat in patterns:
             if re.search(pat, desc):
                 return phase
-    return "arterial"  # safe default — parenchyma stage's primary input
+    return None
 
 
 def _orthanc_get_json(path: str) -> dict | list:
@@ -185,6 +191,16 @@ def stage_orthanc_study_to_minio(
             tags = series_meta.get("MainDicomTags", {})
             description = tags.get("SeriesDescription", "") or ""
             phase = _detect_phase(description)
+
+            # Skip series that don't match a known phase keyword (e.g.
+            # "Patient Protocol", "Dose Report", "Topogram") — they
+            # used to claim the arterial slot via the old default and
+            # block the real arterial series from being staged.
+            if phase is None:
+                logger.info(
+                    "Skipping unrecognised series description=%s", description,
+                )
+                continue
 
             # Skip duplicate phases (only stage one series per phase).
             if phase in staged:

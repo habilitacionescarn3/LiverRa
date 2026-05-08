@@ -33,8 +33,68 @@ import {
 import SampleDataBadge from '../../components/onboarding/SampleDataBadge';
 import { useTranslation } from '../../contexts/TranslationContext';
 
-/** Pre-seeded completed demo analysis. Used as fallback if onboarding-status fails. */
-const SEEDED_DEMO_ANALYSIS_ID = '83dad428-f691-4eef-9672-a27f785a6f1e';
+function readApiBaseUrl(): string {
+  const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+  return (meta.VITE_LIVERRA_API_BASE_URL ?? '/api/v1').replace(/\/$/, '');
+}
+
+/**
+ * Resolve a real analysis id to navigate to. Strategy:
+ *   1. Ask `/auth/me/onboarding-status` for `sample_case_analysis_id`.
+ *   2. If absent, list `/analyses` and pick the first `completed` one
+ *      (instant gratification — no 25s wait).
+ *   3. If none completed, pick the first available analysis at all.
+ *   4. Last resort: trigger a fresh cascade via `/analyses/from-orthanc`
+ *      using the first available DICOM study.
+ *
+ * This replaces the previous hardcoded `SEEDED_DEMO_ANALYSIS_ID` constant
+ * which broke whenever the dev DB was reseeded.
+ */
+async function resolveDemoAnalysisId(baseUrl: string): Promise<string> {
+  // 1. Onboarding-status probe (cheap; preferred).
+  try {
+    const r = await fetch(`${baseUrl}/auth/me/onboarding-status`, { credentials: 'include' });
+    if (r.ok) {
+      const data = (await r.json()) as { sample_case_analysis_id?: string };
+      if (data.sample_case_analysis_id) return data.sample_case_analysis_id;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // 2 & 3. List existing analyses; prefer completed.
+  const list = await fetch(`${baseUrl}/analyses?limit=20`, { credentials: 'include' });
+  if (list.ok) {
+    const body = (await list.json()) as {
+      items?: Array<{ id: string; status: string }>;
+    };
+    const items = body.items ?? [];
+    const completed = items.find((it) => it.status === 'completed');
+    if (completed) return completed.id;
+    if (items[0]) return items[0].id;
+  }
+
+  // 4. Trigger a fresh run from the first ingested DICOM study.
+  const studies = await fetch(`${baseUrl}/ingest/studies?limit=1`, { credentials: 'include' });
+  if (!studies.ok) throw new Error('Demo unavailable: no studies ingested.');
+  const sBody = (await studies.json()) as {
+    items?: Array<{ study_instance_uid: string; patient_ref?: string | null }>;
+  };
+  const first = sBody.items?.[0];
+  if (!first) throw new Error('Demo unavailable: no DICOM studies in PACS.');
+  const trigger = await fetch(`${baseUrl}/analyses/from-orthanc`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      study_instance_uid: first.study_instance_uid,
+      patient_ref: first.patient_ref ?? null,
+    }),
+  });
+  if (!trigger.ok) throw new Error(`Demo trigger failed: HTTP ${trigger.status}`);
+  const tBody = (await trigger.json()) as { analysis_id: string };
+  return tBody.analysis_id;
+}
 
 interface FeatureHighlight {
   icon: typeof IconFlask;
@@ -87,23 +147,10 @@ function DemoInner(): React.ReactElement {
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch('/api/v1/auth/me/onboarding-status', {
-        credentials: 'include',
-      });
-      if (r.ok) {
-        const data = (await r.json()) as { sample_case_analysis_id?: string };
-        if (data.sample_case_analysis_id) {
-          navigate(`/cases/${data.sample_case_analysis_id}`);
-          return;
-        }
-      }
-      // Fallback to the seeded demo analysis (SC-013 invariant).
-      navigate(`/cases/${SEEDED_DEMO_ANALYSIS_ID}`);
+      const id = await resolveDemoAnalysisId(readApiBaseUrl());
+      navigate(`/cases/${encodeURIComponent(id)}`);
     } catch (e) {
-      // Even on network error, prefer to navigate to the seeded demo.
-      // Surface the error briefly so devs notice, but don't block UX.
       setError((e as Error).message);
-      navigate(`/cases/${SEEDED_DEMO_ANALYSIS_ID}`);
     } finally {
       setBusy(false);
     }

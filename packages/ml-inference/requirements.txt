@@ -50,7 +50,10 @@ tritonclient[grpc,http]>=2.50
 numpy>=1.26,<2.0
 nibabel>=5.3
 SimpleITK>=2.4
-pydantic>=2.9
+# email extra: required by EmailStr in admin invite-user endpoint (api/admin.py).
+# Without it, the admin router fails to import and silently disappears via
+# main.py:_strict_boot — every /api/v1/admin/* request 404s.
+pydantic[email]>=2.9
 
 # ---------------------------------------------------------------------------
 # Declared by T044-T050 (Cognito auth + JWKS validation)

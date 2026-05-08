@@ -84,6 +84,14 @@ export function useAnalysis(analysisId: string | null | undefined): UseAnalysisR
     queryFn: () => fetchAnalysis(analysisId as string),
     enabled,
     staleTime: 5_000,
+    // Belt-and-suspenders polling: SSE is the primary signal, but Vite's
+    // dev proxy occasionally buffers EventSource frames. While the cascade
+    // is in-flight, poll every 3s so the UI converges to `completed` even
+    // if the stream stalls.
+    refetchInterval: (q) => {
+      const s = (q.state.data as Analysis | undefined)?.status;
+      return s === 'running' || s === 'queued' ? 3_000 : false;
+    },
   });
 
   useEffect(() => {

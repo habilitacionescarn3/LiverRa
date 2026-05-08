@@ -128,24 +128,25 @@ def _crop_and_resample(
     if cropped.shape == target:
         return cropped.astype(np.float16, copy=False)
 
-    if sitk is not None:
+    if sitk is not None and all(d > 0 for d in cropped.shape):
         # SimpleITK path: preserve spacing semantics where we can.
         img = sitk.GetImageFromArray(cropped.astype(np.float32))
+        new_spacing = [
+            max(orig_sp * orig_sz / max(tgt_sz, 1), 1e-3)
+            for orig_sp, orig_sz, tgt_sz in zip(
+                img.GetSpacing(),
+                img.GetSize(),
+                (target[2], target[1], target[0]),
+                strict=True,
+            )
+        ]
         resampled = sitk.Resample(
             img,
             [target[2], target[1], target[0]],
             sitk.Transform(),
             sitk.sitkLinear,
             img.GetOrigin(),
-            [
-                orig_sp * orig_sz / tgt_sz
-                for orig_sp, orig_sz, tgt_sz in zip(
-                    img.GetSpacing(),
-                    img.GetSize(),
-                    (target[2], target[1], target[0]),
-                    strict=True,
-                )
-            ],
+            new_spacing,
             img.GetDirection(),
             0.0,
             img.GetPixelID(),
@@ -242,19 +243,84 @@ def _upload_lesion_mask(
     analysis_id: UUID,
     lesion_id: UUID,
     mask: np.ndarray,
+    reference_image: Any,
+    parenchyma_bbox: tuple[slice, slice, slice] | None = None,
 ) -> str:
-    """Persist one per-lesion binary mask to S3 as NIfTI."""
-    if nib is None:
+    """Persist one per-lesion binary mask to S3 as NIfTI at SOURCE CT
+    resolution.
+
+    The 128³ lesion mask covers the parenchyma's bounding-box region
+    in source space. We map that bbox into SimpleITK physical
+    coordinates via ``reference_image.TransformIndexToPhysicalPoint``,
+    set the 128³ mask's origin/direction/spacing to match, then
+    resample to the source CT grid with nearest-neighbor — so the
+    yellow lesion contour in the report sits exactly on the lesion in
+    the CT instead of drifting 1-2 cm.
+
+    When ``parenchyma_bbox`` is omitted (legacy / test paths) we fall
+    back to the previous approximate-geometry behaviour.
+    """
+    if sitk is None:
         raise RuntimeError(
-            "nibabel is not installed; add `nibabel` to requirements.txt"
+            "SimpleITK is not installed; add `SimpleITK` to requirements.txt"
         )
     bucket = os.environ.get(
         "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
     )
     key = f"analyses/{analysis_id}/lesions/{lesion_id}.nii.gz"
-    nii = nib.Nifti1Image(mask.astype(np.uint8), affine=np.eye(4))  # type: ignore[attr-defined]
-    # nibabel.save() no longer accepts BytesIO; serialize via to_bytes().
-    raw_bytes = bytes(nii.to_bytes())  # type: ignore[attr-defined]
+    mask_image = sitk.GetImageFromArray(mask.astype(np.uint8))
+
+    if reference_image is not None and parenchyma_bbox is not None:
+        # F5 — affine-aware path. Compute the bbox start in patient space
+        # via reference_image's affine, set the 128³ mask there, then
+        # resample to the full source CT grid.
+        z_slice, y_slice, x_slice = parenchyma_bbox
+        # SimpleITK uses (x, y, z) index order; numpy bbox is (z, y, x).
+        sitk_start_idx = [int(x_slice.start), int(y_slice.start), int(z_slice.start)]
+        new_origin = reference_image.TransformIndexToPhysicalPoint(sitk_start_idx)
+
+        ref_spacing = reference_image.GetSpacing()  # (sx, sy, sz)
+        extent_x = max(1, x_slice.stop - x_slice.start)
+        extent_y = max(1, y_slice.stop - y_slice.start)
+        extent_z = max(1, z_slice.stop - z_slice.start)
+        new_spacing = [
+            extent_x * ref_spacing[0] / TARGET_SHAPE[2],  # x
+            extent_y * ref_spacing[1] / TARGET_SHAPE[1],  # y
+            extent_z * ref_spacing[2] / TARGET_SHAPE[0],  # z
+        ]
+        mask_image.SetOrigin(new_origin)
+        mask_image.SetDirection(reference_image.GetDirection())
+        mask_image.SetSpacing(new_spacing)
+
+        # Resample the 128³ bbox-cropped mask onto the full source CT grid.
+        upsampled = sitk.Resample(
+            mask_image,
+            reference_image,
+            sitk.Transform(),
+            sitk.sitkNearestNeighbor,
+            0,
+            mask_image.GetPixelID(),
+        )
+        mask_image = upsampled
+    elif reference_image is not None:
+        # Legacy approximate path for callers that don't pass the bbox.
+        ref_size = reference_image.GetSize()
+        ref_spacing = reference_image.GetSpacing()
+        mask_size = mask_image.GetSize()
+        new_spacing = [
+            ref_spacing[i] * ref_size[i] / max(mask_size[i], 1)
+            for i in range(3)
+        ]
+        mask_image.SetOrigin(reference_image.GetOrigin())
+        mask_image.SetDirection(reference_image.GetDirection())
+        mask_image.SetSpacing(new_spacing)
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        sitk.WriteImage(mask_image, tf.name)
+        tf.flush()
+        with open(tf.name, "rb") as fh:
+            raw_bytes = fh.read()
     s3_client.put_object(Bucket=bucket, Key=key, Body=raw_bytes)
     return f"s3://{bucket}/{key}"
 
@@ -322,17 +388,17 @@ async def _run(
     loop = asyncio.get_running_loop()
 
     # ---- Load parenchyma mask from Stage 1 ---------------------------
-    def _load_parenchyma() -> np.ndarray | None:
+    def _load_parenchyma() -> tuple[np.ndarray | None, Any]:
         img = _download_nii(
             s3_client,
             analyses_bucket,
             f"analyses/{analysis_uuid}/parenchyma_mask.nii.gz",
         )
         if img is None:
-            return None
-        return sitk.GetArrayFromImage(img).astype(np.uint8)
+            return None, None
+        return sitk.GetArrayFromImage(img).astype(np.uint8), img
 
-    parenchyma_mask = await loop.run_in_executor(None, _load_parenchyma)
+    parenchyma_mask, reference_image = await loop.run_in_executor(None, _load_parenchyma)
     if parenchyma_mask is None or parenchyma_mask.sum() == 0:
         raise RuntimeError(
             "Stage-1 parenchyma mask missing or empty; cannot run lesion "
@@ -410,6 +476,9 @@ async def _run(
                     analysis_uuid,
                     lesion_id,
                     component_mask,
+                    reference_image,
+                    bbox,  # F5 — pass parenchyma bbox so upload can
+                           # resample to source CT grid via affine.
                 )
                 await _insert_lesion_row(
                     session,

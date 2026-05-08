@@ -97,15 +97,32 @@
   },
   "view": {
     "title": "Report",
+    "heading": "Analysis report",
+    "downloadPdf": "Download PDF",
     "loading": "Loading report…",
     "error": "Unable to load this report.",
+    "claimHidden": "Report is restricted for the current RUO claim scope.",
     "finalizedAt": "Finalized at",
     "supersededBy": "Superseded by",
     "retracted": "This report has been retracted.",
     "retract": "Retract",
     "sampleData": "SAMPLE DATA",
     "noId": "No report id in URL.",
-    "noIdDescription": "Open a finalized analysis from your cases list to view its report."
+    "noIdDescription": "Open a finalized analysis from your cases list to view its report.",
+    "stats": {
+      "liver": "Liver volume",
+      "flr": "Future Liver Remnant",
+      "lesions": "Lesions",
+      "status": "Status"
+    },
+    "parenchymaTitle": "Parenchyma segmentation",
+    "vesselsTitle": "Vessels (portal + hepatic)",
+    "flrTitle": "FLR — resection plane",
+    "fourPhaseTitle": "4-phase axial comparison",
+    "mesh3dTitle": "3D liver mesh",
+    "lesionsTitle": "Lesions",
+    "pipelineTitle": "Pipeline checkpoints",
+    "downloadPerSlice": "Per-slice PDF"
   },
   "artifact": {
     "seg": "DICOM-SEG (liver + segments + lesions)",

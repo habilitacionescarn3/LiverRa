@@ -200,4 +200,92 @@ if app is not None:  # pragma: no cover — Celery registration
         return finalize_report_impl(analysis_id, review_id, user_id, tenant_id, locale)
 
 
-__all__ = ["finalize_report_impl", "S3_BUCKET"]
+# ---------------------------------------------------------------------------
+# Lightweight PDF-only path — used for demo / completed analyses without a
+# full SEG/SR/surgeon-review flow. Renders the PDF via report_renderer and
+# uploads it to the analyses bucket. Writes a pipeline_checkpoint row tagged
+# 'finalize_report' so the cascade event log shows the artifact.
+# ---------------------------------------------------------------------------
+
+
+def render_and_cache_report_pdf(analysis_id: str) -> str:
+    """Render the on-demand PDF and cache it in S3.
+
+    Returns the ``s3://...`` URI of the uploaded PDF. Designed to be safe
+    to call repeatedly (overwrites the cache key).
+    """
+    import os as _os
+
+    from src.services.report_renderer import render_analysis_pdf
+
+    analyses_bucket = _os.environ.get(
+        "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+    )
+    cache_key = f"analyses/{analysis_id}/report.pdf"
+
+    pdf_bytes = render_analysis_pdf(UUID(analysis_id))
+
+    if boto3 is None:  # pragma: no cover
+        raise RuntimeError("boto3 unavailable; cannot upload PDF")
+
+    s3 = boto3.client(
+        "s3",
+        region_name=_os.environ.get("AWS_REGION", "eu-central-1"),
+        endpoint_url=_os.environ.get("AWS_ENDPOINT_URL"),
+        aws_access_key_id=_os.environ.get("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=_os.environ.get("AWS_SECRET_ACCESS_KEY"),
+    )
+    s3.put_object(
+        Bucket=analyses_bucket,
+        Key=cache_key,
+        Body=pdf_bytes,
+        ContentType="application/pdf",
+    )
+    s3_uri = f"s3://{analyses_bucket}/{cache_key}"
+
+    # Best-effort checkpoint write — never fails the task on DB hiccup.
+    async def _write_checkpoint() -> None:
+        maker = get_sessionmaker()
+        async with maker() as session:
+            async with session.begin():
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO pipeline_checkpoint
+                            (analysis_id, stage_no, stage, output_uri,
+                             model_version, model_license_hash)
+                        VALUES (:aid, 99, 'finalize_report', :uri,
+                                'matplotlib-pdfpages@v1', 'n/a-rendering')
+                        ON CONFLICT (analysis_id, stage_no) DO UPDATE
+                          SET output_uri = EXCLUDED.output_uri,
+                              written_at = now()
+                        """
+                    ),
+                    {"aid": analysis_id, "uri": s3_uri},
+                )
+
+    try:
+        asyncio.run(_write_checkpoint())
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("finalize_report checkpoint write failed: %s", exc)
+
+    return s3_uri
+
+
+if app is not None:  # pragma: no cover — Celery registration
+    @app.task(
+        bind=True,
+        name="liverra.tasks.render_report_pdf",
+        autoretry_for=(),
+        acks_late=True,
+    )
+    def render_report_pdf_task(self: Task, analysis_id: str) -> str:  # type: ignore[override]
+        """Celery entrypoint: render PDF + cache + checkpoint."""
+        return render_and_cache_report_pdf(analysis_id)
+
+
+__all__ = [
+    "finalize_report_impl",
+    "render_and_cache_report_pdf",
+    "S3_BUCKET",
+]

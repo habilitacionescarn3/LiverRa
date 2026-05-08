@@ -25,8 +25,9 @@ import {
 } from '@tabler/icons-react';
 
 import { useReport } from '../../hooks/useReport';
+import { RUOClaimRegistryProvider } from '../../contexts/RUOClaimRegistryContext';
 import { PACSPushPanel } from '../../components/report/PACSPushPanel';
-import { PDFPreview } from '../../components/report/PDFPreview';
+import { ReportInlineView } from '../../components/report/ReportInlineView';
 import { RetractModal } from '../../components/report/RetractModal';
 import { PermissionButton } from '../../components/access-control/PermissionButton';
 import {
@@ -73,7 +74,7 @@ function ReportViewBody(): ReactElement {
           }
           action={{
             label: t('analysis:detail.back') ?? 'Back to cases',
-            onClick: () => navigate('/emr/cases'),
+            onClick: () => navigate('/cases'),
             icon: IconArrowLeft,
           }}
         />
@@ -142,7 +143,7 @@ function ReportViewBody(): ReactElement {
               <EMRButton
                 variant="ghost"
                 icon={IconArrowLeft}
-                onClick={() => navigate('/emr/cases')}
+                onClick={() => navigate('/cases')}
               >
                 {t('analysis:detail.back') ?? 'Back to cases'}
               </EMRButton>
@@ -280,7 +281,7 @@ function ReportViewBody(): ReactElement {
             minWidth: 0,
           }}
         >
-          <PDFPreview reportId={r.id} />
+          <ReportInlineView reportId={r.id} />
         </Box>
         <Box
           style={{
@@ -316,9 +317,17 @@ function ReportViewBody(): ReactElement {
 }
 
 export function ReportView(): ReactElement {
+  // PDFPreview (and any descendant that surfaces an RUO-gated artefact)
+  // calls `useRUOClaim`, which throws when no `RUOClaimRegistryProvider`
+  // ancestor exists. The /cases/:id route gets one via
+  // `AnalysisDetailProviders`; /reports/:id has its own shell so we wrap
+  // here. Provider is route-scoped on purpose — keeps claim state
+  // independent of the analysis dashboard.
   return (
     <EMRErrorBoundary componentName="ReportView">
-      <ReportViewBody />
+      <RUOClaimRegistryProvider>
+        <ReportViewBody />
+      </RUOClaimRegistryProvider>
     </EMRErrorBoundary>
   );
 }

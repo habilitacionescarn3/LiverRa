@@ -24,7 +24,7 @@
  * disabled-when-denied UX is consistent with the other write actions.
  */
 
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Box, Group, Paper, Radio, Stack, Text } from '@mantine/core';
 import {
@@ -42,6 +42,7 @@ import {
 import {
   EMRAlert,
   EMRButton,
+  EMREmptyState,
   EMRErrorBoundary,
   EMRPageHeader,
   EMRWizardStepper,
@@ -124,6 +125,48 @@ function FinalizeWizardViewInner(): ReactElement {
   const analysisStatus = analysis?.status;
   const analysisReady = analysisStatus === 'completed';
   const seatLost = !seat.hasSeat && seat.status !== 'idle' && seat.status !== 'acquiring';
+
+  // ---- Seat lifecycle: auto-acquire on entry, release on unmount ------------
+  // Mirrors RefinementView so users who jump straight from the analysis page
+  // to "Finalize & generate report" don't hit the manual lock-acquire gate on
+  // the happy path. The gate below only renders once we've attempted and the
+  // attempt failed (e.g. another reviewer holds the seat).
+  const acquireAttemptedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!analysisId || !analysisReady) return undefined;
+    if (acquireAttemptedRef.current !== analysisId && !seat.hasSeat) {
+      acquireAttemptedRef.current = analysisId;
+      try {
+        const result = seat.acquire(analysisId);
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+          (result as Promise<void>).catch(() => {
+            /* seat-taken / network — gate below surfaces with retry CTA */
+          });
+        }
+      } catch {
+        /* acquire threw synchronously — gate below still renders */
+      }
+    }
+    return () => {
+      try {
+        const result = seat.release();
+        if (result && typeof (result as Promise<void>).catch === 'function') {
+          (result as Promise<void>).catch(() => {
+            /* ignore */
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    // Mirrors RefinementView's pinned-deps pattern: we intentionally run
+    // this only when the analysis id (or readiness gate) changes, not on
+    // every seat state tick. Including `seat` would re-fire the cleanup
+    // on every status transition (idle → acquiring → held), and the
+    // cleanup releases the seat — so the seat would be released the
+    // moment it was acquired, leaving hasSeat=false and the gate stuck.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysisId, analysisReady]);
 
   const canAdvanceByStep = useMemo<Record<StepKey, boolean>>(
     () => ({
@@ -210,6 +253,15 @@ function FinalizeWizardViewInner(): ReactElement {
     },
     [canAdvanceByStep],
   );
+
+  // ---- Seat acquire CTA (used by no-seat gate below) -------------------
+  // Declared up here, above any early returns, so the hook order stays
+  // stable across renders. Moving it next to the gate would make React
+  // skip this useCallback when an earlier branch returns first, tripping
+  // "Rendered fewer hooks than expected".
+  const handleAcquireSeat = useCallback(() => {
+    void seat.acquire(analysisId).catch(() => undefined);
+  }, [seat, analysisId]);
 
   // ---- Submit ----------------------------------------------------------
   const handleSubmit = useCallback(async () => {
@@ -369,6 +421,46 @@ function FinalizeWizardViewInner(): ReactElement {
             </Box>
           </Stack>
         </EMRAlert>
+      </Stack>
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Render: no-seat acquire gate
+  //
+  // The wizard's final submit needs a held review seat. If the user
+  // landed here without going through Refine first (which auto-acquires),
+  // surface a friendly CTA instead of crashing on submit. Acquisition
+  // happens via the same context action Refine uses.
+  // (The `handleAcquireSeat` callback is declared up top with the rest
+  // of the hooks so early returns above don't skip it.)
+  // ---------------------------------------------------------------------
+  if (
+    !analysisLoading &&
+    analysisReady &&
+    !seat.hasSeat &&
+    seat.status !== 'acquiring' &&
+    acquireAttemptedRef.current === analysisId
+  ) {
+    return (
+      <Stack gap="lg" p="lg" data-testid="finalize-no-seat-gate">
+        <EMRPageHeader
+          icon={IconFileText}
+          title={t('report:finalize.title')}
+          showBack
+          onBack={goBackToCase}
+        />
+        <EMREmptyState
+          icon={IconLock}
+          title={t('analysis:finalize.noSeatTitle')}
+          description={t('analysis:finalize.noSeatBody')}
+          action={{
+            label: t('analysis:finalize.acquireLockCta'),
+            onClick: handleAcquireSeat,
+            variant: 'primary',
+            icon: IconLock,
+          }}
+        />
       </Stack>
     );
   }
@@ -646,6 +738,9 @@ function FinalizeWizardViewInner(): ReactElement {
  */
 export default function FinalizeWizardView(): ReactElement {
   const { t } = useTranslation();
+  // ReviewSeatProvider lives in CaseShell so the seat survives navigation
+  // between Detail / Refine / Finalize. Do NOT wrap a second provider
+  // here — it would create an isolated empty seat that bypasses the shell.
   return (
     <EMRErrorBoundary
       componentName="FinalizeWizardView"

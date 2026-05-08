@@ -41,7 +41,9 @@ ANON_SIDECAR_URL = os.environ.get(
     "ANON_SIDECAR_URL", "http://localhost:7070/anonymize"
 )
 ANON_POLL_INTERVAL_S = 1.0
-ANON_POLL_TIMEOUT_S = 14.0  # stays below the 15 s soft budget
+# Default 14 s stays below the 15 s prod soft budget. Local-dev with
+# real DICOM anonymization on 2000+ slice studies needs longer.
+ANON_POLL_TIMEOUT_S = float(os.environ.get("ANON_POLL_TIMEOUT_S", "14"))
 
 
 async def _run(
@@ -55,6 +57,23 @@ async def _run(
     study_uuid = UUID(study_id)
 
     async def _invoke_sidecar() -> dict[str, Any]:
+        # Local-dev bypass: when ANON_SIDECAR_BYPASS=true (no CTP sidecar
+        # in the laptop docker-compose), short-circuit with a synthetic
+        # "done" response so the rest of the cascade can run on the real
+        # 4-phase NIfTI volumes that dicom_to_nifti.py already staged in
+        # MinIO during ingestion. Never enable in prod — PHI must be
+        # scrubbed before any inference touches the volume.
+        bypass = os.environ.get("ANON_SIDECAR_BYPASS", "").lower() in {"1", "true", "yes"}
+        if bypass:
+            logger.warning(
+                "anonymization bypassed (ANON_SIDECAR_BYPASS=true) — analysis=%s",
+                analysis_uuid,
+            )
+            return {
+                "status": "done",
+                "output_uri": f"passthrough://no-anon-sidecar/{study_uuid}",
+            }
+
         async with httpx.AsyncClient(timeout=ANON_POLL_TIMEOUT_S) as client:
             resp = await client.post(
                 ANON_SIDECAR_URL,

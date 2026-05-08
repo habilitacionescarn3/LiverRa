@@ -50,6 +50,10 @@ const LesionsPanelView = lazy(() => import('./emr/views/cases/LesionsPanelView')
 const RefinementView = lazy(() => import('./emr/views/cases/RefinementView'));
 const FinalizeWizardView = lazy(() => import('./emr/views/cases/FinalizeWizardView'));
 const ReportView = lazy(() => import('./emr/views/cases/ReportView'));
+// CaseShell is small + always rendered when any /cases/:id/* route is
+// active — keep it eager to avoid an extra Suspense flash on every
+// in-case navigation (Refine ↔ Finalize ↔ Detail).
+import CaseShell from './emr/views/cases/CaseShell';
 
 // Shared lazy views (also referenced by nav/route-registration modules —
 // imported from the single-source registry to avoid duplicate chunks).
@@ -140,49 +144,58 @@ export const appRouter = createBrowserRouter([
         ),
         handle: { breadcrumb: () => 'Cases' },
       },
+      // /cases/:id/* — all sub-routes share a single ReviewSeatProvider via
+      // CaseShell so the seat survives navigation between Detail/Lesions/
+      // Refine/Finalize.
       {
         path: LIVERRA_ROUTES.CASE_DETAIL,
-        element: (
-          <Guarded requires={['study.view']}>
-            <Lazy>
-              <AnalysisDetailView />
-            </Lazy>
-          </Guarded>
-        ),
-        handle: { breadcrumb: () => 'Case' },
-      },
-      {
-        path: LIVERRA_ROUTES.CASE_LESIONS,
-        element: (
-          <Guarded requires={['study.view']}>
-            <Lazy>
-              <LesionsPanelView />
-            </Lazy>
-          </Guarded>
-        ),
-        handle: { breadcrumb: () => 'Lesions' },
-      },
-      {
-        path: LIVERRA_ROUTES.CASE_REFINE,
-        element: (
-          <Guarded requires={['review.refine_mask']}>
-            <Lazy>
-              <RefinementView />
-            </Lazy>
-          </Guarded>
-        ),
-        handle: { breadcrumb: () => 'Refine' },
-      },
-      {
-        path: LIVERRA_ROUTES.CASE_FINALIZE,
-        element: (
-          <Guarded requires={['report.finalize']}>
-            <Lazy>
-              <FinalizeWizardView />
-            </Lazy>
-          </Guarded>
-        ),
-        handle: { breadcrumb: () => 'Finalize' },
+        element: <CaseShell />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Guarded requires={['study.view']}>
+                <Lazy>
+                  <AnalysisDetailView />
+                </Lazy>
+              </Guarded>
+            ),
+            handle: { breadcrumb: () => 'Case' },
+          },
+          {
+            path: 'lesions',
+            element: (
+              <Guarded requires={['study.view']}>
+                <Lazy>
+                  <LesionsPanelView />
+                </Lazy>
+              </Guarded>
+            ),
+            handle: { breadcrumb: () => 'Lesions' },
+          },
+          {
+            path: 'refine',
+            element: (
+              <Guarded requires={['review.refine_mask']}>
+                <Lazy>
+                  <RefinementView />
+                </Lazy>
+              </Guarded>
+            ),
+            handle: { breadcrumb: () => 'Refine' },
+          },
+          {
+            path: 'finalize',
+            element: (
+              <Guarded requires={['report.finalize']}>
+                <Lazy>
+                  <FinalizeWizardView />
+                </Lazy>
+              </Guarded>
+            ),
+            handle: { breadcrumb: () => 'Finalize' },
+          },
+        ],
       },
       {
         path: LIVERRA_ROUTES.REPORT_VIEW,

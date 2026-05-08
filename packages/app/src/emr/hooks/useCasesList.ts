@@ -52,19 +52,60 @@ export interface CasesListFilters {
   search?: string;
 }
 
-export interface CasesListItem {
+/**
+ * Raw API row from `GET /api/v1/analyses` (snake_case, matches
+ * `AnalysisListItem` in `packages/ml-inference/src/api/analysis.py`).
+ */
+export interface CasesListApiItem {
   id: string;
-  studyId: string;
-  status: AnalysisStatusFilter;
-  createdAt: string;
-  updatedAt: string;
-  stage?: string;
+  study_id: string;
+  study_instance_uid: string | null;
+  patient_ref: string | null;
+  status: AnalysisStatusFilter | string;
+  queued_at: string;
+  completed_at: string | null;
+  pipeline_version: string;
+  /** Populated once the list endpoint joins flr_calculation (Fix 3). */
+  flr_pct?: number | null;
+}
+
+/**
+ * Transformed row consumed by `CasesListView` (camelCase, view-shaped).
+ */
+export interface CasesListItem {
+  analysisId: string;
+  studyUidShort: string;
+  patientReference: string;
+  uploadedAt: string;
+  status: AnalysisStatusFilter | string;
+  flrPct?: number;
+  thumbnailUrl?: string;
+  phaseCoverage?: PhaseCoverage[];
 }
 
 export interface CasesListPage {
   items: CasesListItem[];
   /** Opaque cursor for the next page; `null` = last page. */
   nextPageToken: string | null;
+}
+
+/**
+ * Transform a snake_case API row into the camelCase shape the view binds
+ * against. Single source of truth — used by both `useCasesList()` and the
+ * local stub in `CasesListView`.
+ */
+export function transformApiAnalysisRow(api: CasesListApiItem): CasesListItem {
+  return {
+    analysisId: api.id,
+    studyUidShort:
+      (api.study_instance_uid ?? '').slice(-12) || api.study_id.slice(0, 8),
+    patientReference: api.patient_ref ?? '—',
+    uploadedAt: api.queued_at,
+    status: api.status,
+    flrPct: api.flr_pct ?? undefined,
+    thumbnailUrl: undefined,
+    phaseCoverage: undefined,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +136,15 @@ async function fetchCasesPage(
 
   const res = await fetch(url.toString(), { credentials: 'include' });
   if (!res.ok) throw new Error(`Failed to load cases list: HTTP ${res.status}`);
-  return (await res.json()) as CasesListPage;
+  const raw = (await res.json()) as {
+    items: CasesListApiItem[];
+    next_page_token?: string | null;
+    nextPageToken?: string | null;
+  };
+  return {
+    items: (raw.items ?? []).map(transformApiAnalysisRow),
+    nextPageToken: raw.nextPageToken ?? raw.next_page_token ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -36,6 +36,8 @@ export interface ColdStartIndicatorProps {
     | 'queued'
     | 'running'
     | 'done'
+    | 'completed'
+    | 'partial'
     | 'failed'
     | 'cancelled';
   /** Optional API base URL override. */

@@ -57,6 +57,10 @@ _DEFAULT_VOXEL_VOLUME_ML = (2.3 ** 3) / 1000.0  # match parenchyma task
 
 
 def _download_mask(s3_client: Any, uri: str) -> np.ndarray:
+    """Read a NIfTI mask from S3. Uses a temp file + nib.load() rather
+    than Nifti1Image.from_bytes(), because the latter only handles
+    uncompressed NIfTI bytes — masks written by SimpleITK to .nii.gz
+    are properly gzipped and would fail with HeaderDataError."""
     if nib is None:
         raise RuntimeError("nibabel is not installed")
     assert uri.startswith("s3://"), f"expected s3:// URI, got {uri!r}"
@@ -64,11 +68,13 @@ def _download_mask(s3_client: Any, uri: str) -> np.ndarray:
     bucket, _, key = bucket_key.partition("/")
     obj = s3_client.get_object(Bucket=bucket, Key=key)
     raw = obj["Body"].read()
-    fh = io.BytesIO(raw)
-    # nibabel requires a file-like with a ``name`` attr for .nii.gz autodetect.
-    fh.name = os.path.basename(key)  # type: ignore[attr-defined]
-    nii = nib.Nifti1Image.from_bytes(raw)  # type: ignore[attr-defined]
-    return np.asarray(nii.get_fdata(), dtype=np.uint8)
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        nii = nib.load(tf.name)  # type: ignore[attr-defined]
+        data = np.asarray(nii.get_fdata(), dtype=np.uint8)
+    return data
 
 
 def _compute_default_plane(mask: np.ndarray) -> tuple[dict[str, Any], int, int]:
@@ -122,9 +128,13 @@ async def _persist_flr(
                         total_ml,
                         flr_ml,
                         flr_pct,
+                        remnant_volume_ml,
+                        remnant_pct_functional,
+                        author,
                         computed_at
                     )
-                    VALUES (:aid, CAST(:pose AS jsonb), :total, :flr, :pct, now())
+                    VALUES (:aid, CAST(:pose AS jsonb), :total, :flr, :pct,
+                            :flr, :pct, 'ai_default', now())
                     ON CONFLICT DO NOTHING
                     """
                 ),

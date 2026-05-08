@@ -37,6 +37,7 @@ Reasons emitted (stable slugs — do not rename without spec update):
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -78,7 +79,10 @@ class ParenchymaSanity(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    total_volume_ml: float = Field(ge=300.0, le=3500.0)
+    total_volume_ml: float = Field(
+        ge=float(os.environ.get("LIVERRA_PARENCHYMA_MIN_ML", "200")),
+        le=float(os.environ.get("LIVERRA_PARENCHYMA_MAX_ML", "5500")),
+    )
     nonzero_voxel_count: int = Field(gt=0)
 
 

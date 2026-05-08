@@ -32,8 +32,7 @@
  */
 
 import { useMediaQuery } from '@mantine/hooks';
-import { ActionIcon, Box, Burger, Group, Text } from '@mantine/core';
-import { IconMenu2 } from '@tabler/icons-react';
+import { Box, Burger, Group, Text } from '@mantine/core';
 import { useCallback, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
@@ -43,6 +42,7 @@ import {
   EMRMainMenu,
   HorizontalSubMenu,
   SessionRecoveryBanner,
+  UserMenuButton,
   type NavItem,
   type SubMenuItem,
 } from './components/nav';
@@ -164,11 +164,7 @@ export function EMRPage({
         <Box style={{ flex: 1 }}>
           <Breadcrumbs />
         </Box>
-        {!isMobile && (
-          <ActionIcon variant="subtle" aria-label="Menu" onClick={toggleSidebar}>
-            <IconMenu2 size={20} />
-          </ActionIcon>
-        )}
+        <UserMenuButton />
       </Box>
 
       {/* ===== Session recovery banner (sticky) ===== */}

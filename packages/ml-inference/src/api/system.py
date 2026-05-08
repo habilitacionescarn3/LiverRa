@@ -120,7 +120,10 @@ async def _probe_orthanc() -> Dict[str, Any]:
     try:
         import httpx  # type: ignore[import-untyped]
 
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        user = os.environ.get("ORTHANC_USERNAME")
+        password = os.environ.get("ORTHANC_PASSWORD")
+        auth = (user, password) if user and password else None
+        async with httpx.AsyncClient(timeout=3.0, auth=auth) as client:
             resp = await client.get(f"{url.rstrip('/')}/system")
             return (
                 {"status": "ok"}

@@ -31,6 +31,7 @@ import {
   IconFilter,
   IconFolderOpen,
   IconListDetails,
+  IconPlayerPlay,
   IconUpload,
 } from '@tabler/icons-react';
 import {
@@ -43,13 +44,18 @@ import {
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
 
-/** Analysis status values mirror the backend enum (T133). */
+/** Analysis status values mirror the backend enum (T133).
+ *
+ * Note: backend's Postgres CHECK constraint emits `'completed'`; legacy
+ * frontend code paths still reference `'done'`. Both are accepted here
+ * until the enum is fully aligned. */
 export type AnalysisStatus =
   | 'uploading'
   | 'anonymizing'
   | 'queued'
   | 'running'
   | 'done'
+  | 'completed'
   | 'failed'
   | 'cancelled';
 
@@ -128,6 +134,7 @@ function filtersToQuery(filters: Filters): Record<string, string> {
 function statusColor(status: AnalysisStatus): string {
   switch (status) {
     case 'done':
+    case 'completed':
       return 'var(--emr-success)';
     case 'failed':
     case 'cancelled':
@@ -200,13 +207,43 @@ function useCasesListStub(
     setLoading(true);
     setError(null);
     const query = new URLSearchParams(filtersToQuery(filters));
-    fetch(`${apiBaseUrl}/analyses?${query.toString()}`, { credentials: 'include' })
+    fetch(`${apiBaseUrl}/analyses?${query.toString()}`, {
+      credentials: 'include',
+      headers: { Authorization: 'Bearer dev-access-token' },
+    })
       .then((r) => {
         if (!r.ok) throw new Error(`GET /analyses failed: ${r.status}`);
-        return r.json() as Promise<CasesListResponse>;
+        return r.json() as Promise<{
+          items?: Array<{
+            id: string;
+            study_id: string;
+            study_instance_uid?: string | null;
+            patient_ref?: string | null;
+            status: string;
+            queued_at: string;
+            completed_at?: string | null;
+            pipeline_version?: string;
+            flr_pct?: number | null;
+          }>;
+          next_page_token?: string | null;
+          total?: number;
+        }>;
       })
       .then((payload) => {
-        if (!cancelled) setData(payload);
+        if (cancelled) return;
+        const apiItems = payload.items ?? [];
+        const rows: CaseRow[] = apiItems.map((api) => ({
+          analysisId: api.id,
+          studyUidShort:
+            (api.study_instance_uid ?? '').slice(-12) || api.study_id.slice(0, 8),
+          patientReference: api.patient_ref ?? '—',
+          uploadedAt: api.queued_at,
+          status: api.status as AnalysisStatus,
+          flrPct: api.flr_pct ?? undefined,
+          thumbnailUrl: undefined,
+          phaseCoverage: undefined,
+        }));
+        setData({ items: rows, total: payload.total ?? rows.length });
       })
       .catch((err: Error) => {
         if (!cancelled) setError(err);
@@ -382,13 +419,22 @@ function CasesListViewInner({
         subtitle={t('analysis:cases.subtitle')}
         badge={data ? { count: data.total, variant: 'primary' } : undefined}
         actions={
-          <EMRButton
-            variant="primary"
-            icon={IconUpload}
-            onClick={() => navigate('/emr/upload')}
-          >
-            {t('analysis:cases.newUpload')}
-          </EMRButton>
+          <Group gap="xs" wrap="wrap">
+            <EMRButton
+              variant="ghost"
+              icon={IconPlayerPlay}
+              onClick={() => navigate('/demo-case')}
+            >
+              {t('nav:try_demo')}
+            </EMRButton>
+            <EMRButton
+              variant="primary"
+              icon={IconUpload}
+              onClick={() => navigate('/pacs/studies')}
+            >
+              {t('analysis:cases.newUpload')}
+            </EMRButton>
+          </Group>
         }
       />
 
@@ -498,6 +544,10 @@ function CasesListViewInner({
             onClick: () => navigate('/pacs/studies'),
             icon: IconFolderOpen,
           }}
+          secondaryAction={{
+            label: t('nav:try_demo'),
+            onClick: () => navigate('/demo-case'),
+          }}
         />
       )}
 
@@ -510,7 +560,7 @@ function CasesListViewInner({
               row={row}
               locale={locale}
               t={t}
-              onClick={() => navigate(`/emr/cases/${row.analysisId}`)}
+              onClick={() => navigate(`/cases/${row.analysisId}`)}
             />
           ))}
         </SimpleGrid>
@@ -549,7 +599,7 @@ function CasesListViewInner({
                 <Table.Tr
                   key={row.analysisId}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/emr/cases/${row.analysisId}`)}
+                  onClick={() => navigate(`/cases/${row.analysisId}`)}
                 >
                   <Table.Td>
                     <Box
@@ -602,7 +652,7 @@ function CasesListViewInner({
                     <EMRButton
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/emr/cases/${row.analysisId}`)}
+                      onClick={() => navigate(`/cases/${row.analysisId}`)}
                     >
                       {t('analysis:cases.open')}
                     </EMRButton>

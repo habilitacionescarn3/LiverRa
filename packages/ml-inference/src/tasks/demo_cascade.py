@@ -229,10 +229,12 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
                 """,
                 (
                     analysis_id,
-                    json.dumps({"normal": [1, 0, 0], "point": [256, 256, 128], "plane": "sagittal_falciform"}),
+                    # Axial-cut plane at mid-volume so FlrPlaneOverlay paints
+                    # the purple band in the default (axial) viewport in dev.
+                    json.dumps({"axis": "axial", "z_index": 128, "plane": "axial_midline"}),
                     total_ml, flr_ml, flr_pct,
-                    json.dumps({"x": 1, "y": 0, "z": 0}),
-                    256.0, resected_ml, flr_ml, flr_pct,
+                    json.dumps({"x": 0, "y": 0, "z": 1}),
+                    128.0, resected_ml, flr_ml, flr_pct,
                 ),
             )
         conn.commit()

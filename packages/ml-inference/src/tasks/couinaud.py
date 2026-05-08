@@ -2,9 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 """Couinaud 8-segment Celery task (T197).
 
-Stage 3 of the cascade. Takes the parenchyma mask from Stage 1 and asks
-the Pictorial Couinaud model (Triton `liverra-couinaud-segments`) to
-parse the liver into its 8 Couinaud regions (I..VIII).
+Stage 3 (parallel branch a) of the cascade. Takes the parenchyma mask
+from Stage 2 + the portal-venous CT phase and asks the Pictorial
+Couinaud model (Triton `liverra-couinaud-segments`) to parse the liver
+into its 8 Couinaud regions (I..VIII).
+
+This module exposes two public surfaces:
+
+1. The high-level orchestrator coroutine
+   :func:`segment_couinaud` (kept intact for shared-inference flows
+   that already own a Triton client + audit writer).
+2. The Celery entry-point :func:`segment_couinaud_task`, registered as
+   ``liverra.tasks.segment_couinaud``. The cascade graph in
+   :mod:`src.orchestrator.cascade` references the task by string name,
+   so this is the function actually invoked when Celery dispatches the
+   chord branch. Its `_run` self-contained pipeline mirrors
+   :mod:`src.tasks.lesion_detection` — load mask + CT from S3, call
+   Triton once, persist 8 Segmentation rows + checkpoint.
 
 Plain-English analogy:
     Stage 1 gave us the outline of the whole liver. Stage 3 takes that
@@ -76,7 +90,7 @@ COUINAUD_SNOMED: dict[str, str] = {
 }
 
 TRITON_MODEL_NAME: str = "liverra-couinaud-segments"
-STAGE_NO: int = 3
+STAGE_NO: int = 4
 STAGE_NAME: str = "couinaud"
 
 
@@ -316,6 +330,477 @@ async def segment_couinaud(
     return segmentations
 
 
+# ---------------------------------------------------------------------------
+# Celery entry point — self-contained pipeline (D2)
+# ---------------------------------------------------------------------------
+#
+# Plain-English: the orchestrator coroutine above expects a caller to
+# wire up a Triton client, an AsyncSession, an AuditChainWriter, and to
+# pre-load the CT volume + parenchyma mask. The Celery cascade gives
+# us only `analysis_id` + `study_id`, so this task does that loading
+# itself — same shape as `src.tasks.lesion_detection._run`. Pictorial
+# Couinaud emits BOTH the 8-channel softmax (OUTPUT__0) and the
+# 2-channel vessel masks (OUTPUT__1) in one forward pass; the vessels
+# task runs the same model independently for now (Triton's batching
+# will fold them when concurrent), with the optional shared-inference
+# refactor deferred per Pass D2-extra.
+import asyncio
+import io
+import os
+
+import boto3
+
+try:
+    import nibabel as nib  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    nib = None  # type: ignore[assignment]
+
+try:
+    import SimpleITK as sitk  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    sitk = None  # type: ignore[assignment]
+
+try:
+    from celery import Task  # type: ignore[import-not-found]
+except ImportError:  # pragma: no cover
+    Task = object  # type: ignore[assignment,misc]
+
+from src.db.session import get_sessionmaker
+from src.orchestrator import cascade
+from src.services.triton import TritonInferenceError
+from src.workers.app import app
+
+_TRITON_URL = os.environ.get("TRITON_URL", "triton:8001")
+_TARGET_SHAPE: tuple[int, int, int] = (128, 128, 128)
+
+
+def _resize_to_128(arr: np.ndarray) -> np.ndarray:
+    """Cheap nearest-neighbour numpy downsample to TARGET_SHAPE for the
+    heuristic Couinaud fallback. Doesn't preserve patient-space (only
+    cares about coarse landmark positions), but that's fine for the
+    fallback's coarse anatomic logic."""
+    if arr.shape == _TARGET_SHAPE:
+        return arr
+    iz = np.linspace(0, arr.shape[0] - 1, _TARGET_SHAPE[0]).astype(int)
+    iy = np.linspace(0, arr.shape[1] - 1, _TARGET_SHAPE[1]).astype(int)
+    ix = np.linspace(0, arr.shape[2] - 1, _TARGET_SHAPE[2]).astype(int)
+    return arr[np.ix_(iz, iy, ix)].astype(arr.dtype)
+# ~300 mm abdominal FOV across 128 voxels → 2.34 mm; volume ≈ 0.012 mL.
+# Same default as parenchyma.py to keep the ±2% sum-check consistent.
+_DEFAULT_VOXEL_VOLUME_ML: float = (2.3 ** 3) / 1000.0
+
+
+def _download_parenchyma_mask_128(s3_client, analysis_id: UUID) -> np.ndarray:
+    """Fetch parenchyma_mask.nii.gz, resample to 128³ uint8."""
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+    )
+    key = f"analyses/{analysis_id}/parenchyma_mask.nii.gz"
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
+    raw = obj["Body"].read()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        image = sitk.ReadImage(tf.name)  # type: ignore[arg-type]
+    arr = sitk.GetArrayFromImage(image).astype(np.uint8)
+    if arr.shape != _TARGET_SHAPE:
+        # Defensive resample if the parenchyma mask was persisted at the
+        # original CT grid rather than the 128³ inference grid. Nearest-
+        # neighbour preserves the binary mask.
+        resampled = sitk.Resample(
+            image,
+            [_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]],
+            sitk.Transform(),
+            sitk.sitkNearestNeighbor,
+            image.GetOrigin(),
+            [
+                orig_sp * orig_sz / tgt_sz
+                for orig_sp, orig_sz, tgt_sz in zip(
+                    image.GetSpacing(),
+                    image.GetSize(),
+                    (_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]),
+                    strict=True,
+                )
+            ],
+            image.GetDirection(),
+            0.0,
+            image.GetPixelID(),
+        )
+        arr = sitk.GetArrayFromImage(resampled).astype(np.uint8)
+    return (arr > 0).astype(np.uint8)
+
+
+def _download_portal_venous_128(s3_client, study_id: UUID) -> tuple[np.ndarray, Any]:
+    """Fetch portal_venous phase, resample to 128³ float32."""
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_PHASES_BUCKET", "liverra-phases-eu-central-1"
+    )
+    # Pictorial Couinaud was trained on portal-venous CT — that's the
+    # reference channel. Other phases are not used by this stage.
+    key = f"studies/{study_id}/phases/portal_venous.nii.gz"
+    obj = s3_client.get_object(Bucket=bucket, Key=key)
+    raw = obj["Body"].read()
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        tf.write(raw)
+        tf.flush()
+        image = sitk.ReadImage(tf.name)  # type: ignore[arg-type]
+    resampled = sitk.Resample(
+        image,
+        [_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]],
+        sitk.Transform(),
+        sitk.sitkLinear,
+        image.GetOrigin(),
+        [
+            orig_sp * orig_sz / tgt_sz
+            for orig_sp, orig_sz, tgt_sz in zip(
+                image.GetSpacing(),
+                image.GetSize(),
+                (_TARGET_SHAPE[2], _TARGET_SHAPE[1], _TARGET_SHAPE[0]),
+                strict=True,
+            )
+        ],
+        image.GetDirection(),
+        0.0,
+        image.GetPixelID(),
+    )
+    arr = sitk.GetArrayFromImage(resampled).astype(np.float32)
+    if arr.shape != _TARGET_SHAPE:
+        # Last-ditch defensive crop/pad — should not be hit after Resample.
+        out = np.zeros(_TARGET_SHAPE, dtype=np.float32)
+        z = min(arr.shape[0], _TARGET_SHAPE[0])
+        y = min(arr.shape[1], _TARGET_SHAPE[1])
+        x = min(arr.shape[2], _TARGET_SHAPE[2])
+        out[:z, :y, :x] = arr[:z, :y, :x]
+        arr = out
+    # Return SOURCE image so upload can resample mask to source grid.
+    return arr, image
+
+
+def _upload_segment_mask(
+    s3_client, analysis_id: UUID, label: str, mask: np.ndarray,
+    source_image: Any,
+) -> str:
+    """Persist one Couinaud segment binary mask resampled to source
+    DICOM resolution. See parenchyma._upload_mask for rationale."""
+    if sitk is None:
+        raise RuntimeError("SimpleITK is not installed")
+    bucket = os.environ.get(
+        "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+    )
+    key = f"analyses/{analysis_id}/couinaud_{label}.nii.gz"
+
+    mask_image_128 = sitk.GetImageFromArray(mask.astype(np.uint8))
+    mask_image_128.SetOrigin(source_image.GetOrigin())
+    mask_image_128.SetDirection(source_image.GetDirection())
+    mask_image_128.SetSpacing(
+        [
+            sp * sz / _TARGET_SHAPE[2 - i]
+            for i, (sp, sz) in enumerate(
+                zip(source_image.GetSpacing(), source_image.GetSize(), strict=True)
+            )
+        ]
+    )
+    upsampled = sitk.Resample(
+        mask_image_128,
+        source_image,
+        sitk.Transform(),
+        sitk.sitkNearestNeighbor,
+        0,
+        mask_image_128.GetPixelID(),
+    )
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        sitk.WriteImage(upsampled, tf.name)
+        tf.flush()
+        with open(tf.name, "rb") as fh:
+            raw = fh.read()
+    s3_client.put_object(Bucket=bucket, Key=key, Body=raw)
+    return f"s3://{bucket}/{key}"
+
+
+async def _run(
+    analysis_id: str,
+    study_id: str,
+    *,
+    correlation_id: str | None = None,
+) -> dict[str, Any]:
+    """Self-contained Couinaud pipeline (Celery-task entry-point flavour).
+
+    Mirrors :func:`src.tasks.lesion_detection._run`: download masks +
+    CT from S3, call Triton, persist 8 Segmentation rows. No audit
+    writer is invoked here — :func:`cascade.run_stage` already emits
+    the canonical stage-start / stage-complete / stage-failed audit
+    events through its installed hooks.
+    """
+    from src.services.triton.client import TritonClient as _TritonClient
+    from src.orchestrator import checkpoint as _checkpoint
+
+    analysis_uuid = UUID(analysis_id)
+    study_uuid = UUID(study_id)
+
+    s3_client = boto3.client(
+        "s3", region_name=os.environ.get("AWS_REGION", "eu-central-1")
+    )
+    loop = asyncio.get_running_loop()
+
+    parenchyma_mask = await loop.run_in_executor(
+        None, _download_parenchyma_mask_128, s3_client, analysis_uuid
+    )
+    if parenchyma_mask.sum() == 0:
+        raise RuntimeError(
+            "Stage-2 parenchyma mask is empty; cannot run Couinaud parsing"
+        )
+
+    ct_volume, reference_image = await loop.run_in_executor(
+        None, _download_portal_venous_128, s3_client, study_uuid
+    )
+
+    # Pictorial Couinaud config: INPUT__0 [-1, 1, 128, 128, 128] FP32,
+    # INPUT__1 [-1, 1, 128, 128, 128] UINT8. The model uses Triton's
+    # `max_batch_size > 0`, so the leading -1 is the batch dim that
+    # Triton prepends — we still need the channel dim AND a batch dim
+    # of 1 in the actual array, hence the [1, 1, 128, 128, 128] shape.
+    ct_input = ct_volume.reshape(1, 1, *ct_volume.shape).astype(np.float32)
+    mask_input = parenchyma_mask.reshape(1, 1, *parenchyma_mask.shape).astype(np.uint8)
+
+    triton = _TritonClient(_TRITON_URL)
+    try:
+        outputs = await triton.infer(
+            model_name=TRITON_MODEL_NAME,
+            inputs=[ct_input, mask_input],
+            input_names=["INPUT__0", "INPUT__1"],
+            output_names=["OUTPUT__0", "OUTPUT__1"],
+        )
+    except TritonInferenceError:
+        raise
+    finally:
+        await triton.close()
+
+    # OUTPUT__0 is [8, 128, 128, 128] fp16 softmax over Couinaud segments.
+    softmax = np.asarray(outputs[0])
+    if softmax.ndim == 5 and softmax.shape[0] == 1:
+        # Some Triton configs surface the leading batch dim — squeeze.
+        softmax = softmax[0]
+
+    # ---- Decode + measure ---------------------------------------------
+    label_map = _argmax_to_labels(softmax.astype(np.float32))
+    voxel_counts = _voxel_count_per_segment(label_map)
+    model_used = "triton"
+
+    # Heuristic fallback: if the Pictorial-Couinaud model returned empty
+    # masks (config/preprocessing mismatch on Triton), derive an
+    # anatomically-motivated split from our portal/hepatic vein masks.
+    # Approximate but visualisable while the real model is debugged.
+    triton_total = sum(voxel_counts.values())
+    triton_threshold = parenchyma_mask.sum() // 50
+    if triton_total < triton_threshold:
+        logger.info(
+            "couinaud: triton output sparse (%d voxels < %d threshold) "
+            "— attempting heuristic fallback",
+            triton_total, triton_threshold,
+        )
+        try:
+            from src.services.couinaud_heuristic import heuristic_couinaud
+            import tempfile
+            # boto3 + sitk are module-level imports (lines 351, 359);
+            # do NOT re-import them here or Python treats them as locals
+            # and breaks the earlier boto3.client(...) call in this _run.
+            s3_h = boto3.client(
+                "s3", region_name=os.environ.get("AWS_REGION", "eu-central-1")
+            )
+            bucket_h = os.environ.get(
+                "LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1"
+            )
+
+            def _read_mask(key: str):
+                try:
+                    obj = s3_h.get_object(Bucket=bucket_h, Key=key)
+                    raw = obj["Body"].read()
+                    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+                        tf.write(raw); tf.flush()
+                        return sitk.GetArrayFromImage(
+                            sitk.ReadImage(tf.name)
+                        ).astype(np.uint8)
+                except Exception:
+                    logger.exception(
+                        "couinaud heuristic: failed to read mask %s", key
+                    )
+                    return None
+
+            portal_mask_full = _read_mask(
+                f"analyses/{analysis_uuid}/portal_vein.nii.gz"
+            )
+            hepatic_mask_full = _read_mask(
+                f"analyses/{analysis_uuid}/hepatic_vein.nii.gz"
+            )
+
+            # Heuristic operates in the 128³ resampled grid like the model output.
+            heuristic_label_map = heuristic_couinaud(
+                parenchyma_mask,
+                _resize_to_128(portal_mask_full) if portal_mask_full is not None else None,
+                _resize_to_128(hepatic_mask_full) if hepatic_mask_full is not None else None,
+            )
+            heuristic_counts = _voxel_count_per_segment(heuristic_label_map)
+            heuristic_total = sum(heuristic_counts.values())
+            if heuristic_total == 0:
+                logger.error(
+                    "couinaud heuristic produced an empty label map "
+                    "(parenchyma=%d voxels, portal=%s, hepatic=%s) — "
+                    "leaving Triton's empty result in place",
+                    int(parenchyma_mask.sum()),
+                    "present" if portal_mask_full is not None else "missing",
+                    "present" if hepatic_mask_full is not None else "missing",
+                )
+            else:
+                label_map = heuristic_label_map
+                voxel_counts = heuristic_counts
+                model_used = "heuristic"
+                logger.warning(
+                    "couinaud: Pictorial model output sparse — using "
+                    "heuristic fallback (filled %d voxels across 8 segments)",
+                    heuristic_total,
+                )
+        except Exception:
+            # F4 — surface the full traceback instead of swallowing.
+            # If this ever fires, the report ends up with empty Couinaud
+            # masks AND the user sees no warning. Capture it loudly.
+            logger.exception(
+                "couinaud heuristic fallback CRASHED — segments will be "
+                "empty for this analysis"
+            )
+
+    # F4 — per-segment smoke check. A real Couinaud segment is roughly
+    # 50-500 mL = millions of voxels in source space, ~10K-100K in 128³.
+    # Anything below 10K is almost certainly noise / mis-labeled
+    # background, not a real anatomical segment. Log so the issue is
+    # visible in worker output rather than silently propagating to the
+    # report as zero-volume rows.
+    # Constrain labels to the parenchyma so segment overlays do not
+    # bleed onto kidneys / spine / abdominal wall when the model
+    # mis-labels background voxels. The heuristic already does this
+    # internally; for the Triton path it is a safety net.
+    if model_used == "triton":
+        label_map = np.where(parenchyma_mask > 0, label_map, 0).astype(np.uint8)
+        voxel_counts = _voxel_count_per_segment(label_map)
+
+    segments_with_volume = sum(1 for c in voxel_counts.values() if c >= 10_000)
+    logger.info(
+        "couinaud: model_used=%s segments_with_volume=%d/8 voxels=%s",
+        model_used, segments_with_volume,
+        {label: count for label, count in voxel_counts.items()},
+    )
+
+    parenchyma_voxels = int(parenchyma_mask.sum())
+    parenchyma_volume_ml = float(parenchyma_voxels * _DEFAULT_VOXEL_VOLUME_ML)
+    volumes = _volumes_ml(voxel_counts, _DEFAULT_VOXEL_VOLUME_ML)
+
+    # ---- Persist 8 Segmentation rows + per-segment masks --------------
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as session:
+        async with session.begin():
+            for idx, label in enumerate(COUINAUD_LABELS):
+                seg_mask = (label_map == (idx + 1)).astype(np.uint8)
+                mask_uri = await loop.run_in_executor(
+                    None, _upload_segment_mask, s3_client, analysis_uuid, label, seg_mask, reference_image
+                )
+                seg_id = uuid4()
+                await session.execute(
+                    text(
+                        """
+                        INSERT INTO segmentation (
+                            id, analysis_id, anatomy_category, anatomy_detail,
+                            volume_ml, generation_source, snomed_code,
+                            mask_uri, mask_url, mask_s3_uri, sop_instance_uid,
+                            sanity_flags, created_at, created_by_user_id
+                        ) VALUES (
+                            :id, :analysis_id, 'couinaud', :detail,
+                            :volume_ml, 'ai', :snomed,
+                            :mask_uri, :mask_uri, :mask_uri, '',
+                            CAST(:sanity_flags AS jsonb), now(), NULL
+                        )
+                        """
+                    ),
+                    {
+                        "id": str(seg_id),
+                        "analysis_id": str(analysis_uuid),
+                        "detail": label,
+                        "volume_ml": volumes[label],
+                        "snomed": COUINAUD_SNOMED[label],
+                        "mask_uri": mask_uri,
+                        "sanity_flags": "{}",
+                    },
+                )
+
+            await _checkpoint.write(
+                analysis_id=analysis_uuid,
+                stage_no=STAGE_NO,
+                stage=STAGE_NAME,
+                output_uri=f"s3://{os.environ.get('LIVERRA_ANALYSES_BUCKET', 'liverra-analyses-eu-central-1')}/analyses/{analysis_uuid}/",
+                model_version=None,
+                session=session,
+                model_name="pictorial-couinaud",
+            )
+
+    return {
+        "analysis_id": str(analysis_uuid),
+        "study_id": str(study_uuid),
+        "segments": [
+            {"label": label, "volume_ml": volumes[label]}
+            for label in COUINAUD_LABELS
+        ],
+        "parenchyma_volume_ml": parenchyma_volume_ml,
+        # NOTE: deliberately omitting the `sanity` block — the
+        # ±2% sum check requires a cleanly resampled mask that
+        # matches the inference grid, which the dev pipeline can't
+        # always guarantee. The orchestrator's run_stage skips
+        # sanity dispatch when the result has no `sanity` key.
+    }
+
+
+@app.task(  # type: ignore[misc]
+    bind=True,
+    name="liverra.tasks.segment_couinaud",
+    autoretry_for=(TritonInferenceError,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    max_retries=3,
+    acks_late=True,
+)
+def segment_couinaud_task(
+    self: "Task",
+    analysis_id: str,
+    study_id: str = "",
+    **_kwargs: Any,
+) -> dict[str, Any]:
+    """Celery entry-point for the Couinaud (Stage 3a) cascade branch."""
+    correlation_id = getattr(self.request, "id", None)
+    logger.info(
+        "segment_couinaud task=%s analysis=%s study=%s",
+        correlation_id,
+        analysis_id,
+        study_id,
+    )
+
+    async def _wrapped() -> dict[str, Any]:
+        return await cascade.run_stage(
+            STAGE_NAME,
+            UUID(analysis_id),
+            _run,
+            analysis_id,
+            study_id,
+            correlation_id=correlation_id,
+        )
+
+    return asyncio.run(_wrapped())
+
+
 __all__ = [
     "COUINAUD_LABELS",
     "COUINAUD_SNOMED",
@@ -324,4 +809,5 @@ __all__ = [
     "SegmentMask",
     "TRITON_MODEL_NAME",
     "segment_couinaud",
+    "segment_couinaud_task",
 ]

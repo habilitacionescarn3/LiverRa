@@ -62,8 +62,12 @@ def _download_phase_volumes(
     s3_client: Any,
     analysis_id: UUID,
     study_id: UUID,
-) -> np.ndarray:
-    """Return an ``(4, D, H, W)`` float16 array of the 4 phase volumes.
+) -> tuple[np.ndarray, Any]:
+    """Return an ``(4, D, H, W)`` float16 array of the 4 phase volumes
+    AND a reference SimpleITK image carrying the resampled grid's
+    origin/spacing/direction so downstream mask uploads can write
+    NIfTI files with proper patient-space alignment (else viewers
+    overlay the 128³ mask at world origin and it floats off-CT).
 
     Phases that are missing for a study are filled with zeros (matches
     Stage 1 contract: ``phase_hint`` can be all-zero for that channel).
@@ -76,6 +80,14 @@ def _download_phase_volumes(
     bucket = os.environ.get("LIVERRA_PHASES_BUCKET", "liverra-phases-eu-central-1")
     phases = ("non_contrast", "arterial", "portal_venous", "delayed")
     channels: list[np.ndarray] = []
+    # Track ALL successfully-read source images alongside their phase
+    # names. We pass both to ``select_reference_phase`` so the cascade-
+    # wide ``LIVERRA_REFERENCE_PHASE`` env var (default ``portal_venous``)
+    # decides the reference grid — without that lock, parenchyma would
+    # pick arterial (largest) while vessels + couinaud hardcode
+    # portal_venous, producing Z-axis-mismatched masks.
+    source_images: list[Any] = []
+    source_phase_names: list[str] = []
     for phase in phases:
         key = f"studies/{study_id}/phases/{phase}.nii.gz"
         try:
@@ -119,7 +131,19 @@ def _download_phase_volumes(
             # but model inputs must be exact.
             arr = _center_pad_or_crop(arr, TARGET_SHAPE)
         channels.append(arr)
-    return np.stack(channels, axis=0)
+        source_images.append(image)
+        source_phase_names.append(phase)
+    if not source_images:
+        # All phases missing — synthesize a neutral reference so callers
+        # can still construct (misaligned) masks. In practice the cascade
+        # should fail earlier in stage 0 (ingest) when no phases exist.
+        reference_image = sitk.Image(
+            TARGET_SHAPE[2], TARGET_SHAPE[1], TARGET_SHAPE[0], sitk.sitkFloat32,
+        )
+    else:
+        from src.services.phase_selection import select_reference_phase
+        reference_image = select_reference_phase(source_images, source_phase_names)
+    return np.stack(channels, axis=0), reference_image
 
 
 def _center_pad_or_crop(arr: np.ndarray, target: tuple[int, int, int]) -> np.ndarray:
@@ -145,22 +169,56 @@ def _upload_mask(
     s3_client: Any,
     analysis_id: UUID,
     mask: np.ndarray,
+    source_image: Any,
 ) -> str:
-    """Persist the binary mask to S3 as NIfTI. Returns the S3 URI."""
-    if nib is None:
+    """Persist the binary mask to S3 as NIfTI at SOURCE DICOM resolution.
+
+    The Triton model produces a 128³ mask. Without resampling, viewers
+    show the mask as sparse dots scattered through high-resolution CT
+    slices (every ~3rd CT slice has a mask voxel; the rest show nothing).
+    We rebuild the 128³ mask geometry from `source_image`, then resample
+    it back to source grid with nearest-neighbor so every CT slice gets
+    a dense, anatomically correct overlay. Compresses well (binary +
+    gzip) so file size stays in the single-digit MB range.
+    """
+    if sitk is None:
         raise RuntimeError(
-            "nibabel is not installed; add `nibabel` to requirements.txt"
+            "SimpleITK is not installed; add `SimpleITK` to requirements.txt"
         )
 
     bucket = os.environ.get("LIVERRA_ANALYSES_BUCKET", "liverra-analyses-eu-central-1")
     key = f"analyses/{analysis_id}/parenchyma_mask.nii.gz"
 
-    nii = nib.Nifti1Image(mask.astype(np.uint8), affine=np.eye(4))  # type: ignore[attr-defined]
-    # nibabel's save() no longer accepts BytesIO directly; use the bytes API.
-    raw_bytes = bytes(nii.to_bytes())  # type: ignore[attr-defined]
-    buf = io.BytesIO(raw_bytes)
-    buf.seek(0)
-    s3_client.put_object(Bucket=bucket, Key=key, Body=buf.getvalue())
+    # Build mask at 128³ in the same patient-space extent as source.
+    mask_image_128 = sitk.GetImageFromArray(mask.astype(np.uint8))
+    mask_image_128.SetOrigin(source_image.GetOrigin())
+    mask_image_128.SetDirection(source_image.GetDirection())
+    mask_image_128.SetSpacing(
+        [
+            sp * sz / TARGET_SHAPE[2 - i]
+            for i, (sp, sz) in enumerate(
+                zip(source_image.GetSpacing(), source_image.GetSize(), strict=True)
+            )
+        ]
+    )
+
+    # Resample to source grid (nearest-neighbor preserves binary).
+    upsampled = sitk.Resample(
+        mask_image_128,
+        source_image,  # use as target geometry
+        sitk.Transform(),
+        sitk.sitkNearestNeighbor,
+        0,
+        mask_image_128.GetPixelID(),
+    )
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tf:
+        sitk.WriteImage(upsampled, tf.name)
+        tf.flush()
+        with open(tf.name, "rb") as fh:
+            raw = fh.read()
+    s3_client.put_object(Bucket=bucket, Key=key, Body=raw)
     return f"s3://{bucket}/{key}"
 
 
@@ -178,7 +236,7 @@ async def _run(
         "s3", region_name=os.environ.get("AWS_REGION", "eu-central-1")
     )
     loop = asyncio.get_running_loop()
-    volume = await loop.run_in_executor(
+    volume, reference_image = await loop.run_in_executor(
         None, _download_phase_volumes, s3_client, analysis_uuid, study_uuid
     )
     # Add leading batch dim → (1, 4, D, H, W).
@@ -202,13 +260,126 @@ async def _run(
 
     prob_mask = outputs[0]
     # Expected shape (1, 1, D, H, W) fp16; binarize at 0.5.
-    mask = (prob_mask[0, 0] > 0.5).astype(np.uint8)
+    # F6 — STU-Net parenchyma head emits low-confidence noise across the
+    # whole abdomen on this dataset, with the real liver as a confident
+    # core. The 0.5 threshold lets that noise bridge the liver to kidneys/
+    # bowel/spine into one giant connected component, defeating the CC
+    # cleanup below. Raising to 0.7 (env-tunable) keeps only the
+    # high-confidence core. If the model output is actually clean (later
+    # weights), this is a harmless tightening.
+    threshold = float(os.environ.get("LIVERRA_PARENCHYMA_THRESHOLD", "0.7"))
+    mask = (prob_mask[0, 0] > threshold).astype(np.uint8)
+
+    # F9 — HU-range filter. Disabled by default because the combination
+    # with F7 opening + F8 Z-band trim was over-aggressive on this study
+    # (real liver fragmented, pelvic structures kept as largest CC).
+    # Set ``LIVERRA_PARENCHYMA_HU_GATE=true`` to re-enable when STU-Net
+    # weights are recalibrated.
+    if os.environ.get("LIVERRA_PARENCHYMA_HU_GATE", "false").lower() == "true":
+        hu_lo = float(os.environ.get("LIVERRA_PARENCHYMA_HU_LO", "0"))
+        hu_hi = float(os.environ.get("LIVERRA_PARENCHYMA_HU_HI", "150"))
+        portal_hu = volume[2].astype(np.float32)
+        hu_gate = (portal_hu >= hu_lo) & (portal_hu <= hu_hi)
+        pre = int(mask.sum())
+        mask = (mask & hu_gate.astype(np.uint8)).astype(np.uint8)
+        logger.info(
+            "parenchyma cleanup: HU gate [%.0f, %.0f] dropped %d → %d voxels",
+            hu_lo, hu_hi, pre, int(mask.sum()),
+        )
+
+    # Connected-component cleanup: keep only the LARGEST component (the
+    # actual liver) and drop scattered false positives in kidney / bowel /
+    # spine regions. Fill internal holes (vessels passing through liver
+    # tissue) so the mask is a clean closed shape.
+    #
+    # F6/F7 — STU-Net's parenchyma head emits high-confidence noise across
+    # the whole abdomen on this dataset. The noise blobs connect to the
+    # real liver via thin 1-2 voxel bridges, so naive largest-CC keeps
+    # the entire body. binary_opening with a 2-voxel structuring element
+    # erodes those bridges before CC, isolating the real liver core.
+    try:
+        from scipy.ndimage import (
+            label as ndi_label,
+            binary_fill_holes,
+            binary_opening,
+            generate_binary_structure,
+        )
+        # 3D 6-neighborhood structuring element. With F9's HU gate
+        # already dropping bone/lung/fat/air, the remaining "bridges"
+        # between liver and noise are much thinner — iterations=1 is
+        # enough to break them without eroding the liver core.
+        struct = generate_binary_structure(3, 1)
+        opened = binary_opening(mask, structure=struct, iterations=1)
+        # If opening obliterates everything (mask was all noise + tiny
+        # specks), fall back to the original mask so largest-CC at least
+        # gives us SOMETHING to work with.
+        if opened.sum() > 0:
+            mask = opened.astype(np.uint8)
+            logger.info(
+                "parenchyma cleanup: binary_opening dropped %d → %d voxels "
+                "(thin bridges removed)",
+                int((mask | opened).sum()), int(mask.sum()),
+            )
+
+        labels_arr, n_components = ndi_label(mask)
+        if n_components > 1:
+            sizes = np.bincount(labels_arr.ravel())
+            sizes[0] = 0  # background
+            keep_label = int(sizes.argmax())
+            mask = (labels_arr == keep_label).astype(np.uint8)
+            logger.info(
+                "parenchyma cleanup: kept largest of %d components (%d voxels)",
+                n_components, int(sizes[keep_label]),
+            )
+
+        # F8 — Z-band trim. STU-Net's largest-CC blob still spans the
+        # full Z range on this study; the real liver is concentrated
+        # around its peak-density Z slice. Trim to ±25 voxels (in 128³)
+        # around the peak, which is ~40 cm at typical CT spacing — wide
+        # enough for any liver, narrow enough to discard kidneys/bowel/
+        # bone above and below.
+        z_band = int(os.environ.get("LIVERRA_PARENCHYMA_Z_BAND", "25"))
+        per_z = mask.sum(axis=(1, 2))
+        if per_z.sum() > 0:
+            peak_z = int(np.argmax(per_z))
+            z_lo = max(0, peak_z - z_band)
+            z_hi = min(mask.shape[0], peak_z + z_band + 1)
+            trimmed = np.zeros_like(mask)
+            trimmed[z_lo:z_hi] = mask[z_lo:z_hi]
+            kept = int(trimmed.sum())
+            dropped = int(mask.sum()) - kept
+            logger.info(
+                "parenchyma cleanup: Z-band trim peak_z=%d band=±%d kept=%d dropped=%d",
+                peak_z, z_band, kept, dropped,
+            )
+            mask = trimmed
+
+        mask = binary_fill_holes(mask).astype(np.uint8)
+    except Exception as exc:  # noqa: BLE001 — cleanup is best-effort
+        logger.warning("parenchyma CC cleanup skipped: %s", exc)
+
+    # F6 — Z-extent sanity check. A real liver spans ~15-20 cm, never the
+    # full abdominal CT. If the cleaned mask still occupies >60% of the
+    # CT Z-range, the model output is unreliable on this study; warn so
+    # downstream surfaces (QC flags) can flag the analysis as low-trust.
+    if mask.sum() > 0:
+        z_with_mask = np.where(mask.sum(axis=(1, 2)) > 0)[0]
+        z_extent = int(z_with_mask.max() - z_with_mask.min() + 1) if len(z_with_mask) else 0
+        z_total = int(mask.shape[0])
+        z_fraction = z_extent / z_total if z_total else 0
+        if z_fraction > 0.6:
+            logger.warning(
+                "parenchyma: mask Z-extent suspicious — spans %d/%d slices "
+                "(%.0f%%); STU-Net may be over-predicting on this study",
+                z_extent, z_total, z_fraction * 100,
+            )
+
     nonzero = int(mask.sum())
     total_volume_ml = float(nonzero * _DEFAULT_VOXEL_VOLUME_ML)
 
     # ---- Persist mask + checkpoint (T165 wiring) ---------------------
     output_uri = await loop.run_in_executor(
-        None, _upload_mask, s3_client, analysis_uuid, mask
+        None, _upload_mask, s3_client, analysis_uuid, mask, reference_image
     )
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
@@ -221,6 +392,29 @@ async def _run(
                 model_version=None,
                 session=session,
                 model_name="stu-net-parenchyma",
+            )
+            # Persist a `liver` segmentation row so the Segments tab can
+            # surface the parenchyma volume right after this stage. Idempotent
+            # via a NOT EXISTS guard so a Celery retry doesn't double-insert.
+            from sqlalchemy import text as _text  # local import: keep top-of-file lean
+            await session.execute(
+                _text(
+                    """
+                    INSERT INTO segmentation
+                      (analysis_id, anatomy_category, anatomy_detail, volume_ml,
+                       mask_url, mask_uri, sop_instance_uid, generation_source)
+                    SELECT :aid, 'liver', NULL, :vol, :uri, :uri, '', 'ai'
+                    WHERE NOT EXISTS (
+                      SELECT 1 FROM segmentation
+                      WHERE analysis_id = :aid AND anatomy_category = 'liver'
+                    )
+                    """
+                ),
+                {
+                    "aid": str(analysis_uuid),
+                    "vol": float(total_volume_ml),
+                    "uri": output_uri,
+                },
             )
 
     return {

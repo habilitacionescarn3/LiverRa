@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -12,7 +12,7 @@ const imaging = resolve(__dirname, '../imaging/src');
 // Dev-only stub for `/api/v1/*` so the UI renders before the FastAPI
 // backend (T183+) is reachable. Fixtures live in ./dev-mocks.ts.
 // Set VITE_LIVERRA_MOCK_API=false to opt out once the real backend is up.
-function liverraDevApiStub(): Plugin {
+function liverraDevApiStub(disabled: boolean): Plugin {
   const send = (
     res: { setHeader: (k: string, v: string) => void; statusCode: number; end: (b?: string) => void },
     status: number,
@@ -27,7 +27,7 @@ function liverraDevApiStub(): Plugin {
     name: 'liverra-dev-api-stub',
     apply: 'serve',
     configureServer(server) {
-      if (process.env.VITE_LIVERRA_MOCK_API === 'false') return;
+      if (disabled) return;
 
       server.middlewares.use((req, res, next) => {
         const url = req.url ?? '';
@@ -66,8 +66,18 @@ if (process.env.NODE_ENV === 'production' && process.env.VITE_LIVERRA_DEV_BYPASS
   );
 }
 
-export default defineConfig({
-  plugins: [liverraDevApiStub(), react()],
+export default defineConfig(({ mode }) => {
+  // Vite does NOT auto-load .env files into process.env (only into the
+  // client bundle's import.meta.env). loadEnv() makes the .env.local
+  // value visible here so devs can opt out of the stub via .env.local
+  // instead of having to remember to export VITE_LIVERRA_MOCK_API on
+  // every `npx vite` command.
+  const env = loadEnv(mode, __dirname, '');
+  const stubDisabled =
+    (env.VITE_LIVERRA_MOCK_API ?? process.env.VITE_LIVERRA_MOCK_API) === 'false';
+
+  return {
+  plugins: [liverraDevApiStub(stubDisabled), react()],
   server: {
     port: 5173,
     host: true,
@@ -155,4 +165,5 @@ export default defineConfig({
       { find: '@liverra/fhirtypes', replacement: resolve(__dirname, '../fhirtypes/src/index.ts') },
     ],
   },
+  };
 });

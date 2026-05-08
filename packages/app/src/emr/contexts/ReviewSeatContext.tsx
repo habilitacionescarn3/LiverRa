@@ -143,7 +143,7 @@ export function ReviewSeatProvider({
           review_id: string;
           analysis_id: string;
           seat_held_until: string;
-        }>('/api/v1/reviews', { analysis_id: analysisId });
+        }>('/reviews', { analysis_id: analysisId });
 
         reviewIdRef.current = response.review_id;
         setState({
@@ -191,7 +191,7 @@ export function ReviewSeatProvider({
     setState(INITIAL_STATE);
     if (rid) {
       try {
-        await client.post(`/api/v1/reviews/${rid}/release`, {});
+        await client.post(`/reviews/${rid}/release`, {});
       } catch {
         // Release is best-effort — the seat TTL will reap it anyway.
       }
@@ -200,7 +200,7 @@ export function ReviewSeatProvider({
 
   const requestTakeover = useCallback(
     async (analysisId: string): Promise<void> => {
-      await client.post('/api/v1/reviews/takeover-request', {
+      await client.post('/reviews/takeover-request', {
         analysis_id: analysisId,
       });
     },
@@ -218,7 +218,7 @@ export function ReviewSeatProvider({
       if (!rid) return;
       try {
         const res = await client.post<{ seat_held_until: string }>(
-          `/api/v1/reviews/${rid}/heartbeat`,
+          `/reviews/${rid}/heartbeat`,
           {},
         );
         missedRef.current = 0;
@@ -274,7 +274,7 @@ export function ReviewSeatProvider({
       const rid = reviewIdRef.current;
       if (!rid || !beacon) return;
       try {
-        beacon(`/api/v1/reviews/${rid}/release`);
+        beacon(`${apiBaseUrl()}/reviews/${rid}/release`);
       } catch {
         /* ignore */
       }

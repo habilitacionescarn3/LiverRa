@@ -45,6 +45,7 @@ first-class entry in the tamper-evident log.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -82,19 +83,51 @@ class StageBudget:
     time_limit: int
 
 
+_BUDGET_MULT = float(os.environ.get("LIVERRA_CASCADE_BUDGET_MULT", "1"))
+
+
+def _b(soft: int, hard: int) -> tuple[int, int]:
+    return int(soft * _BUDGET_MULT), int(hard * _BUDGET_MULT)
+
+
+def _stage_budget(name: str, default_soft: int, default_hard: int) -> tuple[int, int]:
+    """Resolve a per-stage budget. Reads LIVERRA_STAGE_<NAME>_SOFT_S and
+    LIVERRA_STAGE_<NAME>_HARD_S env vars (falling back to defaults), then
+    applies the global LIVERRA_CASCADE_BUDGET_MULT scaling. Lets dev
+    over Tailscale (cold Triton, DERP relay) bump budgets without
+    touching code."""
+    key = name.upper()
+    soft = int(os.environ.get(f"LIVERRA_STAGE_{key}_SOFT_S", default_soft))
+    hard = int(os.environ.get(f"LIVERRA_STAGE_{key}_HARD_S", default_hard))
+    return _b(soft, hard)
+
+
+_i_s, _i_h = _stage_budget("ingest", 300, 600)
+_a_s, _a_h = _stage_budget("anonymization", 15, 20)
+_p_s, _p_h = _stage_budget("parenchyma", 35, 45)
+_v_s, _v_h = _stage_budget("vessels", 10, 15)
+_c_s, _c_h = _stage_budget("couinaud", 20, 30)
+_l_s, _l_h = _stage_budget("lesion_detection", 20, 30)
+_cl_s, _cl_h = _stage_budget("classification", 20, 30)
+_f_s, _f_h = _stage_budget("flr_init", 5, 10)
+_fin_s, _fin_h = _stage_budget("finalize", 5, 10)
+
 STAGE_BUDGETS: dict[str, StageBudget] = {
-    "anonymization": StageBudget("anonymization", 1, 15, 20),
-    "parenchyma": StageBudget("parenchyma", 2, 35, 45),
-    "vessels": StageBudget("vessels", 3, 10, 15),
-    "couinaud": StageBudget("couinaud", 4, 20, 30),
-    "lesion_detection": StageBudget("lesion_detection", 5, 20, 30),
-    "classification": StageBudget("classification", 6, 20, 30),
-    "flr_init": StageBudget("flr_init", 7, 5, 10),
+    "ingest": StageBudget("ingest", 0, _i_s, _i_h),
+    "anonymization": StageBudget("anonymization", 1, _a_s, _a_h),
+    "parenchyma": StageBudget("parenchyma", 2, _p_s, _p_h),
+    "vessels": StageBudget("vessels", 3, _v_s, _v_h),
+    "couinaud": StageBudget("couinaud", 4, _c_s, _c_h),
+    "lesion_detection": StageBudget("lesion_detection", 5, _l_s, _l_h),
+    "classification": StageBudget("classification", 6, _cl_s, _cl_h),
+    "flr_init": StageBudget("flr_init", 7, _f_s, _f_h),
+    "finalize": StageBudget("finalize", 8, _fin_s, _fin_h),
 }
 
 
 # Sanity bound: sum of serial legs must respect FR-014 (≤120 s wall clock
-# for stages 1..7). If an engineer edits STAGE_BUDGETS wrongly, this asserts.
+# for stages 1..7) WHEN budget mult is 1. With LIVERRA_CASCADE_BUDGET_MULT
+# > 1 (real-Triton over Tailscale dev mode), the assert is bypassed.
 _SERIAL_STAGES = (
     "anonymization",
     "parenchyma",
@@ -104,7 +137,12 @@ _SERIAL_STAGES = (
     "flr_init",
 )
 _SUM = sum(STAGE_BUDGETS[s].soft_time_limit for s in _SERIAL_STAGES)
-assert _SUM <= 120, f"Cascade soft-timeout sum {_SUM} exceeds FR-014's 120 s"
+_HAS_PER_STAGE_ENV = any(
+    k.startswith("LIVERRA_STAGE_") and (k.endswith("_SOFT_S") or k.endswith("_HARD_S"))
+    for k in os.environ
+)
+if _BUDGET_MULT == 1 and not _HAS_PER_STAGE_ENV:
+    assert _SUM <= 120, f"Cascade soft-timeout sum {_SUM} exceeds FR-014's 120 s"
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +317,7 @@ def build_cascade(analysis_id: UUID, study_id: UUID) -> Any:
         classify_lesions_fanout,
     )
     from src.tasks.flr_default import compute_initial_flr  # type: ignore
+    from src.tasks.ingest import ingest_study  # type: ignore
     from src.tasks.lesion_detection import detect_lesions  # type: ignore
     from src.tasks.parenchyma import segment_parenchyma  # type: ignore
 
@@ -319,6 +358,7 @@ def build_cascade(analysis_id: UUID, study_id: UUID) -> Any:
         )
 
     graph = chain(
+        _sig(ingest_study, "ingest"),
         _sig(anonymize_study, "anonymization"),
         _sig(segment_parenchyma, "parenchyma"),
         chord(
@@ -330,6 +370,7 @@ def build_cascade(analysis_id: UUID, study_id: UUID) -> Any:
         ),
         _sig(classify_lesions_fanout, "classification"),
         _sig(compute_initial_flr, "flr_init"),
+        _placeholder("finalize", "liverra.tasks.mark_cascade_complete"),
     )
     return graph
 

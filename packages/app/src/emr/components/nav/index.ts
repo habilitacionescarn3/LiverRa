@@ -13,3 +13,5 @@ export { Breadcrumbs } from './Breadcrumbs';
 
 export { SessionRecoveryBanner } from './SessionRecoveryBanner';
 export type { SessionRecoveryBannerProps } from './SessionRecoveryBanner';
+
+export { UserMenuButton } from './UserMenuButton';
