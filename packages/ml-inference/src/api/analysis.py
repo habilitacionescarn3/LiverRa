@@ -1381,11 +1381,30 @@ async def render_lesion_endpoint(
     arow = await _load_analysis_row(session, analysis_id, tenant_id)
     if arow is None:
         raise _not_found(str(uuid4()))
+    # Pull the lesion's bbox from the DB so the renderer can fall back
+    # to cropping a merged tumor mask if no per-lesion file exists
+    # (TS-based cascade writes one merged file, not per-lesion masks).
+    from sqlalchemy import text as _text
+    bbox_row = await session.execute(
+        _text("SELECT bbox3d FROM lesion WHERE id = :lid AND analysis_id = :aid"),
+        {"lid": str(lesion_id), "aid": str(analysis_id)},
+    )
+    bbox_value = bbox_row.scalar_one_or_none()
+    bbox_3d: list[int] | None = None
+    if bbox_value is not None:
+        try:
+            import json as _json
+            bbox_data = bbox_value if isinstance(bbox_value, dict) else _json.loads(bbox_value)
+            coords = bbox_data.get("coords") if isinstance(bbox_data, dict) else None
+            if isinstance(coords, list) and len(coords) == 6:
+                bbox_3d = [int(c) for c in coords]
+        except Exception:  # noqa: BLE001
+            bbox_3d = None
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
         None, stage_render.render_lesion_thumbnail,
-        s3, analysis_id, arow["study_id"], lesion_id, None,
+        s3, analysis_id, arow["study_id"], lesion_id, bbox_3d,
     )
     return _render_response(png)
 

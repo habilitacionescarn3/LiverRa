@@ -125,10 +125,25 @@ def _load_volumes(s3, analysis_id: UUID, study_id: UUID) -> dict[str, Any] | Non
     ct = sitk.GetArrayFromImage(ct_img).astype(np.float32)
     liver = _resample_to(liver_img, ct_img)
 
+    # Vessel masks: prefer split portal/hepatic files (Triton cascade
+    # convention). Newer TS-based cascade writes ONE merged ``vessels.nii.gz``;
+    # use it as a fallback so the vessel panel still renders.
     portal = _read_nii_from_s3(s3, ANALYSES_BUCKET, f"analyses/{aid}/portal_vein.nii.gz")
     hepatic = _read_nii_from_s3(s3, ANALYSES_BUCKET, f"analyses/{aid}/hepatic_vein.nii.gz")
     portal_arr = _resample_to(portal, ct_img) if portal is not None else None
     hepatic_arr = _resample_to(hepatic, ct_img) if hepatic is not None else None
+    if portal_arr is None and hepatic_arr is None:
+        merged = _read_nii_from_s3(
+            s3, ANALYSES_BUCKET, f"analyses/{aid}/vessels.nii.gz"
+        )
+        if merged is not None:
+            # Merged file = combined vessel tree. Surface as "portal" so
+            # the existing renderer code paths (cyan overlay) keep working.
+            portal_arr = _resample_to(merged, ct_img)
+            logger.info(
+                "stage_render: using merged vessels.nii.gz fallback "
+                "(no split portal/hepatic files for analysis %s)", aid,
+            )
 
     spacing = ct_img.GetSpacing()  # (X, Y, Z)
     voxel_ml = float(np.prod(spacing) / 1000.0)
@@ -411,13 +426,48 @@ def render_lesion_thumbnail(
         )
     except Exception:  # noqa: BLE001
         lesion_img = None
-    if lesion_img is None:
-        return None
-    # F2 — affine-aware resample so the yellow lesion contour aligns
-    # to the CT background even if lesion was uploaded at a different
-    # grid (e.g. 128³ bbox-cropped — see F5).
-    lesion = _resample_to(lesion_img, ct_img)
 
+    lesion = None
+    if lesion_img is not None:
+        # F2 — affine-aware resample so the yellow lesion contour aligns
+        # to the CT background even if lesion was uploaded at a different
+        # grid (e.g. 128³ bbox-cropped — see F5).
+        lesion = _resample_to(lesion_img, ct_img)
+    else:
+        # Fallback: TS-based cascade writes one merged ``tumor_mask.nii.gz``
+        # instead of per-lesion files. Crop it by the bbox passed from
+        # the API endpoint (which read it from the lesion DB row).
+        merged = _read_nii_from_s3(
+            s3, ANALYSES_BUCKET, f"analyses/{analysis_id}/tumor_mask.nii.gz"
+        )
+        if merged is None or bbox_3d is None or len(bbox_3d) != 6:
+            return None
+        merged_arr = _resample_to(merged, ct_img)
+        # Build a per-lesion mask = merged tumor AND inside the bbox.
+        # bbox_3d format: [zmin, ymin, xmin, zmax, ymax, xmax].
+        zmin, ymin, xmin, zmax, ymax, xmax = bbox_3d
+        zmin = max(0, min(zmin, merged_arr.shape[0] - 1))
+        zmax = max(zmin + 1, min(zmax, merged_arr.shape[0]))
+        ymin = max(0, min(ymin, merged_arr.shape[1] - 1))
+        ymax = max(ymin + 1, min(ymax, merged_arr.shape[1]))
+        xmin = max(0, min(xmin, merged_arr.shape[2] - 1))
+        xmax = max(xmin + 1, min(xmax, merged_arr.shape[2]))
+        lesion = np.zeros_like(merged_arr)
+        lesion[zmin:zmax, ymin:ymax, xmin:xmax] = merged_arr[zmin:zmax, ymin:ymax, xmin:xmax]
+        if lesion.sum() == 0:
+            # Bbox region is empty in the merged mask — fall back to
+            # rendering the bbox itself as a hollow box outline.
+            lesion[zmin:zmax, ymin:ymax, xmin] = 1
+            lesion[zmin:zmax, ymin:ymax, xmax - 1] = 1
+            lesion[zmin:zmax, ymin, xmin:xmax] = 1
+            lesion[zmin:zmax, ymax - 1, xmin:xmax] = 1
+        logger.info(
+            "stage_render: lesion %s — using merged tumor_mask + bbox crop",
+            str(lesion_id),
+        )
+
+    if lesion is None:
+        return None
     nz = np.argwhere(lesion > 0)
     if nz.size == 0:
         return None

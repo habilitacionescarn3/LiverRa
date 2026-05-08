@@ -488,6 +488,15 @@ def run_real_cascade(
     for i, v in enumerate(lesion_volumes_ml, 1):
         print(f"      lesion {i}: {v:.2f} ml")
 
+    # Upload the merged tumor mask once so the report's per-lesion
+    # thumbnail renderer can crop it by bbox (the renderer falls back to
+    # this file if no per-lesion mask exists at lesions/{lesion_id}.nii.gz).
+    if tumor_native is not None:
+        try:
+            upload_nii(tumor_native, f"analyses/{analysis_id}/tumor_mask.nii.gz")
+        except Exception as exc:
+            print(f"      ! tumor_mask upload skipped: {exc}")
+
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         insert_checkpoint(
             conn,
