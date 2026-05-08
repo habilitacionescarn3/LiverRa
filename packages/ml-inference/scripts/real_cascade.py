@@ -666,6 +666,15 @@ def run_real_cascade(
                     seg_labels = seg_labels[seg_labels > 0]
                     if seg_labels.size > 0:
                         cou_seg = int(np.bincount(seg_labels).argmax())
+                # The UI's lesion-list renderer (AnalysisDetailView.tsx ~L257)
+                # JSON.parse()s `classification` and reads {label, confidence}.
+                # Writing the bare string "icc" trips JSON.parse and the row
+                # shows up as "—" instead of "ICC · 88%".
+                classification_json = json.dumps({
+                    "label": cls.get("top1"),
+                    "confidence": cls.get("top1_confidence"),
+                    "reasoning": cls.get("reasoning"),
+                })
                 conn.execute(
                     """
                     INSERT INTO lesion
@@ -683,7 +692,7 @@ def run_real_cascade(
                         round(longest_axis_mm, 2) if coords.size > 0 else None,
                         round(longest_axis_mm, 2) if coords.size > 0 else None,
                         round(float(features.get("volume_ml") or 0.0), 2),
-                        cls.get("top1"),
+                        classification_json,
                         f"s3://{ANALYSES_BUCKET}/analyses/{analysis_id}/lesions/{lid}.nii.gz",
                     ),
                 )
