@@ -308,11 +308,22 @@ async def _emit_analysis_audit(
 def _dispatch_cascade(analysis_id: UUID, *, start_stage: int = 0) -> Optional[str]:
     """Enqueue the cascade Celery task. Returns the task_id if dispatched.
 
-    When LIVERRA_CASCADE_DEMO_MODE=true, dispatches the demo_cascade task
-    instead of the real one — simulates 7 stages with synthetic output
-    over ~30s. Lets clinicians evaluate the full UX without depending on
-    real 4-phase liver CT input or a fully-wired DICOM→NIfTI pipeline.
-    Unset the env var to use the real cascade.
+    Three modes, chosen by env vars (precedence: DEMO → REAL → default):
+
+    - LIVERRA_CASCADE_DEMO_MODE=true  → ``demo_cascade``: 7 stages of
+      synthetic output (~30s). For UX testing without real CT input.
+    - LIVERRA_CASCADE_REAL_MODE=true  → ``real_cascade_task``: TS-based
+      cascade (TotalSegmentator + heuristics + LI-RADS rules) producing
+      clinically-plausible output. Requires the 4 phase NIfTIs to be in
+      MinIO already (ingest stage 0 must have run).
+    - neither set                     → ``run_cascade``: the original
+      Celery Canvas chain that calls Triton. Currently broken because
+      Triton is loaded with placeholder STU-Net stubs — fix-forward path
+      is to deploy real STU-Net weights.
+
+    The default is REAL_MODE so clicking "Run AI" produces good output
+    today. To exercise the Triton path explicitly, set both env vars to
+    false / unset and re-dispatch.
     """
     demo_mode = os.environ.get("LIVERRA_CASCADE_DEMO_MODE", "").lower() in {"1", "true", "yes"}
     if demo_mode:
@@ -322,6 +333,16 @@ def _dispatch_cascade(analysis_id: UUID, *, start_stage: int = 0) -> Optional[st
             return str(async_result.id)
         except Exception as exc:  # noqa: BLE001
             logger.warning("demo_cascade dispatch failed: %s", exc)
+            return None
+
+    real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
+    if real_mode:
+        try:
+            from ..tasks.real_cascade_task import real_cascade_task  # type: ignore[import-not-found]
+            async_result = real_cascade_task.delay(str(analysis_id), start_stage)
+            return str(async_result.id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("real_cascade_task dispatch failed: %s", exc)
             return None
 
     try:

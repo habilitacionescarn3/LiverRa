@@ -160,6 +160,7 @@ if app is not None:
     for _mod in (
         "src.tasks.cascade",
         "src.tasks.demo_cascade",
+        "src.tasks.real_cascade_task",
         "src.tasks.ingest",
         "src.tasks.anonymization",
         "src.tasks.parenchyma",

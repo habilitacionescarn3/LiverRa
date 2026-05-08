@@ -191,31 +191,38 @@ def axial_midpoint_flr(mask_zyx: np.ndarray) -> tuple[dict, int, int]:
 # ---------------------------------------------------------------------------
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--resection-pattern",
-        choices=sorted(RESECTION_PATTERNS),
-        default="right_hepatectomy",
-        help="Hepatectomy pattern for the segment-aware FLR (default: right_hepatectomy).",
-    )
-    args = parser.parse_args()
-    resection_pattern = args.resection_pattern
+def run_real_cascade(
+    analysis_id: str,
+    study_id: str = STUDY_ID,
+    tenant_id: str = TENANT_ID,
+    resection_pattern: str = "right_hepatectomy",
+) -> dict:
+    """Run the full TS-based 7-stage cascade for an existing Analysis row.
 
+    The Analysis row at ``analysis_id`` must exist in the database before
+    this is called; the caller is responsible for creating it (HTTP layer
+    inserts it; the CLI ``main()`` wrapper inserts it too). The 4 phase
+    NIfTIs must already be in MinIO under ``s3://{PHASES_BUCKET}/{study_id}/``.
+
+    Returns a summary dict with timing + clinical numbers.
+    """
     print(LICENSE_BANNER)
-    print(f"[config] resection_pattern={resection_pattern}")
+    print(
+        f"[config] resection_pattern={resection_pattern} "
+        f"analysis_id={analysis_id} study_id={study_id}"
+    )
     t0 = time.perf_counter()
 
-    analysis_id = str(uuid.uuid4())
-    print(f"\n[1/7] Create Analysis row")
-    print(f"      analysis_id = {analysis_id}")
+    print(f"\n[1/7] Mark analysis running + anonymization passthrough")
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         conn.execute(
             """
-            INSERT INTO analysis (id, tenant_id, study_id, status, pipeline_version, started_at)
-            VALUES (%s, %s, %s, 'running', %s, now())
+            UPDATE analysis
+               SET status='running',
+                   started_at = COALESCE(started_at, now())
+             WHERE id = %s
             """,
-            (analysis_id, TENANT_ID, STUDY_ID, "totalsegmentator-v2"),
+            (analysis_id,),
         )
         # Stage 1 — anonymization passthrough (CT is already de-identified).
         insert_checkpoint(
@@ -223,7 +230,7 @@ def main() -> int:
             analysis_id,
             1,
             "anonymization",
-            f"s3://liverra-dev/anonymized/{STUDY_ID}.zip",
+            f"s3://liverra-dev/anonymized/{study_id}.zip",
             "ctp+presidio@v1-passthrough",
         )
     print(f"      ✓ +{time.perf_counter()-t0:.2f}s")
@@ -236,7 +243,7 @@ def main() -> int:
     # ----------------------------------------------------------------------
     print(f"\n[2/7] Download portal_venous CT")
     ct_path = workdir / "portal_venous.nii.gz"
-    download_phase(STUDY_ID, "portal_venous", ct_path)
+    download_phase(study_id, "portal_venous", ct_path)
     print(f"      {ct_path.name}  ({ct_path.stat().st_size/1e6:.1f} MB)  +{time.perf_counter()-t0:.2f}s")
 
     print(f"\n[3/7] TotalSegmentator (task=total, roi=liver,IVC,gallbladder)")
@@ -469,7 +476,7 @@ def main() -> int:
                 continue
             phase_path = workdir / f"{phase}.nii.gz"
             if not phase_path.exists():
-                download_phase(STUDY_ID, phase, phase_path)
+                download_phase(study_id, phase, phase_path)
             try:
                 phase_img = sitk.ReadImage(str(phase_path))
                 phase_arr = sitk.GetArrayFromImage(phase_img).astype(np.float32)
@@ -612,9 +619,71 @@ def main() -> int:
             (analysis_id,),
         )
 
-    print(f"\n=== DONE in {time.perf_counter()-t0:.1f}s ===")
+    duration_s = time.perf_counter() - t0
+    print(f"\n=== DONE in {duration_s:.1f}s ===")
     print(f"  analysis_id: {analysis_id}")
     print(f"  Inspect: python packages/ml-inference/scripts/show_results.py")
+
+    return {
+        "analysis_id": analysis_id,
+        "study_id": study_id,
+        "status": "completed",
+        "pipeline_version": "totalsegmentator-v2",
+        "resection_pattern": resection_pattern,
+        "total_ml": round(float(total_ml), 2),
+        "flr_ml": round(float(flr_ml), 2),
+        "flr_pct": round(float(flr_pct), 2),
+        "lesion_count": int(lesion_count),
+        "lesion_classifications": classifications,
+        "duration_s": round(duration_s, 1),
+    }
+
+
+def main() -> int:
+    """CLI entrypoint — wraps run_real_cascade with arg parsing + row creation."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--resection-pattern",
+        choices=sorted(RESECTION_PATTERNS),
+        default="right_hepatectomy",
+        help="Hepatectomy pattern for the segment-aware FLR (default: right_hepatectomy).",
+    )
+    parser.add_argument(
+        "--study-id",
+        default=STUDY_ID,
+        help="Study ID whose 4-phase NIfTIs are in MinIO (default: Todua-CT fixture).",
+    )
+    parser.add_argument(
+        "--tenant-id",
+        default=TENANT_ID,
+        help="Tenant UUID (default: dev tenant).",
+    )
+    parser.add_argument(
+        "--analysis-id",
+        default=None,
+        help="Use an existing Analysis row instead of creating one (e.g. dispatched by HTTP).",
+    )
+    args = parser.parse_args()
+
+    analysis_id = args.analysis_id or str(uuid.uuid4())
+    if args.analysis_id is None:
+        # CLI mode: create the Analysis row before running.
+        print(f"[CLI] Creating new Analysis row {analysis_id}")
+        with psycopg.connect(DB_URL, autocommit=True) as conn:
+            conn.execute(
+                """
+                INSERT INTO analysis (id, tenant_id, study_id, status, pipeline_version)
+                VALUES (%s, %s, %s, 'queued', %s)
+                """,
+                (analysis_id, args.tenant_id, args.study_id, "totalsegmentator-v2"),
+            )
+
+    run_real_cascade(
+        analysis_id=analysis_id,
+        study_id=args.study_id,
+        tenant_id=args.tenant_id,
+        resection_pattern=args.resection_pattern,
+    )
     return 0
 
 
