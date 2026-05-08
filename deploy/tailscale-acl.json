@@ -1,0 +1,41 @@
+// Tailscale ACL for LiverRA remote-Triton dev setup.
+// HOST = irakli-ff@github (Triton runs on this machine).
+// DEV  = lasha.khosht@gmail.com (remote developer).
+// Paste this into https://login.tailscale.com/admin/acls/file
+// Scope: Lasha can reach this machine on Triton ports 8000/8001/8002 only.
+//        No reverse path (host can't reach Lasha's machine on anything).
+{
+  "groups": {
+    "group:host": ["irakli-ff@github"],
+    "group:dev":  ["lasha.khosht@gmail.com"],
+  },
+
+  "tagOwners": {
+    "tag:triton-host": ["group:host"],
+    "tag:liverra-dev": ["group:dev"],
+  },
+
+  "acls": [
+    // Dev → host: Triton HTTP (8000), gRPC (8001), metrics (8002).
+    {
+      "action": "accept",
+      "src":    ["group:dev"],
+      "dst":    ["group:host:8000", "group:host:8001", "group:host:8002"],
+    },
+  ],
+
+  // No SSH rules — neither side should be SSHing the other over the tailnet.
+
+  "tests": [
+    {
+      "src":    "lasha.khosht@gmail.com",
+      "accept": ["irakli-ff@github:8000", "irakli-ff@github:8001"],
+      "deny":   ["irakli-ff@github:22",   "irakli-ff@github:5432"],
+    },
+    {
+      "src":    "irakli-ff@github",
+      "deny":   ["lasha.khosht@gmail.com:22",   "lasha.khosht@gmail.com:8000",
+                 "lasha.khosht@gmail.com:5432", "lasha.khosht@gmail.com:6379"],
+    },
+  ],
+}
