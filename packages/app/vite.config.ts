@@ -99,12 +99,17 @@ export default defineConfig(({ mode }) => {
           });
         },
       },
-      // Real-backend mode: forward /api/v1/* to local FastAPI on 8090.
+      // Real-backend mode: forward /api/v1/* to a FastAPI orchestrator.
       // Only used when VITE_LIVERRA_MOCK_API=false; otherwise the
       // liverraDevApiStub() middleware (above) intercepts these requests
       // first and serves dev-mocks.ts fixtures.
+      //
+      // For the hybrid setup where the orchestrator runs on the GPU box
+      // and the laptop only hosts the UI, set LIVERRA_API_ORIGIN to the
+      // tailnet URL (e.g. `http://100.124.94.29:8090`). Defaults to the
+      // local FastAPI on 8090 for the all-in-one dev box case.
       '/api': {
-        target: 'http://127.0.0.1:8090',
+        target: process.env.LIVERRA_API_ORIGIN ?? 'http://127.0.0.1:8090',
         changeOrigin: true,
       },
     },

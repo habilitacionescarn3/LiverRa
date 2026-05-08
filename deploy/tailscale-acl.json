@@ -1,8 +1,10 @@
-// Tailscale ACL for LiverRA remote-Triton dev setup.
-// HOST = irakli-ff@github (Triton runs on this machine).
-// DEV  = lasha.khosht@gmail.com (remote developer).
+// Tailscale ACL for LiverRA remote-Triton + orchestrator dev setup.
+// HOST = irakli-ff@github (Triton + FastAPI orchestrator run here).
+// DEV  = lasha.khosht@gmail.com (remote developer; UI runs on his MacBook).
 // Paste this into https://login.tailscale.com/admin/acls/file
-// Scope: Lasha can reach this machine on Triton ports 8000/8001/8002 only.
+// Scope: Lasha can reach this machine on:
+//        - Triton: 8000 (HTTP), 8001 (gRPC), 8002 (metrics)
+//        - Orchestrator: 8090 (FastAPI — handles /api/v1/* from his Vite UI)
 //        No reverse path (host can't reach Lasha's machine on anything).
 {
   "groups": {
@@ -16,11 +18,13 @@
   },
 
   "acls": [
-    // Dev → host: Triton HTTP (8000), gRPC (8001), metrics (8002).
+    // Dev → host: Triton HTTP (8000), gRPC (8001), metrics (8002),
+    //              FastAPI orchestrator (8090).
     {
       "action": "accept",
       "src":    ["group:dev"],
-      "dst":    ["group:host:8000", "group:host:8001", "group:host:8002"],
+      "dst":    ["group:host:8000", "group:host:8001", "group:host:8002",
+                 "group:host:8090"],
     },
   ],
 
@@ -29,7 +33,8 @@
   "tests": [
     {
       "src":    "lasha.khosht@gmail.com",
-      "accept": ["irakli-ff@github:8000", "irakli-ff@github:8001"],
+      "accept": ["irakli-ff@github:8000", "irakli-ff@github:8001",
+                 "irakli-ff@github:8090"],
       "deny":   ["irakli-ff@github:22",   "irakli-ff@github:5432"],
     },
     {

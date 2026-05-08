@@ -338,11 +338,35 @@ def _dispatch_cascade(analysis_id: UUID, *, start_stage: int = 0) -> Optional[st
     real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
     if real_mode:
         try:
+            from celery import chain  # type: ignore[import-not-found]
+            from ..tasks.ingest import ingest_study  # type: ignore[import-not-found]
             from ..tasks.real_cascade_task import real_cascade_task  # type: ignore[import-not-found]
-            async_result = real_cascade_task.delay(str(analysis_id), start_stage)
+            # Look up study_id sync; ingest_study needs both. Same pattern as
+            # run_cascade in tasks/cascade.py.
+            import psycopg  # type: ignore[import-not-found]
+            sync_url = os.environ.get(
+                "DATABASE_URL_SYNC",
+                "postgresql://liverra:liverra@localhost:5432/liverra",
+            )
+            with psycopg.connect(sync_url, autocommit=True) as conn:
+                row = conn.execute(
+                    "SELECT study_id FROM analysis WHERE id = %s",
+                    (str(analysis_id),),
+                ).fetchone()
+                if row is None:
+                    logger.warning("real_cascade dispatch: analysis %s not found", analysis_id)
+                    return None
+                study_id = str(row[0])
+            # Chain: stage 0 (DICOM→NIfTI to MinIO) → TS-based 7-stage cascade.
+            # ingest is idempotent — re-uploading existing phases is a no-op
+            # path-wise, and the converter will skip series it can't classify.
+            async_result = chain(
+                ingest_study.si(str(analysis_id), study_id),
+                real_cascade_task.si(str(analysis_id), start_stage),
+            ).apply_async()
             return str(async_result.id)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("real_cascade_task dispatch failed: %s", exc)
+            logger.warning("real_cascade chain dispatch failed: %s", exc)
             return None
 
     try:
