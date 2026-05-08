@@ -19,10 +19,13 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir \
     "fastapi>=0.115,<0.120" \
+    "starlette>=0.49.1" \
     "uvicorn[standard]>=0.32,<0.40" \
     "httpx>=0.27,<0.30" \
     "psycopg[binary]>=3.2,<3.3" \
     "pydantic>=2.9,<3.0"
+# starlette pinned >=0.49.1 to clear CVE-2025-62727 (DoS via Range header
+# merging). fastapi 0.115's starlette range allows 0.48.0 which is vulnerable.
 
 COPY --chown=appuser:appuser main.py /app/main.py
 
