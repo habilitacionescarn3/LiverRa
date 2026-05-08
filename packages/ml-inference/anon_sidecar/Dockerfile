@@ -18,14 +18,14 @@ RUN useradd --system --create-home --home-dir /app \
 WORKDIR /app
 
 RUN pip install --no-cache-dir \
-    "fastapi>=0.115,<0.120" \
-    "starlette>=0.49.1" \
+    "fastapi>=0.121,<0.130" \
     "uvicorn[standard]>=0.32,<0.40" \
     "httpx>=0.27,<0.30" \
     "psycopg[binary]>=3.2,<3.3" \
     "pydantic>=2.9,<3.0"
-# starlette pinned >=0.49.1 to clear CVE-2025-62727 (DoS via Range header
-# merging). fastapi 0.115's starlette range allows 0.48.0 which is vulnerable.
+# fastapi >=0.121 pulls starlette<0.50 (which includes 0.49.1+) — clears
+# CVE-2025-62727 (Range-header DoS). Earlier fastapi 0.115-0.119 pinned
+# starlette<0.49.0 which left the vulnerable 0.48.0 in the dep tree.
 
 COPY --chown=appuser:appuser main.py /app/main.py
 
