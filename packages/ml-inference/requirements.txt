@@ -21,12 +21,17 @@
 # Model integration (docs/plans/model-integration-roadmap.md, Phase 2)
 # Pinned to match Triton 24.10's internal PyTorch 2.4.1 — version drift here
 # causes silent kernel crashes inside Triton.
-# torch+torchvision are installed first via the cu124 index URL; this file
-# serves as the dependency manifest for everything else.
+# torch+torchvision are installed first via the PyTorch cu126 index URL
+# (https://download.pytorch.org/whl/cu126); this file serves as the
+# dependency manifest for everything else.
 # ---------------------------------------------------------------------------
-torch==2.4.1
-torchvision==0.19.1
-monai==1.4.0
+# Bumped 2026-05-08 to clear pip-audit CVEs:
+#   torch 2.4.1 → 2.8.0  (PYSEC-2025-41, PYSEC-2024-259, CVE-2025-2953, CVE-2025-3730)
+#   monai 1.4.0 → 1.5.2  (CVE-2025-58755/56/57, CVE-2026-21851, GHSA-89gg-p5r5-q6r4)
+# torchvision 0.23.0 matches the torch 2.8.0 ABI per the PyTorch compat matrix.
+torch==2.8.0
+torchvision==0.23.0
+monai==1.5.2
 uvicorn[standard]>=0.32
 alembic>=1.13
 
