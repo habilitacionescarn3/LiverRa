@@ -17,6 +17,10 @@ RUN useradd --system --create-home --home-dir /app \
 
 WORKDIR /app
 
+# Bump pip past CVE-2025-8869 / CVE-2026-6357 / CVE-2026-1703 (all
+# tar/zip-extraction issues in pip 25.0.1 that ship with python:3.12-slim).
+RUN pip install --no-cache-dir --upgrade pip
+
 RUN pip install --no-cache-dir \
     "fastapi>=0.121,<0.130" \
     "uvicorn[standard]>=0.32,<0.40" \
