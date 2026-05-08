@@ -640,7 +640,16 @@ def run_real_cascade(
                         (y_max - y_min + 1) * sy,
                         (x_max - x_min + 1) * sx,
                     ))
+                    # `coords` is what the lesion thumbnail renderer reads
+                    # (api/analysis.py:render_lesion_endpoint expects 6 ints
+                    # [zmin, ymin, xmin, zmax, ymax, xmax]). The other keys
+                    # are kept for any consumer that wants the per-axis
+                    # extents + spacing without parsing coords.
                     bbox = {
+                        "coords": [
+                            int(z_min), int(y_min), int(x_min),
+                            int(z_max) + 1, int(y_max) + 1, int(x_max) + 1,
+                        ],
                         "x": int(x_min), "y": int(y_min), "z": int(z_min),
                         "dx": int(x_max - x_min + 1),
                         "dy": int(y_max - y_min + 1),
