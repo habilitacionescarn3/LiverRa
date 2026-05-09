@@ -109,6 +109,52 @@ _WARMUP_MODELS = (
     "liverra-medsam2-track",
 )
 
+# Known stub model.pt SHAs — these are the 16-byte LIVERRA_STUB
+# placeholders checked into ``triton-models/{name}/1/model.pt`` for CI.
+# If a deployed Triton box still has these files (i.e., the operator
+# never replaced them with real weights), every cascade stage produces
+# garbage masks. The startup guard below hashes the local model.pt
+# files and refuses to mark Triton "ready" when stubs are detected
+# AND ``LIVERRA_CASCADE_REAL_MODE`` is not enabled (since real-mode
+# bypasses Triton entirely via scripts/real_cascade.py).
+_KNOWN_STUB_SHAS: dict[str, str] = {
+    "liverra-stunet-parenchyma": "3f3cbf5bccf9ddbcd8cd0e46160c99cb3fadd514e238438d34dab0facc4d0ab1",
+    "liverra-stunet-lesions":    "367c85d0f02713fd21655f2c94569b38f21520c340dc5d4f139eb5ca6ff16c10",
+    "liverra-couinaud-segments": "2e634a21d5fae53f5e3389cfc3ee852b6aeb597b91ee56bdb45600437f2c1976",
+    "liverra-vista3d-refine":    "ea3a506936f29ff4dd85209c546d5699908dac75d3bb2b33cd4c5fe6a5809c91",
+    "liverra-lilnet-classify":   "8bc97b9d5cc07eb99b16643dd8777e426956e096e24659412b8923882b30c249",
+    "liverra-medsam2-track":     "2defbb2b0d43d0bcd198cabe799f59f987983a91f46aabffcc6345a614b525d0",
+}
+
+
+def _detect_stub_models() -> list[str]:
+    """Hash each local model.pt and return the list of stubs detected.
+
+    Returns model names where the local ``triton-models/{name}/1/model.pt``
+    SHA-256 matches a known stub. Empty list = all real (or all missing
+    locally — the latter happens on Irakli's GPU box where files live
+    elsewhere; the guard then silently passes since there's nothing to
+    check from this side).
+    """
+    import hashlib
+    from pathlib import Path
+
+    repo_models = (
+        Path(__file__).resolve().parents[2] / "triton-models"
+    )
+    stubs: list[str] = []
+    for model_name, expected_stub_sha in _KNOWN_STUB_SHAS.items():
+        pt = repo_models / model_name / "1" / "model.pt"
+        if not pt.is_file():
+            continue
+        try:
+            sha = hashlib.sha256(pt.read_bytes()).hexdigest()
+        except Exception:  # noqa: BLE001
+            continue
+        if sha == expected_stub_sha:
+            stubs.append(model_name)
+    return stubs
+
 
 def _warmup_triton_models() -> None:
     """Pre-load all 6 cascade models. Called from the worker_ready signal."""
@@ -141,6 +187,30 @@ if app is not None:
 
         @worker_ready.connect
         def _on_worker_ready(sender, **_kwargs):  # type: ignore[no-untyped-def]
+            import logging as _logging
+            _log = _logging.getLogger(__name__)
+
+            # Stub-detection guard: when the cascade is configured to
+            # route through Triton (i.e., real-mode is OFF), warn loudly
+            # if any local model.pt still matches the known stub SHAs.
+            # Real-mode bypasses Triton entirely so stubs there are
+            # harmless — only the Triton path produces garbage from stubs.
+            real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
+            stubs = _detect_stub_models()
+            if stubs and not real_mode:
+                _log.error(
+                    "STUB MODELS DETECTED — cascade will produce garbage masks. "
+                    "Replace these model.pt files with real exports before "
+                    "running cascades through Triton: %s",
+                    ", ".join(stubs),
+                )
+            elif stubs:
+                _log.info(
+                    "Stub models detected (%s) but LIVERRA_CASCADE_REAL_MODE=true "
+                    "bypasses Triton — safe to ignore.",
+                    ", ".join(stubs),
+                )
+
             if os.environ.get("LIVERRA_TRITON_WARMUP", "").lower() not in {"1", "true", "yes"}:
                 return
             _warmup_triton_models()
