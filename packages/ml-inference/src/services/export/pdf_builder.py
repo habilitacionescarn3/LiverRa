@@ -112,6 +112,74 @@ class PDFBuildInput:
     # DICOM-SEG/SR ``SoftwareVersions``).
     software_versions: str = "0.0.0-dev"
 
+    # --- Modern report layout (T-PDF-redesign) ----------------------------
+    # The fields below feed the redesigned executive-summary + audit pages.
+    # All optional so legacy callers keep working with the old template.
+
+    # FLR adequacy thresholds (fraction of total parenchyma volume, expressed
+    # as percentage points). Default to the literature-standard 25/30 split.
+    flr_threshold_inadequate: float = 25.0
+    flr_threshold_borderline: float = 30.0
+
+    # Per-stage cascade audit rows. Each row may include keys:
+    #   stage_no, stage, model_version, license_hash, license_short,
+    #   license_warn (bool — flagged for non-commercial licenses), written_at,
+    #   status_icon ("ok"/"warn"/"err"), output_uri.
+    cascade_checkpoints: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+
+    # Couinaud Roman-numeral → CSS-friendly hex (e.g. {"I":"#E8B84F", ...}).
+    couinaud_palette: Mapping[str, str] = field(default_factory=dict)
+
+    # Lesion class slug → hex (e.g. {"hcc":"#dc2626", "icc":"#ea580c", ...}).
+    lesion_class_palette: Mapping[str, str] = field(default_factory=dict)
+
+    # Optional study-level identifiers for the cover band.
+    study_uid: str | None = None
+    pipeline_version: str | None = None
+
+    # Pre-rendered SVG markup for the executive summary. When present the
+    # template embeds them directly (via ``|safe``) instead of rendering the
+    # plain volumetric / FLR fallback table.
+    couinaud_chart_svg: str | None = None
+    flr_donut_svg: str | None = None
+
+    # Headline KPIs already pre-formatted by the caller for the hero cards
+    # ("FLR %", "Liver volume", "Lesions", "Cascade"). Each row:
+    #   {label, value, sublabel, tone ("default"|"ok"|"warn"|"alert")}.
+    kpi_cards: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+
+    # Total liver volume + lesion count surfaced explicitly so the template
+    # can render the headline numbers even without ``kpi_cards``.
+    lesion_count: int | None = None
+
+    # Vessel volumes from cascade Stage 3a (portal + hepatic). The
+    # ``vessels_chart_svg`` is a small comparison bar embedded in the
+    # vessels section; values stay surfaced as numbers for screen readers
+    # and CSV exports.
+    portal_vein_ml: float | None = None
+    hepatic_vein_ml: float | None = None
+    vessels_chart_svg: str | None = None
+
+    # Per-stage CT-overlay PNG data URIs — produced by services.stage_render
+    # and embedded inline within their stage section (so a surgeon sees
+    # the actual CT, not just colourful charts). When the cascade is a
+    # stub run / S3 is missing artifacts, these stay None and the template
+    # surfaces a clear "imaging unavailable" placeholder card.
+    parenchyma_render_uri: str | None = None
+    vessels_render_uri: str | None = None
+    flr_render_uri: str | None = None
+    four_phase_render_uri: str | None = None
+    mesh3d_render_uri: str | None = None
+    ct_renders_unavailable: bool = False
+
+    # Renderer diagnostics — list of human-readable strings to display
+    # in a yellow banner at the top of the report. Populated by
+    # ``services.report_renderer`` when stage_render detects implausible
+    # masks (e.g. liver mask >3500 mL, vessel masks empty, multi-component
+    # liver masks). Helps a surgeon distinguish "the AI rendered nothing"
+    # from "the AI rendered garbage" — and which S3 paths to re-check.
+    mask_warnings: Sequence[str] = field(default_factory=tuple)
+
 
 @dataclass(frozen=True)
 class PDFBuildResult:
@@ -208,6 +276,14 @@ def _base_css(locale: str) -> str:
     }}
 
     h1, h2, h3 {{ color: #111827; }}
+    h1 {{ font-size: 16pt; margin: 0; letter-spacing: -0.005em; }}
+    h2 {{
+      font-size: 11pt;
+      margin: 7mm 0 2.5mm 0;
+      padding-bottom: 1mm;
+      border-bottom: 0.4pt solid #e5e7eb;
+      letter-spacing: 0.01em;
+    }}
     table.volumes {{ border-collapse: collapse; width: 100%; font-size: 8.5pt; }}
     table.volumes th, table.volumes td {{
       border: 0.5pt solid #cbd5f5; padding: 3mm 4mm; text-align: left;
@@ -221,6 +297,313 @@ def _base_css(locale: str) -> str:
       margin-bottom: 6mm;
       text-align: center;
     }}
+
+    /* --- Modern report layout (T-PDF-redesign) ------------------------- */
+
+    .brand-band {{
+      background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+      color: #ffffff;
+      padding: 6mm 7mm 5mm 7mm;
+      border-radius: 1.5mm;
+      margin-bottom: 5mm;
+      page-break-inside: avoid;
+    }}
+    .brand-band .brand-row {{
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6mm;
+    }}
+    .brand-band .wordmark {{
+      font-weight: 800;
+      font-size: 18pt;
+      letter-spacing: 0.02em;
+    }}
+    .brand-band .wordmark .accent {{ color: #bee3f8; }}
+    .brand-band .ruo-chip {{
+      background: rgba(254, 226, 226, 0.95);
+      color: #7f1d1d;
+      padding: 1mm 3mm;
+      border-radius: 1mm;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }}
+    .brand-band .meta {{
+      margin-top: 3mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2mm 6mm;
+      font-size: 8pt;
+      color: #ebf4ff;
+    }}
+    .brand-band .meta .k {{ color: #bee3f8; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; font-size: 7pt; }}
+    .brand-band .meta .v {{ color: #ffffff; font-weight: 500; }}
+
+    .kpi-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3mm;
+      margin: 3mm 0 5mm 0;
+      page-break-inside: avoid;
+    }}
+    .kpi-card {{
+      background: #f9fafb;
+      border: 0.4pt solid #e5e7eb;
+      border-left: 2.5pt solid #6b7280;
+      border-radius: 1.2mm;
+      padding: 3mm 3.5mm;
+    }}
+    .kpi-card.tone-ok {{ border-left-color: #16a34a; }}
+    .kpi-card.tone-warn {{ border-left-color: #d97706; }}
+    .kpi-card.tone-alert {{ border-left-color: #dc2626; }}
+    .kpi-card .kpi-label {{
+      color: #6b7280;
+      font-size: 7pt;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }}
+    .kpi-card .kpi-value {{
+      color: #111827;
+      font-size: 18pt;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-top: 1mm;
+    }}
+    .kpi-card.tone-ok .kpi-value {{ color: #15803d; }}
+    .kpi-card.tone-warn .kpi-value {{ color: #b45309; }}
+    .kpi-card.tone-alert .kpi-value {{ color: #b91c1c; }}
+    .kpi-card .kpi-sub {{
+      color: #6b7280;
+      font-size: 7.5pt;
+      margin-top: 0.8mm;
+    }}
+
+    .exec-grid {{
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 5mm;
+      margin-bottom: 5mm;
+      page-break-inside: avoid;
+    }}
+    .exec-card {{
+      background: #ffffff;
+      border: 0.4pt solid #e5e7eb;
+      border-radius: 1.2mm;
+      padding: 3mm 4mm;
+    }}
+    .exec-card .exec-title {{
+      color: #374151;
+      font-size: 9pt;
+      font-weight: 700;
+      margin-bottom: 2mm;
+    }}
+    .exec-card .exec-sub {{ color: #6b7280; font-size: 7.5pt; margin-top: 1mm; }}
+
+    /* Inline-SVG visual hooks live as attributes inside the <svg> markup
+       (see services/export/visualizations.py) — WeasyPrint's CSS engine
+       does not propagate `fill` rules into inline SVG, so we keep the
+       chart-internal styling on attributes. */
+    .flr-thresholds {{ font-size: 7.5pt; color: #6b7280; text-align: center; margin-top: 1.5mm; }}
+
+    .lesion-card {{
+      display: grid;
+      grid-template-columns: 6mm 1fr auto auto auto;
+      gap: 3mm;
+      align-items: center;
+      padding: 2.2mm 3mm;
+      border: 0.4pt solid #e5e7eb;
+      border-radius: 1mm;
+      margin-bottom: 1.5mm;
+      page-break-inside: avoid;
+    }}
+    .lesion-row-detailed {{
+      border: 0.4pt solid #e5e7eb;
+      border-radius: 1.2mm;
+      padding: 2.5mm 3.5mm 3mm 3.5mm;
+      margin-bottom: 2mm;
+      page-break-inside: avoid;
+      background: #ffffff;
+    }}
+    .lesion-row-detailed .lesion-head {{
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      flex-wrap: wrap;
+      margin-bottom: 1.5mm;
+    }}
+    .lesion-row-detailed .lesion-num {{ font-size: 7.5pt; }}
+    .lesion-row-detailed .lesion-class {{ font-size: 10pt; }}
+    .lesion-row-detailed .meta-pill {{
+      background: #f3f4f6;
+      color: #374151;
+      padding: 0.4mm 2mm;
+      border-radius: 6mm;
+      font-size: 7pt;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }}
+    .lesion-row-detailed .conf-strong {{
+      margin-left: auto;
+      font-size: 11pt;
+      font-weight: 800;
+      color: #111827;
+      font-variant-numeric: tabular-nums;
+    }}
+    .stage-section {{
+      page-break-inside: avoid;
+      margin-bottom: 5mm;
+    }}
+    .stage-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4mm;
+      margin: 2mm 0 4mm 0;
+    }}
+    .stage-tag {{
+      display: inline-block;
+      background: #1a365d;
+      color: #ffffff;
+      padding: 0.5mm 2.5mm;
+      border-radius: 1mm;
+      font-size: 6.5pt;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      margin-right: 2mm;
+      vertical-align: middle;
+    }}
+
+    .ct-render {{
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      margin: 2mm 0 1mm 0;
+      border: 0.4pt solid #cbd5f5;
+      border-radius: 1mm;
+      page-break-inside: avoid;
+    }}
+    .ct-render-caption {{
+      color: #6b7280;
+      font-size: 7pt;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 1mm;
+    }}
+    .ct-unavailable {{
+      background: #fef3c7;
+      border: 0.5pt dashed #d97706;
+      border-radius: 1.2mm;
+      padding: 4mm 5mm;
+      color: #92400e;
+      font-size: 8pt;
+      margin: 3mm 0;
+    }}
+    .ct-unavailable strong {{ color: #78350f; display: block; margin-bottom: 1mm; }}
+
+    .lesion-thumbnail {{
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      margin-top: 2mm;
+      border: 0.4pt solid #cbd5f5;
+      border-radius: 1mm;
+      page-break-inside: avoid;
+    }}
+    .lesion-chip {{
+      display: inline-block;
+      width: 3.5mm;
+      height: 3.5mm;
+      border-radius: 50%;
+      background: #9ca3af;
+      border: 0.4pt solid rgba(0,0,0,0.08);
+      vertical-align: middle;
+    }}
+    .lesion-class {{ font-weight: 700; color: #111827; font-size: 9pt; }}
+    .lesion-meta {{ color: #6b7280; font-size: 7.5pt; }}
+    .lesion-num {{ color: #9ca3af; font-weight: 700; font-size: 7.5pt; letter-spacing: 0.05em; }}
+    .lesion-conf {{ color: #374151; font-variant-numeric: tabular-nums; font-size: 8.5pt; }}
+
+    .audit-table {{
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 7.8pt;
+    }}
+    .audit-table th {{
+      background: #f9fafb;
+      border-bottom: 0.6pt solid #d1d5db;
+      padding: 2mm 3mm;
+      text-align: left;
+      color: #4b5563;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-size: 7pt;
+    }}
+    .audit-table td {{
+      border-bottom: 0.3pt solid #f3f4f6;
+      padding: 1.8mm 3mm;
+      vertical-align: top;
+    }}
+    .audit-table .col-stage {{ font-weight: 700; color: #111827; }}
+    .audit-table .col-hash {{ font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; color: #6b7280; font-size: 7pt; }}
+    .audit-table .license-warn {{
+      color: #b45309;
+      font-weight: 700;
+    }}
+    .audit-table .license-warn::before {{
+      content: "\\26A0  "; /* ⚠ */
+    }}
+    .audit-table .status-ok {{ color: #16a34a; font-weight: 700; }}
+    .audit-table .status-warn {{ color: #d97706; font-weight: 700; }}
+    .audit-table .status-err {{ color: #dc2626; font-weight: 700; }}
+
+    .screenshot-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+      margin-top: 3mm;
+    }}
+    .screenshot-grid figure {{ margin: 0; }}
+    .screenshot-grid img {{
+      width: 100%;
+      border: 0.4pt solid #d1d5db;
+      border-radius: 1mm;
+    }}
+    .screenshot-grid figcaption {{
+      color: #6b7280;
+      font-size: 7pt;
+      margin-top: 0.8mm;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }}
+
+    .footer-strip {{
+      margin-top: 6mm;
+      padding-top: 3mm;
+      border-top: 0.5pt solid #cbd5f5;
+      color: #4b5563;
+      font-size: 7.5pt;
+    }}
+    .footer-strip .ruo-line {{ color: #991b1b; font-weight: 700; }}
+
+    .section-lead {{ color: #6b7280; font-size: 8pt; margin: -1.5mm 0 2mm 0; }}
+
+    .pill {{
+      display: inline-block;
+      padding: 0.4mm 1.8mm;
+      border-radius: 8mm;
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }}
+    .pill.tone-ok {{ background: #dcfce7; color: #166534; }}
+    .pill.tone-warn {{ background: #fef3c7; color: #92400e; }}
+    .pill.tone-alert {{ background: #fee2e2; color: #991b1b; }}
+    .pill.tone-default {{ background: #f3f4f6; color: #374151; }}
     """
 
 
@@ -284,6 +667,30 @@ def build_pdf(
         claim_registry=inp.claim_registry,
         software_versions=inp.software_versions,
         watermark_text=RUO_WATERMARKS[inp.locale],
+        # Modern layout extras (T-PDF-redesign):
+        flr_threshold_inadequate=inp.flr_threshold_inadequate,
+        flr_threshold_borderline=inp.flr_threshold_borderline,
+        cascade_checkpoints=inp.cascade_checkpoints,
+        couinaud_palette=inp.couinaud_palette,
+        lesion_class_palette=inp.lesion_class_palette,
+        study_uid=inp.study_uid,
+        pipeline_version=inp.pipeline_version,
+        couinaud_chart_svg=inp.couinaud_chart_svg,
+        flr_donut_svg=inp.flr_donut_svg,
+        kpi_cards=inp.kpi_cards,
+        lesion_count=(
+            inp.lesion_count if inp.lesion_count is not None else len(inp.lesions)
+        ),
+        portal_vein_ml=inp.portal_vein_ml,
+        hepatic_vein_ml=inp.hepatic_vein_ml,
+        vessels_chart_svg=inp.vessels_chart_svg,
+        parenchyma_render_uri=inp.parenchyma_render_uri,
+        vessels_render_uri=inp.vessels_render_uri,
+        flr_render_uri=inp.flr_render_uri,
+        four_phase_render_uri=inp.four_phase_render_uri,
+        mesh3d_render_uri=inp.mesh3d_render_uri,
+        ct_renders_unavailable=inp.ct_renders_unavailable,
+        mask_warnings=list(inp.mask_warnings or ()),
         t=translations or {},
     )
 

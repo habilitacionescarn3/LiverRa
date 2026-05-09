@@ -1,0 +1,26 @@
+# LiverRa GPU inference microservice — runs on Irakli's RTX 3090 box.
+#
+# This is an INTENTIONALLY MINIMAL dependency set: the service knows
+# nothing about LiverRa's data layer (no boto3, no SQL, no Celery).
+# Its only job is "CT in → masks out".
+#
+# torch + torchvision + monai are pinned to the same versions as the
+# previous monolithic stack (see ../ml-inference/requirements.txt
+# history) so weight files load identically.
+#
+# torch 2.8.0 ships its own CUDA wheels — install with
+#   pip install --extra-index-url https://download.pytorch.org/whl/cu126 -r requirements.txt
+# OR rely on the Dockerfile's PyTorch base image (already CUDA-enabled).
+
+# Web layer
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12
+
+# GPU stack (pinned — version drift breaks TS weight loading)
+torch==2.8.0
+torchvision==0.23.0
+monai==1.5.2
+
+# The model itself
+TotalSegmentator>=2.4

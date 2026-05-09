@@ -122,7 +122,22 @@
     "mesh3dTitle": "3D liver mesh",
     "lesionsTitle": "Lesions",
     "pipelineTitle": "Pipeline checkpoints",
-    "downloadPerSlice": "Per-slice PDF"
+    "downloadPerSlice": "Per-slice PDF",
+    "findings": {
+      "title": "Additional findings",
+      "subtitle": "Heuristic screening from CT attenuation + segmentation masks. Not a substitute for radiologist interpretation.",
+      "hu_stats": "Liver attenuation",
+      "steatosis": "Steatosis",
+      "spleen": "Spleen volume",
+      "splenomegaly": "Splenomegaly",
+      "gallbladder": "Gallbladder",
+      "stones": "stones",
+      "wallThickened": "wall thickened",
+      "calcified": "Calcified lesions",
+      "simpleBiliaryCysts": "Simple biliary cysts",
+      "cystsDetail": "Meets all 4 simple-cyst criteria — no follow-up needed.",
+      "lrM": "Indeterminate malignant (LR-M)"
+    }
   },
   "artifact": {
     "seg": "DICOM-SEG (liver + segments + lesions)",

@@ -170,6 +170,18 @@ async function loadBundle(locale: Locale, ns: TranslationNamespace): Promise<Tra
   return p;
 }
 
+/**
+ * Marker prefix used in `de/ka/ru` bundles for strings that still need
+ * CODEOWNERS medical-terminology review. Form: `__TODO_TRANSLATE__:<English>`.
+ * `t()` treats these as "missing" so the fallback chain fires, and strips the
+ * prefix as a last resort (so we never paint the marker into the UI).
+ */
+const TODO_TRANSLATE_PREFIX = '__TODO_TRANSLATE__:';
+
+function isTodoMarker(value: string | undefined): value is string {
+  return typeof value === 'string' && value.startsWith(TODO_TRANSLATE_PREFIX);
+}
+
 /** Walk `foo.bar.baz` into a nested bundle. */
 function resolveKey(bundle: TranslationBundle | undefined, path: string): string | undefined {
   if (!bundle) return undefined;
@@ -329,12 +341,28 @@ export function TranslationProvider({
         });
       }
 
-      // Primary resolution.
-      let value = resolveKey(bundleCache[locale][ns], keyPath);
-      // de/ka/ru → en fallback.
+      // Primary resolution. Treat `__TODO_TRANSLATE__:` markers as missing so
+      // the en fallback fires — keeps the UI clean while CODEOWNERS review is
+      // pending on de/ka/ru bundles.
+      const primary = resolveKey(bundleCache[locale][ns], keyPath);
+      let value: string | undefined = isTodoMarker(primary) ? undefined : primary;
+
       if (value === undefined && locale !== 'en') {
-        value = resolveKey(bundleCache.en[ns], keyPath);
+        const fallback = resolveKey(bundleCache.en[ns], keyPath);
+        value = isTodoMarker(fallback) ? undefined : fallback;
       }
+
+      // Last resort: if every locale (including en) still surfaces a marker,
+      // strip the prefix and render the embedded English source instead of
+      // leaking `__TODO_TRANSLATE__:` into the UI.
+      if (value === undefined) {
+        if (isTodoMarker(primary)) value = primary.slice(TODO_TRANSLATE_PREFIX.length);
+        else {
+          const enRaw = resolveKey(bundleCache.en[ns], keyPath);
+          if (isTodoMarker(enRaw)) value = enRaw.slice(TODO_TRANSLATE_PREFIX.length);
+        }
+      }
+
       if (value === undefined) return key;
       return interpolate(value, params);
     },

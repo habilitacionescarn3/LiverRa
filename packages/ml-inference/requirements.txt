@@ -18,20 +18,11 @@
 # tritonclient[all]>=2.50
 
 # ---------------------------------------------------------------------------
-# Model integration (docs/plans/model-integration-roadmap.md, Phase 2)
-# Pinned to match Triton 24.10's internal PyTorch 2.4.1 — version drift here
-# causes silent kernel crashes inside Triton.
-# torch+torchvision are installed first via the PyTorch cu126 index URL
-# (https://download.pytorch.org/whl/cu126); this file serves as the
-# dependency manifest for everything else.
+# GPU stack moved to packages/ml-inference-gpu/ (Option B split, 2026-05-09).
+# torch / torchvision / monai are no longer needed on the laptop side —
+# the cascade calls a stateless HTTP inference service on Irakli's box
+# via src/services/inference_client.py (httpx, see below).
 # ---------------------------------------------------------------------------
-# Bumped 2026-05-08 to clear pip-audit CVEs:
-#   torch 2.4.1 → 2.8.0  (PYSEC-2025-41, PYSEC-2024-259, CVE-2025-2953, CVE-2025-3730)
-#   monai 1.4.0 → 1.5.2  (CVE-2025-58755/56/57, CVE-2026-21851, GHSA-89gg-p5r5-q6r4)
-# torchvision 0.23.0 matches the torch 2.8.0 ABI per the PyTorch compat matrix.
-torch==2.8.0
-torchvision==0.23.0
-monai==1.5.2
 uvicorn[standard]>=0.32
 alembic>=1.13
 
@@ -46,12 +37,14 @@ boto3>=1.35
 celery[redis]>=5.4
 
 # ---------------------------------------------------------------------------
-# Declared by T155-T166 (Triton client + cascade orchestration + sanity/checkpoint)
+# Cascade orchestration + sanity/checkpoint (T155-T166).
+# tritonclient kept for the dormant Triton path (LIVERRA_CASCADE_REAL_MODE=false);
+# under default real-mode the cascade uses inference_client.py instead.
 # ---------------------------------------------------------------------------
 tritonclient[grpc,http]>=2.50
-# Pinned <2.0 because monai==1.4.0 requires numpy<2; MONAI 1.4 is itself
-# pinned by the roadmap to match Triton 24.10's internal PyTorch 2.4.1.
-# Revisit when we move to MONAI 1.5 / PyTorch 2.5+.
+# Was pinned <2.0 for monai 1.4 compatibility; monai is gone from this
+# manifest now (moved to ml-inference-gpu) so the pin can be relaxed —
+# but leave it for the moment to avoid cascading dependency churn.
 numpy>=1.26,<2.0
 nibabel>=5.3
 SimpleITK>=2.4

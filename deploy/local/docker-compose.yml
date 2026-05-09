@@ -178,6 +178,45 @@ services:
       - "1025:1025"   # SMTP
       - "8025:8025"   # Web UI
 
+  # ---------------------------------------------------------------------
+  # LiverRa orchestrator + Celery worker — laptop side after the Option B
+  # split (2026-05-09). Both reference LIVERRA_INFERENCE_URL pointing at
+  # the GPU microservice on Irakli's box (packages/ml-inference-gpu/).
+  # ---------------------------------------------------------------------
+  liverra-api: &liverra-app
+    build:
+      context: ../../packages/ml-inference
+      dockerfile: Dockerfile
+    image: liverra/ml-inference:dev
+    container_name: liverra-api
+    ports:
+      - "8090:8090"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-liverra}:${POSTGRES_PASSWORD:-liverra}@postgres:5432/${POSTGRES_DB:-liverra}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-liverra}:${POSTGRES_PASSWORD:-liverra}@postgres:5432/${POSTGRES_DB:-liverra}
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-liverra}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-liverra-dev-password}
+      AWS_REGION: eu-central-1
+      LIVERRA_PHASES_BUCKET: ${LIVERRA_PHASES_BUCKET:-liverra-phases-eu-central-1}
+      LIVERRA_ANALYSES_BUCKET: ${LIVERRA_ANALYSES_BUCKET:-liverra-analyses-eu-central-1}
+      LIVERRA_INFERENCE_URL: ${LIVERRA_INFERENCE_URL:-http://100.124.94.29:9100}
+      LIVERRA_INFERENCE_TIMEOUT_S: ${LIVERRA_INFERENCE_TIMEOUT_S:-300}
+      LIVERRA_CASCADE_REAL_MODE: "true"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-liverra}:${POSTGRES_PASSWORD:-liverra}@postgres:5432/${POSTGRES_DB:-liverra}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+      minio:    { condition: service_started }
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8090"]
+
+  liverra-celery:
+    <<: *liverra-app
+    container_name: liverra-celery
+    ports: []
+    command: ["celery", "-A", "src.workers.app", "worker", "--loglevel=info", "--concurrency=1"]
+
 volumes:
   liverra_postgres_data:
   liverra_redis_data:

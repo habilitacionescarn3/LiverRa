@@ -60,6 +60,42 @@ def _read_nii_from_s3(s3, bucket: str, key: str) -> Any | None:
         return sitk.ReadImage(tf.name)
 
 
+def _largest_connected_component(mask: np.ndarray, *, label: str = "mask") -> np.ndarray:
+    """Return ``mask`` with only its largest connected blob retained.
+
+    Defends the renderer against fragmented cascade outputs — a stub /
+    dev-mode liver mask often has stray voxels far from the actual organ,
+    which makes ``_bbox`` span the whole volume and the renderer sample
+    slices in the chest + pelvis instead of through the liver. Picking
+    the largest connected component is the simplest correct cleanup
+    when the model is *mostly* right but speckled.
+
+    Returns the original mask unchanged when (a) it's already a single
+    blob (no work to do), (b) it's empty, or (c) scipy is missing.
+    """
+    nz = int(mask.sum())
+    if nz == 0:
+        return mask
+    try:
+        from scipy import ndimage  # type: ignore[import-not-found]
+    except ImportError:  # pragma: no cover
+        return mask
+    labels, n_components = ndimage.label(mask > 0)
+    if n_components <= 1:
+        return mask
+    sizes = ndimage.sum(mask > 0, labels, index=np.arange(1, n_components + 1))
+    biggest = int(np.argmax(sizes)) + 1
+    cleaned = (labels == biggest).astype(mask.dtype)
+    kept = int(cleaned.sum())
+    logger.warning(
+        "stage_render: %s had %d components; kept the largest "
+        "(%d/%d voxels = %.1f%%) — upstream cascade likely produced a "
+        "fragmented mask, consider re-running with proper weights",
+        label, n_components, kept, nz, (kept / nz) * 100.0,
+    )
+    return cleaned
+
+
 def _resample_to(mask_img: Any, ref_img: Any) -> np.ndarray:
     """Resample a SimpleITK mask image into the reference image's grid
     using patient-space affine (NOT index-stretch). Returns uint8 array.
@@ -124,6 +160,9 @@ def _load_volumes(s3, analysis_id: UUID, study_id: UUID) -> dict[str, Any] | Non
 
     ct = sitk.GetArrayFromImage(ct_img).astype(np.float32)
     liver = _resample_to(liver_img, ct_img)
+    # Drop stray voxels from fragmented dev/stub masks so downstream
+    # bbox + slice selection lands on the actual liver.
+    liver = _largest_connected_component(liver, label="liver mask")
 
     # Vessel masks: prefer split portal/hepatic files (Triton cascade
     # convention). Newer TS-based cascade writes ONE merged ``vessels.nii.gz``;
@@ -132,6 +171,10 @@ def _load_volumes(s3, analysis_id: UUID, study_id: UUID) -> dict[str, Any] | Non
     hepatic = _read_nii_from_s3(s3, ANALYSES_BUCKET, f"analyses/{aid}/hepatic_vein.nii.gz")
     portal_arr = _resample_to(portal, ct_img) if portal is not None else None
     hepatic_arr = _resample_to(hepatic, ct_img) if hepatic is not None else None
+    if portal_arr is not None:
+        portal_arr = _largest_connected_component(portal_arr, label="portal vein")
+    if hepatic_arr is not None:
+        hepatic_arr = _largest_connected_component(hepatic_arr, label="hepatic vein")
     if portal_arr is None and hepatic_arr is None:
         merged = _read_nii_from_s3(
             s3, ANALYSES_BUCKET, f"analyses/{aid}/vessels.nii.gz"
@@ -147,6 +190,20 @@ def _load_volumes(s3, analysis_id: UUID, study_id: UUID) -> dict[str, Any] | Non
 
     spacing = ct_img.GetSpacing()  # (X, Y, Z)
     voxel_ml = float(np.prod(spacing) / 1000.0)
+
+    # Mask-file volume at the actual CT spacing — surfaced to the report
+    # builder so it can compare against the cascade's DB-reported volume
+    # (which is computed at parenchyma.py:341 using a hardcoded voxel-size
+    # constant and tends to under-report by ~3× for full-abdomen FOV scans).
+    liver_volume_ml = int(liver.sum()) * voxel_ml
+    if liver_volume_ml > 5000.0 or liver_volume_ml < 100.0:
+        logger.warning(
+            "stage_render: liver mask volume = %.0f mL is outside the "
+            "physiologically plausible 100-5000 mL range — verify cascade "
+            "output for analysis",
+            liver_volume_ml,
+        )
+
     return {
         "ct": ct,
         "ct_img": ct_img,
@@ -155,19 +212,90 @@ def _load_volumes(s3, analysis_id: UUID, study_id: UUID) -> dict[str, Any] | Non
         "hepatic": hepatic_arr,
         "spacing": spacing,
         "voxel_ml": voxel_ml,
+        "liver_volume_ml_mask": liver_volume_ml,
     }
+
+
+def _liver_slice_positions(
+    liver: np.ndarray,
+    *,
+    n_axial: int = 6,
+    n_coronal: int = 2,
+    n_sagittal: int = 2,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Pick slice indices weighted by where the liver mass actually is.
+
+    Instead of evenly spacing samples across the full bbox (which lands
+    extremes on slices where the liver is thin or fragmented), we use
+    the per-axis cumulative voxel distribution and pick equal-mass
+    quantiles. The result is N slices that each see roughly the same
+    amount of liver — diagnostic-grade picks even for oddly shaped
+    livers.
+    """
+    if int(liver.sum()) == 0:
+        # Defensive: if mask is empty, fall back to volume center.
+        s = liver.shape
+        return (
+            np.linspace(s[0] // 4, 3 * s[0] // 4, n_axial, dtype=int),
+            np.linspace(s[1] // 3, 2 * s[1] // 3, n_coronal, dtype=int),
+            np.linspace(s[2] // 3, 2 * s[2] // 3, n_sagittal, dtype=int),
+        )
+
+    def _quantile_picks(axis: int, n: int) -> np.ndarray:
+        # Sum the mask across the other two axes → per-slice voxel count.
+        per_slice = liver.sum(axis=tuple(a for a in range(3) if a != axis)).astype(np.float64)
+        total = per_slice.sum()
+        if total == 0:
+            s = liver.shape[axis]
+            return np.linspace(s // 4, 3 * s // 4, n, dtype=int)
+        cum = np.cumsum(per_slice) / total
+        # Pick quantiles at (i+0.5)/n so we stay clear of the very edges.
+        targets = (np.arange(n) + 0.5) / n
+        idx = np.searchsorted(cum, targets)
+        idx = np.clip(idx, 0, liver.shape[axis] - 1)
+        return idx.astype(int)
+
+    return _quantile_picks(0, n_axial), _quantile_picks(1, n_coronal), _quantile_picks(2, n_sagittal)
 
 
 def _hu_window(slc: np.ndarray, lo: float = -150, hi: float = 250) -> np.ndarray:
     return np.clip((slc - lo) / (hi - lo), 0, 1)
 
 
-def _bbox(mask: np.ndarray) -> tuple[tuple[int, int], ...]:
+def _bbox(
+    mask: np.ndarray,
+    *,
+    pad: int = 0,
+    percentiles: tuple[float, float] | None = (1.0, 99.0),
+) -> tuple[tuple[int, int], ...]:
+    """Bounding box of nonzero voxels — robust to outliers.
+
+    By default uses the [1, 99] percentile of the nonzero voxel positions
+    along each axis instead of the strict min/max. This trims thin
+    "tendrils" or stray edge voxels that survive the largest-CC pass,
+    so renderer slice positions land tight on the anatomy.
+
+    Pass ``percentiles=None`` for the strict min/max (legacy behaviour).
+    """
     nz = np.argwhere(mask > 0)
     if nz.size == 0:
         s = mask.shape
         return tuple((0, s[i] - 1) for i in range(3))
-    return tuple((int(nz[:, i].min()), int(nz[:, i].max())) for i in range(3))
+    if percentiles is None:
+        bounds = ((int(nz[:, i].min()), int(nz[:, i].max())) for i in range(3))
+    else:
+        lo_p, hi_p = percentiles
+        bounds = (
+            (int(np.percentile(nz[:, i], lo_p)), int(np.percentile(nz[:, i], hi_p)))
+            for i in range(3)
+        )
+    out: list[tuple[int, int]] = []
+    for axis_i, (lo, hi) in enumerate(bounds):
+        if pad:
+            lo = max(0, lo - pad)
+            hi = min(mask.shape[axis_i] - 1, hi + pad)
+        out.append((lo, hi))
+    return tuple(out)
 
 
 def _resize_mask_to_ct(mask: np.ndarray, ct_shape: tuple[int, ...]) -> np.ndarray:
@@ -215,15 +343,13 @@ def render_parenchyma(s3, analysis_id: UUID, study_id: UUID) -> bytes | None:
     if vols is None:
         return None
     ct, liver = vols["ct"], _resize_mask_to_ct(vols["liver"], vols["ct"].shape)
-    (zmin, zmax), (ymin, ymax), (xmin, xmax) = _bbox(liver)
-    if zmax <= zmin:
+    if int(liver.sum()) == 0:
         return None
-    z_slices = np.linspace(zmin, zmax, 6, dtype=int)
-    y_slices = np.linspace(
-        ymin + (ymax - ymin) // 4, ymax - (ymax - ymin) // 4, 2, dtype=int
-    )
-    x_slices = np.linspace(
-        xmin + (xmax - xmin) // 4, xmax - (xmax - xmin) // 4, 2, dtype=int
+    # Slice positions are weighted by the per-axis mask mass distribution
+    # rather than the bbox extremes — this lands cuts where the liver is
+    # actually thick, not where stray voxels make the bbox look bigger.
+    z_slices, y_slices, x_slices = _liver_slice_positions(
+        liver, n_axial=6, n_coronal=2, n_sagittal=2,
     )
 
     fig = plt.figure(figsize=(14, 7))
@@ -263,12 +389,20 @@ def _vessel_overlay_safe(
     vessel_mask: np.ndarray | None, liver_mask: np.ndarray, label: str,
 ) -> np.ndarray | None:
     """Return ``vessel_mask`` if it looks plausible relative to liver,
-    or None if it appears oversegmented (so the renderer skips the
-    overlay rather than drawing chaotic body-wide contours)."""
+    or None if it appears oversegmented OR is empty (so the renderer
+    skips the overlay rather than drawing chaotic body-wide contours
+    or a useless empty cyan layer)."""
     if vessel_mask is None:
         return None
-    liver_voxels = int(liver_mask.sum())
     vessel_voxels = int(vessel_mask.sum())
+    if vessel_voxels == 0:
+        logger.warning(
+            "stage_render: skipping %s overlay — mask is empty "
+            "(0 voxels); cascade Stage 3a likely produced no output",
+            label,
+        )
+        return None
+    liver_voxels = int(liver_mask.sum())
     if liver_voxels == 0:
         return vessel_mask
     fraction = vessel_voxels / liver_voxels
@@ -300,8 +434,10 @@ def render_vessels(s3, analysis_id: UUID, study_id: UUID) -> bytes | None:
     if hepatic is not None:
         vessels |= _resize_mask_to_ct(hepatic, ct.shape)
 
-    (zmin, zmax), _, _ = _bbox(liver)
-    z_slices = np.linspace(zmin, zmax, 4, dtype=int)
+    # Weight slice picks by the liver-mass distribution so the axial
+    # detail panes land on slices where the liver (and therefore its
+    # vessel tree) is actually thick.
+    z_slices, _, _ = _liver_slice_positions(liver, n_axial=4, n_coronal=2, n_sagittal=2)
 
     fig = plt.figure(figsize=(14, 5))
     gs = fig.add_gridspec(1, 5, wspace=0.05)

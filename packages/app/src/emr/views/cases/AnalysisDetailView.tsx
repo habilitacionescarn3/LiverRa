@@ -2,29 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * AnalysisDetailView — T174
+ * AnalysisDetailView — viewer-as-hero workspace.
  *
- * Mirrors MediMind's `ImagingTabView.tsx` port pattern:
- *   - Lazy-load heavy 3D viewer + FLR panel (chunks only load when needed)
- *   - `LiverErrorBoundary` wrapper (LiverRa rename of MediMind's PACSErrorBoundary)
- *   - Resizable left drawer with tabs (Segments / Lesions / Measurements / Notes)
- *   - Bottom strip placeholder for US2's MultiPlanarViews
+ * Plain-English: this is the "open a case" page. The DICOM viewer is the
+ * star — left rail (Segments / Lesions / Measurements / Notes) and right
+ * rail (Future Liver Remnant) are wingmen that can each be collapsed to
+ * give the viewer more room. Press F (or click the focus button) to enter
+ * theater mode, which hides both rails entirely.
  *
- * Consumes `useAnalysis()` (sibling agent) when available, falls back to
- * a lightweight local hook so the view renders in isolation.
+ * Layout-only refactor — business logic (useAnalysis, useAnalysisResults,
+ * the cascade timeline, viewer pipeline) is unchanged.
  */
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Box, Group, Stack, Tabs, Text } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
 import { useQuery } from '@tanstack/react-query';
 import {
   IconActivity,
   IconArrowLeft,
+  IconChevronLeft,
+  IconChevronRight,
   IconClipboardList,
   IconDownload,
   IconLayoutDashboard,
+  IconMaximize,
+  IconMinimize,
   IconNotes,
   IconRuler,
   IconStethoscope,
@@ -32,41 +34,33 @@ import {
 } from '@tabler/icons-react';
 import {
   EMRAlert,
-  EMRBreadcrumbs,
+  EMRBadge,
+  EMRBottomSheet,
   EMRButton,
   EMREmptyState,
   EMRErrorBoundary,
-  EMRPageHeader,
+  EMRIconButton,
   EMRSkeleton,
+  EMRTabs,
+  emrTabPanelProps,
 } from '../../components/common';
+import type { EMRBadgeVariant } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { ColdStartIndicator } from '../../components/liver/ColdStartIndicator';
 import { RUODisclaimer } from '../../components/ruo/RUODisclaimer';
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { CascadeStageTimeline } from '../../components/cases/CascadeStageTimeline';
 import { SegmentsList } from '../../components/cases/SegmentsList';
+import styles from './AnalysisDetailView.module.css';
 
 /** `LiverErrorBoundary` — LiverRa rename of MediMind's `PACSErrorBoundary`. */
 const LiverErrorBoundary = EMRErrorBoundary;
 
 // ── Lazy chunks ───────────────────────────────────────────────────────────
-// These components live under the `liver/` directory and pull in Cornerstone3D
-// + WebGPU shaders; lazy-loading keeps the initial bundle under budget per
-// NFR-001 (TTI target). The bundler will code-split automatically.
 const LiverViewer3D = lazy(() => import('../../components/liver/LiverViewer3D'));
 const FLRPanel = lazy(() => import('../../components/liver/FLRPanel'));
 
-/**
- * Real backend response shape for `GET /api/v1/analyses/{id}`.
- *
- * Plain-English: this is what the FastAPI app actually sends back —
- * snake_case fields, `status: 'completed' | 'queued' | 'running' | 'failed'`,
- * a `stage_progress` ledger, and (optionally) `study_instance_uid` /
- * `patient_ref` so the page header can render without an extra fetch.
- *
- * Replaces the obsolete `AnalysisSummary` interface that the old
- * `useAnalysisStub` returned with camelCase + `'done'` status.
- */
 interface BackendAnalysis {
   id: string;
   study_id: string;
@@ -78,9 +72,7 @@ interface BackendAnalysis {
   completed_at?: string | null;
   pipeline_version?: string;
   error_slug?: string | null;
-  // Some endpoints expose a partial-results bag with the FLR default.
   flr_default?: { remnant_pct_functional?: string | number | null } | null;
-  /** Ordered cascade-stage ledger surfaced by the backend `/analyses/{id}` GET. */
   stage_progress?: Array<{
     stage_no: number;
     stage: string;
@@ -91,11 +83,8 @@ interface BackendAnalysis {
   }>;
 }
 
-/** Props for this view. */
 export interface AnalysisDetailViewProps {
-  /** Pre-fetched analysis — skips the fetch (tests). */
   initialAnalysis?: BackendAnalysis;
-  /** Base URL for API. Defaults to `/api/v1`. */
   apiBaseUrl?: string;
 }
 
@@ -104,7 +93,6 @@ function readApiBaseUrl(fallback: string): string {
   return (meta.VITE_LIVERRA_API_BASE_URL ?? fallback).replace(/\/$/, '');
 }
 
-/** Tiny "5m ago" / "2h ago" relative-time formatter — no extra dep. */
 function relativeFromIso(iso: string | null | undefined): string {
   if (!iso) return '—';
   const t = Date.parse(iso);
@@ -121,11 +109,6 @@ function relativeFromIso(iso: string | null | undefined): string {
   return `${d}d ago`;
 }
 
-/**
- * Sibling fetch for the `/results` payload — gives us `flr_default` so the
- * FLR panel can show a real number instead of an em-dash. Lightweight and
- * cached by react-query under `['analysis', id, 'results']`.
- */
 interface ResultsBundle {
   flr_default?: {
     remnant_pct_functional?: string | number | null;
@@ -167,7 +150,11 @@ interface ResultsBundle {
   }>;
 }
 
-function useAnalysisResults(analysisId: string | null | undefined, apiBaseUrl: string, status?: string) {
+function useAnalysisResults(
+  analysisId: string | null | undefined,
+  apiBaseUrl: string,
+  status?: string,
+) {
   return useQuery<ResultsBundle, Error>({
     queryKey: ['analysis', analysisId, 'results'],
     queryFn: async () => {
@@ -179,9 +166,6 @@ function useAnalysisResults(analysisId: string | null | undefined, apiBaseUrl: s
     },
     enabled: typeof analysisId === 'string' && analysisId.length > 0,
     staleTime: 30_000,
-    // While the cascade is running we want the FLR + lesion list to fill in
-    // as soon as the relevant stages complete, even if SSE stalls under the
-    // Vite dev proxy. Poll every 3s during running/queued; stop after.
     refetchInterval: status === 'running' || status === 'queued' ? 3_000 : false,
   });
 }
@@ -189,11 +173,7 @@ function useAnalysisResults(analysisId: string | null | undefined, apiBaseUrl: s
 /** Drawer tab keys. */
 type DrawerTab = 'segments' | 'lesions' | 'measurements' | 'notes';
 
-/**
- * Compact lesion list inside the drawer. Fetches `/results` and renders
- * a one-line summary per lesion. Empty/loading/error states are deliberately
- * minimal — the full lesion workflow lives at `/cases/:id/lesions`.
- */
+/** Lesions tab content. Logic unchanged from the previous version. */
 function LesionsTabContent({
   analysisId,
   apiBaseUrl,
@@ -224,32 +204,25 @@ function LesionsTabContent({
   });
   const lesions = data?.lesions ?? [];
 
-  if (isLoading) {
+  if (isLoading) return <p className={styles.helperText}>Loading lesions…</p>;
+  if (error)
     return (
-      <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
-        Loading lesions…
-      </Text>
-    );
-  }
-  if (error) {
-    return (
-      <Text fz="var(--emr-font-sm)" c="var(--emr-danger)">
+      <p className={`${styles.helperText} ${styles.helperError}`}>
         {error.message}
-      </Text>
+      </p>
     );
-  }
-  if (lesions.length === 0) {
+  if (lesions.length === 0)
     return (
-      <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)" data-testid="lesions-empty">
+      <p className={styles.helperText} data-testid="lesions-empty">
         No lesions detected.
-      </Text>
+      </p>
     );
-  }
+
   return (
-    <Stack gap="xs" data-testid="lesions-list">
-      <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)" data-testid="lesions-count">
+    <div className={styles.stack} data-testid="lesions-list">
+      <p className={styles.lesionsCount} data-testid="lesions-count">
         {lesions.length} lesion{lesions.length === 1 ? '' : 's'}
-      </Text>
+      </p>
       {lesions.map((les) => {
         let label = '—';
         let confidence: string | undefined;
@@ -270,37 +243,66 @@ function LesionsTabContent({
             ? `${les.longest_diameter_mm} mm`
             : '—';
         return (
-          <Box
+          <div
             key={les.id}
             data-testid={`lesion-row-${les.id}`}
-            style={{
-              padding: 8,
-              borderRadius: 'var(--emr-border-radius-sm, 6px)',
-              background: 'var(--emr-bg-card)',
-              border: '1px solid var(--emr-gray-200)',
-            }}
+            className={styles.lesionRow}
           >
-            <Text fz="var(--emr-font-sm)" fw={600} c="var(--emr-text-primary)">
+            <span className={styles.lesionRowTitle}>
               {label.toUpperCase()}
               {confidence ? ` · ${confidence}` : ''}
-            </Text>
-            <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)">
+            </span>
+            <span className={styles.lesionRowMeta}>
               Segment {les.couinaud_location ?? '—'} · {diameter}
-            </Text>
-          </Box>
+            </span>
+          </div>
         );
       })}
-    </Stack>
+    </div>
   );
 }
 
-const DEFAULT_DRAWER_WIDTH = 320;
-const MIN_DRAWER_WIDTH = 220;
-const MAX_DRAWER_WIDTH = 560;
+// ── Local helpers ────────────────────────────────────────────────────────
 
-/**
- * The actual detail view (unwrapped).
- */
+const RAIL_STORAGE_KEYS = {
+  left: 'liverra.case.rail.left.collapsed',
+  right: 'liverra.case.rail.right.collapsed',
+} as const;
+
+function readBoolFromStorage(key: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeBoolToStorage(key: string, value: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value ? '1' : '0');
+  } catch {
+    /* storage may be blocked (private mode) — silently ignore */
+  }
+}
+
+function statusVariant(status: BackendAnalysis['status']): EMRBadgeVariant {
+  switch (status) {
+    case 'completed':
+      return 'success';
+    case 'failed':
+      return 'danger';
+    case 'running':
+    case 'partial':
+      return 'info';
+    default:
+      return 'neutral';
+  }
+}
+
+// ── View ─────────────────────────────────────────────────────────────────
+
 function AnalysisDetailViewInner({
   initialAnalysis,
   apiBaseUrl,
@@ -309,21 +311,16 @@ function AnalysisDetailViewInner({
   const navigate = useNavigate();
   const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const isTablet = useMediaQuery('(max-width: 1199px)');
   const baseUrl = readApiBaseUrl(apiBaseUrl ?? '/api/v1');
 
-  // Real backend hook (TanStack Query + SSE invalidation + 3s poll fallback).
   const { analysis: liveAnalysis, isLoading, error } = useAnalysis(id);
-  // Sibling /results fetch so we can populate FLR + flag completion.
   const { data: results } = useAnalysisResults(id, baseUrl, liveAnalysis?.status);
 
-  // Coalesce: tests can pass `initialAnalysis`; runtime uses the live query.
   const analysis = (initialAnalysis ?? (liveAnalysis as unknown as BackendAnalysis | undefined)) as
     | BackendAnalysis
     | undefined;
 
-  // Derive the short study label (used in title + breadcrumbs). Prefer the
-  // DICOM StudyInstanceUID if the backend surfaces it; otherwise truncate the
-  // Postgres study_id UUID. Falls back to the route id when neither is loaded.
   const studyUidShort = useMemo<string>(() => {
     if (!analysis) return (id ?? '').slice(0, 8);
     const uid = analysis.study_instance_uid;
@@ -335,8 +332,6 @@ function AnalysisDetailViewInner({
 
   const patientReference = analysis?.patient_ref ?? undefined;
 
-  // FLR percentage, parsed from `flr_default.remnant_pct_functional` (string
-  // numeric on the wire). Pipes into the FLR panel so it shows a real value.
   const flrPct = useMemo<number | undefined>(() => {
     const raw = results?.flr_default?.remnant_pct_functional ?? null;
     if (raw === null || raw === undefined) return undefined;
@@ -344,400 +339,512 @@ function AnalysisDetailViewInner({
     return Number.isFinite(n) ? n : undefined;
   }, [results]);
 
-  // Drawer tab badge counts — pulled from the same /results query.
   const segmentsCount = results?.segmentations?.length ?? 0;
   const lesionsCount = results?.lesions?.length ?? 0;
-  // "Last updated" timestamp for the viewer card status bar.
+
+  // Liver volume metric (from parenchyma segmentation if present).
+  const liverVolumeMl = useMemo<string | undefined>(() => {
+    const liver = results?.segmentations?.find((s) => s.anatomy_category === 'liver');
+    const v = liver?.volume_ml;
+    if (v === null || v === undefined) return undefined;
+    const n = typeof v === 'string' ? Number.parseFloat(v) : Number(v);
+    if (!Number.isFinite(n)) return undefined;
+    return Math.round(n).toLocaleString();
+  }, [results]);
+
   const lastUpdatedIso =
     analysis?.completed_at ?? analysis?.started_at ?? analysis?.queued_at ?? null;
 
-  // Document title — keep the analysis study UID visible in the browser tab.
   useEffect(() => {
     const base = t('analysis:detail.crumbs.cases') ?? 'Analysis';
     const studyShort = studyUidShort || id || '';
-    document.title = studyShort
-      ? `${base}: ${studyShort} · LiverRa`
-      : `${base} · LiverRa`;
+    document.title = studyShort ? `${base}: ${studyShort} · LiverRa` : `${base} · LiverRa`;
   }, [studyUidShort, id, t]);
 
-  // Resizable drawer state — collapses to a sheet on mobile.
-  const [drawerWidth, setDrawerWidth] = useState<number>(DEFAULT_DRAWER_WIDTH);
-  const [drawerTab, setDrawerTab] = useState<DrawerTab>('segments');
-  const [resizing, setResizing] = useState(false);
+  // Rail collapse state — persisted per-rail in localStorage.
+  const [leftCollapsed, setLeftCollapsed] = useState<boolean>(() =>
+    readBoolFromStorage(RAIL_STORAGE_KEYS.left),
+  );
+  const [rightCollapsed, setRightCollapsed] = useState<boolean>(() =>
+    readBoolFromStorage(RAIL_STORAGE_KEYS.right),
+  );
+  useEffect(() => {
+    writeBoolToStorage(RAIL_STORAGE_KEYS.left, leftCollapsed);
+  }, [leftCollapsed]);
+  useEffect(() => {
+    writeBoolToStorage(RAIL_STORAGE_KEYS.right, rightCollapsed);
+  }, [rightCollapsed]);
 
-  const startResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setResizing(true);
-    const startX = e.clientX;
-    const startW = drawerWidth;
-    const onMove = (ev: PointerEvent): void => {
-      const next = Math.min(
-        MAX_DRAWER_WIDTH,
-        Math.max(MIN_DRAWER_WIDTH, startW + (ev.clientX - startX)),
-      );
-      setDrawerWidth(next);
+  // Theater mode (F to toggle, Esc to exit).
+  const [theater, setTheater] = useState<boolean>(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      // Don't hijack the key when the user is typing.
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && /^(input|textarea|select)$/i.test(tgt.tagName)) return;
+      if (tgt?.isContentEditable) return;
+      if (e.key === 'f' || e.key === 'F') {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        setTheater((t) => !t);
+        e.preventDefault();
+      } else if (e.key === 'Escape' && theater) {
+        setTheater(false);
+      }
     };
-    const onUp = (): void => {
-      setResizing(false);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, [drawerWidth]);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [theater]);
+
+  // Mobile bottom-sheets for the workspace + FLR rails.
+  const [mobileSheet, setMobileSheet] = useState<'workspace' | 'flr' | null>(null);
+
+  // Drawer tab state.
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>('segments');
+
+  // Mirror theater state to a body class so we can hide chrome elements
+  // rendered outside our tree (the fixed-position RUODisclaimer, the
+  // cascade timeline that lives on its own row, etc.).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const cls = 'is-theater-mode';
+    if (theater) document.body.classList.add(cls);
+    else document.body.classList.remove(cls);
+    return () => document.body.classList.remove(cls);
+  }, [theater]);
 
   const analysisReady = analysis?.status === 'completed';
 
-  const breadcrumbs = useMemo(
+  const tabItems = useMemo(
     () => [
-      { label: t('analysis:detail.crumbs.cases'), href: '/cases' },
-      { label: studyUidShort || id || '—' },
+      {
+        value: 'segments' as const,
+        label: t('analysis:detail.tabs.segments'),
+        icon: IconLayoutDashboard,
+        right:
+          segmentsCount > 0 ? (
+            <EMRBadge size="sm" variant="neutral" data-testid="drawer-tab-segments-count">
+              {segmentsCount}
+            </EMRBadge>
+          ) : undefined,
+      },
+      {
+        value: 'lesions' as const,
+        label: t('analysis:detail.tabs.lesions'),
+        icon: IconTarget,
+        right:
+          lesionsCount > 0 ? (
+            <EMRBadge size="sm" variant="primary" data-testid="drawer-tab-lesions-count">
+              {lesionsCount}
+            </EMRBadge>
+          ) : undefined,
+      },
+      {
+        value: 'measurements' as const,
+        label: t('analysis:detail.tabs.measurements'),
+        icon: IconRuler,
+      },
+      {
+        value: 'notes' as const,
+        label: t('analysis:detail.tabs.notes'),
+        icon: IconNotes,
+      },
     ],
-    [studyUidShort, id, t],
+    [segmentsCount, lesionsCount, t],
   );
 
   if (error) {
     return (
-      <Box p="lg">
-        <EMRAlert
-          variant="error"
-          title={t('analysis:detail.error.title')}
-          withCloseButton={false}
-        >
+      <div style={{ padding: 20 }}>
+        <EMRAlert variant="error" title={t('analysis:detail.error.title')} withCloseButton={false}>
           {error.message}
         </EMRAlert>
-      </Box>
+      </div>
     );
   }
 
   if (isLoading || !analysis) {
     return (
-      <Stack p="lg" gap="md">
+      <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <EMRSkeleton height={40} width="40%" />
         <EMRSkeleton height={480} />
-      </Stack>
+      </div>
     );
   }
 
+  // ── Reusable fragments ──────────────────────────────────────────────
+
+  const renderTabPanel = (): React.ReactNode => {
+    switch (drawerTab) {
+      case 'segments':
+        return <SegmentsList analysisId={analysis.id} apiBaseUrl={baseUrl} />;
+      case 'lesions':
+        return <LesionsTabContent analysisId={analysis.id} apiBaseUrl={baseUrl} />;
+      case 'measurements':
+        return (
+          <EMREmptyState
+            icon={IconRuler}
+            title={t('analysis:detail.drawer.measurementsEmpty.title')}
+            description={t('analysis:detail.drawer.measurementsEmpty.description')}
+            size="sm"
+            action={{
+              label: t('analysis:detail.drawer.openRefinement'),
+              onClick: () => navigate(`/cases/${analysis.id}/refine`),
+            }}
+          />
+        );
+      case 'notes':
+        return (
+          <EMREmptyState
+            icon={IconNotes}
+            title={t('analysis:detail.drawer.notesEmpty.title')}
+            description={t('analysis:detail.drawer.notesEmpty.description')}
+            size="sm"
+            action={{
+              label: t('analysis:detail.drawer.openRefinement'),
+              onClick: () => navigate(`/cases/${analysis.id}/refine`),
+            }}
+          />
+        );
+    }
+  };
+
+  const workspaceRail = (
+    <aside
+      className={`${styles.rail} ${leftCollapsed && !isMobile ? styles.railCollapsed : ''}`}
+      aria-label={t('analysis:detail.drawerAria')}
+    >
+      <div className={styles.railHeader}>
+        {!leftCollapsed && (
+          <>
+            <span className={styles.railHeaderIcon} aria-hidden="true">
+              <IconClipboardList size={16} stroke={2} />
+            </span>
+            <div className={styles.railHeaderText}>
+              <p className={styles.railHeaderTitle}>{t('analysis:detail.workspace.title')}</p>
+              <p className={styles.railHeaderSubtitle}>
+                {t('analysis:detail.workspace.subtitle')}
+              </p>
+            </div>
+          </>
+        )}
+        {!isMobile && !isTablet && (
+          <div className={styles.railToggle}>
+            <EMRIconButton
+              size="sm"
+              icon={leftCollapsed ? IconChevronRight : IconChevronLeft}
+              aria-label={
+                leftCollapsed
+                  ? t('analysis:detail.rails.expandLeft')
+                  : t('analysis:detail.rails.collapseLeft')
+              }
+              onClick={() => setLeftCollapsed((v) => !v)}
+              data-testid="rail-left-toggle"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Collapsed icon strip — quick re-expand by clicking any tab icon. */}
+      {leftCollapsed && (
+        <div className={styles.railCollapsedIcons}>
+          {tabItems.map((it) => (
+            <EMRIconButton
+              key={it.value}
+              size="sm"
+              icon={it.icon!}
+              aria-label={typeof it.label === 'string' ? it.label : it.value}
+              onClick={() => {
+                setLeftCollapsed(false);
+                setDrawerTab(it.value);
+              }}
+              data-testid={`rail-left-icon-${it.value}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {!leftCollapsed && (
+        <>
+          {/* Pipeline activity block — surfaces the cascade timeline
+              inside the workspace rail when the analysis has settled
+              (completed / failed). Keeps it visible to the radiologist
+              without consuming horizontal viewport above the viewer. */}
+          {(analysis.status === 'completed' || analysis.status === 'failed') && (
+            <div className={styles.railStatusBlock}>
+              <CascadeStageTimeline
+                analysisId={analysis.id}
+                stageProgress={analysis.stage_progress}
+                apiBaseUrl={baseUrl}
+                analysisStatus={analysis.status}
+              />
+            </div>
+          )}
+          <div className={styles.railTabs}>
+            <EMRTabs
+              value={drawerTab}
+              onChange={(v) => setDrawerTab(v as DrawerTab)}
+              items={tabItems}
+              variant="pills"
+              aria-label={t('analysis:detail.drawerAria')}
+            />
+          </div>
+          <div className={styles.railBody} {...emrTabPanelProps('case-drawer', drawerTab)}>
+            {renderTabPanel()}
+          </div>
+        </>
+      )}
+    </aside>
+  );
+
+  const flrRail = (
+    <aside
+      className={`${styles.railRight} ${rightCollapsed && !isMobile ? styles.railCollapsed : ''}`}
+      aria-label={t('analysis:flr.title')}
+    >
+      <div className={styles.railHeader}>
+        {!rightCollapsed && (
+          <>
+            <span className={styles.railHeaderIcon} aria-hidden="true">
+              <IconActivity size={16} stroke={2} />
+            </span>
+            <div className={styles.railHeaderText}>
+              <p className={styles.railHeaderTitle}>{t('analysis:flr.title')}</p>
+              <p className={styles.railHeaderSubtitle}>{t('analysis:detail.flr.subtitle')}</p>
+            </div>
+          </>
+        )}
+        {!isMobile && !isTablet && (
+          <div className={styles.railToggle}>
+            <EMRIconButton
+              size="sm"
+              icon={rightCollapsed ? IconChevronLeft : IconChevronRight}
+              aria-label={
+                rightCollapsed
+                  ? t('analysis:detail.rails.expandRight')
+                  : t('analysis:detail.rails.collapseRight')
+              }
+              onClick={() => setRightCollapsed((v) => !v)}
+              data-testid="rail-right-toggle"
+            />
+          </div>
+        )}
+      </div>
+      {rightCollapsed ? (
+        <div className={styles.railCollapsedIcons}>
+          <EMRIconButton
+            size="sm"
+            icon={IconActivity}
+            aria-label={t('analysis:detail.rails.expandRight')}
+            onClick={() => setRightCollapsed(false)}
+            data-testid="rail-right-icon"
+          />
+        </div>
+      ) : (
+        <div className={styles.flrBody}>
+          <LiverErrorBoundary>
+            <Suspense
+              fallback={
+                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <EMRSkeleton height={24} width="50%" />
+                  <EMRSkeleton height={120} />
+                </div>
+              }
+            >
+              <FLRPanel analysisId={analysis.id} initialFlrPct={flrPct} />
+            </Suspense>
+          </LiverErrorBoundary>
+        </div>
+      )}
+    </aside>
+  );
+
+  // ── Render ─────────────────────────────────────────────────────────
+
   return (
-    <Box
+    <div
       data-testid="analysis-detail-root"
       data-analysis-id={analysis.id}
       data-analysis-status={analysis.status}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 'calc(100vh - 64px)',
-        background: 'var(--emr-bg-page)',
-      }}
+      className={styles.root}
     >
-      {/* Header */}
-      <Box p={{ base: 'sm', md: 'lg' } as unknown as string}>
-        <EMRBreadcrumbs items={breadcrumbs} />
-        <EMRPageHeader
-          icon={IconStethoscope}
-          title={t('analysis:detail.title', { studyUid: studyUidShort })}
-          subtitle={patientReference}
-          actions={
-            <Group wrap="wrap" gap="xs">
-              <EMRButton
-                variant="ghost"
-                icon={IconArrowLeft}
-                onClick={() => navigate('/cases')}
-              >
-                {t('analysis:detail.back')}
-              </EMRButton>
-              {analysisReady && (
-                <EMRButton
-                  variant="primary"
-                  icon={IconDownload}
-                  onClick={() => navigate(`/cases/${analysis.id}/finalize`)}
-                  data-testid="analysis-finalize-btn"
-                >
-                  {t('analysis:detail.openFinalize')}
-                </EMRButton>
-              )}
-            </Group>
-          }
-        />
-      </Box>
-
-      {/* Cold-start banner (auto-hides when predicted_warm_s === 0) */}
-      {id && <ColdStartIndicator analysisId={id} status={analysis.status} />}
-
-      {/* Cascade stage timeline — surfaces the pipeline_checkpoint ledger so
-          a clinician can see what the AI has already produced + per-stage
-          stats (parenchyma volume, lesion count, FLR%). Auto-hides when
-          stage_progress is empty (analysis still queued). */}
-      <CascadeStageTimeline
-        analysisId={analysis.id}
-        stageProgress={analysis.stage_progress}
-        apiBaseUrl={baseUrl}
-        analysisStatus={analysis.status}
-      />
-
-      {/* Main workspace: drawer | viewer | FLR */}
-      <Box
-        style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          flex: 1,
-          minHeight: 0,
-          padding: isMobile ? 8 : 16,
-          gap: 12,
-        }}
-      >
-        {/* Left drawer */}
-        <Box
-          style={{
-            width: isMobile ? '100%' : drawerWidth,
-            minWidth: isMobile ? 0 : MIN_DRAWER_WIDTH,
-            flexShrink: 0,
-            background: 'var(--emr-bg-card)',
-            border: '1px solid var(--emr-gray-200)',
-            borderRadius: 'var(--emr-border-radius-lg)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-          aria-label={t('analysis:detail.drawerAria')}
-        >
-          {/* Sticky drawer header — gives the panel an identity */}
-          <Box
-            style={{
-              padding: '10px 14px',
-              borderBottom: '1px solid var(--emr-gray-200)',
-              background: 'var(--emr-bg-card)',
-              flexShrink: 0,
-            }}
-          >
-            <Group gap={8} wrap="nowrap" align="center">
-              <IconClipboardList
-                size={16}
-                style={{ color: 'var(--emr-text-secondary)', flexShrink: 0 }}
-              />
-              <Stack gap={0} style={{ minWidth: 0 }}>
-                <Text
-                  fz="var(--emr-font-sm)"
-                  fw={600}
-                  c="var(--emr-text-primary)"
-                  truncate
-                >
-                  {t('analysis:detail.workspace.title')}
-                </Text>
-                <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)" truncate>
-                  {t('analysis:detail.workspace.subtitle')}
-                </Text>
-              </Stack>
-            </Group>
-          </Box>
-
-          <Tabs
-            value={drawerTab}
-            onChange={(v) => v && setDrawerTab(v as DrawerTab)}
-            variant="pills"
-            radius="md"
-            styles={{
-              list: {
-                padding: 8,
-                background: 'transparent',
-                borderBottom: '1px solid var(--emr-gray-200)',
-                flexWrap: 'wrap',
-              },
-              tab: {
-                fontSize: 'var(--emr-font-xs)',
-                fontWeight: 600,
-                flexShrink: 0,
-                whiteSpace: 'nowrap',
-              },
-            }}
-          >
-            <Tabs.List>
-              <Tabs.Tab
-                value="segments"
-                leftSection={<IconLayoutDashboard size={14} />}
-                rightSection={
-                  segmentsCount > 0 ? (
-                    <Badge
-                      size="xs"
-                      variant="light"
-                      color="gray"
-                      radius="sm"
-                      data-testid="drawer-tab-segments-count"
-                    >
-                      {segmentsCount}
-                    </Badge>
-                  ) : undefined
-                }
-              >
-                {t('analysis:detail.tabs.segments')}
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="lesions"
-                leftSection={<IconTarget size={14} />}
-                rightSection={
-                  lesionsCount > 0 ? (
-                    <Badge
-                      size="xs"
-                      variant="light"
-                      color="gray"
-                      radius="sm"
-                      data-testid="drawer-tab-lesions-count"
-                    >
-                      {lesionsCount}
-                    </Badge>
-                  ) : undefined
-                }
-              >
-                {t('analysis:detail.tabs.lesions')}
-              </Tabs.Tab>
-              <Tabs.Tab value="measurements" leftSection={<IconRuler size={14} />}>
-                {t('analysis:detail.tabs.measurements')}
-              </Tabs.Tab>
-              <Tabs.Tab value="notes" leftSection={<IconNotes size={14} />}>
-                {t('analysis:detail.tabs.notes')}
-              </Tabs.Tab>
-            </Tabs.List>
-
-            <Box style={{ padding: 12, overflowY: 'auto', flex: 1 }}>
-              <Tabs.Panel value="segments">
-                <SegmentsList analysisId={analysis.id} apiBaseUrl={baseUrl} />
-              </Tabs.Panel>
-              <Tabs.Panel value="lesions">
-                <LesionsTabContent analysisId={analysis.id} apiBaseUrl={baseUrl} />
-              </Tabs.Panel>
-              <Tabs.Panel value="measurements">
-                <EMREmptyState
-                  icon={IconRuler}
-                  title={t('analysis:detail.drawer.measurementsEmpty.title')}
-                  description={t('analysis:detail.drawer.measurementsEmpty.description')}
-                  size="sm"
-                  action={{
-                    label: t('analysis:detail.drawer.openRefinement'),
-                    onClick: () => navigate(`/cases/${analysis.id}/refine`),
-                  }}
-                />
-              </Tabs.Panel>
-              <Tabs.Panel value="notes">
-                <EMREmptyState
-                  icon={IconNotes}
-                  title={t('analysis:detail.drawer.notesEmpty.title')}
-                  description={t('analysis:detail.drawer.notesEmpty.description')}
-                  size="sm"
-                  action={{
-                    label: t('analysis:detail.drawer.openRefinement'),
-                    onClick: () => navigate(`/cases/${analysis.id}/refine`),
-                  }}
-                />
-              </Tabs.Panel>
-            </Box>
-          </Tabs>
-        </Box>
-
-        {/* Resizer handle */}
-        {!isMobile && (
-          <Box
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t('analysis:detail.resizeAria')}
-            onPointerDown={startResize}
-            style={{
-              width: 6,
-              cursor: 'col-resize',
-              background: resizing
-                ? 'var(--emr-accent-alpha-20)'
-                : 'transparent',
-              borderRadius: 3,
-              flexShrink: 0,
-              alignSelf: 'stretch',
-            }}
+      {/* Compact hero header — single row, ~52px tall. */}
+      <header className={styles.hero}>
+        <div className={styles.heroBack}>
+          <EMRIconButton
+            size="sm"
+            icon={IconArrowLeft}
+            aria-label={t('analysis:detail.back')}
+            onClick={() => navigate('/cases')}
+            data-testid="hero-back-btn"
           />
-        )}
+        </div>
+        <span className={styles.heroIcon} aria-hidden="true">
+          <IconStethoscope size={18} stroke={1.8} />
+        </span>
+        <div className={styles.heroTitleBlock}>
+          <h1 className={styles.heroTitle} data-testid="emr-page-header-title">
+            {t('analysis:detail.title', { studyUid: studyUidShort })}
+          </h1>
+          <EMRBadge variant={statusVariant(analysis.status)} size="sm">
+            {t(`analysis:status.${analysis.status}`) || analysis.status}
+          </EMRBadge>
+          {patientReference && (
+            <span className={styles.heroPatientRef} title={patientReference}>
+              {patientReference}
+            </span>
+          )}
+        </div>
+
+        {/* Inline metric pills — same row as title. */}
+        <div className={styles.metrics} aria-label="Case metrics">
+          {liverVolumeMl !== undefined && (
+            <span className={styles.metric} data-testid="metric-liver-volume">
+              <span className={styles.metricLabel}>{t('analysis:detail.metrics.liverVolume')}</span>
+              <span className={styles.metricValue}>
+                {liverVolumeMl}
+                {t('analysis:detail.metrics.volumeUnit')}
+              </span>
+            </span>
+          )}
+          {lesionsCount > 0 && (
+            <span className={styles.metric} data-testid="metric-lesions">
+              <span className={styles.metricLabel}>{t('analysis:detail.metrics.lesions')}</span>
+              <span className={styles.metricValue}>{lesionsCount}</span>
+            </span>
+          )}
+          {flrPct !== undefined && (
+            <span className={styles.metric} data-testid="metric-flr">
+              <span className={styles.metricLabel}>{t('analysis:detail.metrics.flr')}</span>
+              <span className={styles.metricValue}>
+                {flrPct.toFixed(1)}
+                {t('analysis:detail.metrics.flrUnit')}
+              </span>
+            </span>
+          )}
+        </div>
+
+        <div className={styles.heroActions}>
+          {analysisReady && (
+            <EMRButton
+              variant="primary"
+              size="sm"
+              icon={IconDownload}
+              onClick={() => navigate(`/cases/${analysis.id}/finalize`)}
+              data-testid="analysis-finalize-btn"
+            >
+              {t('analysis:detail.openFinalize')}
+            </EMRButton>
+          )}
+        </div>
+      </header>
+
+      {/* Cold-start banner (auto-hides when warm) — wrapped so theater
+          mode can hide it via the `data-testid` attribute. */}
+      {id && (
+        <div data-testid="cold-start-indicator">
+          <ColdStartIndicator analysisId={id} status={analysis.status} />
+        </div>
+      )}
+
+      {/* Cascade stage timeline — only shown above the viewer while the
+          pipeline is actively progressing. Once status is `completed` or
+          `failed`, the timeline lives inside the workspace rail to free
+          up vertical real estate for the viewer. */}
+      {analysis.status !== 'completed' && analysis.status !== 'failed' && (
+        <CascadeStageTimeline
+          analysisId={analysis.id}
+          stageProgress={analysis.stage_progress}
+          apiBaseUrl={baseUrl}
+          analysisStatus={analysis.status}
+        />
+      )}
+
+      {/* Mobile sheet triggers (only visible <768px). */}
+      <div className={styles.mobileSheetTriggers}>
+        <EMRButton
+          variant="secondary"
+          icon={IconClipboardList}
+          onClick={() => setMobileSheet('workspace')}
+        >
+          {t('analysis:detail.workspace.title')}
+        </EMRButton>
+        <EMRButton
+          variant="secondary"
+          icon={IconActivity}
+          onClick={() => setMobileSheet('flr')}
+        >
+          {t('analysis:flr.title')}
+        </EMRButton>
+      </div>
+
+      {/* 3-zone workspace */}
+      <main
+        className={[
+          styles.workspace,
+          theater ? styles.workspaceTheater : null,
+          leftCollapsed && !theater ? styles.workspaceLeftCollapsed : null,
+          rightCollapsed && !theater ? styles.workspaceRightCollapsed : null,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {/* Left rail */}
+        {!isMobile && workspaceRail}
 
         {/* Centre: viewer (the hero) */}
-        <Box
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            borderRadius: 'var(--emr-border-radius-lg)',
-            overflow: 'hidden',
-            background: 'var(--emr-bg-card)',
-            border: '1px solid var(--emr-gray-200)',
-            minHeight: isMobile ? 360 : 560,
-          }}
+        <section
+          className={styles.viewerCard}
+          aria-label={t('analysis:viewer.ariaLabel')}
         >
-          {/* Internal toolbar / status bar */}
-          <Box
-            style={{
-              minHeight: 40,
-              padding: '6px 12px',
-              borderBottom: '1px solid var(--emr-gray-200)',
-              background: 'var(--emr-bg-card)',
-              flexShrink: 0,
-            }}
-          >
-            <Group justify="space-between" wrap="wrap" gap="xs" align="center">
-              <Group gap={10} wrap="wrap" align="center" style={{ minWidth: 0 }}>
-                <Text
-                  fz="var(--emr-font-xs)"
-                  fw={600}
-                  c="var(--emr-text-secondary)"
-                  truncate
-                  data-testid="viewer-card-study-label"
-                >
-                  {t('analysis:detail.viewerCard.studyLabel', { uid: studyUidShort })}
-                </Text>
-                <Badge
-                  size="xs"
-                  variant="light"
-                  color={
-                    analysis.status === 'completed'
-                      ? 'green'
-                      : analysis.status === 'failed'
-                        ? 'red'
-                        : analysis.status === 'running' || analysis.status === 'partial'
-                          ? 'blue'
-                          : 'gray'
-                  }
-                  radius="sm"
-                  styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
-                >
-                  {t(`analysis:status.${analysis.status}`) || analysis.status}
-                </Badge>
-                <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)">
-                  {t('analysis:detail.viewerCard.lastUpdated', {
-                    when: relativeFromIso(lastUpdatedIso),
-                  })}
-                </Text>
-              </Group>
-              {patientReference && (
-                <Badge
-                  size="xs"
-                  variant="light"
-                  color="gray"
-                  radius="sm"
-                  styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
-                >
-                  {patientReference}
-                </Badge>
+          <div className={styles.viewerToolbar}>
+            <div className={styles.viewerToolbarLeft}>
+              <span className={styles.viewerStudyLabel} data-testid="viewer-card-study-label">
+                {t('analysis:detail.viewerCard.studyLabel', { uid: studyUidShort })}
+              </span>
+              <EMRBadge variant={statusVariant(analysis.status)} size="sm">
+                {t(`analysis:status.${analysis.status}`) || analysis.status}
+              </EMRBadge>
+              <span className={styles.viewerLastUpdated}>
+                {t('analysis:detail.viewerCard.lastUpdated', {
+                  when: relativeFromIso(lastUpdatedIso),
+                })}
+              </span>
+            </div>
+            <div className={styles.viewerToolbarRight}>
+              <EMRBadge variant="solidWarning" size="sm">
+                {t('analysis:detail.ruoBadge')}
+              </EMRBadge>
+              {theater && (
+                <span className={styles.viewerKbdHint} aria-hidden="true">
+                  ESC
+                </span>
               )}
-            </Group>
-          </Box>
+              <EMRIconButton
+                variant="solid"
+                icon={theater ? IconMinimize : IconMaximize}
+                aria-label={
+                  theater
+                    ? t('analysis:detail.theater.exit')
+                    : t('analysis:detail.theater.enter')
+                }
+                active={theater}
+                onClick={() => setTheater((v) => !v)}
+                data-testid="viewer-theater-toggle"
+              />
+            </div>
+          </div>
 
-          <Box style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <div className={styles.viewerCanvas}>
             <LiverErrorBoundary>
               <Suspense
                 fallback={
-                  <Stack p="lg" gap="md" align="center" justify="center" style={{ height: '100%' }}>
+                  <div className={styles.viewerLoading}>
                     <EMRSkeleton height={48} width="60%" />
                     <EMRSkeleton height={240} />
-                    <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)">
+                    <span style={{ fontSize: 'var(--emr-font-xs)' }}>
                       {t('analysis:detail.viewer.loading')}
-                    </Text>
-                  </Stack>
+                    </span>
+                  </div>
                 }
               >
                 <LiverViewer3D
@@ -745,9 +852,8 @@ function AnalysisDetailViewInner({
                   ready={analysisReady}
                   studyInstanceUid={analysis.study_instance_uid}
                   parenchymaMaskUri={
-                    results?.segmentations?.find(
-                      (s) => s.anatomy_category === 'liver',
-                    )?.mask_url ?? undefined
+                    results?.segmentations?.find((s) => s.anatomy_category === 'liver')?.mask_url ??
+                    undefined
                   }
                   segmentations={results?.segmentations ?? []}
                   lesionCount={results?.lesions?.length ?? 0}
@@ -756,112 +862,76 @@ function AnalysisDetailViewInner({
                 />
               </Suspense>
             </LiverErrorBoundary>
-          </Box>
-        </Box>
+          </div>
+        </section>
 
-        {/* Right: FLR panel — money-number card */}
-        <Box
-          style={{
-            width: isMobile ? '100%' : 320,
-            flexShrink: 0,
-            borderRadius: 'var(--emr-border-radius-lg)',
-            overflow: 'hidden',
-            background: 'var(--emr-bg-card)',
-            border: '1px solid var(--emr-gray-200)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* FLR card header strip */}
-          <Box
-            style={{
-              padding: '10px 14px',
-              borderBottom: '1px solid var(--emr-gray-200)',
-              background: 'var(--emr-bg-card)',
-              flexShrink: 0,
-            }}
-          >
-            <Group gap={8} wrap="nowrap" align="center">
-              <IconActivity
-                size={16}
-                style={{ color: 'var(--emr-text-secondary)', flexShrink: 0 }}
-              />
-              <Stack gap={0} style={{ minWidth: 0 }}>
-                <Text
-                  fz="var(--emr-font-sm)"
-                  fw={600}
-                  c="var(--emr-text-primary)"
-                  truncate
-                >
-                  {t('analysis:flr.title')}
-                </Text>
-                <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)" truncate>
-                  {t('analysis:detail.flr.subtitle')}
-                </Text>
-              </Stack>
-            </Group>
-          </Box>
-          <LiverErrorBoundary>
-            <Suspense
-              fallback={
-                <Stack p="md" gap="sm">
-                  <EMRSkeleton height={24} width="50%" />
-                  <EMRSkeleton height={120} />
-                </Stack>
-              }
-            >
-              <FLRPanel analysisId={analysis.id} initialFlrPct={flrPct} />
-            </Suspense>
-          </LiverErrorBoundary>
-        </Box>
-      </Box>
+        {/* Right rail */}
+        {!isMobile && !isTablet && flrRail}
+      </main>
 
-      {/* Bottom status / disclaimer footer — replaces the old dashed placeholder */}
-      <Box
-        style={{
-          margin: isMobile ? 8 : 16,
-          marginTop: 0,
-          padding: '10px 16px',
-          borderRadius: 'var(--emr-border-radius-lg)',
-          background: 'var(--emr-bg-card)',
-          borderTop: '1px solid var(--emr-gray-200)',
-          border: '1px solid var(--emr-gray-200)',
-        }}
-        aria-label={t('analysis:detail.mprAria')}
-      >
-        <Group justify="space-between" gap="sm" wrap="wrap" align="center">
-          <Group gap={8} wrap="nowrap" align="center" style={{ minWidth: 0 }}>
-            <IconActivity
-              size={14}
-              style={{ color: 'var(--emr-text-tertiary)', flexShrink: 0 }}
-            />
-            <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)" truncate>
-              {t('analysis:detail.mprPlaceholder')}
-            </Text>
-          </Group>
-          <Badge
-            size="sm"
-            variant="light"
-            color="orange"
-            radius="sm"
-            styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
-          >
-            {t('analysis:detail.ruoBadge')}
-          </Badge>
-        </Group>
-      </Box>
+      {/* Bottom status / RUO footer */}
+      <div className={styles.footer} aria-label={t('analysis:detail.mprAria')}>
+        <div className={styles.footerLeft}>
+          <IconActivity size={14} stroke={2} />
+          <span>{t('analysis:detail.mprPlaceholder')}</span>
+        </div>
+        <EMRBadge variant="warning" size="md">
+          {t('analysis:detail.ruoBadge')}
+        </EMRBadge>
+      </div>
 
-      {/* RUO disclaimer — always rendered whenever AI output is on screen */}
+      {/* RUO disclaimer (always rendered while AI output is on screen) */}
       <RUODisclaimer />
-    </Box>
+
+      {/* Mobile bottom sheets */}
+      {isMobile && (
+        <>
+          <EMRBottomSheet
+            opened={mobileSheet === 'workspace'}
+            onClose={() => setMobileSheet(null)}
+            title={t('analysis:detail.workspace.title')}
+            snapPoint="half"
+          >
+            <div className={styles.sheetBody}>
+              <EMRTabs
+                value={drawerTab}
+                onChange={(v) => setDrawerTab(v as DrawerTab)}
+                items={tabItems}
+                variant="pills"
+                grow
+                aria-label={t('analysis:detail.drawerAria')}
+              />
+              <div {...emrTabPanelProps('case-drawer-mobile', drawerTab)}>{renderTabPanel()}</div>
+            </div>
+          </EMRBottomSheet>
+
+          <EMRBottomSheet
+            opened={mobileSheet === 'flr'}
+            onClose={() => setMobileSheet(null)}
+            title={t('analysis:flr.title')}
+            snapPoint="half"
+          >
+            <div className={styles.sheetBody}>
+              <LiverErrorBoundary>
+                <Suspense
+                  fallback={
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <EMRSkeleton height={24} width="50%" />
+                      <EMRSkeleton height={120} />
+                    </div>
+                  }
+                >
+                  <FLRPanel analysisId={analysis.id} initialFlrPct={flrPct} />
+                </Suspense>
+              </LiverErrorBoundary>
+            </div>
+          </EMRBottomSheet>
+        </>
+      )}
+    </div>
   );
 }
 
-/**
- * Default export. Wraps the view in `LiverErrorBoundary` so runtime errors
- * (WebGPU init, Cornerstone init, SSE failures) render a recovery UI instead
- * of crashing the whole SPA shell.
- */
 export default function AnalysisDetailView(
   props: AnalysisDetailViewProps,
 ): React.ReactElement {

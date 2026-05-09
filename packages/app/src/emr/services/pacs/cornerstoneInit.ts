@@ -897,6 +897,57 @@ export function getCurrentAnnotationsJson(): string {
 // fix is to consult `nifti.header` (sform/qform) and transpose accordingly.
 // ============================================================================
 
+// ---------------------------------------------------------------------------
+// Affine math (private to this module — used by createLabelmapFromNifti).
+// ---------------------------------------------------------------------------
+
+/** Invert a 4×4 affine matrix whose last row is `[0,0,0,1]`.
+ *  `[R t; 0 1]^-1 = [R^-1   -R^-1·t; 0 1]`. Returns null if the 3×3 is singular. */
+function invert4x4Affine(m: number[][]): number[][] | null {
+  const a = m[0][0], b = m[0][1], c = m[0][2];
+  const d = m[1][0], e = m[1][1], f = m[1][2];
+  const g = m[2][0], h = m[2][1], i = m[2][2];
+  const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+  const invDet = 1 / det;
+  // Cofactor / adjugate inverse for the rotation/scale 3×3.
+  const i00 = (e * i - f * h) * invDet;
+  const i01 = (c * h - b * i) * invDet;
+  const i02 = (b * f - c * e) * invDet;
+  const i10 = (f * g - d * i) * invDet;
+  const i11 = (a * i - c * g) * invDet;
+  const i12 = (c * d - a * f) * invDet;
+  const i20 = (d * h - e * g) * invDet;
+  const i21 = (b * g - a * h) * invDet;
+  const i22 = (a * e - b * d) * invDet;
+  // Translation: -R^-1 · t.
+  const tx = m[0][3], ty = m[1][3], tz = m[2][3];
+  return [
+    [i00, i01, i02, -(i00 * tx + i01 * ty + i02 * tz)],
+    [i10, i11, i12, -(i10 * tx + i11 * ty + i12 * tz)],
+    [i20, i21, i22, -(i20 * tx + i21 * ty + i22 * tz)],
+    [0, 0, 0, 1],
+  ];
+}
+
+/** Apply the rotation/scale part of a 4×4 affine to a 3-vector (no translation). */
+function mat3VecApply(m: number[][], v: ArrayLike<number>): [number, number, number] {
+  return [
+    m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+    m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+    m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2],
+  ];
+}
+
+/** Apply a full 4×4 affine to a 3-point (treating the point as homogeneous w=1). */
+function applyAffinePoint(m: number[][], p: ArrayLike<number>): [number, number, number] {
+  return [
+    m[0][0] * p[0] + m[0][1] * p[1] + m[0][2] * p[2] + m[0][3],
+    m[1][0] * p[0] + m[1][1] * p[1] + m[1][2] * p[2] + m[1][3],
+    m[2][0] * p[0] + m[2][1] * p[1] + m[2][2] * p[2] + m[2][3],
+  ];
+}
+
 /**
  * Build a Cornerstone3D labelmap segmentation volume from a NIfTI mask,
  * derived from a reference CT volume so it inherits the CT's grid + spacing.
@@ -967,21 +1018,99 @@ export async function createLabelmapFromNifti(
   }
   const scalar = rawScalar as Uint8Array;
 
-  // Nearest-neighbor resample: for each destination voxel (x,y,z) in the
-  // reference grid, look up the closest source voxel in the NIfTI grid.
-  // Two-level loop hoisting (precompute z + y indices into the NIfTI buffer)
-  // keeps this fast — ~80 ms for 128³ → 512×512×674 on an M1 in dev.
-  for (let z = 0; z < refZ; z++) {
-    const niz = Math.min(niZ - 1, Math.floor((z / refZ) * niZ));
-    const niSliceBase = niz * niX * niY;
-    const refSliceBase = z * refX * refY;
-    for (let y = 0; y < refY; y++) {
-      const niy = Math.min(niY - 1, Math.floor((y / refY) * niY));
-      const niRowBase = niSliceBase + niy * niX;
-      const refRowBase = refSliceBase + y * refX;
-      for (let x = 0; x < refX; x++) {
-        const nix = Math.min(niX - 1, Math.floor((x / refX) * niX));
-        scalar[refRowBase + x] = nifti.voxels[niRowBase + nix];
+  // ────────────────────────────────────────────────────────────────────────
+  // Affine-aware nearest-neighbor resample.
+  //
+  // Plain-English: the cascade (TotalSegmentator, etc.) often re-orients the
+  // mask into canonical RAS before saving NIfTI, so the mask voxel grid does
+  // NOT live in the same physical box as the CT. Mapping by grid-fraction
+  // (the previous behaviour) silently treated them as aligned — overlays
+  // ended up on the wrong side of the body. This walk:
+  //   for each CT voxel (i,j,k):
+  //     world = ctOrigin + ctDir · diag(ctSpacing) · (i,j,k)
+  //     maskVox = inv(maskAffine) · world
+  //     scalar[i,j,k] = nifti.voxels[round(maskVox)]
+  // is the textbook fix.
+  //
+  // A `VITE_LIVERRA_AFFINE_RESAMPLE` env flag falls back to the old behaviour
+  // for diagnostic A/B if alignment ever regresses post-deploy.
+  // ────────────────────────────────────────────────────────────────────────
+  const affineEnabled =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as { env?: Record<string, string> }).env?.VITE_LIVERRA_AFFINE_RESAMPLE !== 'false';
+
+  const refVolFull = cornerstone.cache.getVolume(referenceVolumeId) as unknown as {
+    origin?: [number, number, number];
+    direction?: ArrayLike<number>;
+    spacing?: [number, number, number];
+  } | undefined;
+  const ctOrigin = refVolFull?.origin;
+  const ctDirRaw = refVolFull?.direction;
+  const ctSpacing = refVolFull?.spacing;
+  const ctDir =
+    ctDirRaw && ctDirRaw.length >= 9
+      ? [
+          ctDirRaw[0], ctDirRaw[1], ctDirRaw[2],
+          ctDirRaw[3], ctDirRaw[4], ctDirRaw[5],
+          ctDirRaw[6], ctDirRaw[7], ctDirRaw[8],
+        ]
+      : null;
+
+  const invMask = affineEnabled && nifti.affine ? invert4x4Affine(nifti.affine) : null;
+
+  if (affineEnabled && invMask && ctOrigin && ctDir && ctSpacing) {
+    // CT axis step vectors in WORLD coordinates: world delta when CT voxel
+    // index is incremented by 1 along i / j / k.
+    const wsx = [ctDir[0] * ctSpacing[0], ctDir[3] * ctSpacing[0], ctDir[6] * ctSpacing[0]];
+    const wsy = [ctDir[1] * ctSpacing[1], ctDir[4] * ctSpacing[1], ctDir[7] * ctSpacing[1]];
+    const wsz = [ctDir[2] * ctSpacing[2], ctDir[5] * ctSpacing[2], ctDir[8] * ctSpacing[2]];
+
+    // Same step vectors mapped through `invMask` into MASK voxel coordinates.
+    const msx = mat3VecApply(invMask, wsx);
+    const msy = mat3VecApply(invMask, wsy);
+    const msz = mat3VecApply(invMask, wsz);
+    const startMask = applyAffinePoint(invMask, ctOrigin);
+
+    for (let z = 0; z < refZ; z++) {
+      const slStartX = startMask[0] + z * msz[0];
+      const slStartY = startMask[1] + z * msz[1];
+      const slStartZ = startMask[2] + z * msz[2];
+      const refSliceBase = z * refX * refY;
+      for (let y = 0; y < refY; y++) {
+        let mx = slStartX + y * msy[0];
+        let my = slStartY + y * msy[1];
+        let mz = slStartZ + y * msy[2];
+        const refRowBase = refSliceBase + y * refX;
+        for (let x = 0; x < refX; x++) {
+          const mxi = Math.round(mx);
+          const myi = Math.round(my);
+          const mzi = Math.round(mz);
+          if (mxi >= 0 && mxi < niX && myi >= 0 && myi < niY && mzi >= 0 && mzi < niZ) {
+            scalar[refRowBase + x] = nifti.voxels[mzi * niX * niY + myi * niX + mxi];
+          }
+          // outside mask box → leave as 0 (cleared by allocator)
+          mx += msx[0];
+          my += msx[1];
+          mz += msx[2];
+        }
+      }
+    }
+  } else {
+    // Fallback: original proportional grid-fraction mapping. Used when the
+    // affine flag is off, the mask has no usable affine, or the CT volume's
+    // geometry isn't yet exposed via the cache (very early in load).
+    for (let z = 0; z < refZ; z++) {
+      const niz = Math.min(niZ - 1, Math.floor((z / refZ) * niZ));
+      const niSliceBase = niz * niX * niY;
+      const refSliceBase = z * refX * refY;
+      for (let y = 0; y < refY; y++) {
+        const niy = Math.min(niY - 1, Math.floor((y / refY) * niY));
+        const niRowBase = niSliceBase + niy * niX;
+        const refRowBase = refSliceBase + y * refX;
+        for (let x = 0; x < refX; x++) {
+          const nix = Math.min(niX - 1, Math.floor((x / refX) * niX));
+          scalar[refRowBase + x] = nifti.voxels[niRowBase + nix];
+        }
       }
     }
   }

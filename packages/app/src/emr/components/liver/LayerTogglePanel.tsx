@@ -45,8 +45,9 @@ export interface LayerVisibility {
   parenchyma: boolean;
   /** Per-segment booleans — master toggle is derived (any sub on -> master on). */
   couinaud: CouinaudVisibility;
-  portalVein: boolean;
-  hepaticVein: boolean;
+  /** Combined hepatic + portal vasculature. The cascade emits one mask
+   *  today; portal/hepatic separation is a future spec. */
+  vessels: boolean;
   lesions: boolean;
   flrPlane: boolean;
 }
@@ -73,10 +74,8 @@ export interface LayerTogglePanelProps {
   hasParenchymaMask: boolean;
   /** Has any Couinaud segmentation row arrived? */
   hasCouinaud?: boolean;
-  /** Has portal vein segmentation arrived? */
-  hasPortalVein?: boolean;
-  /** Has hepatic vein segmentation arrived? */
-  hasHepaticVein?: boolean;
+  /** Has the combined vessel mask arrived? */
+  hasVessels?: boolean;
   /** Number of lesions detected — gates the lesions toggle. */
   lesionCount?: number;
   /** Whether a FLR cutting plane exists for this analysis. */
@@ -174,8 +173,7 @@ export function LayerTogglePanel({
   onChange,
   hasParenchymaMask,
   hasCouinaud = false,
-  hasPortalVein = false,
-  hasHepaticVein = false,
+  hasVessels = false,
   lesionCount = 0,
   hasFlrPlane = false,
   couinaudSwatch,
@@ -315,22 +313,13 @@ export function LayerTogglePanel({
         </Collapse>
 
         <ToggleRow
-          label={t('analysis:viewer.layers.portalVein')}
+          label={t('analysis:viewer.layers.vessels')}
           swatch="rgba(220, 38, 38, 0.85)"
-          checked={visibility.portalVein}
-          onChange={(v) => setField('portalVein', v)}
-          disabled={!hasPortalVein}
-          disabledReason={!hasPortalVein ? t('analysis:viewer.layers.notReady') : undefined}
-          testId="layer-toggle-portal-vein"
-        />
-        <ToggleRow
-          label={t('analysis:viewer.layers.hepaticVein')}
-          swatch="rgba(244, 114, 182, 0.85)"
-          checked={visibility.hepaticVein}
-          onChange={(v) => setField('hepaticVein', v)}
-          disabled={!hasHepaticVein}
-          disabledReason={!hasHepaticVein ? t('analysis:viewer.layers.notReady') : undefined}
-          testId="layer-toggle-hepatic-vein"
+          checked={visibility.vessels}
+          onChange={(v) => setField('vessels', v)}
+          disabled={!hasVessels}
+          disabledReason={!hasVessels ? t('analysis:viewer.layers.notReady') : undefined}
+          testId="layer-toggle-vessels"
         />
         <ToggleRow
           label={t('analysis:viewer.layers.lesions')}

@@ -1,8 +1,6 @@
 {# SPDX-FileCopyrightText: Copyright LiverRa contributors #}
 {# SPDX-License-Identifier: Apache-2.0 #}
-{# LiverRa surgeon-facing report — German (T260). See en/report.html for
-   the authoritative structure; translation keys are CODEOWNERS-gated
-   for medical terminology per T431. #}
+{# LiverRa surgeon-facing report — German (T-PDF-redesign).               #}
 <!doctype html>
 <html lang="de">
   <head>
@@ -16,101 +14,271 @@
       </div>
     {% endif %}
 
-    <h1 style="margin-bottom: 2mm;">
-      LiverRa — Leberanalyse-Bericht
-      <span style="font-size: 9pt; color: #b91c1c;">(nur zu Forschungszwecken)</span>
-    </h1>
-    <p style="color: #4b5563;">
-      <strong>Bericht-ID:</strong> {{ report_id }}<br />
-      <strong>Analyse-ID:</strong> {{ analysis_id }}<br />
-      <strong>Einrichtung:</strong> {{ tenant_display_name or "—" }}<br />
-      <strong>Finalisiert von:</strong> {{ finalized_by_display }}<br />
-      <strong>Finalisiert am (UTC):</strong> {{ finalized_at }}
-    </p>
+    <header class="brand-band">
+      <div class="brand-row">
+        <div class="wordmark">Liver<span class="accent">Ra</span></div>
+        <div class="ruo-chip">{{ watermark_text }}</div>
+      </div>
+      <div style="font-size: 9pt; color: #ebf4ff; margin-top: 1.5mm; font-weight: 500;">
+        Leberanalyse-Bericht · Pipeline-Ergebnisübersicht
+      </div>
+      <div class="meta">
+        <div><span class="k">Bericht</span><br /><span class="v">{{ report_id }}</span></div>
+        <div><span class="k">Analyse</span><br /><span class="v">{{ analysis_id }}</span></div>
+        <div><span class="k">Einrichtung</span><br /><span class="v">{{ tenant_display_name or "—" }}</span></div>
+        <div><span class="k">Finalisiert von</span><br /><span class="v">{{ finalized_by_display }}</span></div>
+        <div><span class="k">Finalisiert am (UTC)</span><br /><span class="v">{{ finalized_at }}</span></div>
+        <div><span class="k">Pipeline</span><br /><span class="v">{{ pipeline_version or "—" }}</span></div>
+      </div>
+    </header>
 
-    <h2>Volumetrische Zusammenfassung</h2>
-    <table class="volumes">
-      <thead><tr><th>Struktur</th><th>Volumen (mL)</th></tr></thead>
-      <tbody>
-        <tr><td>Gesamtes Leberparenchym</td><td>{{ parenchyma_volume_ml }}</td></tr>
-        {% for roman in ['I','II','III','IV','V','VI','VII','VIII'] %}
-          <tr><td>Couinaud-Segment {{ roman }}</td>
-            <td>{{ "%.1f"|format(couinaud_volumes.get(roman, 0)) }}</td></tr>
+    {% if kpi_cards %}
+      <div class="kpi-grid">
+        {% for card in kpi_cards %}
+          <div class="kpi-card tone-{{ card.tone or 'default' }}">
+            <div class="kpi-label">{{ card.label }}</div>
+            <div class="kpi-value">{{ card.value }}</div>
+            {% if card.sublabel %}<div class="kpi-sub">{{ card.sublabel }}</div>{% endif %}
+          </div>
         {% endfor %}
-      </tbody>
-    </table>
-
-    {% if flr_remnant_volume_ml is not none %}
-      <h2>Zukünftiges Leberrestvolumen (FLR)</h2>
-      <p>
-        <strong>Restvolumen:</strong> {{ flr_remnant_volume_ml }} mL<br />
-        <strong>Funktionaler Rest:</strong> {{ flr_remnant_pct_functional }} %<br />
-        <strong>Adäquatheit:</strong>
-        <span style="font-weight: 700;">{{ flr_adequacy_label or "—" }}</span>
-        <span style="color: #6b7280; font-size: 7.5pt;">
-          (Schwellenwerte: &lt;25 % unzureichend · 25–30 % grenzwertig · ≥30 % ausreichend)
-        </span>
-      </p>
+      </div>
     {% endif %}
 
-    {% if lesions %}
-      <h2>Läsionen</h2>
-      <table class="volumes">
+    {% if ct_renders_unavailable %}
+      <div class="ct-unavailable">
+        <strong>⚠ CT-Bildmaterial für diese Analyse nicht verfügbar.</strong>
+        Möglicherweise lief die Pipeline im Stub-/Demo-Modus oder dem
+        Analyses-S3-Bucket fehlen die Stufenmasken. Volumetrie und
+        Klassifikation unten bleiben gültig (aus der Datenbank).
+      </div>
+    {% endif %}
+
+    {% if mask_warnings %}
+      <div class="ct-unavailable">
+        <strong>⚠ Pipeline-Plausibilitätsprüfung — {{ mask_warnings|length }} Hinweis{{ 'e' if mask_warnings|length != 1 else '' }}.</strong>
+        <ul style="margin: 1.5mm 0 0 4mm; padding: 0;">
+          {% for w in mask_warnings %}<li style="margin-bottom: 1mm;">{{ w }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <section class="stage-section">
+      <h2><span class="stage-tag">STUFE 2</span>Parenchym-Segmentierung</h2>
+      <p class="section-lead">Vollständiger Leberkontur durch STU-Net erkannt; Volumen über die Maske integriert. Schnitte unten zeigen die KI-Kontur (rot) auf dem Quell-CT.</p>
+      <div class="kpi-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="kpi-card">
+          <div class="kpi-label">Gesamte Leber</div>
+          <div class="kpi-value">{{ parenchyma_volume_ml }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">Gesamtparenchym</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Linker Lappen</div>
+          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('II', 0) + couinaud_volumes.get('III', 0) + couinaud_volumes.get('IV', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">Segmente II + III + IV</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Rechter Lappen</div>
+          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('V', 0) + couinaud_volumes.get('VI', 0) + couinaud_volumes.get('VII', 0) + couinaud_volumes.get('VIII', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">Segmente V–VIII</div>
+        </div>
+      </div>
+      {% if parenchyma_render_uri %}
+        <div class="ct-render-caption">CT — 6 axial · 2 koronal · 2 sagittal · rote Kontur = Lebermaske</div>
+        <img class="ct-render" src="{{ parenchyma_render_uri }}" alt="Parenchym-CT mit Konturüberlagerung" />
+      {% endif %}
+    </section>
+
+    {% if portal_vein_ml is not none or hepatic_vein_ml is not none or vessels_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">STUFE 3a</span>Gefäßstämme</h2>
+        <p class="section-lead">Pfortader- und Lebervenenstämme aus dem Couinaud-Subnetz extrahiert. CT zeigt Gefäßkonturen (cyan) innerhalb des Leberumrisses (rot).</p>
+        {% if vessels_chart_svg %}
+          <div class="exec-card">
+            {{ vessels_chart_svg|safe }}
+            <div class="exec-sub">
+              Containment- und Anteilsplausibilitätsprüfungen siehe Pipeline-Audit.
+            </div>
+          </div>
+        {% endif %}
+        {% if vessels_render_uri %}
+          <div class="ct-render-caption">CT — koronaler MIP + 3 axiale Detailschnitte · cyan = Gefäßbaum · rot = Leberumriss</div>
+          <img class="ct-render" src="{{ vessels_render_uri }}" alt="Gefäß-CT-Überlagerung" />
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="stage-section">
+      <h2><span class="stage-tag">STUFE 3b</span>Couinaud-Volumetrie — 8 Segmente</h2>
+      <p class="section-lead">Pro-Segment-Volumen vom Pictorial-Couinaud-Topologieparser. Balken sind auf das größte Segment skaliert.</p>
+      <div class="exec-card">
+        {% if couinaud_chart_svg %}
+          {{ couinaud_chart_svg|safe }}
+        {% else %}
+          <table class="volumes">
+            <thead><tr><th>Segment</th><th style="text-align: right;">Volumen (mL)</th></tr></thead>
+            <tbody>
+              {% for roman in ['I','II','III','IV','V','VI','VII','VIII'] %}
+                <tr><td>Couinaud {{ roman }}</td>
+                  <td style="text-align: right;">{{ "%.1f"|format(couinaud_volumes.get(roman, 0)) }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="stage-section">
+      <h2><span class="stage-tag">STUFEN 4 + 5</span>Läsionserkennung + Klassifikation</h2>
+      {% if lesions %}
+        <p class="section-lead">{{ lesion_count }} Läsion{{ '' if lesion_count == 1 else 'en' }} erkannt. Jede Karte zeigt das vollständige 6-Klassen-Differenzial — Entscheidungsunterstützung, keine autonome Diagnose.</p>
+        {% for lesion in lesions %}
+          <div class="lesion-row-detailed">
+            <div class="lesion-head">
+              <span class="lesion-num">#{{ "%02d"|format(loop.index) }}</span>
+              <span class="lesion-chip" style="background: {{ lesion.class_color or '#9ca3af' }};"></span>
+              <span class="lesion-class">{{ lesion.class_label_localised or "—" }}</span>
+              {% if lesion.couinaud_segment %}
+                <span class="meta-pill">Segment {{ lesion.couinaud_segment }}</span>
+              {% endif %}
+              {% if lesion.couinaud_location %}
+                <span class="meta-pill">{{ lesion.couinaud_location|replace('_', ' ') }}</span>
+              {% endif %}
+              <span class="meta-pill">{{ "%.1f"|format(lesion.diameter_mm or 0) }} mm</span>
+              <span class="meta-pill">{{ "%.1f"|format(lesion.volume_ml or 0) }} mL</span>
+              {% if lesion.discovery_source %}
+                <span class="meta-pill">{{ lesion.discovery_source|replace('_', ' ') }}</span>
+              {% endif %}
+              {% if lesion.confidence_pct %}
+                <span class="conf-strong">{{ "%.0f"|format(lesion.confidence_pct) }} %</span>
+              {% endif %}
+            </div>
+            {% if lesion.probs_bar_svg %}
+              {{ lesion.probs_bar_svg|safe }}
+            {% endif %}
+            {% if lesion.thumbnail_uri %}
+              <div class="ct-render-caption" style="margin-top: 2mm;">CT — axial · koronal · sagittal um die Läsion · gelb = Läsionskontur · rot = Leberumriss · 4-Phasen-Kurve</div>
+              <img class="lesion-thumbnail" src="{{ lesion.thumbnail_uri }}" alt="Läsions-CT mit 4-Phasen-Anreicherungskurve" />
+            {% endif %}
+            {% if lesion.abstained %}
+              <div style="color: #b45309; font-size: 7.5pt; margin-top: 1mm;">
+                ⚠ Modell hat sich enthalten — Konfidenz unter dem Schwellenwert; chirurgische Bestätigung erforderlich.
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="section-lead" style="color: #16a34a;">Keine Läsionen erkannt.</p>
+      {% endif %}
+    </section>
+
+    <section class="stage-section">
+      <h2><span class="stage-tag">STUFE 6</span>Zukünftiges Leberrestvolumen (FLR)</h2>
+      <p class="section-lead">Heuristische axiale Resektionsebene; durch den Operateur im Finalisierungsassistenten verfeinert.</p>
+      <div class="exec-grid">
+        <div class="exec-card" style="text-align: center;">
+          {% if flr_donut_svg %}
+            {{ flr_donut_svg|safe }}
+          {% elif flr_remnant_pct_functional is not none %}
+            <div style="font-size: 26pt; font-weight: 800; color: #111827; margin: 4mm 0 1mm 0;">
+              {{ flr_remnant_pct_functional }} %
+            </div>
+            <div style="color: #6b7280;">{{ flr_adequacy_label or "—" }}</div>
+          {% else %}
+            <div style="color: #9ca3af; padding: 8mm 0;">FLR nicht berechnet</div>
+          {% endif %}
+          <div class="flr-thresholds">
+            &lt; {{ flr_threshold_inadequate }} % unzureichend ·
+            {{ flr_threshold_inadequate }}–{{ flr_threshold_borderline }} % grenzwertig ·
+            ≥ {{ flr_threshold_borderline }} % ausreichend
+          </div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-title">Resektionsebene</div>
+          {% if flr_remnant_volume_ml is not none %}
+            <p style="margin: 1mm 0;"><strong>Restvolumen:</strong> {{ flr_remnant_volume_ml }} mL</p>
+          {% endif %}
+          {% if flr_remnant_pct_functional is not none %}
+            <p style="margin: 1mm 0;"><strong>Funktionaler Rest:</strong> {{ flr_remnant_pct_functional }} %</p>
+          {% endif %}
+          <p style="margin: 1mm 0;"><strong>Adäquatheit:</strong> {{ flr_adequacy_label or "—" }}</p>
+          <p style="margin: 2mm 0 0 0; font-size: 7.5pt; color: #6b7280;">
+            Ebene initialisiert durch die KI-Heuristik; Anpassung erfolgt im Refinement-Workspace.
+          </p>
+        </div>
+      </div>
+      {% if flr_render_uri %}
+        <div class="ct-render-caption">CT — koronal + sagittal · grün = zukünftiges Restvolumen · rot = reseziert · gelb gestrichelt = Resektionsebene</div>
+        <img class="ct-render" src="{{ flr_render_uri }}" alt="FLR-Resektionsebene auf CT" />
+      {% endif %}
+    </section>
+
+    {% if four_phase_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">PHASEN</span>4-Phasen-Vergleich</h2>
+        <p class="section-lead">Axialer Schnitt durch nicht-Kontrast / arteriell / portalvenös / spät — radiologischer Goldstandard für Hyper-/Hypovaskularitätsmuster.</p>
+        <img class="ct-render" src="{{ four_phase_render_uri }}" alt="4-Phasen-Vergleich" />
+      </section>
+    {% endif %}
+
+    {% if mesh3d_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">3D</span>Leber-Oberflächennetz</h2>
+        <p class="section-lead">Marching-Cubes-Rekonstruktion des Parenchyms — nützlich für die OP-Team-Übergabe.</p>
+        <img class="ct-render" src="{{ mesh3d_render_uri }}" alt="3D-Lebernetz" />
+      </section>
+    {% endif %}
+
+    {% if cascade_checkpoints %}
+      <h2><span class="stage-tag">AUDIT</span>Pipeline-Audit</h2>
+      <p class="section-lead">Modell- und Lizenznachweis pro Stufe (FR-027). ⚠ markiert nicht-kommerzielle Lizenzen.</p>
+      <table class="audit-table">
         <thead>
           <tr>
-            <th>Nr.</th><th>Klasse</th><th>Längster Durchmesser (mm)</th>
-            <th>Volumen (mL)</th><th>Konfidenz</th>
+            <th>#</th><th>Stufe</th><th>Modell</th><th>Lizenz</th>
+            <th>Checkpoint-Hash</th><th>Geschrieben (UTC)</th><th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {% for lesion in lesions %}
+          {% for cp in cascade_checkpoints %}
             <tr>
-              <td>{{ loop.index }}</td>
-              <td>{{ lesion.class_label_localised }}</td>
-              <td>{{ "%.1f"|format(lesion.diameter_mm) }}</td>
-              <td>{{ "%.1f"|format(lesion.volume_ml) }}</td>
-              <td>{{ "%.0f"|format(lesion.confidence_pct) }} %</td>
+              <td>{{ cp.stage_no if cp.stage_no is not none else loop.index0 }}</td>
+              <td class="col-stage">{{ cp.stage }}</td>
+              <td>{{ cp.model_version or "—" }}</td>
+              <td class="{{ 'license-warn' if cp.license_warn else '' }}">{{ cp.license_short or cp.license_hash or "—" }}</td>
+              <td class="col-hash">{{ cp.output_hash_short or cp.output_uri or "—" }}</td>
+              <td>{{ cp.written_at or "—" }}</td>
+              <td class="status-{{ cp.status_icon or 'ok' }}">{{ cp.status_label or "OK" }}</td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     {% endif %}
 
-    {% if screenshots %}
-      <h2>3D-Screenshots</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4mm;">
-        {% for src in screenshots %}
-          <img src="{{ src }}" alt="3D-Darstellung" style="width: 100%; border: 0.5pt solid #cbd5f5;" />
-        {% endfor %}
-      </div>
+    {% if model_summary %}
+      <h2>Modellnachweis</h2>
+      <table class="volumes">
+        <thead><tr><th>Modell</th><th>Version</th><th>Lizenz</th></tr></thead>
+        <tbody>
+          {% for row in model_summary %}
+            <tr><td>{{ row.name }}</td><td>{{ row.version }}</td><td>{{ row.license }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     {% endif %}
 
-    <h2>Modellnachweis</h2>
-    <table class="volumes">
-      <thead><tr><th>Modell</th><th>Version</th><th>Lizenz</th></tr></thead>
-      <tbody>
-        {% for row in model_summary %}
-          <tr><td>{{ row.name }}</td><td>{{ row.version }}</td><td>{{ row.license }}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    <h2>RUO-Claim-Snapshot</h2>
     {% if claim_registry %}
-      <ul>
+      <h2>RUO-Claim-Snapshot</h2>
+      <ul style="margin: 0; padding-left: 5mm;">
         {% for claim in claim_registry %}
           <li><strong>{{ claim.key }}</strong> — {{ claim.status }} ({{ claim.watermark_variant or "default" }})</li>
         {% endfor %}
       </ul>
-    {% else %}
-      <p style="color: #6b7280;">Keine Claim-spezifischen Einträge für diesen Bericht.</p>
     {% endif %}
 
-    <hr style="margin-top: 8mm; border: none; border-top: 0.5pt solid #cbd5f5;" />
-    <p style="font-size: 7.5pt; color: #991b1b;">
-      <strong>{{ watermark_text }}</strong><br />
-      Software: LiverRa v1 MVP · {{ software_versions }}<br />
-      Dieser Bericht dient ausschließlich zu Informationszwecken. Die klinische Beurteilung obliegt der behandelnden, qualifizierten Ärztin oder dem behandelnden, qualifizierten Arzt.
-    </p>
+    <div class="footer-strip">
+      <div class="ruo-line">{{ watermark_text }}</div>
+      <div>Software: LiverRa v1 MVP · {{ software_versions }}{% if pipeline_version %} · Pipeline {{ pipeline_version }}{% endif %}</div>
+      <div>Dieser Bericht dient ausschließlich zu Informationszwecken. Die klinische Beurteilung obliegt der behandelnden, qualifizierten Ärztin oder dem behandelnden, qualifizierten Arzt.</div>
+    </div>
   </body>
 </html>

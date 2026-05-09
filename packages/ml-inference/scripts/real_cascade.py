@@ -28,10 +28,15 @@ import boto3
 import numpy as np
 import psycopg
 import SimpleITK as sitk
-from totalsegmentator.python_api import totalsegmentator
 
 # Heuristic Couinaud + segment-aware FLR + LI-RADS-style classifier
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # …/ml-inference/
+
+# GPU work runs on Irakli's box behind Tailscale — see
+# packages/ml-inference-gpu/. The client below is a drop-in replacement
+# for the in-process totalsegmentator() call: same inputs, same output
+# files written into the same dest dir.
+from src.services.inference_client import infer_liver_vessels, infer_total
 from src.orchestrator.couinaud_heuristic import compute_couinaud
 from src.orchestrator.flr_segment_aware import (
     RESECTION_PATTERNS,
@@ -246,19 +251,13 @@ def run_real_cascade(
     download_phase(study_id, "portal_venous", ct_path)
     print(f"      {ct_path.name}  ({ct_path.stat().st_size/1e6:.1f} MB)  +{time.perf_counter()-t0:.2f}s")
 
-    print(f"\n[3/7] TotalSegmentator (task=total, roi=liver,IVC,gallbladder)")
+    print(f"\n[3/7] GPU inference: TotalSegmentator task=total → Irakli's box")
     seg_dir = workdir / "ts_total"
     seg_dir.mkdir(exist_ok=True)
     t_seg = time.perf_counter()
-    totalsegmentator(
-        input=str(ct_path),
-        output=str(seg_dir),
-        task="total",
-        roi_subset=["liver", "inferior_vena_cava", "gallbladder"],
-        device="gpu",
-        ml=False,
-        quiet=True,
-    )
+    # HTTP call to packages/ml-inference-gpu/ — extracts ZIP into seg_dir,
+    # so the seg_dir / "<organ>.nii.gz" reads below keep working unchanged.
+    infer_total(ct_path, dest_dir=seg_dir)
     liver_path = seg_dir / "liver.nii.gz"
     if not liver_path.exists():
         print(f"      !! expected {liver_path} not found", file=sys.stderr)
@@ -272,8 +271,10 @@ def run_real_cascade(
     # Capture the new landmarks if TS produced them; fall back to None.
     ivc_path = seg_dir / "inferior_vena_cava.nii.gz"
     gb_path = seg_dir / "gallbladder.nii.gz"
+    spleen_path = seg_dir / "spleen.nii.gz"
     ivc_native = sitk.ReadImage(str(ivc_path)) if ivc_path.exists() else None
     gb_native = sitk.ReadImage(str(gb_path)) if gb_path.exists() else None
+    spleen_native = sitk.ReadImage(str(spleen_path)) if spleen_path.exists() else None
     if ivc_native is not None:
         print(f"      ✓ {ivc_path.name}  ({int((sitk.GetArrayFromImage(ivc_native)>0).sum()):,} voxels)")
     else:
@@ -282,6 +283,10 @@ def run_real_cascade(
         print(f"      ✓ {gb_path.name}  ({int((sitk.GetArrayFromImage(gb_native)>0).sum()):,} voxels)")
     else:
         print(f"      ! {gb_path.name} missing — Cantlie line will fall back to anatomical prior")
+    if spleen_native is not None:
+        print(f"      ✓ {spleen_path.name}  ({int((sitk.GetArrayFromImage(spleen_native)>0).sum()):,} voxels)")
+    else:
+        print(f"      ! {spleen_path.name} missing — spleen volumetry + steatosis Δ heuristics will be skipped")
 
     print(f"\n[4/7] Resample liver mask → 128³ + upload")
     liver_128 = resample_mask_to(liver_native, TARGET_SHAPE)
@@ -292,6 +297,20 @@ def run_real_cascade(
     parenchyma_uri = upload_nii(
         liver_128, f"analyses/{analysis_id}/parenchyma_mask.nii.gz"
     )
+    # Phase 1 heuristics consumers — upload the spleen + gallbladder masks
+    # at native resolution so finalize and the FindingsCard renderer can
+    # reuse them without re-running TS. Native-res upload (not 128³) keeps
+    # mL accuracy for splenomegaly + GB volume thresholds.
+    if spleen_native is not None:
+        try:
+            upload_nii(spleen_native, f"analyses/{analysis_id}/spleen_mask.nii.gz")
+        except Exception as exc:
+            print(f"      ! spleen_mask upload skipped: {exc}")
+    if gb_native is not None:
+        try:
+            upload_nii(gb_native, f"analyses/{analysis_id}/gallbladder_mask.nii.gz")
+        except Exception as exc:
+            print(f"      ! gallbladder_mask upload skipped: {exc}")
     with psycopg.connect(DB_URL, autocommit=True) as conn:
         insert_checkpoint(
             conn,
@@ -307,21 +326,15 @@ def run_real_cascade(
     # ----------------------------------------------------------------------
     # Stage 3 + 5 — vessels + lesion detection (TotalSegmentator task=liver_vessels)
     # ----------------------------------------------------------------------
-    print(f"\n[5/7] TotalSegmentator (task=liver_vessels)")
+    print(f"\n[5/7] GPU inference: TotalSegmentator task=liver_vessels → Irakli's box")
     vessels_dir = workdir / "ts_vessels"
     vessels_dir.mkdir(exist_ok=True)
     t_lv = time.perf_counter()
     vessels_done = False
     portal_native = hepatic_native = tumor_native = None
     try:
-        totalsegmentator(
-            input=str(ct_path),
-            output=str(vessels_dir),
-            task="liver_vessels",
-            device="gpu",
-            ml=False,
-            quiet=True,
-        )
+        # HTTP call — extracts ZIP into vessels_dir, downstream globs keep working.
+        infer_liver_vessels(ct_path, dest_dir=vessels_dir)
         # task=liver_vessels emits per-label NIfTIs:
         #   liver_vessels.nii.gz   (combined hepatic + portal vessel tree)
         #   liver_tumor.nii.gz     (tumor candidates)
@@ -762,6 +775,81 @@ def run_real_cascade(
             "UPDATE analysis SET status='completed', completed_at=now() WHERE id=%s",
             (analysis_id,),
         )
+
+    # ----------------------------------------------------------------------
+    # Stage 7b — Phase 1 heuristic findings (additive, non-fatal)
+    # See docs/research/13-additional-pathologies-model-research.md.
+    # ----------------------------------------------------------------------
+    print(f"\n[7b/7] Phase 1 heuristic findings")
+    try:
+        from src.services.post_processing import FINDING_TYPES, compute_all_phase1
+
+        # Original portal-venous CT in HU. Reuse if classification stage
+        # already loaded it; otherwise read fresh from the workdir cache.
+        if "phase_volumes_native" in locals() and isinstance(
+            locals().get("phase_volumes_native"), dict
+        ) and phase_volumes_native.get("portal_venous") is not None:
+            ct_hu_arr = phase_volumes_native["portal_venous"]
+        else:
+            ct_hu_arr = sitk.GetArrayFromImage(sitk.ReadImage(str(ct_path))).astype(np.float32)
+
+        spleen_arr = (
+            sitk.GetArrayFromImage(spleen_native).astype(np.uint8)
+            if spleen_native is not None else None
+        )
+
+        # Per-lesion masks rebuilt from the connected-components label
+        # array. Only present when stage 5 found candidates.
+        per_lesion_masks_list: list[tuple[str, np.ndarray]] = []
+        if (
+            "labeled" in locals()
+            and tumor_native is not None
+            and lesion_count > 0
+        ):
+            for lid in range(1, lesion_count + 1):
+                per_lesion_masks_list.append(
+                    (str(lid), (labeled == lid).astype(np.uint8))
+                )
+
+        # Reshape classifier output into the {label, confidence} contract
+        # compute_indeterminate_malignant_flag expects.
+        classifications_for_findings = [
+            {
+                "lesion_id":  c.get("lesion_id"),
+                "label":      (c.get("classification") or {}).get("top1"),
+                "confidence": (c.get("classification") or {}).get("top1_confidence"),
+            }
+            for c in classifications
+        ]
+
+        findings = compute_all_phase1(
+            parenchyma_mask=liver_arr_native,
+            spleen_mask=spleen_arr,
+            gallbladder_mask=gb_arr,
+            ct_hu=ct_hu_arr,
+            per_lesion_masks=per_lesion_masks_list,
+            spacing_mm=(sx, sy, sz),
+            lesion_classifications=classifications_for_findings,
+        )
+
+        with psycopg.connect(DB_URL, autocommit=True) as conn:
+            populated = 0
+            for finding_type, payload in findings.items():
+                if payload in (None, [], {}):
+                    continue
+                conn.execute(
+                    """
+                    INSERT INTO analysis_finding (analysis_id, finding_type, payload)
+                    VALUES (%s, %s, %s::jsonb)
+                    ON CONFLICT (analysis_id, finding_type)
+                    DO UPDATE SET payload = EXCLUDED.payload, computed_at = now()
+                    """,
+                    (analysis_id, finding_type, json.dumps(payload)),
+                )
+                populated += 1
+        print(f"      ✓ {populated}/{len(FINDING_TYPES)} findings persisted")
+    except Exception as exc:
+        print(f"      ! Phase 1 findings failed (non-fatal): {exc}")
 
     duration_s = time.perf_counter() - t0
     print(f"\n=== DONE in {duration_s:.1f}s ===")

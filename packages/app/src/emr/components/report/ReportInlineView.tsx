@@ -36,6 +36,7 @@ import { useReport } from '../../hooks/useReport';
 import { useRUOClaim } from '../../hooks/useRUOClaim';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { EMRButton } from '../common/EMRButton';
+import { FindingsCard, type FindingsPayload } from './FindingsCard';
 
 function readApiBaseUrl(): string {
   const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
@@ -78,6 +79,7 @@ interface ReportSummary {
     code: string;
     message: string;
   }>;
+  findings?: FindingsPayload;
 }
 
 async function fetchReportSummary(analysisId: string): Promise<ReportSummary> {
@@ -259,6 +261,9 @@ export function ReportInlineView({
           ))}
         </Stack>
       )}
+
+      {/* Phase 1 heuristic findings (steatosis / spleen / GB / etc.) */}
+      <FindingsCard findings={s.findings} />
 
       {/* Stats grid */}
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">

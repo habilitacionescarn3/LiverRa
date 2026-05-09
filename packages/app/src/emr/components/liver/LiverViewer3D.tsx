@@ -116,6 +116,7 @@ type AnatomyKey =
   | 'couinaud-vi'
   | 'couinaud-vii'
   | 'couinaud-viii'
+  | 'vessels'
   | 'portal-vein'
   | 'hepatic-vein';
 
@@ -141,6 +142,7 @@ const COUINAUD_COLORS_RGBA: Record<AnatomyKey, [number, number, number, number]>
   'couinaud-vi':   [213, 94, 0, 100],
   'couinaud-vii':  [204, 121, 167, 100],
   'couinaud-viii': [100, 100, 100, 100],
+  vessels:         [220, 38, 38, 110],
   'portal-vein':   [180, 50, 60, 110],
   'hepatic-vein':  [200, 100, 160, 110],
 };
@@ -159,8 +161,9 @@ export interface SegmentationRow {
  * rows we don't know how to render (e.g. lesions, future categories).
  */
 function anatomyKeyOf(row: SegmentationRow): AnatomyKey | null {
-  const cat = (row.anatomy_category ?? '').toLowerCase();
+  const cat = (row.anatomy_category ?? '').toLowerCase().trim();
   if (cat === 'liver' || cat === 'parenchyma') return 'liver';
+  if (cat === 'vessels' || cat === 'vessel' || cat === 'liver_vessels') return 'vessels';
   if (cat === 'portal_vein' || cat === 'portal-vein') return 'portal-vein';
   if (cat === 'hepatic_vein' || cat === 'hepatic-vein') return 'hepatic-vein';
   if (cat === 'couinaud') {
@@ -390,8 +393,7 @@ export function LiverViewer3D({
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({
     parenchyma: true,
     couinaud: { ...COUINAUD_ALL_OFF },
-    portalVein: false,
-    hepaticVein: false,
+    vessels: false,
     lesions: lesionCount > 0,
     flrPlane: !!(flrDefault && (flrDefault.plane_pose || flrDefault.plane_normal)),
   });
@@ -434,9 +436,16 @@ export function LiverViewer3D({
   }, [series, selectedSeries]);
 
   // --- Mask fetch ------------------------------------------------------------
-  // Only attempt if the cascade has emitted a liver mask URL. We don't pass
-  // the raw S3 URI to fetch — we go through the FastAPI proxy via maskUrl().
-  const maskEnabled = ready && !!parenchymaMaskUri;
+  // Fetch the parenchyma mask whenever the cascade has produced one, either
+  // via the legacy `parenchymaMaskUri` prop OR via a `'liver'` row in the
+  // segmentations[] array (the path the cascade uses today). Without this
+  // OR-condition the canvas overlay never renders in axial mode for cases
+  // that come through segmentations[] only.
+  const hasLiverSegRow = segmentations.some((s) => {
+    const cat = (s.anatomy_category ?? '').toLowerCase().trim();
+    return cat === 'liver' || cat === 'parenchyma';
+  });
+  const maskEnabled = ready && (!!parenchymaMaskUri || hasLiverSegRow);
   const { mask: parenchymaMask, error: maskError } = useParenchymaMask(analysisId, maskEnabled);
 
   // --- Cornerstone init -----------------------------------------------------
@@ -758,8 +767,11 @@ export function LiverViewer3D({
     'couinaud-vi':   layerVisibility.couinaud.vi,
     'couinaud-vii':  layerVisibility.couinaud.vii,
     'couinaud-viii': layerVisibility.couinaud.viii,
-    'portal-vein':   layerVisibility.portalVein,
-    'hepatic-vein':  layerVisibility.hepaticVein,
+    vessels:         layerVisibility.vessels,
+    // Portal/hepatic stay off until the cascade emits separate masks; the
+    // UI exposes a single "vessels" toggle that maps to the combined mask.
+    'portal-vein':   false,
+    'hepatic-vein':  false,
   }), [layerVisibility]);
 
   // Available anatomy keys — set of keys derived from `segmentations[]` so
@@ -831,18 +843,12 @@ export function LiverViewer3D({
     };
   }, [viewMode, analysisId, imageCount, desiredVisibilityByKey, availableAnatomyKeys]);
 
-  // --- Pass D6: tear down all registered labelmaps on unmount / mode switch -
+  // --- Pass D6: tear down all registered labelmaps on unmount only ----------
+  // Plain-English: keep labelmaps cached across Axial⇄MPR toggles so flipping
+  // the view is instant. We only drop them when the analysis itself changes
+  // (different case loaded) or the component unmounts. The MPR-only attach
+  // effect above is idempotent, so re-entering MPR re-attaches without re-fetch.
   useEffect(() => {
-    if (viewMode !== 'mpr') {
-      // Drop everything when leaving MPR mode; the cache lives at the
-      // Cornerstone layer and re-entering MPR will re-register lazily.
-      const ids = Object.values(activeSegsRef.current);
-      activeSegsRef.current = {};
-      for (const segId of ids) {
-        try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
-      }
-      return undefined;
-    }
     return () => {
       const ids = Object.values(activeSegsRef.current);
       activeSegsRef.current = {};
@@ -850,7 +856,7 @@ export function LiverViewer3D({
         try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
       }
     };
-  }, [viewMode, analysisId]);
+  }, [analysisId]);
 
   // --- Pass D6: apply per-anatomy visibility on every toggle change --------
   useEffect(() => {
@@ -1302,8 +1308,11 @@ export function LiverViewer3D({
           availableAnatomyKeys.has('couinaud-vii') ||
           availableAnatomyKeys.has('couinaud-viii')
         }
-        hasPortalVein={availableAnatomyKeys.has('portal-vein')}
-        hasHepaticVein={availableAnatomyKeys.has('hepatic-vein')}
+        hasVessels={
+          availableAnatomyKeys.has('vessels') ||
+          availableAnatomyKeys.has('portal-vein') ||
+          availableAnatomyKeys.has('hepatic-vein')
+        }
         lesionCount={lesionCount}
         hasFlrPlane={!!(flrDefault && (flrDefault.plane_pose || flrDefault.plane_normal))}
       />

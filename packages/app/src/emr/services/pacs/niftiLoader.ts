@@ -23,6 +23,20 @@ interface NiftiHeader {
   pixDims: number[];
   datatypeCode?: number;
   numBitsPerVoxel?: number;
+  // Affine fields. NIfTI specifies two parallel encodings of the
+  // voxel→world transform — sform (preferred) and qform. We extract whichever
+  // is valid and synthesise a 4×4 matrix.
+  qform_code?: number;
+  sform_code?: number;
+  quatern_b?: number;
+  quatern_c?: number;
+  quatern_d?: number;
+  qoffset_x?: number;
+  qoffset_y?: number;
+  qoffset_z?: number;
+  srow_x?: number[];
+  srow_y?: number[];
+  srow_z?: number[];
 }
 
 export interface NiftiMask {
@@ -32,8 +46,79 @@ export interface NiftiMask {
   dims: [number, number, number];
   /** Voxel spacing in mm — pixDim[1..3]. */
   spacing: [number, number, number];
+  /** Voxel→world 4×4 affine in row-major form. World units are mm.
+   *  Plain-English: each mask voxel (i,j,k) maps to world point
+   *  `affine · [i, j, k, 1]` so we can align it to the CT regardless of how
+   *  the cascade reoriented the volume. */
+  affine: number[][];
   /** Raw NIfTI header (callers can poke at the affine if alignment drifts). */
   header: NiftiHeader;
+}
+
+/** Build a 4×4 voxel→world affine from a parsed NIfTI header.
+ *
+ *  Order of preference (per NIfTI spec):
+ *    1. sform (`sform_code > 0`) — `srow_x/y/z` are the first 3 rows.
+ *    2. qform (`qform_code > 0`) — quaternion + offset + qfac.
+ *    3. Diagonal pixDim with zero offset (degenerate fallback).
+ */
+function deriveAffine(header: NiftiHeader): number[][] {
+  // Path 1 — sform
+  if (
+    typeof header.sform_code === 'number' &&
+    header.sform_code > 0 &&
+    Array.isArray(header.srow_x) &&
+    Array.isArray(header.srow_y) &&
+    Array.isArray(header.srow_z)
+  ) {
+    return [
+      [header.srow_x[0] ?? 1, header.srow_x[1] ?? 0, header.srow_x[2] ?? 0, header.srow_x[3] ?? 0],
+      [header.srow_y[0] ?? 0, header.srow_y[1] ?? 1, header.srow_y[2] ?? 0, header.srow_y[3] ?? 0],
+      [header.srow_z[0] ?? 0, header.srow_z[1] ?? 0, header.srow_z[2] ?? 1, header.srow_z[3] ?? 0],
+      [0, 0, 0, 1],
+    ];
+  }
+
+  // Path 2 — qform (quaternion → rotation matrix, plus qoffset, plus qfac).
+  if (typeof header.qform_code === 'number' && header.qform_code > 0) {
+    const b = header.quatern_b ?? 0;
+    const c = header.quatern_c ?? 0;
+    const d = header.quatern_d ?? 0;
+    // a = sqrt(1 - b² - c² - d²), clamped to ≥0.
+    const aSq = 1 - b * b - c * c - d * d;
+    const a = aSq > 0 ? Math.sqrt(aSq) : 0;
+    // qfac is stored in pixDims[0] per NIfTI spec — sign-flips Z column when -1.
+    const qfac = header.pixDims[0] === -1 ? -1 : 1;
+    const sx = header.pixDims[1] ?? 1;
+    const sy = header.pixDims[2] ?? 1;
+    const sz = (header.pixDims[3] ?? 1) * qfac;
+    // Rotation matrix from unit quaternion (row-major).
+    const r00 = a * a + b * b - c * c - d * d;
+    const r01 = 2 * (b * c - a * d);
+    const r02 = 2 * (b * d + a * c);
+    const r10 = 2 * (b * c + a * d);
+    const r11 = a * a + c * c - b * b - d * d;
+    const r12 = 2 * (c * d - a * b);
+    const r20 = 2 * (b * d - a * c);
+    const r21 = 2 * (c * d + a * b);
+    const r22 = a * a + d * d - b * b - c * c;
+    return [
+      [r00 * sx, r01 * sy, r02 * sz, header.qoffset_x ?? 0],
+      [r10 * sx, r11 * sy, r12 * sz, header.qoffset_y ?? 0],
+      [r20 * sx, r21 * sy, r22 * sz, header.qoffset_z ?? 0],
+      [0, 0, 0, 1],
+    ];
+  }
+
+  // Path 3 — degenerate. Identity orientation, pixDim spacing, zero offset.
+  // Matches the previous (proportional-grid-fraction) behaviour for masks
+  // that happen to share the CT's frame already.
+  return [
+    [header.pixDims[1] ?? 1, 0, 0, 0],
+    [0, header.pixDims[2] ?? 1, 0, 0],
+    [0, 0, header.pixDims[3] ?? 1, 0],
+    [0, 0, 0, 1],
+  ];
 }
 
 /**
@@ -91,8 +176,9 @@ export async function loadNiftiAsLabelmap(httpUrl: string): Promise<NiftiMask> {
     header.pixDims[2] ?? 1,
     header.pixDims[3] ?? 1,
   ];
+  const affine = deriveAffine(header);
 
-  return { voxels, dims, spacing, header };
+  return { voxels, dims, spacing, affine, header };
 }
 
 /**

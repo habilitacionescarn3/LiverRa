@@ -1,0 +1,71 @@
+/* EMRIconButton — square icon-only button (toolbar / rail toggle). */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--emr-border-radius);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  transition: background var(--emr-transition-base), color var(--emr-transition-base),
+    border-color var(--emr-transition-base), transform var(--emr-transition-fast, 0.12s ease);
+}
+
+.btn:hover {
+  background: var(--emr-secondary-alpha-08);
+  color: var(--emr-secondary);
+  border-color: var(--emr-secondary-alpha-15);
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--emr-secondary-alpha-30);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sm {
+  width: 30px;
+  height: 30px;
+}
+
+.lg {
+  width: 44px;
+  height: 44px;
+}
+
+/* Solid variant — stronger affordance for hero CTAs (theater toggle). */
+.solid {
+  background: var(--emr-bg-card);
+  border-color: var(--emr-border-color);
+  box-shadow: var(--emr-shadow-card);
+}
+
+.solid:hover {
+  background: var(--emr-secondary-alpha-08);
+  border-color: var(--emr-secondary-alpha-30);
+}
+
+/* Active / pressed state — used to indicate toggle is ON. */
+.active {
+  background: var(--emr-secondary-alpha-12);
+  color: var(--emr-secondary);
+  border-color: var(--emr-secondary-alpha-30);
+}
+
+.active:hover {
+  background: var(--emr-secondary-alpha-15);
+}

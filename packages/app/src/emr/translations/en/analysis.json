@@ -122,6 +122,26 @@
       "subtitle": "Primary surgical decision input"
     },
     "ruoBadge": "RUO — Not for clinical use",
+    "metrics": {
+      "liverVolume": "Liver",
+      "lesions": "Lesions",
+      "lesionsCount_one": "{{count}} lesion",
+      "lesionsCount_other": "{{count}} lesions",
+      "flr": "FLR",
+      "flrUnit": "%",
+      "volumeUnit": "ml"
+    },
+    "theater": {
+      "enter": "Focus viewer",
+      "exit": "Exit focus mode",
+      "shortcutHint": "Press F"
+    },
+    "rails": {
+      "collapseLeft": "Collapse workspace panel",
+      "expandLeft": "Expand workspace panel",
+      "collapseRight": "Collapse FLR panel",
+      "expandRight": "Expand FLR panel"
+    },
     "crumbs": {
       "cases": "Cases"
     }
@@ -187,6 +207,7 @@
         "vii": "Segment VII",
         "viii": "Segment VIII"
       },
+      "vessels": "Vessels",
       "portalVein": "Portal vein",
       "hepaticVein": "Hepatic vein",
       "lesions": "Lesions",

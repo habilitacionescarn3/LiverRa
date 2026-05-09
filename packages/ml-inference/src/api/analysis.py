@@ -1057,6 +1057,14 @@ async def get_report_pdf(
          (best-effort), and stream the bytes.
     """
     tenant_id: UUID = request.state.tenant_id
+    # RLS gate — every other endpoint flows through tenant_session() which
+    # sets this GUC; this handler took Depends(get_db) so we must set it
+    # explicitly. Without this, RLS policies on `analysis` strip every row
+    # and the lookup 404s even for valid analyses.
+    await session.execute(
+        text("SELECT set_config('app.tenant_id', :tid, true)"),
+        {"tid": str(tenant_id)},
+    )
     arow = await _load_analysis_row(session, analysis_id, tenant_id)
     if arow is None:
         raise _not_found(str(uuid4()))
@@ -1231,6 +1239,22 @@ async def get_report_summary(
     except Exception as exc:  # noqa: BLE001
         logger.info("QC flags skipped: %s", exc)
 
+    # Phase 1 heuristic findings — keyed by finding_type.
+    findings: dict[str, Any] = {}
+    try:
+        finding_rows = (
+            await session.execute(
+                text(
+                    "SELECT finding_type, payload "
+                    "FROM analysis_finding WHERE analysis_id = :aid"
+                ),
+                {"aid": str(analysis_id)},
+            )
+        ).mappings().all()
+        findings = {r["finding_type"]: r["payload"] for r in finding_rows}
+    except Exception as exc:  # noqa: BLE001
+        logger.info("findings skipped: %s", exc)
+
     return {
         "analysis_id": str(analysis_id),
         "study_id": str(arow["study_id"]),
@@ -1278,6 +1302,7 @@ async def get_report_summary(
             for r in lesion_rows
         ],
         "qc_flags": qc_flags,
+        "findings": findings,
     }
 
 

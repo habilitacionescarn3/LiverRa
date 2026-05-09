@@ -123,3 +123,13 @@ export type {
 
 export { MobileFormWrapper } from './MobileFormWrapper';
 export type { MobileFormWrapperProps, MobileFormWrapperGap } from './MobileFormWrapper';
+
+// ── Batch 9 — case-analysis upgrade primitives ────────────────────────────
+export { EMRBadge } from './EMRBadge';
+export type { EMRBadgeProps, EMRBadgeVariant, EMRBadgeSize } from './EMRBadge';
+
+export { EMRTabs, emrTabPanelProps } from './EMRTabs';
+export type { EMRTabsProps, EMRTabItem } from './EMRTabs';
+
+export { EMRIconButton } from './EMRIconButton';
+export type { EMRIconButtonProps } from './EMRIconButton';

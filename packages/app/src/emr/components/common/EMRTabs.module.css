@@ -1,0 +1,85 @@
+/* EMRTabs — segmented pill tabs without Mantine. */
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: var(--emr-gray-alpha-04, var(--emr-gray-100));
+  border-radius: var(--emr-border-radius-lg);
+  border: 1px solid var(--emr-border-color);
+}
+
+.listFlush {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-bottom: 1px solid var(--emr-border-color);
+  border-radius: 0;
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--emr-border-radius);
+  background: transparent;
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 32px;
+  transition: background var(--emr-transition-base), color var(--emr-transition-base),
+    border-color var(--emr-transition-base), box-shadow var(--emr-transition-base);
+}
+
+.tab:hover {
+  background: var(--emr-secondary-alpha-04);
+  color: var(--emr-text-primary);
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--emr-secondary-alpha-30);
+}
+
+.tabActive {
+  background: var(--emr-bg-card);
+  color: var(--emr-secondary);
+  border-color: var(--emr-secondary-alpha-20);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.tabActive:hover {
+  background: var(--emr-bg-card);
+  color: var(--emr-secondary);
+}
+
+.icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.right {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+/* Grow variant: tabs share the row evenly (good for top-level page tabs). */
+.grow .tab {
+  flex: 1 1 0;
+  justify-content: center;
+}

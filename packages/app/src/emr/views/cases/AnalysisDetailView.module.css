@@ -1,0 +1,548 @@
+/* Case Analysis page layout — viewer-as-hero, collapsible rails, theater mode. */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 64px);
+  background: var(--emr-bg-page);
+}
+
+/* ── Hero header band (compact, single row) ─────────────────────────── */
+
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  min-height: 52px;
+}
+
+.heroBack {
+  flex-shrink: 0;
+}
+
+.heroIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-gradient-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--emr-text-inverse);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px var(--emr-secondary-alpha-30),
+    inset 0 1px 0 var(--emr-white-alpha-20, rgba(255, 255, 255, 0.2));
+  position: relative;
+  overflow: hidden;
+}
+
+.heroIcon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.heroTitleBlock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.heroTitle {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  line-height: 1.25;
+  letter-spacing: var(--emr-letter-spacing-tight);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heroPatientRef {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
+.heroDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--emr-border-color);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.heroActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Compact metric pills inline on the same row. */
+.metrics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--emr-secondary-alpha-04, var(--emr-bg-card));
+  border: 1px solid var(--emr-border-color);
+  font-size: 11px;
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  height: 24px;
+  line-height: 1;
+}
+
+.metricLabel {
+  color: var(--emr-text-tertiary);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  font-weight: var(--emr-font-semibold);
+}
+
+.metricValue {
+  color: var(--emr-text-primary);
+  font-weight: var(--emr-font-semibold);
+  font-size: var(--emr-font-xs);
+  letter-spacing: -0.01em;
+}
+
+/* ── 3-zone main layout ──────────────────────────────────────────────── */
+
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: var(--rail-left, 300px) minmax(0, 1fr) var(--rail-right, 320px);
+  gap: 12px;
+  padding: 12px 16px 16px;
+  min-height: 0;
+  transition: grid-template-columns 220ms ease;
+}
+
+/* Rail collapsed states — column shrinks to a thin icon strip. */
+.workspaceLeftCollapsed {
+  --rail-left: 56px;
+}
+.workspaceRightCollapsed {
+  --rail-right: 56px;
+}
+
+/* ── Theater mode = viewer claims the entire viewport ───────────────── */
+
+.workspaceTheater {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+  gap: 0;
+  padding: 0;
+  background: var(--emr-bg-page);
+}
+
+.workspaceTheater .rail,
+.workspaceTheater .railRight {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  width: 0;
+  border: none;
+  padding: 0;
+}
+
+.workspaceTheater .viewerCard {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* Tablet: hide right rail; left can collapse to icons. */
+@media (max-width: 1199px) {
+  .workspace {
+    grid-template-columns: var(--rail-left, 280px) minmax(0, 1fr);
+    --rail-right: 0;
+  }
+  .railRight {
+    display: none;
+  }
+}
+
+/* Mobile: stack — left rail hidden, viewer 60vh, FLR below. */
+@media (max-width: 767px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+    gap: 8px;
+  }
+  .rail {
+    display: none;
+  }
+}
+
+/* ── Rails ───────────────────────────────────────────────────────────── */
+
+.rail,
+.railRight {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-border-radius-lg);
+  overflow: hidden;
+  transition: opacity 200ms ease, transform 200ms ease;
+  min-height: 0;
+}
+
+.railHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--emr-border-color);
+  flex-shrink: 0;
+  background: var(--emr-bg-card);
+}
+
+.railHeaderIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-secondary-alpha-08);
+  color: var(--emr-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.railHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+
+.railHeaderTitle {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  line-height: 1.3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.railHeaderSubtitle {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  line-height: 1.4;
+  margin: 1px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.railToggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.railTabs {
+  padding: 8px;
+  border-bottom: 1px solid var(--emr-border-color);
+}
+
+.railBody {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* "Status block" inside the workspace rail that absorbs the cascade
+   timeline when the analysis has completed (info still surfaced, just
+   not eating viewport real estate above the viewer). */
+.railStatusBlock {
+  padding: 8px 12px 0;
+  flex-shrink: 0;
+}
+
+/* Collapsed-rail icon strip. */
+.railCollapsed .railTabs,
+.railCollapsed .railBody,
+.railCollapsed .railHeaderText,
+.railCollapsed .railHeaderIcon,
+.railCollapsed .railStatusBlock {
+  display: none;
+}
+
+.railCollapsed .railHeader {
+  padding: 8px 6px;
+  justify-content: center;
+  border-bottom: none;
+}
+
+.railCollapsedIcons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  align-items: center;
+}
+
+.rail:not(.railCollapsed) .railCollapsedIcons {
+  display: none;
+}
+
+/* ── Viewer card (hero) ──────────────────────────────────────────────── */
+
+.viewerCard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--emr-shadow-card);
+}
+
+.viewerToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-card);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.viewerToolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.viewerToolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.viewerStudyLabel {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+
+.viewerLastUpdated {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  white-space: nowrap;
+}
+
+.viewerKbdHint {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  background: var(--emr-gray-alpha-04, rgba(107, 114, 128, 0.08));
+  color: var(--emr-text-tertiary);
+  border: 1px solid var(--emr-border-color);
+}
+
+.viewerCanvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: var(--emr-bg-canvas, #0a0d12);
+}
+
+.viewerLoading {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  color: var(--emr-text-inverse-secondary, rgba(255, 255, 255, 0.7));
+}
+
+/* ── Right rail FLR card ─────────────────────────────────────────────── */
+
+.flrBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Bottom status / RUO strip (chrome — hidden in theater) ────────── */
+
+.footer {
+  margin: 0 16px 16px;
+  padding: 10px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  border-radius: var(--emr-border-radius-lg);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--emr-text-tertiary);
+  font-size: var(--emr-font-xs);
+}
+
+@media (max-width: 767px) {
+  .hero {
+    padding: 8px 12px;
+    min-height: auto;
+  }
+  .heroActions {
+    margin-left: 0;
+    width: 100%;
+  }
+  .footer {
+    margin: 0 8px 8px;
+  }
+}
+
+/* ── Mobile bottom-sheet trigger row ─────────────────────────────────── */
+
+.mobileSheetTriggers {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobileSheetTriggers {
+    display: flex;
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .mobileSheetTriggers > button {
+    flex: 1;
+  }
+}
+
+/* Sheet body padding wrapper. */
+.sheetBody {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Lesion row (used in the lesions tab content). */
+.lesionRow {
+  padding: 8px 10px;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color var(--emr-transition-base), background var(--emr-transition-base);
+}
+
+.lesionRow:hover {
+  border-color: var(--emr-secondary-alpha-30);
+  background: var(--emr-secondary-alpha-04);
+}
+
+.lesionRowTitle {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+.lesionRowMeta {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+.helperText {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+.helperError {
+  color: var(--emr-error);
+}
+
+.lesionsCount {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  margin: 0 0 8px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Theater chrome hiding ─────────────────────────────────────────── */
+/* When the viewer is in theater mode, hide every chrome element on the
+   page so the viewer can claim 100% of the viewport. The body class is
+   set + cleared by AnalysisDetailView via a useEffect; this scopes the
+   global RUODisclaimer (rendered outside our component tree) too. */
+
+:global(body.is-theater-mode) .hero,
+:global(body.is-theater-mode) .footer,
+:global(body.is-theater-mode) .mobileSheetTriggers {
+  display: none !important;
+}
+
+/* Hide the global fixed-position RUO banner + cold-start indicator +
+   cascade timeline + any layout shell that lives outside this view. */
+:global(body.is-theater-mode) [data-testid='ruo-disclaimer'],
+:global(body.is-theater-mode) [data-testid='cascade-stage-timeline'],
+:global(body.is-theater-mode) [data-testid='cold-start-indicator'] {
+  display: none !important;
+}
