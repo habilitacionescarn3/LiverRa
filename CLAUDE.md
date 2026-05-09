@@ -58,7 +58,7 @@ This file provides guidance to Claude Code when working in the LiverRa repositor
 - MONAI 1.4+ (medical imaging AI framework)
 - PyTorch 2.3
 - NVIDIA Triton Inference Server
-- Models: STU-Net (1.4B), Pictorial Couinaud, LiLNet, VISTA3D, MedSAM-2 — all Apache 2.0
+- Models (originally planned): STU-Net (1.4B), Pictorial Couinaud, LiLNet, VISTA3D, MedSAM-2. **Verified 2026-05-09: only STU-Net + base TotalSegmentator are commercial-OK; the other 4 had license issues. Active cascade replaced LiLNet + Pictorial Couinaud with LiverRa-proprietary algorithms (LI-RADS rule classifier + heuristic Couinaud). See `📋 Model Licensing Discipline` below.**
 
 **Infrastructure:**
 - AWS (eu-central-1 Frankfurt for GDPR residency)
@@ -98,33 +98,49 @@ LiverRa/
 
 ---
 
-## 🌐 Current Dev Setup — Hybrid Local + Remote Triton (May 2026)
+## 🌐 Current Dev Setup — Cascade on Irakli's GPU box (May 2026)
 
-**Why hybrid:** This laptop runs everything except the GPU/ML inference server. Triton + the 6 cascade models live on Irakli's PC; we connect to it over Tailscale. This means you develop the frontend, FastAPI orchestrator, FHIR/PACS plumbing, etc. locally with hot-reload, and remote-call only the heavy GPU inference.
+**Architecture in one line:** Laptop runs only Vite (frontend). Everything else — FastAPI orchestrator, Celery worker, MinIO, Postgres, AND the AI cascade — runs on Irakli's RTX 3090 box over Tailscale. Vite proxies all `/api/*` calls there.
 
-**Network:** Tailscale tunnel.
-- This laptop: `100.110.147.104` (macbook-air)
-- Irakli's Triton host: `100.124.94.29` (`liverra-triton-host`) — owned by `irakli-ff@`
-- Latency: ~26ms warm / ~80ms cold ping. All 6 models READY.
+**Why this changed:** All 6 Triton model.pt files were 16-byte placeholder stubs (`build_mode: stub` in each `triton-models/*/model.info`). Real STU-Net / Pictorial-Couinaud / LiLNet weights were never exported. Irakli wired `scripts/real_cascade.py` (TotalSegmentator-based) as the default cascade so the system produces clinically-plausible results today. **Triton path is dormant** — kept for the day real Apache-2.0 weights ship.
 
-**Local services** (`docker compose -f deploy/local/docker-compose.yml up -d postgres redis orthanc minio medplum` — note: NO triton):
-- Postgres 5432 · Redis 6379 · Orthanc 4242/8042 · MinIO 9000-9001 · Medplum 8103
-- Frontend (Vite): `cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173`
+**Active cascade = `LIVERRA_CASCADE_REAL_MODE=true` (default ON):**
+- Stages 0, 1: file conversion + de-ID — clean Apache/MIT/BSD code
+- Stages 2, 3, 5: **TotalSegmentator** — parenchyma, vessels, lesion masks
+- Stages 4, 6, 7: **our own code** — Couinaud heuristic, LI-RADS rule classifier, segment-aware FLR
+- ~150s end-to-end on the Todua-CT (warm cache)
 
-**Key `.env` overrides for remote Triton:**
+**Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → **internal demos + clinical validation OK; commercial sales blocked** until either (a) buy TS commercial license at totalsegmentator.com (~$5K/yr, days) or (b) deploy real Apache-2.0 STU-Net weights (1-2 weeks per Irakli's `docs/plans/PHASE_3_GAPS.md` audit; one stage may stay blocked indefinitely).
+
+**Network:** Tailscale.
+- Laptop: `100.110.147.104` (macbook-air)
+- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — orchestrator on `:8090`, Triton on `:8001` (dormant)
+
+**To start dev (laptop side, single command):**
+```bash
+cd packages/app
+VITE_LIVERRA_DEV_BYPASS=true \
+VITE_LIVERRA_MOCK_API=false \
+LIVERRA_API_ORIGIN=http://100.124.94.29:8090 \
+  npx vite --port 5173
+# open http://localhost:5173 → Cases → Run AI
 ```
-ML_INFERENCE_URL=http://localhost:9000      # local FastAPI orchestrator
-TRITON_URL=http://100.124.94.29:8001
-TRITON_GRPC_URL=100.124.94.29:8001
-TRITON_HTTP_URL=http://100.124.94.29:8000
+
+Local Docker stack (`docker compose -f deploy/local/docker-compose.yml`) is OPTIONAL — only needed if you want a local Postgres/MinIO for offline work. The default flow uses Irakli's stack remotely. His side auto-starts on WSL boot via `/etc/wsl.conf [boot] → start-liverra-stack.sh`, so no manual restart needed after his reboots.
+
+**Defensive plumbing (run before trusting Triton if real-mode ever flips off):**
+```bash
+python packages/ml-inference/scripts/verify-triton-models.py    # Triton smoke test
 ```
+Stub-detection guard fires automatically at Celery worker startup if `LIVERRA_CASCADE_REAL_MODE=false` AND any local `model.pt` matches a known stub SHA — see `src/workers/app.py:_detect_stub_models`.
 
 **Known gotchas:**
-- **Redis port conflict with MediMind** — only one project's redis can use 6379 at a time. To switch: `docker stop medimind-local-redis && docker start liverra-redis` (and vice versa).
-- **Medplum config** — compose passes `command: ["env"]` so it reads from `MEDPLUM_*` env vars; signing keys are dev-only stubs. The `medplum` Postgres database must exist (`docker exec liverra-postgres psql -U liverra -c "CREATE DATABASE medplum;"`).
-- **Tailscale 2-device gate** — first-time accounts can't accept share invites until they have ≥2 devices; install Tailscale on a phone to satisfy the gate.
+- **Redis port conflict with MediMind** — only one project's redis can bind 6379 locally. Not relevant for the default remote-orchestrator flow.
+- **Tailscale 2-device gate** — first-time accounts can't accept share invites with <2 devices; install Tailscale on a phone to satisfy.
+- **First Run-AI after Irakli reboot** can be 60-90s slower (TS weight download). Should be cached.
+- **Vessel + lesion thumbnail panels** require commit `9d18bc2`+ on Irakli's orchestrator (renderer fallback for merged `vessels.nii.gz` + `tumor_mask.nii.gz`); `git pull && restart` on his side if "render unavailable" appears.
 
-**To resume tomorrow:** `docker compose -f deploy/local/docker-compose.yml start` + restart Vite. Tailscale auto-reconnects. Triton on Irakli's machine should be left running (`docker start liverra-triton` on his side if rebooted).
+**To resume tomorrow:** Just run the Vite command above. Tailscale auto-reconnects.
 
 ---
 
@@ -160,10 +176,12 @@ pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000
 ```
 
-**Starting Dev Server (CRITICAL):** Always run on port 5173:
+**Starting Dev Server (CRITICAL):** Always run on port 5173 with the remote-orchestrator env vars (see "Current Dev Setup" above for the full command):
 ```bash
-cd packages/app && npx vite --port 5173
+cd packages/app && VITE_LIVERRA_DEV_BYPASS=true VITE_LIVERRA_MOCK_API=false \
+  LIVERRA_API_ORIGIN=http://100.124.94.29:8090 npx vite --port 5173
 ```
+Without `LIVERRA_API_ORIGIN`, the proxy falls back to localhost and Run-AI will fail (no local orchestrator).
 
 **Upload + view a real DICOM (local Orthanc):** see `docs/how-to/upload-and-view-dicom.md`.
 Quick form:
@@ -240,29 +258,61 @@ cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173
 
 ## 📋 Model Licensing Discipline (NON-NEGOTIABLE)
 
-**ALL ML models used commercially MUST be Apache 2.0 licensed.** Our v1 stack is curated for this:
+**ALL ML models used commercially MUST have BOTH code AND weights under permissive licenses (Apache 2.0 / MIT / CC-BY-4.0).** Source: `docs/research/13-additional-pathologies-model-research.md` (verified 2026-05-09 by 4 parallel research agents).
 
-| Model | License | Role |
+### v1 cascade — what's actually in production today
+
+| Component | Code license | Weights license | Notes |
+|---|---|---|---|
+| **TotalSegmentator base `total` task** | Apache-2.0 | Apache-2.0 | Trained on TS-1228 dataset (CC-BY-4.0). Used for: parenchyma, spleen, gallbladder. |
+| **TotalSegmentator `liver_vessels` subtask** | Apache-2.0 | ⚠️ **Paid commercial license required** | Currently used for stages 3 (vessels) + 5 (lesion detection). Internal demos OK; commercial sale requires either buying TS commercial license OR swapping in BAMF aimi-liver-tumor-ct (MIT). |
+| **STU-Net (TS-trained variant)** | Apache-2.0 | Apache-2.0 | Trained on TS-1228 (CC-BY-4.0). Liver organ binary mask. Available behind Google Drive (mirror to S3 on first download). |
+| **Couinaud heuristic (`couinaud-heuristic-v1`)** | LiverRa proprietary | LiverRa proprietary | Irakli's algorithm — Cantlie line + portal bifurcation. **Replaces Pictorial Couinaud** (which has no LICENSE file and no published weights). |
+| **LI-RADS rule classifier (`lirads-rule-classifier-v1`)** | LiverRa proprietary | LiverRa proprietary | Irakli's algorithm — encodes LI-RADS v2018 as if/else rules. **Replaces LiLNet** (which has only training code, no published weights). |
+| **Segment-aware FLR (`flr-segment-aware-*`)** | LiverRa proprietary | LiverRa proprietary | Topology calculation on Couinaud + parenchyma masks. |
+
+### ⚠️ Earlier optimistic claims that proved WRONG (corrected 2026-05-09)
+
+The 4 research agents independently verified the following errors in earlier docs:
+
+| Earlier claim | Verified reality | Source |
 |---|---|---|
-| STU-Net (1.4B) | Apache 2.0 | Liver parenchyma + metastases |
-| Pictorial Couinaud | Open source (verify per release) | 8-segment topological parsing |
-| LiLNet | Apache 2.0 | 6-class tumor classification |
-| VISTA3D | Apache 2.0 | Interactive refinement (127 classes) |
-| MedSAM-2 | Apache 2.0 | Zero-shot 3D tracking |
+| "VISTA3D — Apache 2.0" | Code Apache-2.0; **weights NVIDIA OneWay Noncommercial (NCLS v1)** — cannot ship commercially | huggingface.co/MONAI/VISTA3D-HF/blob/main/LICENSE |
+| "MedSAM-2 — Apache 2.0" | Code Apache-2.0; **weights CC-BY-SA-4.0 research/education only** | huggingface.co/wanglab/MedSAM2 |
+| "LiLNet — Apache 2.0, 6-class tumor classification" | Code MIT; **NO published weights** — repo ships training code only | github.com/yangmeiyi/Liver |
+| "Pictorial Couinaud — open source" | Repo has **no LICENSE file** (defaults to all-rights-reserved); **no weights published** | github.com/xukun-zhang/Couinaud-Segmentation |
+| "TotalSegmentator subtasks usable" | Only base `total` task is Apache-2.0; **`liver_vessels`, `liver_segments`, `liver_lesions` need paid commercial license** | github.com/wasserth/TotalSegmentator (per-task license) |
 
-**FORBIDDEN (license risk):**
-- TotalSegmentator specialized sub-modules (paid commercial license required)
-- LiTS17, MSD Task 8, 3D-IRCADb, CHAOS datasets for TRAINING commercial weights (research-only)
-- Models with GPL/AGPL/CC-NC/CC-SA licenses
+**Impact on the active cascade:** none for stages handled by LiverRa proprietary code (Couinaud, LI-RADS, FLR); none for stage 2 parenchyma (uses Apache-2.0 base task). Stages 3 + 5 currently use `liver_vessels` subtask = OK for internal demos + clinical validation, but must swap to BAMF (MIT) or buy TS commercial license before paying-customer launch.
 
-**ALLOWED for training commercial weights:**
-- Own proprietary data (via DPAs with hospitals)
-- AMOS22 (CC BY 4.0)
-- CRLM-CT-Seg April 2026 (verify Zenodo license — likely CC BY)
-- Pretrained Apache 2.0 weights (STU-Net etc.) as starting point for fine-tuning
+### FORBIDDEN (license risk)
 
-**ALLOWED for evaluation/benchmarking only (NOT training):**
+- **VISTA3D weights** — NVIDIA OneWay Noncommercial. Use code only; retrain on AMOS22 if needed.
+- **MedSAM-2 weights** — CC-BY-SA-4.0 research only.
+- **LiLNet weights** — don't exist publicly. Don't budget on them.
+- **Pictorial-Couinaud weights** — don't exist publicly. Don't budget on them.
+- **TotalSegmentator subtasks** (`liver_vessels`, `liver_segments`, `liver_lesions`) — paid commercial license required.
+- **LiTS17, MSD Task 8, 3D-IRCADb, CHAOS, LLD-MMRI** datasets for TRAINING commercial weights (research-only / non-commercial).
+- Models with GPL / AGPL / CC-NC / CC-SA licenses.
+
+### ALLOWED for training commercial weights
+
+- Own proprietary data (via DPAs with Geo Hospitals, etc.)
+- **AMOS22** (CC-BY-4.0)
+- **TS-1228** (CC-BY-4.0)
+- **DeepLesion** (NIH, "usage unrestricted")
+- **CRLM-CT-Seg** April 2026 (Zenodo DOI 10.5281/zenodo.17574862 — verify license tag)
+- Pretrained Apache-2.0 weights (STU-Net etc.) as starting point for fine-tuning
+
+### ALLOWED for evaluation/benchmarking only (NOT training commercial weights)
+
 - LiTS17, MSD Task 8, 3D-IRCADb, CHAOS, HCC-TACE-Seg, LLD-MMRI
+
+### Verified-clean alternatives (from docs/research/13)
+
+- **bamf-health/aimi-liver-tumor-ct** — MIT code + MIT weights on Zenodo 8270230. Drop-in replacement for TS `liver_vessels` subtask (generic tumor mask).
+- **MIC-DKFZ/nnUNet** — Apache-2.0 framework for self-training on AMOS22 / proprietary data.
+- **STU-Net** — Apache-2.0 architecture; weights for liver task verified Apache-2.0.
 
 ---
 
