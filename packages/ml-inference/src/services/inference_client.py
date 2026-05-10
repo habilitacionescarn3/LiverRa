@@ -96,6 +96,60 @@ def infer_liver_vessels(
     return _post_and_extract("/infer/liver_vessels", ct_path, out)
 
 
+def infer_total_and_vessels(
+    ct_path: Path,
+    *,
+    total_dir: Path,
+    vessels_dir: Path,
+) -> tuple[dict[str, Path], dict[str, Path]]:
+    """Combined call — runs both TS tasks on ONE upload of the CT.
+
+    Saves a full CT upload (~3-5 min on Tailscale) vs the two-call
+    pattern. Server endpoint returns a ZIP with two subdirectories:
+    ``total/*.nii.gz`` and ``liver_vessels/*.nii.gz``. This helper
+    extracts each subdir into its respective ``total_dir`` /
+    ``vessels_dir`` so existing cascade code that reads files by path
+    continues to work unchanged.
+
+    Returns ``(total_paths, vessels_paths)`` — each a ``{stem: Path}``
+    dict identical in shape to what ``infer_total`` and
+    ``infer_liver_vessels`` would have returned individually.
+    """
+    total_dir.mkdir(parents=True, exist_ok=True)
+    vessels_dir.mkdir(parents=True, exist_ok=True)
+    url = f"{INFERENCE_URL}/infer/total_and_vessels"
+    t0 = time.perf_counter()
+    ct_size_mb = ct_path.stat().st_size / 1e6
+
+    with httpx.Client(timeout=TIMEOUT_S) as client:
+        with ct_path.open("rb") as fh:
+            files = {"ct_nifti": (ct_path.name, fh, "application/gzip")}
+            response = client.post(url, files=files)
+        response.raise_for_status()
+
+    body = response.content
+    total_paths: dict[str, Path] = {}
+    vessels_paths: dict[str, Path] = {}
+    with zipfile.ZipFile(io.BytesIO(body)) as zf:
+        for member in zf.namelist():
+            if member.startswith("total/") and member.endswith(".nii.gz"):
+                target = total_dir / Path(member).name
+                target.write_bytes(zf.read(member))
+                total_paths[Path(member).name.replace(".nii.gz", "")] = target
+            elif member.startswith("liver_vessels/") and member.endswith(".nii.gz"):
+                target = vessels_dir / Path(member).name
+                target.write_bytes(zf.read(member))
+                vessels_paths[Path(member).name.replace(".nii.gz", "")] = target
+
+    duration_s = time.perf_counter() - t0
+    logger.info(
+        "inference combined: ct_in=%.1fMB zip_out=%.1fMB total_masks=%d vessels_masks=%d duration=%.1fs",
+        ct_size_mb, len(body) / 1e6,
+        len(total_paths), len(vessels_paths), duration_s,
+    )
+    return total_paths, vessels_paths
+
+
 def health() -> dict:
     """Smoke-test helper. Returns the inference service's ``/health`` JSON."""
     with httpx.Client(timeout=10) as client:

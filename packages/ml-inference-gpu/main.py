@@ -49,11 +49,7 @@ async def _lifespan(app: FastAPI):
 app = FastAPI(title="LiverRa GPU inference", version="1.0.0", lifespan=_lifespan)
 
 
-def _run_ts(ct_bytes: bytes, *, task: str, roi_subset: list[str] | None) -> bytes:
-    """Run TotalSegmentator on the uploaded CT, return a ZIP of every NIfTI.
-
-    Pure CPU/GPU work — caller decides what to do with the masks.
-    """
+def _validate_ct(ct_bytes: bytes) -> None:
     if len(ct_bytes) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             413, f"CT exceeds {MAX_UPLOAD_BYTES // 1024 // 1024} MB limit"
@@ -61,44 +57,55 @@ def _run_ts(ct_bytes: bytes, *, task: str, roi_subset: list[str] | None) -> byte
     if len(ct_bytes) < 1024:
         raise HTTPException(400, "CT NIfTI is suspiciously small (<1 KB)")
 
+
+def _run_one_task(ct_path: Path, out_dir: Path, *, task: str,
+                  roi_subset: list[str] | None) -> int:
+    """Run one TS task into out_dir. Returns mask count produced."""
     from totalsegmentator.python_api import totalsegmentator
 
+    out_dir.mkdir(parents=True, exist_ok=True)
+    kwargs: dict = {
+        "input": str(ct_path), "output": str(out_dir),
+        "task": task, "device": "gpu", "ml": False, "quiet": True,
+    }
+    if roi_subset:
+        kwargs["roi_subset"] = roi_subset
+    try:
+        totalsegmentator(**kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("TS task=%s failed", task)
+        raise HTTPException(500, f"TotalSegmentator task={task} failed: {exc}") from exc
+
+    n = len(list(out_dir.glob("*.nii.gz")))
+    if n == 0:
+        raise HTTPException(500, f"TS task={task} produced no masks")
+    return n
+
+
+def _zip_dir(src_dir: Path, *, arcname_prefix: str = "") -> bytes:
+    """Zip every .nii.gz in src_dir into a bytes buffer.
+    arcname_prefix lets the caller tag entries (e.g. 'total/', 'liver_vessels/').
+    """
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=4) as zf:
+        for nii in sorted(src_dir.glob("*.nii.gz")):
+            zf.write(nii, arcname=f"{arcname_prefix}{nii.name}")
+    return buf.getvalue()
+
+
+def _run_ts(ct_bytes: bytes, *, task: str, roi_subset: list[str] | None) -> bytes:
+    """Single-task runner — kept for the legacy /infer/total + /infer/liver_vessels endpoints."""
+    _validate_ct(ct_bytes)
     t0 = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="liverra-gpu-") as td:
         ct_path = Path(td) / "input.nii.gz"
         ct_path.write_bytes(ct_bytes)
         out_dir = Path(td) / "out"
-        out_dir.mkdir()
-        kwargs: dict = {
-            "input": str(ct_path),
-            "output": str(out_dir),
-            "task": task,
-            "device": "gpu",
-            "ml": False,
-            "quiet": True,
-        }
-        if roi_subset:
-            kwargs["roi_subset"] = roi_subset
-        try:
-            totalsegmentator(**kwargs)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("TS task=%s failed", task)
-            raise HTTPException(500, f"TotalSegmentator failed: {exc}") from exc
-
-        nii_files = sorted(out_dir.glob("*.nii.gz"))
-        if not nii_files:
-            raise HTTPException(500, f"TS task={task} produced no masks")
-
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=4) as zf:
-            for nii in nii_files:
-                zf.write(nii, arcname=nii.name)
-        body = buf.getvalue()
-
-    duration_s = time.perf_counter() - t0
+        n = _run_one_task(ct_path, out_dir, task=task, roi_subset=roi_subset)
+        body = _zip_dir(out_dir)
     logger.info(
         "task=%s ct_in=%.1fMB masks=%d zip_out=%.1fMB duration=%.1fs",
-        task, len(ct_bytes) / 1e6, len(nii_files), len(body) / 1e6, duration_s,
+        task, len(ct_bytes) / 1e6, n, len(body) / 1e6, time.perf_counter() - t0,
     )
     return body
 
@@ -118,6 +125,60 @@ async def infer_total(ct_nifti: UploadFile = File(...)) -> Response:
 async def infer_liver_vessels(ct_nifti: UploadFile = File(...)) -> Response:
     """task=liver_vessels (full output: liver_vessels + liver_tumor)."""
     body = _run_ts(await ct_nifti.read(), task="liver_vessels", roi_subset=None)
+    return Response(content=body, media_type="application/zip")
+
+
+@app.post("/infer/total_and_vessels", response_class=Response)
+async def infer_total_and_vessels(ct_nifti: UploadFile = File(...)) -> Response:
+    """Combined endpoint — runs `task=total` AND `task=liver_vessels` on a
+    SINGLE uploaded CT, returns one ZIP with subdirectory layout::
+
+        total/liver.nii.gz
+        total/inferior_vena_cava.nii.gz
+        total/gallbladder.nii.gz
+        total/spleen.nii.gz
+        liver_vessels/liver_vessels.nii.gz
+        liver_vessels/liver_tumor.nii.gz
+
+    Saves the laptop one full CT upload (~3-5 min on Tailscale) per cascade
+    by amortizing the bytes across both tasks.
+    """
+    ct_bytes = await ct_nifti.read()
+    _validate_ct(ct_bytes)
+    t0 = time.perf_counter()
+
+    with tempfile.TemporaryDirectory(prefix="liverra-gpu-") as td:
+        ct_path = Path(td) / "input.nii.gz"
+        ct_path.write_bytes(ct_bytes)
+
+        total_dir = Path(td) / "total"
+        vessels_dir = Path(td) / "liver_vessels"
+
+        n_total = _run_one_task(
+            ct_path, total_dir,
+            task="total",
+            roi_subset=["liver", "inferior_vena_cava", "gallbladder", "spleen"],
+        )
+        n_vessels = _run_one_task(
+            ct_path, vessels_dir,
+            task="liver_vessels",
+            roi_subset=None,
+        )
+
+        # Merge both subdirs into one ZIP with prefixed arcnames.
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=4) as zf:
+            for nii in sorted(total_dir.glob("*.nii.gz")):
+                zf.write(nii, arcname=f"total/{nii.name}")
+            for nii in sorted(vessels_dir.glob("*.nii.gz")):
+                zf.write(nii, arcname=f"liver_vessels/{nii.name}")
+        body = buf.getvalue()
+
+    logger.info(
+        "combined: ct_in=%.1fMB total_masks=%d vessels_masks=%d zip_out=%.1fMB duration=%.1fs",
+        len(ct_bytes) / 1e6, n_total, n_vessels, len(body) / 1e6,
+        time.perf_counter() - t0,
+    )
     return Response(content=body, media_type="application/zip")
 
 

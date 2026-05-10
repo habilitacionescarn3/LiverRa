@@ -36,7 +36,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # …/ml-inference
 # packages/ml-inference-gpu/. The client below is a drop-in replacement
 # for the in-process totalsegmentator() call: same inputs, same output
 # files written into the same dest dir.
-from src.services.inference_client import infer_liver_vessels, infer_total
+from src.services.inference_client import (
+    infer_liver_vessels,
+    infer_total,
+    infer_total_and_vessels,
+)
 from src.orchestrator.couinaud_heuristic import compute_couinaud
 from src.orchestrator.flr_segment_aware import (
     RESECTION_PATTERNS,
@@ -251,13 +255,16 @@ def run_real_cascade(
     download_phase(study_id, "portal_venous", ct_path)
     print(f"      {ct_path.name}  ({ct_path.stat().st_size/1e6:.1f} MB)  +{time.perf_counter()-t0:.2f}s")
 
-    print(f"\n[3/7] GPU inference: TotalSegmentator task=total → Irakli's box")
+    # ONE combined GPU call upfront — runs BOTH task=total AND
+    # task=liver_vessels on the same uploaded CT. Saves a full upload
+    # (~3-5 min on Tailscale) vs. two separate calls. The downstream
+    # stage 5 just reads files from vessels_dir below; it doesn't issue
+    # a second HTTP call.
+    print(f"\n[3/7] GPU inference: combined total + liver_vessels → Irakli's box")
     seg_dir = workdir / "ts_total"
-    seg_dir.mkdir(exist_ok=True)
+    vessels_dir = workdir / "ts_vessels"
     t_seg = time.perf_counter()
-    # HTTP call to packages/ml-inference-gpu/ — extracts ZIP into seg_dir,
-    # so the seg_dir / "<organ>.nii.gz" reads below keep working unchanged.
-    infer_total(ct_path, dest_dir=seg_dir)
+    infer_total_and_vessels(ct_path, total_dir=seg_dir, vessels_dir=vessels_dir)
     liver_path = seg_dir / "liver.nii.gz"
     if not liver_path.exists():
         print(f"      !! expected {liver_path} not found", file=sys.stderr)
@@ -326,15 +333,16 @@ def run_real_cascade(
     # ----------------------------------------------------------------------
     # Stage 3 + 5 — vessels + lesion detection (TotalSegmentator task=liver_vessels)
     # ----------------------------------------------------------------------
-    print(f"\n[5/7] GPU inference: TotalSegmentator task=liver_vessels → Irakli's box")
-    vessels_dir = workdir / "ts_vessels"
-    vessels_dir.mkdir(exist_ok=True)
+    print(f"\n[5/7] Read liver_vessels masks from upfront combined call (no GPU roundtrip)")
+    # vessels_dir was populated by the combined call at stage 2; this stage
+    # just consumes those files. No HTTP roundtrip here.
     t_lv = time.perf_counter()
     vessels_done = False
     portal_native = hepatic_native = tumor_native = None
     try:
-        # HTTP call — extracts ZIP into vessels_dir, downstream globs keep working.
-        infer_liver_vessels(ct_path, dest_dir=vessels_dir)
+        # Sanity: ensure the upfront call actually produced these files.
+        if not any(vessels_dir.glob("*.nii.gz")):
+            raise RuntimeError("vessels_dir empty — upfront combined GPU call must have failed")
         # task=liver_vessels emits per-label NIfTIs:
         #   liver_vessels.nii.gz   (combined hepatic + portal vessel tree)
         #   liver_tumor.nii.gz     (tumor candidates)
