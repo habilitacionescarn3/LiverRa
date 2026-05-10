@@ -98,49 +98,67 @@ LiverRa/
 
 ---
 
-## 🌐 Current Dev Setup — Cascade on Irakli's GPU box (May 2026)
+## 🌐 Current Dev Setup — Option B Split (May 10, 2026)
 
-**Architecture in one line:** Laptop runs only Vite (frontend). Everything else — FastAPI orchestrator, Celery worker, MinIO, Postgres, AND the AI cascade — runs on Irakli's RTX 3090 box over Tailscale. Vite proxies all `/api/*` calls there.
+**Architecture in one line:** Laptop runs everything (Vite UI + FastAPI orchestrator + Celery worker + Postgres + Redis + MinIO + the cascade orchestration code itself); Irakli's RTX 3090 box runs ONLY a stateless GPU inference microservice for TotalSegmentator. Lasha can iterate on backend code without involving Irakli.
 
-**Why this changed:** All 6 Triton model.pt files were 16-byte placeholder stubs (`build_mode: stub` in each `triton-models/*/model.info`). Real STU-Net / Pictorial-Couinaud / LiLNet weights were never exported. Irakli wired `scripts/real_cascade.py` (TotalSegmentator-based) as the default cascade so the system produces clinically-plausible results today. **Triton path is dormant** — kept for the day real Apache-2.0 weights ship.
+**Network:**
+- Laptop: `100.110.147.104` (macbook-air-tailcaa7ec)
+- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose)
+
+**Inference contract:** stateless. `POST /infer/total` and `POST /infer/liver_vessels` take a multipart CT NIfTI and return a ZIP of mask NIfTIs. ~290MB roundtrip per cascade over Tailscale. Code: `packages/ml-inference-gpu/main.py`. Client: `packages/ml-inference/src/services/inference_client.py`. Default URL: `http://100.124.94.29:9101` (overridable via `LIVERRA_INFERENCE_URL` env var).
 
 **Active cascade = `LIVERRA_CASCADE_REAL_MODE=true` (default ON):**
-- Stages 0, 1: file conversion + de-ID — clean Apache/MIT/BSD code
-- Stages 2, 3, 5: **TotalSegmentator** — parenchyma, vessels, lesion masks
-- Stages 4, 6, 7: **our own code** — Couinaud heuristic, LI-RADS rule classifier, segment-aware FLR
-- ~150s end-to-end on the Todua-CT (warm cache)
+- Stages 0, 1: file conversion + de-ID — laptop CPU
+- **Stages 2, 5: TotalSegmentator → HTTP to Irakli's box at :9101** — only GPU calls in entire stack
+- Stages 3, 4, 6, 7, 7b: laptop CPU — Couinaud heuristic, LI-RADS rule classifier, segment-aware FLR, **Phase 1 heuristic findings (7 functions in `src/services/post_processing/findings.py`)**
+- **~12 min end-to-end** on the Todua-CT (most time = 2× CT upload over Tailscale + 4-phase resampling for classification). On Irakli's box only it was ~150s.
 
-**Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → **internal demos + clinical validation OK; commercial sales blocked** until either (a) buy TS commercial license at totalsegmentator.com (~$5K/yr, days) or (b) deploy real Apache-2.0 STU-Net weights (1-2 weeks per Irakli's `docs/plans/PHASE_3_GAPS.md` audit; one stage may stay blocked indefinitely).
+**Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → internal demos + clinical validation OK; commercial sales blocked until BAMF aimi-liver-tumor-ct swap (Irakli has the spec; ~1 week of his time when ready).
 
-**Network:** Tailscale.
-- Laptop: `100.110.147.104` (macbook-air)
-- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — orchestrator on `:8090`, Triton on `:8001` (dormant)
-
-**To start dev (laptop side, single command):**
+**To start dev (laptop side):**
 ```bash
-cd packages/app
-VITE_LIVERRA_DEV_BYPASS=true \
-VITE_LIVERRA_MOCK_API=false \
-LIVERRA_API_ORIGIN=http://100.124.94.29:8090 \
-  npx vite --port 5173
-# open http://localhost:5173 → Cases → Run AI
+# 1. Local docker stack (Postgres, Redis, MinIO, Orthanc, Medplum) — once
+docker compose -f deploy/local/docker-compose.yml up -d
+
+# 2. Apply migrations
+DATABASE_URL="postgresql+asyncpg://liverra:liverra@localhost:5432/liverra" \
+  packages/ml-inference/.venv/bin/alembic upgrade head
+
+# 3. FastAPI orchestrator (laptop) — runs continuously with --reload
+cd packages/ml-inference && .venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8090 --reload
+
+# 4. Celery worker (laptop) — needs LIVERRA_INFERENCE_URL env var
+DATABASE_URL_SYNC="postgresql://liverra:liverra@localhost:5432/liverra" \
+  AWS_ENDPOINT_URL="http://localhost:9000" \
+  AWS_ACCESS_KEY_ID="liverra" AWS_SECRET_ACCESS_KEY="liverra-dev-password" AWS_REGION="eu-central-1" \
+  LIVERRA_PHASES_BUCKET="liverra-phases-eu-central-1" \
+  LIVERRA_ANALYSES_BUCKET="liverra-analyses-eu-central-1" \
+  LIVERRA_INFERENCE_URL="http://100.124.94.29:9101" \
+  LIVERRA_CASCADE_REAL_MODE="true" \
+  CELERY_BROKER_URL="redis://localhost:6379/0" \
+  CELERY_RESULT_BACKEND="db+postgresql://liverra:liverra@localhost:5432/liverra" \
+  packages/ml-inference/.venv/bin/celery -A src.workers.app worker --loglevel=info --concurrency=1
+
+# 5. Vite (laptop) — DO NOT set LIVERRA_API_ORIGIN; proxy now defaults to localhost:8090
+cd packages/app && npx vite --port 5173
 ```
 
-Local Docker stack (`docker compose -f deploy/local/docker-compose.yml`) is OPTIONAL — only needed if you want a local Postgres/MinIO for offline work. The default flow uses Irakli's stack remotely. His side auto-starts on WSL boot via `/etc/wsl.conf [boot] → start-liverra-stack.sh`, so no manual restart needed after his reboots.
+Or alternatively run liverra-api + liverra-celery in Docker via the new compose services (see `deploy/local/docker-compose.yml` bottom). Build is ~5 min the first time.
 
-**Defensive plumbing (run before trusting Triton if real-mode ever flips off):**
+**Sanity probe before triggering a cascade:**
 ```bash
-python packages/ml-inference/scripts/verify-triton-models.py    # Triton smoke test
+curl http://100.124.94.29:9101/health   # → {"ok": true, "cuda_available": true, ...}
 ```
-Stub-detection guard fires automatically at Celery worker startup if `LIVERRA_CASCADE_REAL_MODE=false` AND any local `model.pt` matches a known stub SHA — see `src/workers/app.py:_detect_stub_models`.
 
-**Known gotchas:**
-- **Redis port conflict with MediMind** — only one project's redis can bind 6379 locally. Not relevant for the default remote-orchestrator flow.
-- **Tailscale 2-device gate** — first-time accounts can't accept share invites with <2 devices; install Tailscale on a phone to satisfy.
-- **First Run-AI after Irakli reboot** can be 60-90s slower (TS weight download). Should be cached.
-- **Vessel + lesion thumbnail panels** require commit `9d18bc2`+ on Irakli's orchestrator (renderer fallback for merged `vessels.nii.gz` + `tumor_mask.nii.gz`); `git pull && restart` on his side if "render unavailable" appears.
+**Known gotchas (post-Option-B):**
+- **NEVER set `LIVERRA_API_ORIGIN`** when running Vite locally — that override points at Irakli's old `:8090` orchestrator (no longer authoritative). Proxy default `127.0.0.1:8090` is what you want.
+- **Slow cascade vs Irakli-box-only setup** — 12 min vs 150s due to 2× CT uploads over Tailscale. Investigate gzip / chunked upload / presigned-URL pattern if it becomes painful.
+- **Spleen mask sometimes near-empty** — TotalSegmentator returns <500 voxels for the spleen on some scans (FOV cropping or seg miss). `compute_spleen_volumetry` returns a degraded finding with a warning rather than silent omission.
+- **Tailscale ACL gotcha** — new ports must be added to the tailnet ACL at https://login.tailscale.com/admin/acls before peers can reach them. Symptoms of missing ACL: `tailscale nc <host> <port>` returns `502 Bad Gateway / dial tcp i/o timeout` (NOT silent timeout — that signal is misleading). Authoritative diagnostic: `tailscale debug netmap | jq '.PacketFilter'` on the destination box.
+- **Triton path is fully dormant.** Stub model.pt files still exist for backward compat; ignore.
 
-**To resume tomorrow:** Just run the Vite command above. Tailscale auto-reconnects.
+**To resume tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
 
 ---
 
@@ -176,12 +194,12 @@ pip install -r requirements.txt
 uvicorn src.main:app --reload --port 8000
 ```
 
-**Starting Dev Server (CRITICAL):** Always run on port 5173 with the remote-orchestrator env vars (see "Current Dev Setup" above for the full command):
+**Starting Dev Server (CRITICAL — post-Option-B):** Always run on port 5173 against the LOCAL FastAPI on `127.0.0.1:8090`:
 ```bash
 cd packages/app && VITE_LIVERRA_DEV_BYPASS=true VITE_LIVERRA_MOCK_API=false \
-  LIVERRA_API_ORIGIN=http://100.124.94.29:8090 npx vite --port 5173
+  npx vite --port 5173
 ```
-Without `LIVERRA_API_ORIGIN`, the proxy falls back to localhost and Run-AI will fail (no local orchestrator).
+**DO NOT set `LIVERRA_API_ORIGIN`** — the proxy defaults to `127.0.0.1:8090` which is now where the laptop's FastAPI runs. The old `LIVERRA_API_ORIGIN=http://100.124.94.29:8090` pattern points at Irakli's decommissioned orchestrator.
 
 **Upload + view a real DICOM (local Orthanc):** see `docs/how-to/upload-and-view-dicom.md`.
 Quick form:

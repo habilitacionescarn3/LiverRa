@@ -180,6 +180,9 @@ def compute_spleen_volumetry(
     spleen_mask: np.ndarray | None,
     spacing_mm: tuple[float, float, float] | None,
 ) -> dict[str, Any] | None:
+    """Returns None when mask is unusable, or a dict with volume + warning
+    explaining the degradation when the mask is borderline.
+    """
     if not _validate_hu_array(spleen_mask, name="spleen_mask"):
         return None
     if spacing_mm is None:
@@ -187,15 +190,30 @@ def compute_spleen_volumetry(
         return None
 
     voxels = int((spleen_mask > 0).sum())
+    volume_ml = float(voxels * _voxel_volume_ml(spacing_mm))
+
     if voxels < 500:
         logger.info("spleen: mask too small (%d voxels)", voxels)
-        return None
+        # Return a finding so the report can SHOW the degradation rather
+        # than silently omit it — the user needs to know TS failed here.
+        return {
+            "volume_ml":    volume_ml,
+            "splenomegaly": None,
+            "threshold_ml": SPLENOMEGALY_THRESHOLD_ML,
+            "voxels":       voxels,
+            "warning": (
+                f"TotalSegmentator returned only {voxels} voxels for the "
+                "spleen — likely outside the scan FOV or a segmentation "
+                "miss. Volume estimate untrustworthy."
+            ),
+            "reference":    "Bezerra et al. 2017",
+        }
 
-    volume_ml = float(voxels * _voxel_volume_ml(spacing_mm))
     return {
         "volume_ml":    volume_ml,
         "splenomegaly": volume_ml > SPLENOMEGALY_THRESHOLD_ML,
         "threshold_ml": SPLENOMEGALY_THRESHOLD_ML,
+        "voxels":       voxels,
         "reference":    "Bezerra et al. 2017",
     }
 
@@ -203,6 +221,9 @@ def compute_spleen_volumetry(
 # ---------------------------------------------------------------------------
 # 3. Steatosis severity (HU-based)
 # ---------------------------------------------------------------------------
+
+
+SPLEEN_MIN_VOXELS_FOR_MEAN = 50  # ~50 voxels of homogeneous tissue gives a stable mean
 
 
 def compute_steatosis(
@@ -227,15 +248,22 @@ def compute_steatosis(
 
     spleen_mean: float | None = None
     delta: float | None = None
+    spleen_voxels: int | None = None
+    spleen_status = "absent"  # absent | too_small | ok
+
     if (
         _validate_hu_array(spleen_mask, name="spleen_mask")
         and _validate_hu_array(ct_hu, name="ct_hu")
         and spleen_mask.shape == ct_hu.shape
     ):
         spleen_hu = ct_hu[spleen_mask > 0]
-        if spleen_hu.size >= 100:
+        spleen_voxels = int(spleen_hu.size)
+        if spleen_voxels >= SPLEEN_MIN_VOXELS_FOR_MEAN:
             spleen_mean = float(spleen_hu.mean())
             delta = liver_mean - spleen_mean
+            spleen_status = "ok"
+        else:
+            spleen_status = "too_small"
 
     if liver_mean < 30:
         grade = "severe"
@@ -247,14 +275,21 @@ def compute_steatosis(
         grade = "none"
 
     warnings: list[str] = []
-    if spleen_mean is None:
+    if spleen_status == "absent":
         warnings.append("liver_spleen_delta missing — spleen mask absent")
+    elif spleen_status == "too_small":
+        warnings.append(
+            f"liver_spleen_delta missing — spleen mask only {spleen_voxels} voxels "
+            f"(needs ≥{SPLEEN_MIN_VOXELS_FOR_MEAN}); TotalSegmentator likely failed "
+            "to find the spleen on this scan"
+        )
 
     return {
         "grade":               grade,
         "liver_mean_hu":       liver_mean,
         "spleen_mean_hu":      spleen_mean,
         "liver_spleen_delta":  delta,
+        "spleen_voxels":       spleen_voxels,
         "warnings":            warnings,
         "reference":           "RSNA 2024 meta-analysis (sens 82%, spec 94%)",
     }
