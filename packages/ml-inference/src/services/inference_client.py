@@ -5,7 +5,8 @@
 Drop-in replacement for ``totalsegmentator(...)`` calls. The cascade
 runs on the laptop (FastAPI/Celery) but TotalSegmentator needs a GPU,
 so it lives on Irakli's RTX 3090 box behind Tailscale at
-``http://100.124.94.29:9100`` (port 9100 because MinIO uses 9000). See ``packages/ml-inference-gpu/`` for
+``http://100.124.94.29:9101`` (port 9101 — 9100 silently failed via Tailscale,
+9000 is MinIO; see CLAUDE.md "Current Dev Setup"). See ``packages/ml-inference-gpu/`` for
 the service code and deployment notes.
 
 Each call:
@@ -31,9 +32,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 INFERENCE_URL = os.environ.get(
-    "LIVERRA_INFERENCE_URL", "http://100.124.94.29:9100"
+    "LIVERRA_INFERENCE_URL", "http://100.124.94.29:9101"
 ).rstrip("/")
-TIMEOUT_S = float(os.environ.get("LIVERRA_INFERENCE_TIMEOUT_S", "300"))
+# Default 30 min (1800s). The combined endpoint can take ~10 min on a slow
+# Tailscale link (5-6 min upload + 1-2 min TS×2 + 1-2 min download).
+# 5 min is too tight; 30 min gives headroom for true network blips while
+# still failing in reasonable time when the server is genuinely stuck.
+TIMEOUT_S = float(os.environ.get("LIVERRA_INFERENCE_TIMEOUT_S", "1800"))
 
 
 def _post_and_extract(
