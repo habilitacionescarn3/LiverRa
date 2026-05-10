@@ -25,9 +25,15 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 # App code (single file).
 COPY main.py /app/main.py
 
+# PORT is overridable so the container can run with --network host on
+# WSL2 (where userspace tailscaled can't reach docker-proxy ports — see
+# README "WSL2 host networking" section). Default 9000 keeps the
+# bridge-network case (-p HOST:9000) working as before.
+ENV PORT=9000
 EXPOSE 9000
 
-# Bind to 0.0.0.0 inside the container; the host's docker --publish
-# maps it to whatever interface the operator wants (Tailscale-only by
-# convention — see README).
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--workers", "1"]
+# Bind to 0.0.0.0 inside the container. With --network host the
+# container shares the WSL2 host's loopback so tailscaled's userspace
+# netstack can reach it directly. With bridge networking the host port
+# is published via -p HOST_PORT:PORT.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1"]
