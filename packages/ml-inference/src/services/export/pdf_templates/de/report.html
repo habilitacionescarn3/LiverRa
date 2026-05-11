@@ -73,13 +73,13 @@
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Linker Lappen</div>
-          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('II', 0) + couinaud_volumes.get('III', 0) + couinaud_volumes.get('IV', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
-          <div class="kpi-sub">Segmente II + III + IV</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_left_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">{% if lobe_split_source == 'cantlie_estimate' %}Cantlie-Schätzung (Couinaud nicht verfügbar){% else %}Segmente II + III + IV{% endif %}</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Rechter Lappen</div>
-          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('V', 0) + couinaud_volumes.get('VI', 0) + couinaud_volumes.get('VII', 0) + couinaud_volumes.get('VIII', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
-          <div class="kpi-sub">Segmente V–VIII</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_right_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">{% if lobe_split_source == 'cantlie_estimate' %}Cantlie-Schätzung (Couinaud nicht verfügbar){% else %}Segmente V–VIII{% endif %}</div>
         </div>
       </div>
       {% if parenchyma_render_uri %}

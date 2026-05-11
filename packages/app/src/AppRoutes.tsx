@@ -48,7 +48,6 @@ const OnboardingWizardView = lazy(() => import('./emr/views/onboarding/Onboardin
 const AnalysisDetailView = lazy(() => import('./emr/views/cases/AnalysisDetailView'));
 const LesionsPanelView = lazy(() => import('./emr/views/cases/LesionsPanelView'));
 const RefinementView = lazy(() => import('./emr/views/cases/RefinementView'));
-const FinalizeWizardView = lazy(() => import('./emr/views/cases/FinalizeWizardView'));
 const ReportView = lazy(() => import('./emr/views/cases/ReportView'));
 // CaseShell is small + always rendered when any /cases/:id/* route is
 // active — keep it eager to avoid an extra Suspense flash on every
@@ -183,17 +182,6 @@ export const appRouter = createBrowserRouter([
               </Guarded>
             ),
             handle: { breadcrumb: () => 'Refine' },
-          },
-          {
-            path: 'finalize',
-            element: (
-              <Guarded requires={['report.finalize']}>
-                <Lazy>
-                  <FinalizeWizardView />
-                </Lazy>
-              </Guarded>
-            ),
-            handle: { breadcrumb: () => 'Finalize' },
           },
         ],
       },

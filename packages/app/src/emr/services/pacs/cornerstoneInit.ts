@@ -991,8 +991,17 @@ export async function createLabelmapFromNifti(
   const voxelManager = (segVol as unknown as {
     voxelManager?: {
       dimensions?: [number, number, number];
+      // CS3D 4.x — the live underlying buffer. Writes here are visible
+      // to the renderer immediately. Returned by getScalarData(), and also
+      // exposed as the `scalarData` property on the VM instance.
+      getScalarData?: () => Uint8Array;
+      scalarData?: Uint8Array;
+      // Snapshot-only methods that return a COPY (verified empirically:
+      // writes to the returned array are NOT visible to the VM). Kept here
+      // only as a fallback for hypothetical older minor versions.
       getCompleteScalarDataArray?: () => ArrayLike<number>;
       setCompleteScalarDataArray?: (data: ArrayLike<number>) => void;
+      setScalarData?: (data: ArrayLike<number>) => void;
     };
   }).voxelManager;
 
@@ -1007,9 +1016,26 @@ export async function createLabelmapFromNifti(
     );
   }
 
-  // Acquire the writable scalar buffer. CS3D 4.x usually returns a
-  // typed array directly; we treat it as a Uint8Array because that's what
-  // createAndCacheDerivedLabelmapVolume allocates (Uint8Array targetBuffer).
+  // CS3D 4.21.x VoxelManager API for derived labelmap volumes (verified
+  // empirically via Playwright on 2026-05-11):
+  //   1. createAndCacheDerivedLabelmapVolume() builds a per-slice voxel
+  //      manager backed by N derived images (one per CT slice). The GPU
+  //      reads from those PER-IMAGE buffers via vtkSharedVolumeMapper.
+  //   2. getCompleteScalarDataArray() ALLOCATES a fresh aggregated Uint8Array
+  //      and copies the per-image buffers into it. Writes to this snapshot
+  //      do NOT auto-flow back to the per-image buffers.
+  //   3. setCompleteScalarDataArray(arr) IS the correct commit — it walks
+  //      each slice and writes arr.subarray(sliceStart..sliceEnd) into the
+  //      corresponding image's voxelManager.scalarData (and marks
+  //      modifiedSlices). This is what the GPU eventually sees.
+  //   4. setScalarData(arr) IS A TRAP for derived labelmaps — it only sets
+  //      vm.scalarData on the TOP-LEVEL voxel manager (a property unused by
+  //      the renderer); the per-image buffers stay zero, so the labelmap
+  //      remains invisible. Earlier code path used setScalarData and shipped
+  //      "fixed" labelmaps with all-zero per-image data — overlays never
+  //      painted on the CT despite getScalarData() returning the right blob.
+  // Pattern: get snapshot → write → setCompleteScalarDataArray → fire
+  // SegmentationDataModified.
   const rawScalar = voxelManager?.getCompleteScalarDataArray?.();
   if (!rawScalar) {
     throw new Error(
@@ -1021,23 +1047,31 @@ export async function createLabelmapFromNifti(
   // ────────────────────────────────────────────────────────────────────────
   // Affine-aware nearest-neighbor resample.
   //
-  // Plain-English: the cascade (TotalSegmentator, etc.) often re-orients the
-  // mask into canonical RAS before saving NIfTI, so the mask voxel grid does
-  // NOT live in the same physical box as the CT. Mapping by grid-fraction
-  // (the previous behaviour) silently treated them as aligned — overlays
-  // ended up on the wrong side of the body. This walk:
-  //   for each CT voxel (i,j,k):
-  //     world = ctOrigin + ctDir · diag(ctSpacing) · (i,j,k)
-  //     maskVox = inv(maskAffine) · world
-  //     scalar[i,j,k] = nifti.voxels[round(maskVox)]
-  // is the textbook fix.
+  // Plain-English: TotalSegmentator (and most NIfTI writers) save masks in
+  // **RAS+** orientation per the NIfTI standard. Cornerstone3D loads CT
+  // volumes from DICOM in **LPS+** (the DICOM patient coordinate system).
+  // The two frames differ by `diag(-1, -1, +1)` — RAS X = -LPS X, RAS Y =
+  // -LPS Y, RAS Z = LPS Z. Ignoring this mismatch makes the liver mask
+  // appear anatomically displaced (e.g. green outline in the mediastinum on
+  // sagittal, pelvis on coronal — exactly the user-reported bug).
   //
-  // A `VITE_LIVERRA_AFFINE_RESAMPLE` env flag falls back to the old behaviour
-  // for diagnostic A/B if alignment ever regresses post-deploy.
+  // Algorithm:
+  //   for each CT voxel (i,j,k):
+  //     ctWorldLPS = ctOrigin + ctDir · diag(ctSpacing) · (i,j,k)
+  //     maskVox = inv(maskAffineLPS) · ctWorldLPS
+  //     scalar[i,j,k] = nifti.voxels[round(maskVox)]
+  // where `maskAffineLPS = diag(-1,-1,+1) · maskAffineRAS` (flip the first
+  // two rows so the mask's voxel→world map produces LPS-frame coords that
+  // line up with the CT).
+  //
+  // A `VITE_LIVERRA_AFFINE_RESAMPLE=false` env flag disables this and falls
+  // back to grid-fraction (kept only as a diagnostic escape hatch — the
+  // grid-fraction fallback is geometrically WRONG for cascade NIfTI output).
   // ────────────────────────────────────────────────────────────────────────
-  const affineEnabled =
+  const affineDisabled =
     typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: Record<string, string> }).env?.VITE_LIVERRA_AFFINE_RESAMPLE !== 'false';
+    (import.meta as { env?: Record<string, string> }).env?.VITE_LIVERRA_AFFINE_RESAMPLE === 'false';
+  const affineEnabled = !affineDisabled;
 
   const refVolFull = cornerstone.cache.getVolume(referenceVolumeId) as unknown as {
     origin?: [number, number, number];
@@ -1056,7 +1090,20 @@ export async function createLabelmapFromNifti(
         ]
       : null;
 
-  const invMask = affineEnabled && nifti.affine ? invert4x4Affine(nifti.affine) : null;
+  // Convert mask RAS affine → LPS affine by negating row-0 and row-1.
+  // The translation column (index 3) MUST also flip — these are world
+  // positions, not direction vectors.
+  let maskAffineLPS: number[][] | null = null;
+  if (nifti.affine && nifti.affine.length >= 3) {
+    const a = nifti.affine;
+    maskAffineLPS = [
+      [-a[0][0], -a[0][1], -a[0][2], -a[0][3]],
+      [-a[1][0], -a[1][1], -a[1][2], -a[1][3]],
+      [ a[2][0],  a[2][1],  a[2][2],  a[2][3]],
+      [0, 0, 0, 1],
+    ];
+  }
+  const invMask = affineEnabled && maskAffineLPS ? invert4x4Affine(maskAffineLPS) : null;
 
   if (affineEnabled && invMask && ctOrigin && ctDir && ctSpacing) {
     // CT axis step vectors in WORLD coordinates: world delta when CT voxel
@@ -1115,12 +1162,23 @@ export async function createLabelmapFromNifti(
     }
   }
 
-  // Persist back if API requires explicit write. In CS3D 4.x the array
-  // returned by getCompleteScalarDataArray is the same backing buffer, so
-  // mutations are usually live — but calling setCompleteScalarDataArray is
-  // the safe API contract.
+  // Commit the snapshot buffer back to the VM's per-image buffers. MUST be
+  // setCompleteScalarDataArray() — that's the method that distributes the
+  // aggregated array to each slice's image-level voxelManager (which is
+  // where vtkSharedVolumeMapper reads from for GPU upload).
+  //
+  // Earlier theory: setCompleteScalarDataArray was a "no-op" because reading
+  // back via vm.getScalarData() returned empty. That was a different bug —
+  // getScalarData() reads from vm.scalarData (the top-level property), but
+  // setCompleteScalarDataArray writes to the PER-IMAGE buffers (the GPU's
+  // data source). setScalarData(arr) is the wrong API for derived labelmaps:
+  // it only sets vm.scalarData and never reaches the renderer.
+  // (Verified empirically 2026-05-11 via Playwright — labelmap rendered red
+  // on the CT only after switching back to setCompleteScalarDataArray.)
   if (typeof voxelManager?.setCompleteScalarDataArray === 'function') {
     voxelManager.setCompleteScalarDataArray(scalar);
+  } else if (typeof voxelManager?.setScalarData === 'function') {
+    voxelManager.setScalarData(scalar);
   }
 
   // Some CS versions need an explicit "modified" trigger so the renderer
@@ -1132,6 +1190,33 @@ export async function createLabelmapFromNifti(
     } catch {
       /* non-fatal */
     }
+  }
+
+  // CS3D 4.x — the segmentation renderer subscribes to a dedicated event,
+  // NOT vtk.js's volume.modified(). After writing voxel data we MUST fire
+  // triggerSegmentationDataModified for the GPU to re-upload the labelmap
+  // texture. Without this the labelmap stays as the initial all-zeros
+  // buffer the allocator created, the segmentation IS registered, but the
+  // overlay is invisible — which is exactly the bug we hit (T-VIEW-overlay).
+  // Fire AFTER addSegmentations() the first time (so it has a state to
+  // notify); on subsequent re-writes for the same segId it's a fast no-op.
+  // We dispatch immediately AND on the next animation frame to cover the
+  // case where the segmentation isn't yet registered when the labelmap
+  // finishes writing.
+  const fireDataModified = (): void => {
+    try {
+      (cornerstoneTools.segmentation as unknown as {
+        triggerSegmentationEvents?: {
+          triggerSegmentationDataModified?: (segId: string) => void;
+        };
+      }).triggerSegmentationEvents?.triggerSegmentationDataModified?.(segmentationId);
+    } catch {
+      /* event not in this CS3D minor; renderer will fall back to next paint */
+    }
+  };
+  fireDataModified();
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(fireDataModified);
   }
 }
 
@@ -1219,6 +1304,21 @@ export async function attachLabelmapToViewports(
     } catch {
       /* color API may differ across CS releases — non-fatal */
     }
+  }
+
+  // Final nudge: fire SegmentationDataModified now that the representation
+  // is attached. Some CS3D 4.x paths skip the texture upload if the event
+  // fires BEFORE the viewport has a representation registered, so we re-fire
+  // here to be safe. Belt + braces (the same event was also dispatched at
+  // the end of createLabelmapFromNifti).
+  try {
+    (segNs as unknown as {
+      triggerSegmentationEvents?: {
+        triggerSegmentationDataModified?: (segId: string) => void;
+      };
+    }).triggerSegmentationEvents?.triggerSegmentationDataModified?.(segmentationId);
+  } catch {
+    /* non-fatal */
   }
 }
 

@@ -14,9 +14,9 @@
  * the cascade timeline, viewer pipeline) is unchanged.
  */
 
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   IconActivity,
   IconArrowLeft,
@@ -42,14 +42,20 @@ import {
   EMRIconButton,
   EMRSkeleton,
   EMRTabs,
+  EMRToast,
   emrTabPanelProps,
 } from '../../components/common';
 import type { EMRBadgeVariant } from '../../components/common';
+import { PermissionButton } from '../../components/access-control/PermissionButton';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { ColdStartIndicator } from '../../components/liver/ColdStartIndicator';
 import { RUODisclaimer } from '../../components/ruo/RUODisclaimer';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useReviewSeat } from '../../hooks/useReviewSeat';
+import { useFinalize } from '../../hooks/useFinalize';
+import { useAuth } from '../../services/auth';
+import { buildPath, LIVERRA_ROUTES } from '../../constants/routes';
 import { CascadeStageTimeline } from '../../components/cases/CascadeStageTimeline';
 import { SegmentsList } from '../../components/cases/SegmentsList';
 import styles from './AnalysisDetailView.module.css';
@@ -414,6 +420,72 @@ function AnalysisDetailViewInner({
 
   const analysisReady = analysis?.status === 'completed';
 
+  // One-click finalize: acquire review seat → POST finalize → land on report.
+  // Replaces the former 5-step wizard at /cases/:id/finalize.
+  const seat = useReviewSeat();
+  const { tenant } = useAuth();
+  const finalize = useFinalize();
+  const [finalizing, setFinalizing] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Warm the report-render S3 cache while the user is still on this page.
+  // First render per (analysis, stage) is the slow one (~2s of matplotlib);
+  // the API caches the PNG to MinIO so every subsequent fetch is <50 ms.
+  // Firing these in the background here means by the time the user clicks
+  // Finalize and navigates to /reports/:id, the stage PNGs are already in
+  // S3 and the inline report lands fully-loaded.
+  useEffect(() => {
+    if (!analysisReady || !analysis?.id) return;
+    const aid = analysis.id;
+    const stages = ['parenchyma', 'vessels', 'flr', 'four-phase', 'mesh3d'] as const;
+    stages.forEach((stage) => {
+      fetch(
+        `${baseUrl}/analyses/${encodeURIComponent(aid)}/report/render/${stage}`,
+        { credentials: 'include' },
+      ).catch(() => undefined);
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ['report-summary', aid],
+      queryFn: async () => {
+        const r = await fetch(
+          `${baseUrl}/analyses/${encodeURIComponent(aid)}/report/summary`,
+          { credentials: 'include' },
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      },
+      staleTime: 60_000,
+    });
+  }, [analysisReady, analysis?.id, baseUrl, queryClient]);
+
+  const handleFinalize = useCallback(async (): Promise<void> => {
+    if (!analysis) return;
+    setFinalizing(true);
+    try {
+      const reviewId =
+        seat.hasSeat && seat.reviewId
+          ? seat.reviewId
+          : (await seat.acquire(analysis.id)).reviewId;
+      const res = await finalize.mutateAsync({
+        reviewId,
+        analysisId: analysis.id,
+        tenantId: tenant?.id,
+      });
+      navigate(buildPath(LIVERRA_ROUTES.REPORT_VIEW, { id: res.report_id }));
+    } catch (err) {
+      const e = err as Error & { slug?: string };
+      const slug = e.slug ?? 'generic';
+      const translated = t(`errors:finalize.${slug}`);
+      const message =
+        translated && !translated.startsWith('errors:finalize.')
+          ? translated
+          : e.message || t('errors:finalize.generic');
+      EMRToast.error(message);
+    } finally {
+      setFinalizing(false);
+    }
+  }, [analysis, seat, finalize, tenant?.id, t, navigate]);
+
   const tabItems = useMemo(
     () => [
       {
@@ -725,15 +797,18 @@ function AnalysisDetailViewInner({
 
         <div className={styles.heroActions}>
           {analysisReady && (
-            <EMRButton
+            <PermissionButton
+              permission="report.finalize"
+              hiddenIfDenied
               variant="primary"
               size="sm"
               icon={IconDownload}
-              onClick={() => navigate(`/cases/${analysis.id}/finalize`)}
+              loading={finalizing}
+              onClick={() => void handleFinalize()}
               data-testid="analysis-finalize-btn"
             >
               {t('analysis:detail.openFinalize')}
-            </EMRButton>
+            </PermissionButton>
           )}
         </div>
       </header>

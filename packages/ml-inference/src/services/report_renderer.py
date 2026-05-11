@@ -24,6 +24,7 @@ Design choice (T-PDF-redesign):
 from __future__ import annotations
 
 import base64
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Bump when changing PDF layout — invalidates the S3 cache key so old
 # sparse PDFs aren't served after a deploy.
-PDF_LAYOUT_VERSION = "v10"
+PDF_LAYOUT_VERSION = "v11"
 
 PHASES_BUCKET_DEFAULT = "liverra-phases-eu-central-1"
 ANALYSES_BUCKET_DEFAULT = "liverra-analyses-eu-central-1"
@@ -311,7 +312,13 @@ def _generate_lesion_thumbnails(
 def _load_payload_sync(
     analysis_id: UUID, db_url: str
 ) -> dict[str, Any]:
-    """Fetch all DB rows for the report. Uses sync psycopg for portability."""
+    """Fetch all DB rows for the report. Uses sync psycopg for portability.
+
+    Pulls ``analysis_finding`` rows too (Phase 1 heuristic findings —
+    spleen volumetry, steatosis, IVC patency, gallbladder, etc.) so the
+    PDF can surface what the cascade already computed. Mirrors the shape
+    consumed by the frontend ``<FindingsCard />`` component.
+    """
     import psycopg
 
     sync_url = db_url
@@ -402,6 +409,23 @@ def _load_payload_sync(
         l_cols = [d.name for d in cur.description]
         lesions = [dict(zip(l_cols, r)) for r in cur.fetchall()]
 
+        # Phase 1 heuristic findings — keyed by finding_type. Best-effort:
+        # the table only exists after migration 0013_analysis_finding so a
+        # fresh DB without that migration just returns an empty dict.
+        findings: dict[str, Any] = {}
+        try:
+            cur.execute(
+                """
+                SELECT finding_type, payload
+                FROM analysis_finding WHERE analysis_id = %s
+                """,
+                (str(analysis_id),),
+            )
+            for finding_type, payload in cur.fetchall():
+                findings[finding_type] = payload
+        except Exception as exc:  # noqa: BLE001
+            logger.info("findings load skipped: %s", exc)
+
     return {
         "analysis": analysis,
         "study": study,
@@ -409,6 +433,7 @@ def _load_payload_sync(
         "segmentations": segmentations,
         "flr": flr,
         "lesions": lesions,
+        "findings": findings,
     }
 
 
@@ -454,6 +479,189 @@ def _extract_couinaud_volumes(segmentations: Sequence[Mapping[str, Any]]) -> dic
             except (TypeError, ValueError):
                 continue
     return out
+
+
+def _compute_lobe_split(
+    couinaud_volumes: Mapping[str, float],
+    parenchyma_ml: float,
+) -> tuple[float, float, str]:
+    """Compute (left_lobe_ml, right_lobe_ml, source).
+
+    Prefers Couinaud-derived sums (left = II+III+IV, right = V+VIII) when
+    those segments are populated. Falls back to a Cantlie-line 50/50 of
+    the parenchyma volume when Couinaud data is empty so the page-1 cards
+    never show 0/0 even when Couinaud failed.
+
+    The Cantlie estimate is intentionally crude — without anatomical
+    landmarks it is just half the parenchyma. The badge in the template
+    flags it as an estimate so the surgeon doesn't trust it as a real
+    volumetric measurement.
+    """
+    left_couinaud = sum(
+        couinaud_volumes.get(k, 0.0) for k in ("II", "III", "IV")
+    )
+    right_couinaud = sum(
+        couinaud_volumes.get(k, 0.0) for k in ("V", "VI", "VII", "VIII")
+    )
+    if left_couinaud + right_couinaud > 0:
+        return float(left_couinaud), float(right_couinaud), "couinaud"
+    # Fallback: 50/50 split of total parenchyma (rough estimate, badged).
+    half = float(parenchyma_ml) / 2.0
+    return half, half, "cantlie_estimate"
+
+
+def _parse_lesion_classification_field(raw: Any) -> tuple[str, float | None, list[str]]:
+    """Defensive parse of the ``lesion.classification`` text column.
+
+    The LI-RADS rule classifier writes a JSON string like::
+
+        {"label": "icc", "confidence": 0.8767, "reasoning": [...]}
+
+    into the column (see scripts/real_cascade.py). Older / simpler paths
+    write a bare slug like "hcc". This helper handles both — returning
+    ``(slug, confidence_pct_or_none, reasoning_list)``. When the input
+    isn't parseable as JSON we treat it as the bare slug.
+    """
+    if raw is None:
+        return "", None, []
+    if not isinstance(raw, str):
+        return str(raw).strip().lower(), None, []
+    text = raw.strip()
+    if not text:
+        return "", None, []
+    if text[0] != "{":
+        return text.lower(), None, []
+    try:
+        obj = json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return text.lower(), None, []
+    if not isinstance(obj, dict):
+        return text.lower(), None, []
+    label = (obj.get("label") or obj.get("LABEL") or "").strip().lower()
+    raw_conf = obj.get("confidence", obj.get("CONFIDENCE"))
+    confidence_pct: float | None = None
+    if raw_conf is not None:
+        try:
+            confidence_pct = float(raw_conf) * 100.0
+        except (TypeError, ValueError):
+            confidence_pct = None
+    reasoning_raw = obj.get("reasoning", obj.get("REASONING")) or []
+    if not isinstance(reasoning_raw, list):
+        reasoning_raw = [str(reasoning_raw)]
+    reasoning = [str(r) for r in reasoning_raw if r]
+    return label, confidence_pct, reasoning
+
+
+def _build_findings_rows(findings: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """Shape ``analysis_finding`` payloads into template-ready rows.
+
+    Mirrors the row schema from the frontend FindingsCard.tsx (label /
+    value / badge / detail / alert) so the PDF presentation matches what
+    a surgeon already sees in the analysis-detail view. Returns an empty
+    list when no findings are present so the template can hide the panel.
+    """
+    if not findings:
+        return []
+    rows: list[dict[str, Any]] = []
+
+    hu = findings.get("hu_stats") or {}
+    if isinstance(hu, dict) and "mean" in hu:
+        rows.append({
+            "key": "hu_stats",
+            "label": "Liver attenuation",
+            "value": (
+                f"mean {float(hu['mean']):.0f} HU · "
+                f"range {float(hu.get('p10', 0)):.0f}–{float(hu.get('p90', 0)):.0f} HU"
+            ),
+            "alert": None,
+        })
+
+    st = findings.get("steatosis") or {}
+    if isinstance(st, dict) and st.get("grade") and st["grade"] != "none":
+        delta = st.get("liver_spleen_delta")
+        delta_str = (
+            f"liver–spleen Δ {float(delta):.1f} HU"
+            if delta is not None else "spleen unavailable"
+        )
+        grade_badge = {
+            "mild":     {"tone": "warn",  "label": "Mild"},
+            "moderate": {"tone": "warn",  "label": "Moderate"},
+            "severe":   {"tone": "alert", "label": "Severe"},
+        }.get(st["grade"])
+        rows.append({
+            "key": "steatosis",
+            "label": "Steatosis",
+            "value": delta_str,
+            "badge": grade_badge,
+            "alert": "warn" if st["grade"] in ("moderate", "severe") else "info",
+        })
+
+    sp = findings.get("spleen") or {}
+    if isinstance(sp, dict) and "volume_ml" in sp:
+        bits: list[str] = [f"{float(sp['volume_ml']):.0f} mL"]
+        if sp.get("warning"):
+            bits.append(str(sp["warning"]))
+        badge = (
+            {"tone": "warn", "label": "Splenomegaly"}
+            if sp.get("splenomegaly") else None
+        )
+        rows.append({
+            "key": "spleen",
+            "label": "Spleen volume",
+            "value": " · ".join(bits),
+            "badge": badge,
+            "alert": "warn" if (sp.get("splenomegaly") or sp.get("warning")) else None,
+        })
+
+    gb = findings.get("gallbladder") or {}
+    if isinstance(gb, dict) and "volume_ml" in gb:
+        flags: list[str] = []
+        if gb.get("stones_detected"): flags.append("stones")
+        if gb.get("wall_thickened"):  flags.append("wall thickened")
+        suffix = f" · {', '.join(flags)}" if flags else ""
+        rows.append({
+            "key": "gallbladder",
+            "label": "Gallbladder",
+            "value": f"{float(gb['volume_ml']):.0f} mL{suffix}",
+            "alert": "warn" if flags else None,
+        })
+
+    cl = findings.get("calcified_lesions") or []
+    if isinstance(cl, list) and len(cl) > 0:
+        detail = "  ·  ".join(
+            f"#{c.get('lesion_id', '?')}: max {float(c.get('hu_max', 0)):.0f} HU"
+            for c in cl if isinstance(c, dict)
+        )
+        rows.append({
+            "key": "calcified_lesions",
+            "label": "Calcified lesions",
+            "value": f"{len(cl)} lesion{'s' if len(cl) != 1 else ''}",
+            "detail": detail,
+            "alert": "info",
+        })
+
+    cy = findings.get("simple_biliary_cysts") or []
+    if isinstance(cy, list) and len(cy) > 0:
+        rows.append({
+            "key": "simple_biliary_cysts",
+            "label": "Simple biliary cysts",
+            "value": f"{len(cy)} lesion{'s' if len(cy) != 1 else ''} (benign)",
+            "detail": "Meets all 4 simple-cyst criteria — no follow-up needed.",
+            "alert": "info",
+        })
+
+    lrm = findings.get("indeterminate_malignant") or {}
+    if isinstance(lrm, dict) and lrm.get("lr_m_count"):
+        rows.append({
+            "key": "indeterminate_malignant",
+            "label": "Indeterminate malignant (LR-M)",
+            "value": f"{lrm['lr_m_count']} lesion{'s' if lrm['lr_m_count'] != 1 else ''}",
+            "badge": {"tone": "alert", "label": "LR-M"},
+            "detail": str(lrm.get("interpretation", "")),
+            "alert": "warn",
+        })
+
+    return rows
 
 
 def _extract_parenchyma_volume(
@@ -512,7 +720,18 @@ def _build_lesion_rows(
     thumb_lookup = dict(thumbnails or {})
     out: list[dict[str, Any]] = []
     for row in iterable:
-        cls_slug = (row.get("classification") or row.get("suggested_class") or "").strip().lower()
+        # Three sources for the class label, in priority order:
+        # 1. classification.suggested_class (structured column from the
+        #    LiLNet path) — clean slug like "hcc"
+        # 2. lesion.classification when it's a bare slug
+        # 3. lesion.classification when it's a JSON string from the
+        #    LI-RADS rule classifier — extract label + confidence + reasoning
+        slug_from_text, conf_from_text, reasoning = _parse_lesion_classification_field(
+            row.get("classification")
+        )
+        cls_slug = (
+            (row.get("suggested_class") or slug_from_text or "").strip().lower()
+        )
         probs = row.get("probs_vec") or {}
         if not isinstance(probs, dict):
             probs = {}
@@ -522,6 +741,8 @@ def _build_lesion_rows(
                 confidence_pct = max(float(v) for v in probs.values()) * 100.0
             except (TypeError, ValueError):
                 confidence_pct = 0.0
+        elif conf_from_text is not None:
+            confidence_pct = conf_from_text
         lesion_id_str = str(row.get("id")) if row.get("id") is not None else None
         out.append({
             "id": lesion_id_str,
@@ -535,18 +756,50 @@ def _build_lesion_rows(
             "discovery_source": row.get("discovery_source"),
             "confidence_pct": confidence_pct,
             "probs": probs,
-            "probs_bar_svg": lesion_class_bars_svg(probs),
+            "probs_bar_svg": lesion_class_bars_svg(probs) if probs else None,
+            "reasoning": reasoning,
             "abstained": cls_slug == "abstained",
             "thumbnail_uri": thumb_lookup.get(lesion_id_str) if lesion_id_str else None,
         })
     return out
 
 
-def _build_cascade_checkpoints(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Shape pipeline_checkpoint rows for the audit table."""
+def _build_cascade_checkpoints(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    segmentations: Sequence[Mapping[str, Any]] | None = None,
+    findings: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Shape pipeline_checkpoint rows for the audit table.
+
+    Status derivation: a stage is rendered as ``warn`` (degraded) when the
+    cascade wrote a checkpoint but the downstream artefact is empty —
+    e.g. couinaud-heuristic-v1 with zero per-segment volumes, or
+    classification with an unparseable suggested-class. This catches the
+    silent-failure pattern where a stage logs OK but produced no usable
+    output.
+
+    Appends a synthetic ``Phase 1 findings`` pseudo-row when findings
+    exist; this stage isn't a checkpoint but is part of the cascade and
+    surgeons need to see its provenance.
+    """
+    seg_list = list(segmentations or ())
+    couinaud_total_ml = sum(
+        float(s.get("volume_ml") or 0.0)
+        for s in seg_list
+        if (s.get("anatomy_category") or "").lower() == "couinaud"
+    )
+
+    def _stage_status(stage: str) -> tuple[str, str]:
+        # (status_icon, status_label). Default OK; degraded for empty output.
+        if stage == "couinaud" and couinaud_total_ml <= 0.0:
+            return "warn", "DEGRADED"
+        return "ok", "OK"
+
     out: list[dict[str, Any]] = []
     for cp in rows:
         license_short, license_warn = _shorten_license(cp.get("model_license_hash"))
+        icon, label = _stage_status((cp.get("stage") or "").lower())
         out.append({
             "stage_no": cp.get("stage_no"),
             "stage": cp.get("stage") or "—",
@@ -557,9 +810,27 @@ def _build_cascade_checkpoints(rows: Sequence[Mapping[str, Any]]) -> list[dict[s
             "output_uri": cp.get("output_uri"),
             "output_hash_short": _short_uri(cp.get("output_uri")),
             "written_at": _format_dt(cp.get("written_at")),
-            "status_icon": "ok",
-            "status_label": "OK",
+            "status_icon": icon,
+            "status_label": label,
         })
+
+    if findings:
+        populated = sum(1 for v in findings.values() if v not in (None, [], {}))
+        if populated > 0:
+            out.append({
+                "stage_no": "7b",
+                "stage": "phase1_findings",
+                "model_version": "phase1-heuristics-v1",
+                "license_hash": "n/a-heuristic",
+                "license_short": "heuristic",
+                "license_warn": False,
+                "output_uri": None,
+                "output_hash_short": f"{populated}/7 populated",
+                "written_at": "—",
+                "status_icon": "ok",
+                "status_label": "OK",
+            })
+
     return out
 
 
@@ -602,6 +873,10 @@ def _build_pdf_input(
     couinaud_volumes = _extract_couinaud_volumes(payload.get("segmentations") or ())
     parenchyma_ml = _extract_parenchyma_volume(payload.get("segmentations") or (), couinaud_volumes)
     portal_ml, hepatic_ml = _extract_vessel_volumes(payload.get("segmentations") or ())
+    lobe_left_ml, lobe_right_ml, lobe_split_source = _compute_lobe_split(
+        couinaud_volumes, parenchyma_ml,
+    )
+    findings_rows = _build_findings_rows(payload.get("findings"))
 
     flr_pct = flr.get("remnant_pct_functional")
     if flr_pct is None:
@@ -615,7 +890,11 @@ def _build_pdf_input(
         payload.get("lesions") or (), thumbnails=lesion_thumbnails,
     )
     lesion_count = len(payload.get("lesions") or ())
-    cascade_checkpoints = _build_cascade_checkpoints(payload.get("checkpoints") or ())
+    cascade_checkpoints = _build_cascade_checkpoints(
+        payload.get("checkpoints") or (),
+        segmentations=payload.get("segmentations") or (),
+        findings=payload.get("findings"),
+    )
     completed_stages = sum(
         1 for cp in cascade_checkpoints if cp.get("status_icon") == "ok"
     )
@@ -659,7 +938,10 @@ def _build_pdf_input(
         report_id=str(analysis["id"]),
         analysis_id=str(analysis["id"]),
         tenant_display_name="—",  # tenant lookup is wired by the finalize task; on-demand uses placeholder
-        finalized_by_display=analysis.get("status") or "system",
+        # On-demand reports are auto-rendered (no human review yet); show
+        # an explicit "system (auto)" instead of the analysis status string
+        # ("completed") which clinicians read as a person's name.
+        finalized_by_display="system (auto)",
         finalized_at=finalized_at,
         locale=locale if locale in ("en", "de", "ka") else "en",
         parenchyma_volume_ml=parenchyma_ml,
@@ -694,6 +976,10 @@ def _build_pdf_input(
         mesh3d_render_uri=screenshots_dict.get("mesh3d"),
         ct_renders_unavailable=(len(screenshots_dict) == 0 and not screenshots_list),
         mask_warnings=tuple(mask_warnings or ()),
+        findings_rows=tuple(findings_rows),
+        lobe_left_ml=lobe_left_ml,
+        lobe_right_ml=lobe_right_ml,
+        lobe_split_source=lobe_split_source,
     )
 
 

@@ -4,7 +4,7 @@
 /**
  * useFinalize (T273, T274, T429).
  *
- * Plain-English: the single hook the FinalizeWizard uses to POST
+ * Plain-English: the single hook that POSTs
  * `/api/v1/reviews/{review_id}/finalize`. On success it invalidates
  * the analysis + report + audit query keys so the surrounding UI
  * refetches and shows the new Report row without a full page reload.
@@ -14,8 +14,7 @@
  * tells the mailroom (TanStack Query cache) that anything still
  * sitting in the outbox is now stale.
  *
- * Spec refs: plan.md §Data Fetching Strategy; T429 wires this into
- * FinalizeWizard.tsx submit handler.
+ * Spec refs: plan.md §Data Fetching Strategy.
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 

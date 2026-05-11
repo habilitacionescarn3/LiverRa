@@ -74,7 +74,7 @@
     {# ====================== STAGE 2 — Parenchyma ======================= #}
     <section class="stage-section">
       <h2><span class="stage-tag">STAGE 2</span>Parenchyma Segmentation</h2>
-      <p class="section-lead">Whole-liver outline detected by STU-Net; volume integrated over the segmentation mask. CT slices below show the AI contour (red) overlaid on the source CT.</p>
+      <p class="section-lead">Whole-liver outline from TotalSegmentator (task=total); volume integrated over the segmentation mask. CT slices below show the AI contour (red) overlaid on the source CT.</p>
       <div class="kpi-grid" style="grid-template-columns: 1fr 1fr 1fr;">
         <div class="kpi-card">
           <div class="kpi-label">Total liver</div>
@@ -83,13 +83,25 @@
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Left lobe</div>
-          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('II', 0) + couinaud_volumes.get('III', 0) + couinaud_volumes.get('IV', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
-          <div class="kpi-sub">Segments II + III + IV</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_left_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">
+            {% if lobe_split_source == 'cantlie_estimate' %}
+              Cantlie estimate (Couinaud unavailable)
+            {% else %}
+              Segments II + III + IV
+            {% endif %}
+          </div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Right lobe</div>
-          <div class="kpi-value">{{ "%.0f"|format(couinaud_volumes.get('V', 0) + couinaud_volumes.get('VI', 0) + couinaud_volumes.get('VII', 0) + couinaud_volumes.get('VIII', 0)) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
-          <div class="kpi-sub">Segments V–VIII</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_right_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">mL</span></div>
+          <div class="kpi-sub">
+            {% if lobe_split_source == 'cantlie_estimate' %}
+              Cantlie estimate (Couinaud unavailable)
+            {% else %}
+              Segments V–VIII
+            {% endif %}
+          </div>
         </div>
       </div>
       {% if parenchyma_render_uri %}
@@ -121,7 +133,7 @@
     {# =================== STAGE 3b — Couinaud =========================== #}
     <section class="stage-section">
       <h2><span class="stage-tag">STAGE 3b</span>Couinaud Volumetry — 8 Segments</h2>
-      <p class="section-lead">Per-segment volumes from the Pictorial Couinaud topological parser. Bars sized to the largest segment.</p>
+      <p class="section-lead">Per-segment volumes from the LiverRa Couinaud heuristic (Cantlie line + portal bifurcation). Bars sized to the largest segment.</p>
       <div class="exec-card">
         {% if couinaud_chart_svg %}
           {{ couinaud_chart_svg|safe }}
@@ -143,7 +155,7 @@
     <section class="stage-section">
       <h2><span class="stage-tag">STAGES 4 + 5</span>Lesion Detection + Classification</h2>
       {% if lesions %}
-        <p class="section-lead">{{ lesion_count }} lesion{{ '' if lesion_count == 1 else 's' }} detected. Each card shows the full 6-class differential — surgeon decision support, not autonomous diagnosis.</p>
+        <p class="section-lead">{{ lesion_count }} lesion{{ '' if lesion_count == 1 else 's' }} detected. LI-RADS rule classifier — single suggested class with reasoning trail. Surgeon decision support, not autonomous diagnosis.</p>
         {% for lesion in lesions %}
           <div class="lesion-row-detailed">
             <div class="lesion-head">
@@ -168,6 +180,13 @@
             {% if lesion.probs_bar_svg %}
               {{ lesion.probs_bar_svg|safe }}
             {% endif %}
+            {% if lesion.reasoning %}
+              <ul class="lesion-reasoning">
+                {% for r in lesion.reasoning %}
+                  <li>{{ r }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
             {% if lesion.thumbnail_uri %}
               <div class="ct-render-caption" style="margin-top: 2mm;">CT — axial · coronal · sagittal centred on lesion · yellow = lesion contour · red = liver outline · enhancement curve below</div>
               <img class="lesion-thumbnail" src="{{ lesion.thumbnail_uri }}" alt="Lesion CT thumbnail with 4-phase enhancement curve" />
@@ -187,7 +206,7 @@
     {# =================== STAGE 6 — FLR ================================= #}
     <section class="stage-section">
       <h2><span class="stage-tag">STAGE 6</span>Future Liver Remnant</h2>
-      <p class="section-lead">Heuristic axial-midpoint resection plane; refined by surgeon during finalize wizard.</p>
+      <p class="section-lead">Segment-aware right-hepatectomy plane (falls back to axial midpoint when Couinaud is unavailable). Refined by surgeon during finalize wizard.</p>
       <div class="exec-grid">
         <div class="exec-card" style="text-align: center;">
           {% if flr_donut_svg %}
@@ -225,6 +244,30 @@
         <img class="ct-render" src="{{ flr_render_uri }}" alt="FLR resection plane on CT" />
       {% endif %}
     </section>
+
+    {# =================== STAGE 7b — Phase 1 findings =================== #}
+    {% if findings_rows %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">STAGE 7b</span>Heuristic Findings</h2>
+        <p class="section-lead">Phase 1 screening from CT attenuation + organ masks (spleen, gallbladder, lesion HU). Heuristic — not a substitute for radiologist interpretation.</p>
+        <div class="findings-list">
+          {% for row in findings_rows %}
+            <div class="finding-row alert-{{ row.alert or 'none' }}">
+              <div class="finding-head">
+                <span class="finding-label">{{ row.label }}</span>
+                <span class="finding-value">{{ row.value }}</span>
+                {% if row.badge %}
+                  <span class="pill tone-{{ row.badge.tone }}">{{ row.badge.label }}</span>
+                {% endif %}
+              </div>
+              {% if row.detail %}
+                <div class="finding-detail">{{ row.detail }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
 
     {# =================== 4-phase + 3D mesh renders ===================== #}
     {% if four_phase_render_uri %}

@@ -464,14 +464,20 @@ export function LiverViewer3D({
         engineRef.current = engine;
 
         if (viewMode === 'axial') {
+          // Use an ORTHOGRAPHIC volume viewport (same renderer as MPR) so the
+          // green parenchyma / yellow lesion / red FLR labelmaps register
+          // identically here. A STACK viewport would render the CT but
+          // doesn't support the volume-labelmap actor stack, which is what
+          // makes overlays disappear when the surgeon switches to axial.
           if (!elementRef.current) return;
           engine.enableElement({
-            viewportId: VIEWPORT_ID,
+            viewportId: MPR_AXIAL_ID,
             element: elementRef.current,
-            type: Enums.ViewportType.STACK,
+            type: Enums.ViewportType.ORTHOGRAPHIC,
+            defaultOptions: { orientation: Enums.OrientationAxis.AXIAL },
           });
           const tg = getOrCreateToolGroup();
-          tg.addViewport(VIEWPORT_ID, RENDERING_ENGINE_ID);
+          tg.addViewport(MPR_AXIAL_ID, RENDERING_ENGINE_ID);
           activateToolOnGroup('StackScroll');
         } else {
           // MPR — three orthographic viewports.
@@ -522,6 +528,39 @@ export function LiverViewer3D({
         /* engine already torn down */
       }
       engineRef.current = null;
+      // CRITICAL: clear the labelmap registration map. destroyCornerstone()
+      // destroys the rendering engine + tool group, which cascade-clears
+      // the segmentation state. If we don't also clear activeSegsRef, the
+      // next mount's lazy-load effect thinks segmentations are still
+      // registered and skips re-fetching them. This is what made overlays
+      // invisible in React StrictMode (double-invoke in dev): first run
+      // registered, cleanup destroyed engine, second run thought "already
+      // registered" and skipped. Result: empty segmentation state +
+      // dangling ref + zero overlays painted on the viewport.
+      //
+      // Also remove the CACHED labelmap volumes — they hold vtkOpenGLTexture
+      // references tied to the destroyed rendering engine's GL context. If
+      // we kept them, switching MPR ↔ axial would silently produce
+      // labelmap actors with dead GL textures (no overlay despite state
+      // looking correct). Re-fetching the mask + rebuilding the volume on
+      // the new engine is cheap (<1s) compared to debugging stale textures.
+      const allLabelmapSegIds = [
+        ...Object.values(activeSegsRef.current),
+        ...Object.values(activeLesionSegsRef.current),
+        ...Object.values(activeFlrSegsRef.current),
+      ];
+      for (const segId of allLabelmapSegIds) {
+        try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
+        try { cache.removeVolumeLoadObject(segId); } catch { /* gone */ }
+      }
+      activeSegsRef.current = {};
+      activeLesionSegsRef.current = {};
+      activeFlrSegsRef.current = {};
+      // Reset imageCount so the new mode's setImageCount(N) registers as a
+      // dependency change — otherwise the lazy-load effects (whose deps
+      // include imageCount) skip re-firing when N is identical across modes,
+      // and the new viewport never gets its labelmaps attached.
+      setImageCount(0);
     };
   }, [ready, studyInstanceUid, viewMode]);
 
@@ -601,23 +640,53 @@ export function LiverViewer3D({
         const liverPreset = WINDOW_LEVEL_PRESETS.liver ?? WINDOW_LEVEL_PRESETS.softTissue;
 
         if (viewMode === 'axial') {
-          const viewport = engine.getViewport(VIEWPORT_ID) as Types.IStackViewport | undefined;
-          if (!viewport) {
-            setLoadError(t('analysis:viewer.loadFailed'));
+          // Single-viewport AXIAL view, but using the same volume + ortho
+          // viewport infra as MPR so labelmaps (parenchyma / Couinaud /
+          // lesions / FLR) render identically here.
+          const volumeId = `cornerstoneStreamingImageVolume:liverra-${selectedSeries}-ax-${Date.now()}`;
+          try {
+            const volume = await volumeLoader.createAndCacheVolume(volumeId, { imageIds });
+            activeVolumeIdRef.current = volumeId;
+            await volume.load();
+            if (cancelled) return;
+            await setVolumesForViewports(engine, [{ volumeId }], [MPR_AXIAL_ID]);
+            if (cancelled) return;
+            const vp = engine.getViewport(MPR_AXIAL_ID) as Types.IVolumeViewport | undefined;
+            if (vp) {
+              vp.resetCamera();
+              try {
+                vp.setProperties({
+                  voiRange: {
+                    lower: liverPreset.center - liverPreset.width / 2,
+                    upper: liverPreset.center + liverPreset.width / 2,
+                  },
+                });
+              } catch { /* properties API differs across CS versions */ }
+              vp.render();
+            }
+            engine.resize();
+            const nSlices = (vp as (Types.IVolumeViewport & { getNumberOfSlices?: () => number }) | undefined)?.getNumberOfSlices?.() ?? imageIds.length;
+            setMprDims({ axial: nSlices, sagittal: 0, coronal: 0 });
+            // Jump to first lesion's z-center so the surgeon doesn't have
+            // to scroll to find it (mirrors the MPR-path behaviour).
+            const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
+            const target =
+              firstBox && firstBox.z !== undefined && firstBox.dz !== undefined
+                ? Math.round(firstBox.z + firstBox.dz / 2)
+                : Math.floor(nSlices / 2);
+            setMprSlices((prev) => ({ ...prev, axial: target }));
+            setCurrentSlice(target);
+            try {
+              const curIdx = (vp as (Types.IVolumeViewport & { getSliceIndex?: () => number; scroll?: (d: number) => void }) | undefined)?.getSliceIndex?.() ?? 0;
+              const delta = target - curIdx;
+              if (delta !== 0) (vp as unknown as { scroll?: (d: number) => void })?.scroll?.(delta);
+            } catch { /* viewport torn down */ }
+          } catch (volErr) {
+            const msg = volErr instanceof Error ? volErr.message : String(volErr);
+            setLoadError(msg);
             setIsLoading(false);
             return;
           }
-          await viewport.setStack(imageIds);
-          if (cancelled) return;
-          engine.resize();
-
-          viewport.setProperties({
-            voiRange: {
-              lower: liverPreset.center - liverPreset.width / 2,
-              upper: liverPreset.center + liverPreset.width / 2,
-            },
-          });
-          viewport.render();
         } else {
           // ── MPR path ──
           // Build a streaming 3-D volume from the per-slice image stack,
@@ -671,11 +740,42 @@ export function LiverViewer3D({
               dims[key] = n;
             }
             setMprDims(dims);
-            setMprSlices({
-              axial: Math.floor(dims.axial / 2),
-              sagittal: Math.floor(dims.sagittal / 2),
-              coronal: Math.floor(dims.coronal / 2),
-            });
+            // Default each MPR plane to volume center, then nudge axial /
+            // sagittal / coronal toward the first lesion's bbox center
+            // so the yellow ROI is visible on load instead of forcing the
+            // surgeon to scroll ~150 slices to find it. (For studies with
+            // no lesions, plain volume-center is the right default.)
+            const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
+            const lesionAx = firstBox && firstBox.z !== undefined && firstBox.dz !== undefined
+              ? Math.round(firstBox.z + firstBox.dz / 2)
+              : null;
+            const lesionSa = firstBox && firstBox.x !== undefined && firstBox.dx !== undefined
+              ? Math.round(firstBox.x + firstBox.dx / 2)
+              : null;
+            const lesionCo = firstBox && firstBox.y !== undefined && firstBox.dy !== undefined
+              ? Math.round(firstBox.y + firstBox.dy / 2)
+              : null;
+            const targetSlices = {
+              axial: lesionAx ?? Math.floor(dims.axial / 2),
+              sagittal: lesionSa ?? Math.floor(dims.sagittal / 2),
+              coronal: lesionCo ?? Math.floor(dims.coronal / 2),
+            };
+            setMprSlices(targetSlices);
+            // Sync the actual viewports so what the user sees matches state.
+            for (const [vpId, key] of [
+              [MPR_AXIAL_ID, 'axial'] as const,
+              [MPR_SAGITTAL_ID, 'sagittal'] as const,
+              [MPR_CORONAL_ID, 'coronal'] as const,
+            ]) {
+              try {
+                const vp = engine.getViewport(vpId) as
+                  | (Types.IVolumeViewport & { scroll?: (d: number) => void; getSliceIndex?: () => number })
+                  | undefined;
+                const curIdx = vp?.getSliceIndex?.() ?? 0;
+                const delta = targetSlices[key] - curIdx;
+                if (delta !== 0 && vp?.scroll) vp.scroll(delta);
+              } catch { /* viewport may be torn down */ }
+            }
           } catch (volErr) {
             // MPR volume build failed — drop back to axial mode and surface
             // a friendly message rather than blanking the viewer.
@@ -792,7 +892,7 @@ export function LiverViewer3D({
   // labelmap around even after the toggle is flipped off so re-toggling is
   // instant. Teardown happens on unmount / mode switch only.
   useEffect(() => {
-    if (viewMode !== 'mpr') return undefined;
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return undefined;
     const volumeId = activeVolumeIdRef.current;
     if (!volumeId) return undefined;
 
@@ -843,6 +943,124 @@ export function LiverViewer3D({
     };
   }, [viewMode, analysisId, imageCount, desiredVisibilityByKey, availableAnatomyKeys]);
 
+  // --- Lesion mask labelmaps (renders the actual tumor contour, not a bbox) -
+  // Plain-English: for every lesion the analysis surfaced, fetch its NIfTI
+  // mask from `/lesion-mask/{lesion_id}` and register it as a yellow
+  // labelmap. This gives the surgeon the same tumor outline they see in the
+  // PDF report instead of the misleading bounding-rectangle.
+  const activeLesionSegsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return undefined;
+    const volumeId = activeVolumeIdRef.current;
+    if (!volumeId) return undefined;
+    if (!layerVisibility.lesions || lesions.length === 0) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      for (const les of lesions) {
+        if (cancelled) return;
+        if (activeLesionSegsRef.current[les.id]) continue;
+        const segId = `liverra-seg-lesion-${les.id}`;
+        try {
+          const url = `/api/v1/analyses/${encodeURIComponent(analysisId)}/lesion-mask/${encodeURIComponent(les.id)}`;
+          const nii = await loadNiftiAsLabelmap(url);
+          if (cancelled) return;
+          await createLabelmapFromNifti(volumeId, nii, segId);
+          if (cancelled) return;
+          await attachLabelmapToViewports(segId, [...MPR_VIEWPORT_IDS], [250, 204, 21, 140]);
+          if (cancelled) return;
+          activeLesionSegsRef.current[les.id] = segId;
+          for (const vpId of MPR_VIEWPORT_IDS) {
+            setLabelmapVisibility(vpId, segId, true);
+          }
+          try {
+            engineRef.current?.renderViewports([...MPR_VIEWPORT_IDS]);
+          } catch { /* engine torn down */ }
+          setRegistrationTick((n) => n + 1);
+        } catch (err) {
+          console.warn(`[LiverViewer3D] failed to register lesion mask ${les.id}`, err);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewMode, analysisId, imageCount, layerVisibility.lesions, lesions]);
+
+  // Toggle visibility of all lesion labelmaps when the "Lesions" checkbox flips.
+  useEffect(() => {
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return;
+    const map = activeLesionSegsRef.current;
+    if (Object.keys(map).length === 0) return;
+    for (const segId of Object.values(map)) {
+      for (const vpId of MPR_VIEWPORT_IDS) {
+        setLabelmapVisibility(vpId, segId, layerVisibility.lesions);
+      }
+    }
+    try {
+      engineRef.current?.renderViewports([...MPR_VIEWPORT_IDS]);
+    } catch { /* torn down */ }
+  }, [viewMode, layerVisibility.lesions, registrationTick]);
+
+  // --- FLR cutting plane: visualise the resection by colouring removed
+  // Couinaud segments in red. The cascade's segment-aware FLR plan emits
+  // `plane_normal` + `plane_offset_mm` as null and provides a list of
+  // removed segments instead (e.g. right hepatectomy → [V, VI, VII, VIII]).
+  // Loading each removed segment's mask as a red labelmap lets the surgeon
+  // see exactly what tissue is being resected; the boundary between red
+  // and non-red is the cutting surface (Cantlie line for this case).
+  const activeFlrSegsRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return undefined;
+    const volumeId = activeVolumeIdRef.current;
+    if (!volumeId) return undefined;
+    if (!layerVisibility.flrPlane || !flrDefault) return undefined;
+    const removed = (flrDefault.plane_pose?.removed_segments ?? []) as string[];
+    if (removed.length === 0) return undefined;
+
+    let cancelled = false;
+    (async () => {
+      for (const roman of removed) {
+        if (cancelled) return;
+        const key = `couinaud-${roman.toLowerCase()}` as AnatomyKey;
+        if (activeFlrSegsRef.current[roman]) continue;
+        const segId = `liverra-seg-flr-${key}-${analysisId}`;
+        try {
+          const nii = await loadNiftiAsLabelmap(maskUrl(analysisId, key));
+          if (cancelled) return;
+          await createLabelmapFromNifti(volumeId, nii, segId);
+          if (cancelled) return;
+          await attachLabelmapToViewports(segId, [...MPR_VIEWPORT_IDS], [220, 38, 38, 130]);
+          if (cancelled) return;
+          activeFlrSegsRef.current[roman] = segId;
+          for (const vpId of MPR_VIEWPORT_IDS) {
+            setLabelmapVisibility(vpId, segId, true);
+          }
+          try {
+            engineRef.current?.renderViewports([...MPR_VIEWPORT_IDS]);
+          } catch { /* torn down */ }
+          setRegistrationTick((n) => n + 1);
+        } catch (err) {
+          console.warn(`[LiverViewer3D] failed to register FLR mask ${roman}`, err);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewMode, analysisId, imageCount, layerVisibility.flrPlane, flrDefault]);
+
+  // Toggle visibility of FLR red labelmaps with the FLR checkbox.
+  useEffect(() => {
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return;
+    const map = activeFlrSegsRef.current;
+    if (Object.keys(map).length === 0) return;
+    for (const segId of Object.values(map)) {
+      for (const vpId of MPR_VIEWPORT_IDS) {
+        setLabelmapVisibility(vpId, segId, layerVisibility.flrPlane);
+      }
+    }
+    try {
+      engineRef.current?.renderViewports([...MPR_VIEWPORT_IDS]);
+    } catch { /* torn down */ }
+  }, [viewMode, layerVisibility.flrPlane, registrationTick]);
+
   // --- Pass D6: tear down all registered labelmaps on unmount only ----------
   // Plain-English: keep labelmaps cached across Axial⇄MPR toggles so flipping
   // the view is instant. We only drop them when the analysis itself changes
@@ -850,8 +1068,14 @@ export function LiverViewer3D({
   // effect above is idempotent, so re-entering MPR re-attaches without re-fetch.
   useEffect(() => {
     return () => {
-      const ids = Object.values(activeSegsRef.current);
+      const ids = [
+        ...Object.values(activeSegsRef.current),
+        ...Object.values(activeLesionSegsRef.current),
+        ...Object.values(activeFlrSegsRef.current),
+      ];
       activeSegsRef.current = {};
+      activeLesionSegsRef.current = {};
+      activeFlrSegsRef.current = {};
       for (const segId of ids) {
         try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
       }
@@ -860,7 +1084,7 @@ export function LiverViewer3D({
 
   // --- Pass D6: apply per-anatomy visibility on every toggle change --------
   useEffect(() => {
-    if (viewMode !== 'mpr') return;
+    if (viewMode !== 'mpr' && viewMode !== 'axial') return;
     const map = activeSegsRef.current;
     if (Object.keys(map).length === 0) return;
     for (const key of Object.keys(map) as AnatomyKey[]) {
@@ -1030,9 +1254,9 @@ export function LiverViewer3D({
             lesions={lesions}
             sliceIndex={currentSlice}
             totalSlices={imageCount}
-            volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+            volumeDims={[512, 512, Math.max(imageCount, 1)]}
             orientation="axial"
-            visible={layerVisibility.lesions}
+            visible={false}
           />
 
           {/* Pass C3 — FLR cutting plane overlay (axial). */}
@@ -1041,7 +1265,7 @@ export function LiverViewer3D({
             orientation="axial"
             sliceIndex={currentSlice}
             totalSlices={imageCount}
-            volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+            volumeDims={[512, 512, Math.max(imageCount, 1)]}
             visible={layerVisibility.flrPlane}
           />
         </>
@@ -1100,16 +1324,16 @@ export function LiverViewer3D({
               lesions={lesions}
               sliceIndex={mprSlices.axial}
               totalSlices={mprDims.axial || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="axial"
-              visible={layerVisibility.lesions}
+              visible={false}
             />
             <FlrPlaneOverlay
               flr={flrDefault}
               orientation="axial"
               sliceIndex={mprSlices.axial}
               totalSlices={mprDims.axial || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
             />
           </Box>
@@ -1151,16 +1375,16 @@ export function LiverViewer3D({
               lesions={lesions}
               sliceIndex={mprSlices.sagittal}
               totalSlices={mprDims.sagittal || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="sagittal"
-              visible={layerVisibility.lesions}
+              visible={false}
             />
             <FlrPlaneOverlay
               flr={flrDefault}
               orientation="sagittal"
               sliceIndex={mprSlices.sagittal}
               totalSlices={mprDims.sagittal || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
             />
           </Box>
@@ -1202,16 +1426,16 @@ export function LiverViewer3D({
               lesions={lesions}
               sliceIndex={mprSlices.coronal}
               totalSlices={mprDims.coronal || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="coronal"
-              visible={layerVisibility.lesions}
+              visible={false}
             />
             <FlrPlaneOverlay
               flr={flrDefault}
               orientation="coronal"
               sliceIndex={mprSlices.coronal}
               totalSlices={mprDims.coronal || imageCount}
-              volumeDims={parenchymaMask?.dims ?? [512, 512, Math.max(imageCount, 1)]}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
             />
           </Box>

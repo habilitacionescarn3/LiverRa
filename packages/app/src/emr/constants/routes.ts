@@ -33,7 +33,6 @@ export const LIVERRA_ROUTES = {
   CASE_DETAIL: '/cases/:id',
   CASE_LESIONS: '/cases/:id/lesions',
   CASE_REFINE: '/cases/:id/refine',
-  CASE_FINALIZE: '/cases/:id/finalize',
   REPORT_VIEW: '/reports/:id',
 
   // --- admin ---------------------------------------------------------------

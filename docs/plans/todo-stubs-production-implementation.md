@@ -20,7 +20,7 @@ The **good news** from research: *every substantial building block already exist
 | Refinement tools | `RefineTools`, `LiverViewer3D`, `TakeoverRequestToast`, `ConflictResolutionModal` |
 | Seat lifecycle | `ReviewSeatContext`, `useReviewSeat` |
 | Undo system | `RefinementUndoContext` |
-| Finalize flow | `FinalizeWizard`, `PDFPreview`, `PACSPushPanel`, `RetractModal`, `useFinalize` |
+| Finalize flow | one-click button on `AnalysisDetailView`, `PDFPreview`, `PACSPushPanel`, `RetractModal`, `useFinalize` |
 | Watermark & RUO | `RUODisclaimer`, `RUODisclaimerClaimAware`, `RUOClaimRegistryContext` |
 | Forms / cards / alerts | 20+ `EMR*` primitives in `components/common/index.ts` |
 | i18n | All 27 namespaces exist (`help.json`, `glossary.json`, `notifications.json`, `refine.json`, etc.) |
@@ -117,18 +117,15 @@ Each view below has:
 - **Mock endpoints:** `POST /reviews/:id/lesion-prompt` → `{lesion_id, confidence: 0.82, predicted_class: 'metastasis'}`. Already-mocked `POST /reviews/:id/classification-override` accepts `{lesion_id, new_class, reason}` → `{ok:true}`.
 - **i18n:** `lesions.json` already complete; verify `lesions:actions.override`, `lesions:actions.addManual` exist, else append.
 
-### 3.6 `FinalizeWizardView` — *5-step wizard with step-up on submit*
+### 3.6 `FinalizeWizardView` — *REMOVED 2026-05-11*
 
-- **Route:** `/cases/:id/finalize` — requires `report.finalize`.
-- **Purpose:** Full sign-off flow: (1) Attestation — surgeon confirms clinical accuracy + RUO acknowledged; (2) Artifact preview — PDF + DICOM-SEG + DICOM-SR thumbnails via `PDFPreview`; (3) PACS destination — choose target from tenant config, show pre-flight C-ECHO result; (4) Review summary — collapsed diff of all edits since analysis completed; (5) Ship — step-up MFA → `useFinalize().finalize()` → poll for `status=completed` → success screen with link to `/reports/:id`.
-- **Data:** `useAnalysis(analysisId)` for case context; `useReviewSeat()` to confirm seat still held (blocks if not); `useFinalize()` (exists) for mutation; new `usePacsDelivery(reportId)` polling; new `GET /reports/:id` for artifact preview post-finalize.
-- **Components:** `EMRPageHeader` + `EMRWizardStepper` (already exists) + per-step sub-components composing existing `FinalizeWizard` + `PDFPreview` + `PACSPushPanel` + `RUODisclaimer` persistent.
-- **Interactions:** "Next" disabled until step invariants hold (e.g., step 1 requires both checkboxes; step 2 requires PDF-loaded confirmation; step 3 requires successful C-ECHO; step 4 requires seat still held; step 5 requires step-up). "Back" allowed up to step 4; step 5 ships, cannot reverse. Seat loss mid-wizard → banner + block progression.
-- **States:** Loading analysis (full-page skeleton); seat not held (`RecordLockBanner` + "Acquire seat" CTA); finalize in-flight (spinner + "Generating artifacts… (~30s)"); polling for PACS (`PACSPushPanel` live); success (confirmation screen with report link); failure (specific error slug → copy from `failClosed.json` + retry).
-- **Tests:** (a) all 5 steps render sequentially with `canNext` gates, (b) attestation step requires both checkboxes, (c) C-ECHO failure blocks step 3, (d) step-up on submit dispatches `liverra:step-up-required` event → mutation retries post-MFA, (e) seat loss mid-flow banners + disables Next, (f) successful finalize shows report link, (g) failed finalize displays problem-json `slug` via `errors.json`.
-- **Acceptance:** 450–700 LOC split across the view + 5 step sub-components. Tests cover every canNext gate.
-- **Mock endpoints:** `POST /reviews/:id/finalize` → `{report_id: 'report-xxx', status: 'generating', polling_url: '/api/v1/reports/report-xxx'}`; `GET /reports/:id` → full report + artifact URIs + delivery array; `POST /reports/:id/pacs-push` → enqueue; `POST /reports/:id/pacs-push/:delivery_id/retry` → re-enqueue; `POST /reports/:id/retract` → 204.
-- **i18n:** `report.json` already populated; audit any missing `report:finalize.steps.*` keys.
+The 5-step wizard was deleted in favor of a one-click finalize button on
+`AnalysisDetailView` (`packages/app/src/emr/views/cases/AnalysisDetailView.tsx`)
+that calls `useReviewSeat().acquire()` → `useFinalize().mutateAsync()` →
+`navigate('/reports/:report_id')` in a single chained handler. The RUO
+attestation step is dropped during dev/demo phase (RUO watermark still bakes
+into the PDF itself); slated for re-add as a confirm modal + AuditEvent
+before commercial launch.
 
 ### 3.7 `RefinementView` — *most complex; Cornerstone3D + seat + undo + AI refinement*
 
@@ -242,11 +239,10 @@ Dependency-ordered waves. Each wave's views are mutually independent and can be 
 **Wave 2 — Data-bound** (1 agent):
 - **2a.** `LesionsPanelView` — depends on Wave 0 mock for lesion-prompt; uses already-wired `useLesions` + `useRefinementDispatch`.
 
-**Wave 3 — Complex workflows** (2 agents, sequential because they share the finalize/refinement mock surface):
-- **3a.** `FinalizeWizardView`
+**Wave 3 — Complex workflows** (1 agent — `FinalizeWizardView` was removed 2026-05-11 in favor of a one-click button on `AnalysisDetailView`):
 - **3b.** `RefinementView`
 
-**Total ≈ 7 agent invocations** (not counting Wave 0 which is direct edit). Estimated calendar time: ~1 session with attentive review.
+**Total ≈ 6 agent invocations** (not counting Wave 0 which is direct edit). Estimated calendar time: ~1 session with attentive review.
 
 ---
 
@@ -269,7 +265,7 @@ Dependency-ordered waves. Each wave's views are mutually independent and can be 
 | 13 | `packages/app/src/emr/views/settings/ProfileView.tsx` | **rewrite** stub → prod, ~300 LOC |
 | 14 | `packages/app/src/emr/views/settings/NotificationPreferencesView.tsx` | **rewrite** stub → prod, ~220 LOC |
 | 15 | `packages/app/src/emr/views/cases/LesionsPanelView.tsx` | **rewrite** stub → prod, ~350 LOC |
-| 16 | `packages/app/src/emr/views/cases/FinalizeWizardView.tsx` | **rewrite** stub → prod, ~500 LOC |
+| 16 | `packages/app/src/emr/views/cases/FinalizeWizardView.tsx` | **DELETED 2026-05-11** — replaced by one-click button in `AnalysisDetailView` |
 | 17 | `packages/app/src/emr/views/cases/RefinementView.tsx` | **rewrite** stub → prod, ~700 LOC |
 | 18–24 | Co-located `__tests__/{ViewName}.test.tsx` × 7 | new, ~150–250 LOC each |
 | 25 | `CLAUDE.md` §"Intentional TODO Stub Views" | **delete** that section once views are live |
@@ -313,7 +309,7 @@ After all 7 views ship, run:
    - `/profile` → change locale to de, refresh, see German
    - `/settings/notifications` → toggle analysis_complete, reload, see persisted state (mock returns toggled state)
    - `/cases/case-2026-0412/lesions` → see 4 lesions, click abstained lesion, see "Uncertain" explanation
-   - `/cases/case-2026-0407/finalize` → walk through all 5 steps (mock case is `running` — switch to `done` if wizard requires it)
+   - `/cases/case-2026-0407` → click "Finalize & generate report" button (one-click flow; wizard removed 2026-05-11). Should land on `/reports/:id` within ~2s.
    - `/cases/case-2026-0412/refine` → acquire seat, click refine tool, verify dispatch + undo
 4. Lighthouse (optional): score ≥ 90 on Accessibility, Best Practices for each route.
 5. `scripts/i18n-check.ts` — zero missing keys across all three locales (excluding `__TODO_TRANSLATE__` markers which are expected).

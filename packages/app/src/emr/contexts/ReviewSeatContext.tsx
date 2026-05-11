@@ -87,7 +87,7 @@ export interface ReviewSeatState {
 }
 
 export interface ReviewSeatActions {
-  acquire(analysisId: string): Promise<void>;
+  acquire(analysisId: string): Promise<{ reviewId: string }>;
   release(): Promise<void>;
   requestTakeover(analysisId: string): Promise<void>;
 }
@@ -136,7 +136,7 @@ export function ReviewSeatProvider({
   }, []);
 
   const acquire = useCallback(
-    async (analysisId: string): Promise<void> => {
+    async (analysisId: string): Promise<{ reviewId: string }> => {
       setState((prev) => ({ ...prev, status: 'acquiring', isLoading: true }));
       try {
         const response = await client.post<{
@@ -155,6 +155,7 @@ export function ReviewSeatProvider({
           holderDisplayName: null,
           hasSeat: true,
         });
+        return { reviewId: response.review_id };
       } catch (err) {
         let apiErr: unknown = err;
         try {

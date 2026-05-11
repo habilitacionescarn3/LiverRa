@@ -468,31 +468,63 @@ def run_real_cascade(
                     vessel_uri,
                 ),
             )
-        conn.execute(
-            """
-            INSERT INTO segmentation
-                (analysis_id, generation_source, mask_uri, sop_instance_uid,
-                 anatomy_category, anatomy_detail, volume_ml, mask_url, snomed_code)
-            VALUES (%s, 'ai', %s, %s, 'liver', 'couinaud', %s, %s, '10200004')
-            """,
-            (
-                analysis_id,
-                couinaud_uri,
-                f"liverra.{analysis_id}.couinaud",
-                round(float(total_ml), 2),
-                couinaud_uri,
-            ),
-        )
-        # Print per-segment voxel counts (sanity)
+        # Per-segment voxel counts in native CT space (used for the row
+        # volume_ml + the print summary below).
         per_seg_v = {sid: int((couinaud_native_arr == sid).sum()) for sid in range(1, 9)}
         voxel_ml_native = float(np.prod(liver_native.GetSpacing())) / 1000.0
         per_seg_ml = {sid: round(per_seg_v[sid] * voxel_ml_native, 1) for sid in per_seg_v}
+        # Persist 8 per-segment Segmentation rows AND upload a per-segment
+        # binary mask file for each. The DICOM viewer's overlay layer
+        # (LiverViewer3D / cornerstoneInit.createLabelmapFromNifti) expects
+        # ONE BINARY mask per row — voxel == 1 inside, 0 outside — not a
+        # combined label-map. Earlier this loop reused the combined
+        # couinaud_uri for every row, causing the viewer to silently fail
+        # to colour anything (Cornerstone's segment-index colour API only
+        # paints voxels==1, so segments 2-8 in a label-map were invisible).
+        # We also deliberately drop the legacy 'liver/couinaud' summary row
+        # that used to live just above this block — it had
+        # anatomy_category='liver' AND pointed at the label-map, which
+        # randomly shadowed the real parenchyma row in the API's
+        # ``LIMIT 1 ORDER BY created_at DESC`` lookup on /mask/liver.
+        roman_for_sid = {1: "I", 2: "II", 3: "III", 4: "IV",
+                         5: "V", 6: "VI", 7: "VII", 8: "VIII"}
+        for sid, roman in roman_for_sid.items():
+            seg_arr = (couinaud_native_arr == sid).astype(np.uint8)
+            seg_native = sitk.GetImageFromArray(seg_arr)
+            seg_native.CopyInformation(liver_native)
+            seg_128 = cast_u8.Execute(resample_mask_to(seg_native, TARGET_SHAPE))
+            seg_uri = upload_nii(
+                seg_128, f"analyses/{analysis_id}/couinaud_{roman}.nii.gz",
+            )
+            conn.execute(
+                """
+                INSERT INTO segmentation
+                    (analysis_id, generation_source, mask_uri, sop_instance_uid,
+                     anatomy_category, anatomy_detail, volume_ml, mask_url, snomed_code)
+                VALUES (%s, 'ai', %s, %s, 'couinaud', %s, %s, %s, '10200004')
+                """,
+                (
+                    analysis_id,
+                    seg_uri,
+                    f"liverra.{analysis_id}.couinaud.{roman}",
+                    roman,
+                    float(per_seg_ml[sid]),
+                    seg_uri,
+                ),
+            )
+        non_empty = sum(1 for v in per_seg_ml.values() if v > 0)
+        if non_empty == 0:
+            print(
+                "      ⚠ Couinaud heuristic produced 0 voxels in all 8 "
+                "segments — page-1 lobe split will fall back to a "
+                "Cantlie-line estimate. Check portal/hepatic vessel masks."
+            )
         print(f"      ✓ {couinaud_uri.split('/')[-1]}  +{time.perf_counter()-t_cou:.2f}s")
         seg_str = "  ".join(
             f"{name}={per_seg_ml[i]}ml"
             for i, name in zip(range(1, 9), ["I","II","III","IV","V","VI","VII","VIII"])
         )
-        print(f"      per-segment: {seg_str}")
+        print(f"      per-segment: {seg_str} ({non_empty}/8 non-empty)")
 
     # Stage 5 — lesion detection from liver_tumor mask.
     lesion_count = 0
@@ -691,12 +723,15 @@ def run_real_cascade(
                 # JSON.parse()s `classification` and reads {label, confidence}.
                 # Writing the bare string "icc" trips JSON.parse and the row
                 # shows up as "—" instead of "ICC · 88%".
+                # ensure_ascii=False so unicode (Δ, →) survives intact;
+                # the previous default escaped them as \U0394 / \U2192 which
+                # leaked into the PDF lesion card as raw literals.
                 classification_json = json.dumps({
                     "label": cls.get("top1"),
                     "confidence": cls.get("top1_confidence"),
                     "reasoning": cls.get("reasoning"),
-                })
-                conn.execute(
+                }, ensure_ascii=False)
+                lesion_cur = conn.execute(
                     """
                     INSERT INTO lesion
                         (analysis_id, bbox3d, discovery_source,
@@ -704,6 +739,7 @@ def run_real_cascade(
                          diameter_mm, longest_diameter_mm, volume_ml,
                          classification, mask_uri)
                     VALUES (%s, %s::jsonb, 'ai', %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                     """,
                     (
                         analysis_id,
@@ -717,6 +753,43 @@ def run_real_cascade(
                         f"s3://{ANALYSES_BUCKET}/analyses/{analysis_id}/lesions/{lid}.nii.gz",
                     ),
                 )
+                # Also persist into the structured `classification` table so
+                # the report renderer's standard render path activates (chip,
+                # confidence %, probability bars). Without this row the
+                # renderer falls back to parsing the JSON-string in
+                # lesion.classification — which works thanks to
+                # _parse_lesion_classification_field but loses the full
+                # 6-class probability vector for the bar chart.
+                try:
+                    lesion_uuid = lesion_cur.fetchone()[0]
+                except (TypeError, IndexError):
+                    lesion_uuid = None
+                probs = cls.get("probabilities") or {}
+                if lesion_uuid is not None and probs:
+                    try:
+                        conn.execute(
+                            """
+                            INSERT INTO classification
+                                (lesion_id, probs_vec, suggested_class,
+                                 temperature, abstained)
+                            VALUES (%s, %s::jsonb, %s, %s, %s)
+                            ON CONFLICT (lesion_id) DO UPDATE SET
+                                probs_vec = EXCLUDED.probs_vec,
+                                suggested_class = EXCLUDED.suggested_class
+                            """,
+                            (
+                                str(lesion_uuid),
+                                json.dumps({k: float(v) for k, v in probs.items()}),
+                                cls.get("top1"),
+                                0.7,
+                                False,
+                            ),
+                        )
+                    except Exception as exc:
+                        # Don't fail the whole cascade on a classification
+                        # persistence hiccup — the JSON-string fallback will
+                        # still render a usable lesion card.
+                        print(f"      ! classification table insert skipped: {exc}")
         else:
             insert_checkpoint(
                 conn,

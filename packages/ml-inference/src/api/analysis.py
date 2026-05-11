@@ -1333,7 +1333,11 @@ async def render_parenchyma_endpoint(
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_parenchyma, s3, analysis_id, arow["study_id"],
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, "parenchyma",
+            lambda: stage_render.render_parenchyma(s3, analysis_id, arow["study_id"]),
+        ),
     )
     return _render_response(png)
 
@@ -1355,7 +1359,11 @@ async def render_vessels_endpoint(
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_vessels, s3, analysis_id, arow["study_id"],
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, "vessels",
+            lambda: stage_render.render_vessels(s3, analysis_id, arow["study_id"]),
+        ),
     )
     return _render_response(png)
 
@@ -1385,8 +1393,15 @@ async def render_flr_endpoint(
         plane_z = (flr_row["plane_pose"] or {}).get("z_index")
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
+    # FLR cache key includes plane_z so a re-finalize with a different
+    # plane produces a different cached PNG (rather than serving stale).
+    flr_stage_key = f"flr-z{plane_z if plane_z is not None else 'auto'}"
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_flr, s3, analysis_id, arow["study_id"], plane_z,
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, flr_stage_key,
+            lambda: stage_render.render_flr(s3, analysis_id, arow["study_id"], plane_z),
+        ),
     )
     return _render_response(png)
 
@@ -1428,8 +1443,13 @@ async def render_lesion_endpoint(
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_lesion_thumbnail,
-        s3, analysis_id, arow["study_id"], lesion_id, bbox_3d,
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, f"lesion-{lesion_id}",
+            lambda: stage_render.render_lesion_thumbnail(
+                s3, analysis_id, arow["study_id"], lesion_id, bbox_3d,
+            ),
+        ),
     )
     return _render_response(png)
 
@@ -1451,7 +1471,11 @@ async def render_four_phase_endpoint(
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_four_phase, s3, analysis_id, arow["study_id"],
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, "four-phase",
+            lambda: stage_render.render_four_phase(s3, analysis_id, arow["study_id"]),
+        ),
     )
     return _render_response(png)
 
@@ -1505,7 +1529,11 @@ async def render_mesh3d_endpoint(
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()
     png = await asyncio.get_running_loop().run_in_executor(
-        None, stage_render.render_mesh3d, s3, analysis_id, arow["study_id"],
+        None,
+        lambda: stage_render.cached_stage_render(
+            s3, analysis_id, "mesh3d",
+            lambda: stage_render.render_mesh3d(s3, analysis_id, arow["study_id"]),
+        ),
     )
     return _render_response(png)
 
@@ -1520,6 +1548,93 @@ async def render_mesh3d_endpoint(
 # (via `require_permission` + tenant filter) then streams the mask bytes
 # back as `application/octet-stream`. Frontend feeds the bytes to
 # `nifti-reader-js` and converts to a Cornerstone3D labelmap.
+
+
+@router.get(
+    "/{analysis_id}/lesion-mask/{lesion_id}",
+    summary="Stream a per-lesion mask (NIfTI .nii.gz) for overlay rendering",
+)
+@require_permission("analysis.view")
+async def get_lesion_mask_nifti(
+    analysis_id: UUID,
+    lesion_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> FastAPIResponse:
+    """Stream the per-lesion NIfTI mask (lesion.mask_uri) so the viewer
+    can render a true tumor contour, not just the bounding rectangle.
+    Mirrors the /mask/{anatomy_category} endpoint but reads from the
+    `lesion` table instead of `segmentation`."""
+    tenant_id: UUID = request.state.tenant_id
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    row = (
+        await session.execute(
+            text("SELECT mask_uri FROM lesion WHERE id = :lid AND analysis_id = :aid"),
+            {"lid": str(lesion_id), "aid": str(analysis_id)},
+        )
+    ).mappings().first()
+    primary_uri = row.get("mask_uri") if row else None
+    if not primary_uri:
+        raise ProblemDetailException(
+            ErrorSlug.VALIDATION,
+            status.HTTP_404_NOT_FOUND,
+            f"No mask found for lesion {lesion_id}.",
+            instance=str(uuid4()),
+        )
+    # The cascade currently writes the DB row pointing at a per-lesion file
+    # at `lesions/{lesion_id}.nii.gz` but only uploads the combined
+    # `tumor_mask.nii.gz`. Fall back to the combined file when the per-lesion
+    # object is missing — it's the right contour for single-lesion analyses
+    # and a usable visual approximation for the multi-lesion case.
+    candidate_uris: list[str] = [primary_uri]
+    fallback_bucket = os.environ.get("LIVERRA_ANALYSES_BUCKET", _REPORT_BUCKET_DEFAULT)
+    candidate_uris.append(
+        f"s3://{fallback_bucket}/analyses/{analysis_id}/tumor_mask.nii.gz"
+    )
+    s3 = _build_s3_client_for_reports()
+    loop = asyncio.get_running_loop()
+    body: Optional[bytes] = None
+    last_error: Optional[Exception] = None
+    chosen_key: str = ""
+    for uri in candidate_uris:
+        if not uri.startswith("s3://"):
+            continue
+        bucket, key = uri[len("s3://"):].split("/", 1)
+        try:
+            body = await loop.run_in_executor(
+                None, lambda b=bucket, k=key: s3.get_object(Bucket=b, Key=k)["Body"].read()
+            )
+            chosen_key = key
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+            continue
+    if body is None:
+        logger.warning(
+            "lesion mask fetch failed for %s (last error: %s)",
+            candidate_uris,
+            last_error,
+        )
+        raise ProblemDetailException(
+            ErrorSlug.PACS_UNREACHABLE,
+            status.HTTP_502_BAD_GATEWAY,
+            "Could not fetch lesion mask from object storage.",
+            instance=str(uuid4()),
+        )
+    key = chosen_key
+    is_gz = key.endswith(".gz")
+    filename = f"lesion-{lesion_id}.nii{'.gz' if is_gz else ''}"
+    return FastAPIResponse(
+        content=body,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, max-age=600",
+        },
+    )
 
 
 @router.get(

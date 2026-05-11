@@ -43,7 +43,11 @@ interface PermissionProbe {
 
 const PERMISSION_PROBES: PermissionProbe[] = [
   {
-    controlTestId: 'finalize-report-button',
+    // The finalize wizard route was removed 2026-05-11; the action is now a
+    // one-click button on AnalysisDetailView gated by PermissionButton.
+    // The "guardedRoute" URL no longer routes anywhere — falls through to
+    // the catch-all 404, which still satisfies the negative-case assertion.
+    controlTestId: 'analysis-finalize-btn',
     guardedRoute: '/cases/demo-case-1/finalize',
     permission: 'report.finalize',
     grantedTo: ['attending', 'radiologist'],

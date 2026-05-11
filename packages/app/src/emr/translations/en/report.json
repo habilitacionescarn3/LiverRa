@@ -6,62 +6,6 @@
     "superseded": "Superseded",
     "retracted": "Retracted"
   },
-  "finalize": {
-    "title": "Finalize Report",
-    "subtitle": "Turn this completed analysis into a signed, audit-preserved report.",
-    "backToCase": "Back to case",
-    "submit": "Finalize now",
-    "step": {
-      "check": "Pre-flight",
-      "checkDesc": "Verify all inputs",
-      "watermark": "RUO watermark",
-      "watermarkDesc": "Research Use Only",
-      "pacs": "PACS targets",
-      "pacsDesc": "Optional SEG/SR push",
-      "review": "Review",
-      "reviewDesc": "Measurements + FLR",
-      "ship": "Finalize",
-      "shipDesc": "Requires step-up MFA"
-    },
-    "check": {
-      "body": "Confirm all measurements, lesions, and the FLR plane have been reviewed.",
-      "reviewedConfirm": "I have reviewed all measurements, lesions, and the FLR plane.",
-      "notReadyTitle": "Analysis not ready",
-      "notReady": "This analysis is not ready to finalize — status: {{status}}"
-    },
-    "watermark": {
-      "heading": "RESEARCH USE ONLY — NOT FOR CLINICAL DECISIONS",
-      "body": "This report is informational only. Clinical judgment rests with a qualified physician.",
-      "ack": "I acknowledge the RUO scope."
-    },
-    "pacs": {
-      "enable": "Push SEG + SR to configured PACS destinations",
-      "skip": "Skip now — push manually later from the Report page",
-      "hint": "You can also skip now and push manually from the Report page later."
-    },
-    "review": {
-      "notesLabel": "Notes for the report (optional)",
-      "hint": "Full preview available on the Report page once finalize completes.",
-      "summary": {
-        "title": "Summary",
-        "analysisId": "Analysis ID",
-        "status": "Status",
-        "pacsPlan": "PACS plan"
-      }
-    },
-    "ship": {
-      "body": "Finalizing requires a step-up MFA challenge."
-    },
-    "error": {
-      "title": "Finalize failed"
-    },
-    "success": {
-      "title": "Report finalized",
-      "subtitle": "The PDF, DICOM-SEG, and DICOM-SR artifacts are being assembled.",
-      "reportIdLabel": "Report ID",
-      "viewReport": "View report"
-    }
-  },
   "pdf": {
     "iframeTitle": "Finalized Report PDF",
     "loading": "Loading report…",

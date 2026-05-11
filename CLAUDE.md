@@ -507,7 +507,6 @@ The 7 views listed below are currently being promoted from TODO stubs to product
 - `packages/app/src/emr/views/help/GlossaryView.tsx`
 - `packages/app/src/emr/views/cases/LesionsPanelView.tsx`
 - `packages/app/src/emr/views/cases/RefinementView.tsx`
-- `packages/app/src/emr/views/cases/FinalizeWizardView.tsx`
 - `packages/app/src/emr/views/settings/ProfileView.tsx`
 - `packages/app/src/emr/views/settings/NotificationPreferencesView.tsx`
 

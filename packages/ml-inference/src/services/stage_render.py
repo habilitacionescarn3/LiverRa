@@ -18,7 +18,7 @@ import io
 import logging
 import os
 import tempfile
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID
 
 import matplotlib
@@ -35,6 +35,54 @@ PHASES_BUCKET = os.environ.get(
     "LIVERRA_PHASES_BUCKET", "liverra-phases-eu-central-1"
 )
 RENDER_CACHE_PREFIX = "report-renders"
+
+
+# ---------------------------------------------------------------------------
+# S3-backed render cache
+# ---------------------------------------------------------------------------
+
+
+def cached_stage_render(
+    s3: Any,
+    analysis_id: UUID,
+    stage_name: str,
+    render_callable: Callable[[], bytes | None],
+) -> bytes | None:
+    """Return a cached stage-render PNG or render+save+return on cache miss.
+
+    Renders for finalized analyses are deterministic w.r.t. the masks in
+    MinIO, so we persist each PNG at
+    ``s3://{ANALYSES_BUCKET}/{analysis_id}/{RENDER_CACHE_PREFIX}/{stage}.png``.
+    First view per analysis pays the matplotlib render cost (500ms-2s);
+    every subsequent view (refreshes, other reviewers opening the same
+    report) is a single S3 GET — typically <50ms.
+
+    ``render_callable`` is a 0-arg fn returning PNG bytes or None.
+    None is *not* cached so future requests can recover once upstream
+    masks land (e.g. if vessels are still being written when the first
+    request arrives).
+
+    If masks are later refined and stale renders become wrong, delete
+    the ``report-renders/`` prefix for that analysis to force re-render.
+    """
+    key = f"{analysis_id}/{RENDER_CACHE_PREFIX}/{stage_name}.png"
+    try:
+        obj = s3.get_object(Bucket=ANALYSES_BUCKET, Key=key)
+        return obj["Body"].read()
+    except Exception:  # noqa: BLE001  -- cache miss covers NoSuchKey, network, etc.
+        pass
+    png = render_callable()
+    if png is not None:
+        try:
+            s3.put_object(
+                Bucket=ANALYSES_BUCKET,
+                Key=key,
+                Body=png,
+                ContentType="image/png",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("failed to cache render s3://%s/%s: %s", ANALYSES_BUCKET, key, exc)
+    return png
 
 
 # ---------------------------------------------------------------------------

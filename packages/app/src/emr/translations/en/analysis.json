@@ -256,10 +256,5 @@
   "coldStart": {
     "warming": "Models warming up",
     "timeRemaining": "~{{seconds}}s remaining. Your analysis will start automatically."
-  },
-  "finalize": {
-    "noSeatTitle": "Acquire review lock to finalize",
-    "noSeatBody": "Finalizing creates a regulatory audit lock. We need to check out the review seat for this case before you can sign off the report.",
-    "acquireLockCta": "Acquire review lock"
   }
 }

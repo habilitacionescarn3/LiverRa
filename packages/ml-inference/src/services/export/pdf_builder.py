@@ -180,6 +180,20 @@ class PDFBuildInput:
     # from "the AI rendered garbage" — and which S3 paths to re-check.
     mask_warnings: Sequence[str] = field(default_factory=tuple)
 
+    # Phase 1 heuristic findings — pre-shaped rows from ``analysis_finding``
+    # mirroring the FindingsCard.tsx schema (label / value / badge /
+    # detail / alert per finding). Empty list hides the panel.
+    findings_rows: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+
+    # Lobe split — left = II+III+IV, right = V+VIII when Couinaud is
+    # populated; falls back to a Cantlie-line 50/50 of parenchyma_volume_ml
+    # when Couinaud is empty (so the page-1 cards never show 0/0).
+    # ``lobe_split_source`` is "couinaud" or "cantlie_estimate"; the
+    # template badges the latter so surgeons know it's not exact.
+    lobe_left_ml: float = 0.0
+    lobe_right_ml: float = 0.0
+    lobe_split_source: str = "couinaud"
+
 
 @dataclass(frozen=True)
 class PDFBuildResult:
@@ -604,6 +618,58 @@ def _base_css(locale: str) -> str:
     .pill.tone-warn {{ background: #fef3c7; color: #92400e; }}
     .pill.tone-alert {{ background: #fee2e2; color: #991b1b; }}
     .pill.tone-default {{ background: #f3f4f6; color: #374151; }}
+
+    /* --- Phase 1 findings panel ---------------------------------------- */
+    .findings-list {{
+      display: flex;
+      flex-direction: column;
+      gap: 1.5mm;
+    }}
+    .finding-row {{
+      border: 0.4pt solid #e5e7eb;
+      border-left: 2.5pt solid #6b7280;
+      border-radius: 1mm;
+      padding: 2mm 3mm;
+      background: #ffffff;
+      page-break-inside: avoid;
+    }}
+    .finding-row.alert-warn {{ border-left-color: #d97706; background: #fffbeb; }}
+    .finding-row.alert-info {{ border-left-color: #2563eb; }}
+    .finding-row .finding-head {{
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      flex-wrap: wrap;
+    }}
+    .finding-row .finding-label {{
+      font-size: 9pt;
+      font-weight: 700;
+      color: #111827;
+      flex: 1;
+      min-width: 0;
+    }}
+    .finding-row .finding-value {{
+      color: #4b5563;
+      font-size: 8.5pt;
+      font-variant-numeric: tabular-nums;
+    }}
+    .finding-row .finding-detail {{
+      color: #6b7280;
+      font-size: 7.5pt;
+      margin-top: 1mm;
+    }}
+
+    /* --- Lesion reasoning bullets -------------------------------------- */
+    .lesion-reasoning {{
+      margin: 1.5mm 0 0 0;
+      padding-left: 4mm;
+      color: #4b5563;
+      font-size: 8pt;
+      line-height: 1.4;
+    }}
+    .lesion-reasoning li {{
+      margin-bottom: 0.7mm;
+    }}
     """
 
 
@@ -691,6 +757,10 @@ def build_pdf(
         mesh3d_render_uri=inp.mesh3d_render_uri,
         ct_renders_unavailable=inp.ct_renders_unavailable,
         mask_warnings=list(inp.mask_warnings or ()),
+        findings_rows=list(inp.findings_rows or ()),
+        lobe_left_ml=inp.lobe_left_ml,
+        lobe_right_ml=inp.lobe_right_ml,
+        lobe_split_source=inp.lobe_split_source,
         t=translations or {},
     )
 
