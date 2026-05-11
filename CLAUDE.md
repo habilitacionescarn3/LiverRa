@@ -98,21 +98,32 @@ LiverRa/
 
 ---
 
-## 🌐 Current Dev Setup — Option B Split (May 10, 2026)
+## 🌐 Current Dev Setup — Option B Split (state as of May 11, 2026)
 
 **Architecture in one line:** Laptop runs everything (Vite UI + FastAPI orchestrator + Celery worker + Postgres + Redis + MinIO + the cascade orchestration code itself); Irakli's RTX 3090 box runs ONLY a stateless GPU inference microservice for TotalSegmentator. Lasha can iterate on backend code without involving Irakli.
 
 **Network:**
 - Laptop: `100.110.147.104` (macbook-air-tailcaa7ec)
 - Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose)
+- GPU container: `liverra/gpu-inference:1.0.2` running with `--network host -e PORT=9101`
 
-**Inference contract:** stateless. `POST /infer/total` and `POST /infer/liver_vessels` take a multipart CT NIfTI and return a ZIP of mask NIfTIs. ~290MB roundtrip per cascade over Tailscale. Code: `packages/ml-inference-gpu/main.py`. Client: `packages/ml-inference/src/services/inference_client.py`. Default URL: `http://100.124.94.29:9101` (overridable via `LIVERRA_INFERENCE_URL` env var).
+**Inference contract:** stateless. Three endpoints live on the GPU service:
+- `POST /infer/total` — task=total, returns ZIP of liver/IVC/gallbladder/spleen masks
+- `POST /infer/liver_vessels` — task=liver_vessels, returns ZIP of vessels + tumor masks
+- `POST /infer/total_and_vessels` — combined call (added in commit `a58f405`); ⚠️ **measured slower than the two-call pattern by ~2 min on this Tailscale link** (~14 min vs ~12 min). Currently still wired into the cascade pending revert decision.
+
+Code: `packages/ml-inference-gpu/main.py`. Client: `packages/ml-inference/src/services/inference_client.py`. Client default URL: `http://100.124.94.29:9101`, default timeout `1800s` (30 min, was 5 min).
 
 **Active cascade = `LIVERRA_CASCADE_REAL_MODE=true` (default ON):**
-- Stages 0, 1: file conversion + de-ID — laptop CPU
-- **Stages 2, 5: TotalSegmentator → HTTP to Irakli's box at :9101** — only GPU calls in entire stack
-- Stages 3, 4, 6, 7, 7b: laptop CPU — Couinaud heuristic, LI-RADS rule classifier, segment-aware FLR, **Phase 1 heuristic findings (7 functions in `src/services/post_processing/findings.py`)**
-- **~12 min end-to-end** on the Todua-CT (most time = 2× CT upload over Tailscale + 4-phase resampling for classification). On Irakli's box only it was ~150s.
+- Stages 0, 1: file conversion + de-ID — laptop CPU (~1s)
+- **Stage 2/3 (currently fused via combined endpoint):** ONE upload to Irakli's box → both TS tasks run server-side → ZIP returned with `total/*.nii.gz` + `liver_vessels/*.nii.gz` subdirectories. ~13 min on this Tailscale link.
+- Stages 4-7 + 7b: laptop CPU — Couinaud heuristic, lesion detection, LI-RADS rule classifier, segment-aware FLR, **Phase 1 heuristic findings** (7 functions in `src/services/post_processing/findings.py`; persists 4-5/7 per cascade depending on input data quality).
+- **~13-14 min end-to-end** on the Todua-CT today. Was ~150s when everything ran on Irakli's box pre-split.
+
+**Phase 1 findings status (commit `3c87b9d` + spleen-messaging fix `a6e42b3`):**
+- Migration `0013_analysis_finding` creates the table; surface via `GET /api/v1/analyses/{id}/report/summary` → `findings` field.
+- Frontend renders via `<FindingsCard />` in `packages/app/src/emr/components/report/ReportInlineView.tsx`.
+- `compute_spleen_volumetry` returns a degraded finding (with warning) when TS returns <500 voxels for the spleen, rather than silent None — surfaces TS failures to the user.
 
 **Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → internal demos + clinical validation OK; commercial sales blocked until BAMF aimi-liver-tumor-ct swap (Irakli has the spec; ~1 week of his time when ready).
 
@@ -159,6 +170,23 @@ curl http://100.124.94.29:9101/health   # → {"ok": true, "cuda_available": tru
 - **Triton path is fully dormant.** Stub model.pt files still exist for backward compat; ignore.
 
 **To resume tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
+
+---
+
+## 📍 Where we stand (May 11, 2026 — read this first)
+
+**Last verified working end-to-end:** cascade `604fb4dc-b221-4f17-aa9f-36b5a85dd987` ran in **13m 51s** on the Todua-CT, persisted 5/7 Phase 1 findings, classification fired (1 lesion → ICC at 88% conf), FLR computed (518.5 mL, 28.4%). PDF report at `~/Desktop/liverra-report-604fb4dc.pdf`.
+
+**Open decision (not yet executed):** revert the combined GPU endpoint `infer_total_and_vessels` in the cascade, go back to the original two-call pattern. Empirical data shows two-call is ~2 min faster on this Tailscale link (12m 8s vs 13m 51s). Revert is a ~5-line change in `scripts/real_cascade.py` (swap one `infer_total_and_vessels(...)` back to `infer_total(...)` upfront + restore the `infer_liver_vessels(...)` call in stage 5). Combined endpoint stays live on the GPU service for backward compat — just unused by the cascade.
+
+**Next direction queued (Option 3 — for fast dev iteration):** make the cascade skip the GPU calls entirely when masks already exist in laptop's MinIO for the study. First-run stays ~12 min; **re-runs of the same study drop to ~2 min** because no upload, no TS, no download. Effort ~2 hours; not started.
+
+**Recent commits relevant to this state:**
+- `3c87b9d` — Phase 1 findings + Option B split (the foundation)
+- `af77982` — `--network host` + `PORT` env var (WSL2-tailscaled-bridge-network gotcha)
+- `a58f405` — combined `/infer/total_and_vessels` endpoint (the experiment that turned out slower)
+- `a6e42b3` — spleen-mask messaging fix (surface "too small" warning instead of silent omission)
+- `e325919` — bumped client timeout default 5min → 30min, fixed stale `:9100` default URL
 
 ---
 
