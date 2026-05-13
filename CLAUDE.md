@@ -272,26 +272,77 @@ cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173
 - When adding a new namespace, register it in `TRANSLATION_NAMESPACES` in `TranslationContext.tsx`.
 - Medical terminology in `de/ka/ru` files is CODEOWNERS-locked — never commit translations without medical reviewer sign-off.
 
-### Unified Color System (CRITICAL — to be created)
-- Theme variables in `packages/app/src/emr/styles/theme.css` (port from MediMind, rebrand colors)
-- NEVER hardcode colors in component files
-- FORBIDDEN: Tailwind blues (#3b82f6, #60a5fa, #2563eb), Facebook blue (#4267B2)
-- Light/dark mode via `data-mantine-color-scheme` attribute
-- Semantic variables only: `--emr-bg-page`, `--emr-bg-card`, NEVER `--emr-gray-N` for backgrounds
+### Unified Color System (CRITICAL)
 
-### EMR Component Library (to be ported)
+**Source of truth:** `packages/app/src/emr/styles/theme.css`. The brand ramp lives under `--liverra-primary-50…900`; semantic tokens (`--emr-primary`, `--emr-secondary`, `--emr-accent`, `--emr-light-accent`) are aliased onto it so a future ramp swap is one-file. T464 gates the brand-ramp swap pending design-lead sign-off — never edit ramp values without bumping `brand-tokens.md` status.
+
+- NEVER hardcode hex values in component files. Use `var(--emr-*)` in CSS, `THEME_COLORS.*` from `constants/theme-colors.ts` in TypeScript inline styles.
+- **FORBIDDEN (Tailwind/Chakra/Facebook blues that clash with LiverRa palette):** `#3b82f6`, `#60a5fa`, `#2563eb`, `#93c5fd`, `#1d4ed8`, `#4299e1`, `#63b3ed`, `#4267B2`, `#3b5998`. The frontend-designer agent self-audits with a denylist grep on every file it touches.
+- Semantic token categories: **brand** (`--emr-primary/secondary/accent/light-accent`), **surface** (`--emr-bg-page/card/modal/hover/input`), **text** (`--emr-text-primary/secondary/inverse`), **semantic status** (`--emr-success/warning/error/info`), **borders** (`--emr-border-color/default`), **alpha overlays** (`--emr-{primary,secondary,white}-alpha-N`).
+- Light/dark mode auto-switches via `data-mantine-color-scheme` attribute — surface and text vars resolve to the right value in either mode.
+- NEVER use `--emr-gray-N` for backgrounds (numbered gray scale inverts in dark mode). Use semantic surface vars instead.
+
+### Dark Mode Architecture (CRITICAL — 7 rules)
+
+1. **NEVER hardcode dark hex values** in CSS modules (e.g., `#1e293b`, `#334155`). Use `var(--emr-bg-card)`, `var(--emr-bg-hover)`, etc.
+2. **NEVER use dark-mode values as `var()` fallbacks** — `var(--emr-bg-card, #1e293b)` is wrong because the variable is always defined and the fallback never activates.
+3. **NEVER use numeric fallbacks for theme variables** — `var(--emr-font-sm, 12px)` is unnecessary.
+4. **Always use semantic `var(--emr-xxx)` variables** — they auto-switch between light and dark.
+5. **NEVER write `:root[data-mantine-color-scheme="dark"]` overrides in CSS modules.** Dark mode is owned by `theme.css`; module-level overrides cause gray-scale inversion bugs.
+6. **NEVER use `--emr-gray-N` variables for backgrounds.** The numbering inverts in dark mode. Use semantic surface vars instead (`--emr-bg-page`, `--emr-bg-card`, etc.).
+7. **For progress bars / colored fills**, use direct color values from the brand or semantic palette (`var(--emr-success)`, `var(--emr-secondary)`) — these are intentional brand colors, not surfaces.
+
+### Primary Button Gradient (CRITICAL)
+
+ALL primary buttons MUST use:
+```css
+background: var(--emr-gradient-primary);
+```
+The gradient definition lives in `theme.css` and follows the brand ramp. **Never inline the gradient hex** — when T464 lands and warm-gray flips to the approved ramp, the gradient updates everywhere automatically.
+
+### EMR Component Library (CRITICAL)
+
+**Source of truth:** `explanations/ui-component-library.md` (component architecture, Mantine→EMR* mapping table, known gaps).
+
+- 51 common components in `packages/app/src/emr/components/common/`, 21 form fields in `packages/app/src/emr/components/shared/EMRFormFields/` — all already in place.
 - ALL modals → `EMRModal` from `components/common/`
-- ALL form fields → `EMRTextInput`, `EMRSelect`, `EMRDatePicker`, `EMRCheckbox`
-- ALL primary buttons → `EMRButton` with gradient `linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%)` (LiverRa may override — TBD in constitution)
+- ALL form fields → `EMRTextInput`, `EMRTextarea`, `EMRNumberInput`, `EMRSelect`, `EMRMultiSelect`, `EMRAutocomplete`, `EMRCheckbox`, `EMRSwitch`, `EMRRadioGroup`, `EMRDatePicker`, `EMRDateTimePicker`, `EMRTimeInput`, `EMRColorInput`
+- ALL primary buttons → `EMRButton` (uses the gradient token, never an inline gradient)
+- ALL tables → `EMRTable` / `EMRVirtualTable`
+- The `frontend-designer` agent runs a denylist grep that flags any `@mantine/core` or `@mantine/dates` import outside the allowed layout-primitive set (Box, Group, Stack, Text, Paper, Grid, etc.) — those imports must use the EMR* wrapper instead.
+
+### EMRModal Usage (CRITICAL)
+
+ALL modals MUST use `EMRModal` from `packages/app/src/emr/components/common/EMRModal.tsx`.
+
+**Sizes:** `sm` (580px), `md` (780px), `lg` (980px), `xl` (1200px), `xxl` (95vw). Prefer `lg` or larger for any form with 4+ fields.
+
+```tsx
+<EMRModal
+  opened={opened} onClose={onClose} size="lg"
+  icon={IconEdit} title={t('title')} subtitle={name}
+  cancelLabel={t('cancel')} submitLabel={t('save')}
+  onSubmit={handleSubmit} submitLoading={loading}
+>
+  {/* Form fields only — EMR* components */}
+</EMRModal>
+```
+
+### Unified Typography (CRITICAL)
+
+NEVER hardcode font sizes. Use `theme.css` variables:
+- Sizes: `--emr-font-xs` (11px) through `--emr-font-3xl` (24px)
+- Weights: `--emr-font-normal` (400) through `--emr-font-bold` (700)
 
 ### Mobile-First Responsive (CRITICAL)
 - Style for mobile first, enhance with media queries
-- Min 44×44px tap targets, min 16px font on mobile
+- Min 44×44px tap targets, min 16px font on mobile (prevents iOS zoom)
 - Mantine breakpoints: xs 576, sm 768, md 992, lg 1200, xl 1400
+- Use Mantine responsive props: `span={{ base: 12, md: 6 }}`
 
 ### Flexbox Text Overflow (CRITICAL)
 - Buttons/badges/pills: `flexShrink: 0` + `whiteSpace: 'nowrap'`
-- Flex children with truncation: `minWidth: 0`
+- Flex children with truncation (lineClamp / ellipsis): `minWidth: 0`
 - `Group` with mixed content: `wrap="wrap"`, never `wrap="nowrap"` unless all children fit
 
 ### Mantine Button Styling (CRITICAL)
@@ -576,6 +627,8 @@ Comprehensive research was completed BEFORE this scaffold was built. Consolidate
 ## Active Technologies
 - TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure (002-acr-structured-readout)
 - PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables (002-acr-structured-readout)
+- TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 + TanStack Query (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditChainWriter` infrastructure; existing PostHog client; existing `idb` (IndexedDB wrapper) (002-acr-structured-readout)
+- PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables; one new `audit_category` enum value (Postgres CHECK constraint update required) (002-acr-structured-readout)
 
 ## Recent Changes
 - 002-acr-structured-readout: Added TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure

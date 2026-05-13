@@ -212,6 +212,50 @@
       {% endif %}
     </section>
 
+    {# ACR Structured Readout — 002-acr-structured-readout T068 #}
+    {% if acr_sections %}
+      <section class="stage-section acr-readout">
+        <h2><span class="stage-tag">STUFE 7b</span>__TODO_TRANSLATE__:Heuristic Findings — ACR Structured Readout</h2>
+        <p class="section-lead">__TODO_TRANSLATE__:Six-section anatomical readout. Heuristic — not a substitute for radiologist interpretation.</p>
+        {% set section_titles = {
+          'liver': 'LEBER',
+          'lesions': 'LÄSIONEN',
+          'vessels': 'GEFÄSSE',
+          'gallbladder': 'GALLENBLASE',
+          'spleen': 'MILZ',
+          'flrAssessment': 'FLR-BEURTEILUNG'
+        } %}
+        {% for section_name, rows in acr_sections.items() %}
+          <div class="acr-section">
+            <h3 class="acr-section-title">{{ section_titles.get(section_name, section_name|upper) }}</h3>
+            {% if rows %}
+              <div class="findings-list">
+                {% for row in rows %}
+                  <div class="finding-row">
+                    <div class="finding-head">
+                      {% if row.itemId %}
+                        <span class="finding-label">{{ row.itemId }}{% if row.segment %} (Segment {{ row.segment }}){% endif %}:</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% else %}
+                        <span class="finding-label">{{ row.label }}</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% endif %}
+                    </div>
+                    {% if row.warning %}
+                      <div class="finding-warning">! {{ row.warning }}</div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="acr-empty">__TODO_TRANSLATE__:No findings to report.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <p class="acr-ruo-footer">--- __TODO_TRANSLATE__:RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---</p>
+      </section>
+    {% endif %}
+
     {% if four_phase_render_uri %}
       <section class="stage-section">
         <h2><span class="stage-tag">PHASEN</span>4-Phasen-Vergleich</h2>

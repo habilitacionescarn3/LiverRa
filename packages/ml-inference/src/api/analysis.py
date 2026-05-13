@@ -1161,6 +1161,71 @@ async def get_report_pdf(
 # guard) won't match common PDF-blocking filter patterns.
 
 
+def _report_summary_freshness(
+    arow: dict[str, Any], findings: dict[str, Any] | None
+) -> tuple[str | None, str]:
+    """Compute (updated_at_iso, etag) for the report-summary response.
+
+    Used by both the GET handler (T018) and the HEAD freshness probe (T019).
+    The ETag is a strong, opaque token derived from the latest state
+    timestamp + finding count, so any backend mutation forces a refresh.
+    """
+    candidates = [
+        arow.get("completed_at"),
+        arow.get("started_at"),
+        arow.get("queued_at"),
+    ]
+    latest = max([c for c in candidates if c is not None], default=None)
+    updated_at_iso = latest.isoformat() if latest is not None else None
+    finding_count = len(findings or {})
+    import hashlib
+    payload = f"{updated_at_iso or 'none'}|{finding_count}".encode("utf-8")
+    etag = '"' + hashlib.sha256(payload).hexdigest()[:32] + '"'
+    return updated_at_iso, etag
+
+
+@router.head(
+    "/{analysis_id}/report/summary",
+    summary="ETag / Last-Modified probe for the report summary",
+)
+@require_permission("analysis.view")
+async def head_report_summary(
+    analysis_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> FastAPIResponse:
+    """HEAD twin of GET /report/summary — headers only, no body.
+
+    Used by the ACR clipboard service immediately before a write to
+    detect server-side mutation since panel-open (FR-023a /
+    contracts/readout-api.md §2).
+    """
+    tenant_id: UUID = request.state.tenant_id
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    # Cheap finding-count query (no payload fetch).
+    finding_count_row = (
+        await session.execute(
+            text(
+                "SELECT count(*) AS n FROM analysis_finding "
+                "WHERE analysis_id = :aid"
+            ),
+            {"aid": str(analysis_id)},
+        )
+    ).mappings().first()
+    pseudo_findings = {str(i): None for i in range(int(finding_count_row["n"] or 0))} if finding_count_row else {}
+    updated_at_iso, etag = _report_summary_freshness(arow, pseudo_findings)
+    headers: dict[str, str] = {
+        "ETag": etag,
+        "Cache-Control": "no-store, must-revalidate",
+    }
+    if updated_at_iso:
+        headers["Last-Modified"] = updated_at_iso
+    return FastAPIResponse(status_code=200, headers=headers)
+
+
 @router.get(
     "/{analysis_id}/report/summary",
     summary="Structured report data (cover stats, model versions, QC flags)",
@@ -1170,7 +1235,7 @@ async def get_report_summary(
     analysis_id: UUID,
     request: Request,
     session: AsyncSession = Depends(get_db),
-) -> dict:
+) -> FastAPIResponse:
     """Return JSON the ReportInlineView component renders as cards."""
     tenant_id: UUID = request.state.tenant_id
     arow = await _load_analysis_row(session, analysis_id, tenant_id)
@@ -1245,21 +1310,35 @@ async def get_report_summary(
         finding_rows = (
             await session.execute(
                 text(
-                    "SELECT finding_type, payload "
+                    "SELECT finding_type, payload, computed_at "
                     "FROM analysis_finding WHERE analysis_id = :aid"
                 ),
                 {"aid": str(analysis_id)},
             )
         ).mappings().all()
-        findings = {r["finding_type"]: r["payload"] for r in finding_rows}
+        # Attach `computed_at` per-finding so the frontend can derive the
+        # FR-023c stale marker against the latest completed stage. Kept
+        # as an extra key in the payload to avoid breaking the existing
+        # `findings[type] = payload` consumer shape.
+        findings = {}
+        for r in finding_rows:
+            payload = dict(r["payload"]) if r["payload"] is not None else {}
+            ca = r["computed_at"]
+            if ca is not None and "computed_at" not in payload:
+                payload["computed_at"] = ca.isoformat() if hasattr(ca, "isoformat") else str(ca)
+            findings[r["finding_type"]] = payload
     except Exception as exc:  # noqa: BLE001
         logger.info("findings skipped: %s", exc)
 
-    return {
+    updated_at_iso, etag = _report_summary_freshness(arow, findings)
+    body = {
         "analysis_id": str(analysis_id),
         "study_id": str(arow["study_id"]),
         "patient_ref": arow.get("patient_ref"),
+        "tenant_id": str(arow.get("tenant_id")) if arow.get("tenant_id") else None,
         "status": arow["status"],
+        "updated_at": updated_at_iso,
+        "etag": etag,
         "started_at": arow.get("started_at"),
         "completed_at": arow.get("completed_at"),
         "pipeline_version": arow.get("pipeline_version"),
@@ -1304,6 +1383,105 @@ async def get_report_summary(
         "qc_flags": qc_flags,
         "findings": findings,
     }
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "no-store, must-revalidate",
+    }
+    if updated_at_iso:
+        headers["Last-Modified"] = updated_at_iso
+    return FastAPIResponse(
+        content=_json_dumps(body),
+        media_type="application/json",
+        headers=headers,
+    )
+
+
+def _json_dumps(obj: Any) -> str:
+    """JSON serializer that handles datetimes/UUIDs (analogous to FastAPI default)."""
+    import json
+    from datetime import datetime, date
+
+    def default(o: Any) -> Any:
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        if isinstance(o, UUID):
+            return str(o)
+        if hasattr(o, "decode"):
+            try:
+                return o.decode("utf-8")
+            except Exception:
+                return None
+        raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+    return json.dumps(obj, default=default)
+
+
+# ---------------------------------------------------------------------------
+# ACR-readout clipboard-export audit endpoint (002-acr-structured-readout T029)
+# ---------------------------------------------------------------------------
+#
+# Domain action with audit-chain side effect — same pattern as
+# cancel/retry above. The clipboard-export AuditEvent is appended to
+# the per-tenant audit_event_chain through AuditChainWriter.
+#
+# Idempotency: client_action_id is the dedup key — same UUID returns
+# the original audit_event_id without appending a duplicate chain row,
+# making the durable-retry path safe.
+
+from ..services.audit.clipboard_export_event import (
+    ClipboardExportAuditPayload as _ClipboardExportAuditPayload,
+    ClipboardExportResponse as _ClipboardExportResponse,
+    emit_clipboard_export as _emit_clipboard_export,
+)
+
+
+@router.post(
+    "/{analysis_id}/report/clipboard-export",
+    status_code=status.HTTP_200_OK,
+    response_model=_ClipboardExportResponse,
+    summary="Record an ACR-readout clipboard-export AuditEvent",
+)
+@require_permission("analysis.view")
+async def clipboard_export_audit(
+    analysis_id: UUID,
+    payload: _ClipboardExportAuditPayload,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> _ClipboardExportResponse:
+    """Persist one FHIR R4 AuditEvent for a Copy-to-Clipboard action.
+
+    Authorization inherits ``analysis.view`` — tenant boundary is
+    therefore enforced by the same RLS + tenant_id filter used by
+    ``_load_analysis_row``. Cross-tenant requests return 404 (RLS
+    hides the row); the calling client treats 404/403 as a terminal
+    auth failure.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    user = getattr(request.state, "user", None)
+    actor_id: UUID = getattr(user, "id", uuid4()) if user else uuid4()
+
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    audit_event_id, row = await _emit_clipboard_export(
+        payload,
+        actor_id=actor_id,
+        analysis_id=analysis_id,
+        tenant_id=tenant_id,
+        session=session,
+    )
+
+    persisted_at = (
+        row.written_at if row is not None else datetime.now(timezone.utc)
+    )
+    sequence_no = row.sequence_no if row is not None else 0
+    return _ClipboardExportResponse(
+        audit_event_id=audit_event_id,
+        sequence_no=sequence_no,
+        outcome=payload.outcome,
+        persisted_at=persisted_at,
+    )
 
 
 def _render_response(png_bytes: bytes | None) -> FastAPIResponse:

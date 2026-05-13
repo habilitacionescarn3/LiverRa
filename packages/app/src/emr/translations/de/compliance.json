@@ -34,7 +34,9 @@
     "colActor": "Akteur",
     "colSubject": "Subjekt",
     "colOutcome": "Ergebnis",
-    "tableAriaLabel": "Audit-Ereignistabelle"
+    "tableAriaLabel": "Audit-Ereignistabelle",
+    "categoryLabel": "__TODO_TRANSLATE__:Category filter",
+    "categoryAll": "__TODO_TRANSLATE__:All categories"
   },
   "chain": {
     "verifying": "Kette wird geprüft…",

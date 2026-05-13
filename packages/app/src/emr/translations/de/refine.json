@@ -9,7 +9,8 @@
     "shortcutHint": "B Pinsel  E radieren  P Prompt  M Marker",
     "acquireSeatTooltip": "Bearbeitungsplatz übernehmen, um zu ändern",
     "readOnlyTooltip": "Nur-Lese-Ansicht — ein anderer Prüfer bearbeitet diesen Fall",
-    "ariaLabel": "Refinement tools"
+    "ariaLabel": "Refinement tools",
+    "marker": "__TODO_TRANSLATE__:Marker"
   },
   "classification": {
     "title": "KI-Klassifikation überschreiben",

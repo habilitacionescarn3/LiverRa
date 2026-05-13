@@ -1,0 +1,64 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa
+   SPDX-License-Identifier: Apache-2.0
+
+   ACR readout — print stylesheet (T071).
+
+   When the user runs Cmd/Ctrl+P on /cases/:id, the printed page MUST
+   contain ONLY the structured readout panel + case identifier banner
+   + an RUO footer. The viewer canvas, rails, theater chrome, mobile
+   sheet triggers, and global footer banner are all suppressed so
+   surgeons get a clean handoff document.
+
+   Source-of-truth: 002-acr-structured-readout plan §UI placement +
+   contracts/plaintext-renderer.md §RUO bookends.
+*/
+
+@media print {
+  /* Show only the readout root */
+  [data-testid='acr-readout-root'] {
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide viewer chrome, rails, footer banner, mobile triggers */
+  [class*='hero'],
+  [class*='rail'],
+  [class*='railRight'],
+  [class*='viewerCard'],
+  [class*='footer'],
+  [data-testid='mobile-sheet-triggers'],
+  [data-testid='global-ruo-banner'],
+  nav,
+  header[role='banner'],
+  aside,
+  button:not([data-print-keep]) {
+    display: none !important;
+  }
+
+  /* The case-identifier banner + RUO footer are print-only blocks. */
+  [data-print-only='case-identifier'],
+  [data-print-only='ruo-footer'] {
+    display: block !important;
+  }
+
+  /* Strip transitions so printing isn't visually interrupted */
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Ensure all section headers begin on the same page where possible */
+  [data-testid='acr-readout-root'] h3 {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4 portrait;
+    margin: 18mm 14mm;
+  }
+}

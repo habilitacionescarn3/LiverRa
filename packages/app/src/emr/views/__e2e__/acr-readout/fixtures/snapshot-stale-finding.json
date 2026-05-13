@@ -1,0 +1,53 @@
+{
+  "analysis_id": "analysis-acr-stale-finding-001",
+  "study_id": "study-acr-004",
+  "patient_ref": null,
+  "status": "completed",
+  "started_at": "2026-05-13T13:00:00Z",
+  "completed_at": "2026-05-13T13:15:00Z",
+  "updated_at": "2026-05-13T13:15:00Z",
+  "etag": "etag-stale-finding-001",
+  "tenant_id": "tenant-acr-e2e",
+  "pipeline_version": "v1.0.0",
+  "stages": [
+    { "stage_no": 2, "stage": "parenchyma", "model_version": "totalseg-1.5.7", "license_hash": "apache2", "written_at": "2026-05-13T13:05:00Z", "computed_at": "2026-05-13T13:05:00Z", "status": "completed" },
+    { "stage_no": 7, "stage": "flr", "model_version": "liverra-flr-1.0", "license_hash": "proprietary", "written_at": "2026-05-13T13:15:00Z", "computed_at": "2026-05-13T13:15:00Z", "status": "completed" }
+  ],
+  "flr": {
+    "total_ml": 1820,
+    "flr_ml": 518,
+    "flr_pct": 28.4,
+    "plane_pose": null,
+    "plan_pattern": "right_hepatectomy",
+    "safety_class": "low",
+    "computed_at": "2026-05-13T13:15:00Z"
+  },
+  "segmentations": [],
+  "lesions": [],
+  "qc_flags": [],
+  "findings": {
+    "hu_stats": {
+      "mean": 55,
+      "median": 55,
+      "p10": 48,
+      "p90": 62,
+      "std": 4,
+      "voxel_count": 1500000
+    },
+    "spleen": {
+      "volume_ml": 220,
+      "splenomegaly": false,
+      "threshold_ml": 314,
+      "reference": "Cunliffe 2014",
+      "computed_at": "2026-05-12T13:15:00Z"
+    },
+    "gallbladder": {
+      "volume_ml": 22,
+      "wall_thickness_mm": 2.5,
+      "wall_thickened": false,
+      "stones_detected": false,
+      "stone_voxel_count": 0,
+      "computed_at": "2026-05-12T13:15:00Z"
+    }
+  }
+}

@@ -47,28 +47,33 @@ interface ToolDef {
   cornerstoneTool: string;
 }
 
+// Translation keys use the `refine:` namespace + nested-path syntax
+// (`refine:tools.<key>`) — `refine.json` nests its tool labels under a
+// `tools` object. Previously these read `refine.tools.X` (no colon),
+// which the i18n resolver treats as a missing key in the `common`
+// namespace and renders the raw string on screen (FR-024 violation).
 const TOOL_DEFS: readonly ToolDef[] = [
   {
     id: 'add',
-    label: 'refine.tools.add',
+    label: 'refine:tools.addMask',
     icon: <IconPencilPlus size={18} />,
     cornerstoneTool: 'BrushAdd',
   },
   {
     id: 'subtract',
-    label: 'refine.tools.subtract',
+    label: 'refine:tools.subtractMask',
     icon: <IconEraser size={18} />,
     cornerstoneTool: 'BrushSubtract',
   },
   {
     id: 'prompt',
-    label: 'refine.tools.prompt',
+    label: 'refine:tools.lesionPrompt',
     icon: <IconTarget size={18} />,
     cornerstoneTool: 'SegmentPromptClick',
   },
   {
     id: 'marker',
-    label: 'refine.tools.marker',
+    label: 'refine:tools.marker',
     icon: <IconMapPin size={18} />,
     cornerstoneTool: 'ProbePick',
   },
@@ -94,7 +99,7 @@ export function RefineTools({
       gap="xs"
       wrap="wrap"
       data-testid={testId}
-      aria-label={t('refine.tools.ariaLabel')}
+      aria-label={t('refine:tools.ariaLabel')}
       role="toolbar"
     >
       {TOOL_DEFS.map((tool) => {

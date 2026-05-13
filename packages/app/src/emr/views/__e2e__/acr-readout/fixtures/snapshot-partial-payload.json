@@ -1,0 +1,39 @@
+{
+  "analysis_id": "analysis-acr-partial-payload-001",
+  "study_id": "study-acr-005",
+  "patient_ref": null,
+  "status": "partial",
+  "started_at": "2026-05-13T13:00:00Z",
+  "completed_at": "2026-05-13T13:15:00Z",
+  "updated_at": "2026-05-13T13:15:00Z",
+  "etag": "etag-partial-payload-001",
+  "tenant_id": "tenant-acr-e2e",
+  "pipeline_version": "v1.0.0",
+  "stages": [],
+  "flr": {
+    "total_ml": 1820,
+    "flr_ml": null,
+    "flr_pct": null,
+    "plane_pose": null,
+    "plan_pattern": null,
+    "safety_class": null,
+    "computed_at": null
+  },
+  "segmentations": [],
+  "lesions": [],
+  "qc_flags": [
+    { "level": "warn", "code": "partial_stage_failure", "message": "Some stages did not complete" }
+  ],
+  "findings": {
+    "hu_stats": {
+      "mean": 55,
+      "median": 55,
+      "p10": null,
+      "p90": null,
+      "std": null,
+      "voxel_count": 1500000
+    },
+    "gallbladder": null,
+    "spleen": null
+  }
+}

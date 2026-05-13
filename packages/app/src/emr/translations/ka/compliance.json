@@ -34,7 +34,9 @@
     "colActor": "აქტორი",
     "colSubject": "სუბიექტი",
     "colOutcome": "შედეგი",
-    "tableAriaLabel": "აუდიტის მოვლენების ცხრილი"
+    "tableAriaLabel": "აუდიტის მოვლენების ცხრილი",
+    "categoryLabel": "__TODO_TRANSLATE__:Category filter",
+    "categoryAll": "__TODO_TRANSLATE__:All categories"
   },
   "chain": {
     "verifying": "ჯაჭვი მოწმდება…",

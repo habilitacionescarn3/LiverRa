@@ -1,0 +1,90 @@
+{
+  "panelHeading": "Structured Radiologic Readout",
+  "openPanel": "Open structured readout",
+  "ruoDisclaimer": "--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---",
+  "sections": {
+    "liver": { "title": "LIVER", "empty": "Not assessed" },
+    "lesions": { "title": "LESIONS", "empty": "No lesions detected" },
+    "vessels": { "title": "VESSELS", "empty": "Not assessed" },
+    "gallbladder": { "title": "GALLBLADDER", "empty": "Not assessed" },
+    "spleen": { "title": "SPLEEN", "empty": "Not assessed" },
+    "flrAssessment": { "title": "FLR ASSESSMENT", "empty": "FLR plan not requested" }
+  },
+  "status": {
+    "computing": "Computing — results will appear when the cascade completes",
+    "awaitingAnalysis": "Awaiting analysis",
+    "computationFailed": "Computation unavailable",
+    "notAvailable": "Not available",
+    "noFindings": "No findings to report"
+  },
+  "labels": {
+    "volume": "Volume",
+    "wallThickness": "Wall thickness",
+    "attenuation": "Attenuation",
+    "huMean": "Mean HU",
+    "huRange": "HU range",
+    "stones": "Stones detected",
+    "splenomegaly": "Splenomegaly",
+    "steatosisGrade": "Steatosis grade",
+    "flrPercent": "FLR %",
+    "flrSafety": "Safety classification",
+    "flrPlan": "Plan",
+    "flrRecommendation": "Recommendation",
+    "primaryLesionSize": "Primary lesion size",
+    "primaryLesionClass": "Primary lesion class",
+    "lesionSegment": "Segment",
+    "lesionConfidence": "Confidence",
+    "lesionInterpretation": "Interpretation",
+    "liverSpleenDelta": "Δ liver–spleen",
+    "lrM": "LR-M",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "values": {
+    "splenomegalyPresent": "Present",
+    "splenomegalyAbsent": "Within reference",
+    "steatosisNone": "None",
+    "steatosisMild": "Mild",
+    "steatosisModerate": "Moderate",
+    "steatosisSevere": "Severe",
+    "flrSafetyLow": "LOW",
+    "flrSafetyBorderline": "BORDERLINE",
+    "flrSafetyAdequate": "ADEQUATE"
+  },
+  "copy": {
+    "buttonLabel": "Copy to Clipboard",
+    "buttonAriaLabel": "Copy structured readout to clipboard",
+    "successToast": "Readout copied to clipboard",
+    "warningToastAuditPending": "Readout copied; export audit will retry",
+    "errorToastBlocked": "Browser blocked clipboard access — try again",
+    "errorToastStale": "Analysis updated by another reviewer — refresh to copy",
+    "errorToastAuthDenied": "Your access to this analysis was revoked — refresh",
+    "errorToastUnknown": "Could not copy readout — please retry",
+    "tooltipFirstTime": "Copy this readout as plain text for PACS dictation. One audit row is recorded per click.",
+    "tooltipDismiss": "Got it"
+  },
+  "staleness": {
+    "lastComputed": "Last computed {{time}}",
+    "stale": "stale"
+  },
+  "warnings": {
+    "degraded": "Quality degraded"
+  },
+  "lesions": {
+    "interpretationIcc": "ICC pattern",
+    "interpretationHcc": "HCC pattern",
+    "interpretationSimpleCyst": "Simple biliary cyst",
+    "interpretationCalcified": "Calcified lesion",
+    "interpretationIndeterminate": "LR-M (indeterminate)",
+    "noFurther": "No further lesions detected.",
+    "primary": "Primary",
+    "size": "Size",
+    "count": "Lesion count"
+  },
+  "recommendations": {
+    "considerPveAlpps": "consider PVE or ALPPS",
+    "noteAdequateRemnant": "remnant volume meets institutional threshold",
+    "borderlineDiscussMdt": "borderline remnant — discuss at MDT"
+  },
+  "panelDescription": "ACR-style structured anatomical readout summarizing the cascade's heuristic findings."
+}

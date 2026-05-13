@@ -31,7 +31,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
-  Badge,
   Box,
   Collapse,
   Group,
@@ -47,6 +46,7 @@ import {
   IconCircleCheck,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import { EMRBadge } from '../common';
 import { useTranslation } from '../../contexts/TranslationContext';
 
 interface StageProgressEntry {
@@ -219,8 +219,8 @@ export function CascadeStageTimeline({
     if (analysisStatus === 'failed') {
       return (
         <Group gap={6} wrap="nowrap" align="center">
-          <IconAlertCircle size={14} style={{ color: 'var(--emr-danger)' }} />
-          <Text fz="var(--emr-font-xs)" fw={600} c="var(--emr-danger)">
+          <IconAlertCircle size={14} style={{ color: 'var(--emr-error)' }} />
+          <Text fz="var(--emr-font-xs)" fw={600} c="var(--emr-error)">
             {t('analysis:detail.cascadeTimeline.summary.failed')}
           </Text>
         </Group>
@@ -290,8 +290,9 @@ export function CascadeStageTimeline({
         margin: '0 16px 12px 16px',
         borderRadius: 'var(--emr-border-radius-lg)',
         background: 'var(--emr-bg-card)',
-        border: '1px solid var(--emr-gray-200)',
+        border: '1px solid var(--emr-border-color)',
         overflow: 'hidden',
+        boxShadow: 'var(--emr-shadow-sm)',
       }}
     >
       {/* Sticky summary header — always visible */}
@@ -321,7 +322,7 @@ export function CascadeStageTimeline({
           cursor: 'pointer',
           minHeight: 44,
           boxSizing: 'border-box',
-          borderBottom: expanded ? '1px solid var(--emr-gray-200)' : 'none',
+          borderBottom: expanded ? '1px solid var(--emr-border-color)' : 'none',
         }}
       >
         <Group justify="space-between" wrap="wrap" gap="sm" align="center">
@@ -334,44 +335,35 @@ export function CascadeStageTimeline({
 
           <Group gap={6} wrap="wrap" align="center" style={{ flexShrink: 0 }}>
             {typeof liverV === 'number' && Number.isFinite(liverV) && (
-              <Badge
-                variant="light"
-                color="blue"
+              <EMRBadge
+                variant="info"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-liver-volume"
               >
                 {t('analysis:detail.cascadeTimeline.summary.liverVolume', {
                   ml: liverV.toLocaleString(lang, { maximumFractionDigits: 0 }),
                 })}
-              </Badge>
+              </EMRBadge>
             )}
             {lesionCount > 0 && (
-              <Badge
-                variant="light"
-                color="grape"
+              <EMRBadge
+                variant="primary"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-lesion-count"
               >
                 {lesionLabel}
-              </Badge>
+              </EMRBadge>
             )}
             {typeof flrPct === 'number' && Number.isFinite(flrPct) && (
-              <Badge
-                variant="light"
-                color="teal"
+              <EMRBadge
+                variant="success"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-flr"
               >
                 {t('analysis:detail.cascadeTimeline.summary.flr', {
                   pct: flrPct.toFixed(1),
                 })}
-              </Badge>
+              </EMRBadge>
             )}
             <ActionIcon
               component="span"
@@ -451,18 +443,13 @@ export function CascadeStageTimeline({
                       {stageLabel}
                     </Text>
                     {stat && (
-                      <Badge
-                        variant="light"
-                        color="blue"
+                      <EMRBadge
+                        variant="info"
                         size="sm"
-                        radius="sm"
                         data-testid={`cascade-stage-${entry.stage}-stat`}
-                        styles={{
-                          root: { textTransform: 'none', fontWeight: 600 },
-                        }}
                       >
                         {stat}
-                      </Badge>
+                      </EMRBadge>
                     )}
                   </Group>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>

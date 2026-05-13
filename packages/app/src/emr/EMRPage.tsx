@@ -191,7 +191,13 @@ export function EMRPage({
       {/* ===== Sub menu (Row 2) — conditional ===== */}
       {subMenuItems.length > 0 && <HorizontalSubMenu items={subMenuItems} />}
 
-      {/* ===== Content (Row 3) ===== */}
+      {/* ===== Content (Row 3) =====
+          `display: flex; flex-direction: column` + the inner wrapper's
+          `min-height: 100%` ensure the route content always fills the
+          scroll viewport. Without this, short pages (or pages whose own
+          flex tree doesn't fully claim vertical space) leave a visible
+          empty band at the bottom of the scroll area. Safe for tall
+          pages — they overflow as before and scroll normally. */}
       <Box
         component="main"
         role="main"
@@ -200,10 +206,22 @@ export function EMRPage({
           flex: 1,
           minHeight: 0,
           overflow: isImagingRoute ? 'hidden' : 'auto',
+          overscrollBehavior: 'none',
           paddingBottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom))' : undefined,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Outlet />
+        <Box
+          style={{
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1 0 auto',
+          }}
+        >
+          <Outlet />
+        </Box>
       </Box>
 
       {/* ===== Mobile bottom nav ===== */}

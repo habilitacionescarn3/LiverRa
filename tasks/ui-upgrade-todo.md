@@ -1,39 +1,63 @@
-# UI Upgrade — Case Analysis Page
+# UI Upgrade: Analysis Detail View (LiverRa)
 
-## BEFORE screenshots
-- `screenshots/case-analysis-before/desktop.png`
-- `screenshots/case-analysis-before/tablet.png`
-- `screenshots/case-analysis-before/mobile.png` (stuck on 404 because mobile test couldn't click row — not a layout bug, just script limitation)
+## Route
+`/cases/f178683c-424c-4d8e-a1b1-ba7785ddae11` on `http://localhost:5173`
 
-## Issues found
-1. **Header + metrics strip stacked.** Two separate cards (PageHeader + CascadeStageTimeline summary). Should consolidate.
-2. **Viewer cramped.** Center column is squeezed between fixed-width left drawer (320px) and fixed-width FLR rail (320px). On a 1440 viewport, viewer is only ~700px wide — should be the dominant zone.
-3. **No theater-mode.** No way to focus on the viewer without being distracted by the rails.
-4. **No collapsible rails.** Rails always full-width; no quick toggle.
-5. **Mantine raw imports** in AnalysisDetailView: `Badge, Box, Group, Stack, Tabs, Text` from `@mantine/core` and `useMediaQuery` from `@mantine/hooks`. Must replace with EMR + native + custom hook.
-6. **RUO disclaimer overlapping the FLR card** (orange banner peeking up at bottom-right of viewer).
-7. **Mobile broken** — entire panel stack is 100% width vertical with no bottom-sheet handling for rails.
-8. **No keyboard shortcut** for theater toggle.
-9. **Hardcoded numeric values** (320, 280) in inline styles — fine, but flow them into CSS module + tokens.
+## BEFORE Screenshots
+- User-provided: Screenshot 2026-05-13 at 18.03.09.png (main view)
+- User-provided: Screenshot 2026-05-13 at 18.03.19.png (scrolled to ACR readout)
+- Playwright: `screenshots/fd-analysis-detail-BEFORE-main.png` (returned 404 from API — UI shows error state only)
 
-## Plan (per file)
+Note: live API returns 404 for the supplied analysis id, so AFTER verification relies on
+the user-provided BEFORE screenshots as visual ground truth + static reload to confirm
+no regressions in non-data-dependent chrome (hero, RUO ribbon, error state, layout).
 
-### New files
-- [x] `packages/app/src/emr/hooks/useMediaQuery.ts` — minimal native hook
-- [x] `packages/app/src/emr/components/common/EMRTabs.tsx` + `.module.css` — EMR tabs primitive (segmented-pill style, no Mantine)
-- [x] `packages/app/src/emr/components/common/EMRBadge.tsx` + `.module.css` — small EMR badge
-- [x] `packages/app/src/emr/components/common/EMRIconButton.tsx` + `.module.css` — square icon button (theater toggle, rail collapse)
-- [x] `packages/app/src/emr/views/cases/AnalysisDetailView.module.css` — layout styles for the page
+## Issues Found (per zone)
 
-### Edits
-- [x] `packages/app/src/emr/components/common/index.ts` — export EMRTabs, EMRBadge, EMRIconButton
-- [x] `packages/app/src/emr/views/cases/AnalysisDetailView.tsx` — full rewrite of layout (no business-logic changes), removing all Mantine imports, adding theater mode, collapsible rails, unified header band, responsive bottom-sheets via `EMRBottomSheet`.
-- [x] `packages/app/src/emr/translations/en/analysis.json` — add new keys (`detail.theater.enter`, `detail.theater.exit`, `detail.rails.collapse`, etc.) — only English; use `__TODO_TRANSLATE__` markers in `de/ka` later if needed. (CODEOWNERS rule = no medical translations from us — but layout-only labels like "Collapse" are not medical, so we add them.)
+### Zone 1 — Top page header
+- Title uses `var(--emr-font-md)` (14px) — too small for a clinical title; should be `--emr-font-lg` (16px) or `--emr-font-xl` (18px).
+- KPI inline pills are tiny (11px, 24px tall) — surgeons need to scan at a glance; numerals should be tabular and slightly larger.
+- No tabular-numerals on numeric values.
 
-## Implementation steps
-1. Create `useMediaQuery` hook.
-2. Create EMR primitives (Tabs, Badge, IconButton).
-3. Update common barrel `index.ts`.
-4. Add new translation keys to `en/analysis.json` only.
-5. Rewrite `AnalysisDetailView.tsx` and add CSS module.
-6. AFTER screenshots.
+### Zone 2 — Left rail "Case workspace"
+- `SegmentsList.tsx` uses raw Mantine `Badge` (BANNED — must use `EMRBadge`).
+- `CascadeStageTimeline.tsx` uses raw Mantine `Badge` (BANNED — must use `EMRBadge`).
+- Segment rows use inline `var(--emr-gray-200)` / `var(--emr-gray-300)` instead of semantic `--emr-border-color`.
+- No hover affordance on segment rows.
+
+### Zone 4 — Future Liver Remnant card (THE HERO)
+- Uses `var(--emr-gray-50)` (BANNED — use `--emr-bg-hover`/`--emr-bg-card`).
+- Uses `var(--emr-gray-200)` / `var(--emr-gray-300)` (BANNED for backgrounds/borders).
+- 28.4% renders at `--emr-font-5xl` (32px) but feels generic — needs more weight, tabular numerals, threshold legend.
+- No threshold legend ("Low < 30% / Borderline 30–40% / Adequate ≥ 40%") — surgeons need that mental anchor.
+
+### Zone 5 — Structured Radiologic Readout
+- Section titles lack visual anchor (icon, color rail).
+- Rows blend — no row hover, no clear measurement vs. badge rhythm.
+- Vessels image plain, no card framing or scale chrome.
+
+### Cross-cutting violations summary
+
+**Raw Mantine `Badge` (BANNED — must use EMRBadge):**
+- `packages/app/src/emr/components/cases/SegmentsList.tsx`
+- `packages/app/src/emr/components/cases/CascadeStageTimeline.tsx`
+
+**Inline gray-N tokens (BANNED for surfaces/borders):**
+- `FLRPanel.tsx`
+- `SegmentsList.tsx`
+- `CascadeStageTimeline.tsx`
+
+## Implementation Order
+
+1. Replace raw Mantine `Badge` with `EMRBadge` (Segments, CascadeTimeline).
+2. Swap banned `gray-N` tokens for semantic ones.
+3. Upgrade `FLRPanel` — bigger tabular numeral, threshold legend, polished tier indicator.
+4. Upgrade `AnalysisDetailView.module.css` — larger hero title, tabular metrics, breathing.
+5. Upgrade `ACRSection.module.css` — leading rail accent on section header, denser rows, hover, framed vessels image.
+6. Upgrade `ACRStructuredReadout.module.css` — softer dividers, polished disclaimer footer.
+7. Self-audit greps on all touched files.
+
+## AFTER Screenshots
+- Note: live API 404s on this analysis ID. AFTER verification confirms chrome / error
+  state / theme tokens; data-driven zones rely on read-only visual change confirmation
+  via theme token grep + structural review.

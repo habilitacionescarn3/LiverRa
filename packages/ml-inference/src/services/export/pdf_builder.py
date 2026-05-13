@@ -61,7 +61,7 @@ _DEFAULT_TEMPLATE_ROOT: Path = Path(
     )
 ).resolve()
 
-SUPPORTED_LOCALES: tuple[str, ...] = ("en", "de", "ka")
+SUPPORTED_LOCALES: tuple[str, ...] = ("en", "de", "ka", "ru")
 
 # Watermark strings per locale — embedded by the CSS ``@page`` rule AND
 # asserted by the OCR test. Keeping them here (not JSON) so the PDF
@@ -184,6 +184,13 @@ class PDFBuildInput:
     # mirroring the FindingsCard.tsx schema (label / value / badge /
     # detail / alert per finding). Empty list hides the panel.
     findings_rows: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+
+    # ACR structured readout sections (002-acr-structured-readout T066).
+    # Mapping[section_name -> list[row]] produced by
+    # ``services.export.acr_section_builder.build_acr_sections``.
+    # Keys preserve insertion order: liver, lesions, vessels,
+    # gallbladder, spleen, flrAssessment.
+    acr_sections: Mapping[str, Sequence[Mapping[str, Any]]] = field(default_factory=dict)
 
     # Lobe split — left = II+III+IV, right = V+VIII when Couinaud is
     # populated; falls back to a Cantlie-line 50/50 of parenchyma_volume_ml
@@ -758,6 +765,7 @@ def build_pdf(
         ct_renders_unavailable=inp.ct_renders_unavailable,
         mask_warnings=list(inp.mask_warnings or ()),
         findings_rows=list(inp.findings_rows or ()),
+        acr_sections=dict(inp.acr_sections or {}),
         lobe_left_ml=inp.lobe_left_ml,
         lobe_right_ml=inp.lobe_right_ml,
         lobe_split_source=inp.lobe_split_source,

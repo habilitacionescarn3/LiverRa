@@ -69,17 +69,26 @@ If any of these fail → the screen renderer regressed; check `ACRStructuredRead
 
 ---
 
-## 5. Verify the PDF parity
+## 5. Verify the PDF parity (automated — replaces the prior manual diff)
+
+The automated cross-channel parity test asserts three-way byte-equivalence
+between the TS plain-text renderer, the Python plain-text renderer, and
+the PDF section text. The manual eyeball pass is no longer part of
+release evidence.
+
+```bash
+pytest packages/ml-inference/tests/integration/test_acr_renderer_cross_channel_parity.py -v
+```
+
+The test is in the **release-blocking** CI job (see `.github/workflows/ci.yml`
+job `ci-acr-cross-channel-parity`). A failure here prevents merge to `main`.
+
+For a quick visual sanity check (optional, not part of release evidence):
 
 1. From the analysis detail view, click **Download PDF report**.
-2. Open the PDF and scroll to the Heuristic Findings section.
-3. Confirm the same six anatomical subsections appear in the same order as the screen.
-4. Confirm the RUO disclaimer is present in the heuristic-findings section footer.
-5. Extract the text (PDF → text via `pdfplumber` or Preview's Copy All Text):
-   ```bash
-   pdftotext ~/Downloads/liverra-report-*.pdf -
-   ```
-6. The heuristic-findings section text should be byte-equivalent to the clipboard text from Step 4 (modulo line wrapping). The cross-channel parity test verifies this rigorously; manual eyeball is sufficient for the quickstart.
+2. Scroll to the Heuristic Findings section.
+3. Confirm the six anatomical subsections appear in fixed order and the
+   RUO disclaimer is present in the section footer.
 
 ---
 

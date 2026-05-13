@@ -1,0 +1,96 @@
+{
+  "analysis_id": "analysis-acr-complete-001",
+  "study_id": "study-acr-001",
+  "patient_ref": null,
+  "status": "completed",
+  "started_at": "2026-05-13T13:00:00Z",
+  "completed_at": "2026-05-13T13:15:00Z",
+  "updated_at": "2026-05-13T13:15:00Z",
+  "etag": "etag-complete-001",
+  "tenant_id": "tenant-acr-e2e",
+  "pipeline_version": "v1.0.0",
+  "stages": [
+    { "stage_no": 2, "stage": "parenchyma", "model_version": "totalseg-1.5.7", "license_hash": "apache2", "written_at": "2026-05-13T13:05:00Z", "computed_at": "2026-05-13T13:05:00Z", "status": "completed" },
+    { "stage_no": 5, "stage": "lesion_detection", "model_version": "totalseg-1.5.7", "license_hash": "apache2", "written_at": "2026-05-13T13:10:00Z", "computed_at": "2026-05-13T13:10:00Z", "status": "completed" },
+    { "stage_no": 7, "stage": "flr", "model_version": "liverra-flr-1.0", "license_hash": "proprietary", "written_at": "2026-05-13T13:15:00Z", "computed_at": "2026-05-13T13:15:00Z", "status": "completed" }
+  ],
+  "flr": {
+    "total_ml": 1820,
+    "flr_ml": 518,
+    "flr_pct": 28.4,
+    "plane_pose": null,
+    "plan_pattern": "right_hepatectomy",
+    "safety_class": "low",
+    "computed_at": "2026-05-13T13:15:00Z"
+  },
+  "segmentations": [],
+  "lesions": [
+    {
+      "id": "L1",
+      "bbox3d": [120, 200, 80, 180, 260, 130],
+      "longest_diameter_mm": 89.6,
+      "size_mm": 89.6,
+      "volume_ml": 220.4,
+      "segment": "VIII",
+      "classification": { "label": "icc", "confidence": 0.88 }
+    },
+    {
+      "id": "L2",
+      "bbox3d": [50, 60, 10, 80, 90, 30],
+      "longest_diameter_mm": 14.2,
+      "size_mm": 14.2,
+      "volume_ml": 1.5,
+      "segment": "IVb",
+      "classification": { "label": "metastasis", "confidence": 0.71 }
+    },
+    {
+      "id": "L3",
+      "bbox3d": [10, 10, 5, 20, 20, 10],
+      "longest_diameter_mm": 5.4,
+      "size_mm": 5.4,
+      "volume_ml": 0.08,
+      "segment": "II",
+      "classification": { "label": "cyst", "confidence": 0.93 }
+    }
+  ],
+  "qc_flags": [],
+  "findings": {
+    "hu_stats": {
+      "mean": 55,
+      "median": 55,
+      "p10": 48,
+      "p90": 62,
+      "std": 4,
+      "voxel_count": 1500000
+    },
+    "steatosis": {
+      "grade": "moderate",
+      "liver_mean_hu": 35,
+      "spleen_mean_hu": 50,
+      "liver_spleen_delta": -15,
+      "warnings": [],
+      "reference": "Boyce 2010"
+    },
+    "spleen": {
+      "volume_ml": 220,
+      "splenomegaly": false,
+      "threshold_ml": 314,
+      "reference": "Cunliffe 2014"
+    },
+    "gallbladder": {
+      "volume_ml": 22,
+      "wall_thickness_mm": 2.5,
+      "wall_thickened": false,
+      "stones_detected": false,
+      "stone_voxel_count": 0
+    },
+    "calcified_lesions": [
+      { "lesion_id": "L4", "hu_max": 320, "pct_calcified": 80, "interpretation": "Granuloma" }
+    ],
+    "indeterminate_malignant": {
+      "lr_m_count": 1,
+      "lesions": [{ "lesion_id": "L1", "confidence": 0.88 }],
+      "interpretation": "LR-M: probable malignancy not classified as HCC"
+    }
+  }
+}

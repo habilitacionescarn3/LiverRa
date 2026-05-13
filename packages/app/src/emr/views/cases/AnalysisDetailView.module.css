@@ -3,8 +3,21 @@
 .root {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 64px);
+  /* EMRPage provides a flex-column wrapper with `min-height: 100%`, so
+     this view's own `flex: 1 0 auto` is sufficient to fill the scroll
+     viewport when content is short. The earlier `min-height: calc(100vh
+     - 64px)` was removed because it stacked with the EMRPage wrapper's
+     min-height and produced ~40 px of real scroll overflow whenever the
+     app's top chrome wasn't exactly 64 px tall. */
+  flex: 1 0 auto;
   background: var(--emr-bg-page);
+  /* Reserve space at the bottom for the fixed-position RUODisclaimer
+     ribbon (FR-028 / FR-028a — `position: fixed`, anchored at
+     bottom: 16px, right: 16px). Ribbon collapsed to single-line, ~36 px
+     tall + 16 px bottom offset + 8 px breathing = 60 px reserve.
+     Exposed as a CSS variable so the reserved height can be tuned
+     from theme.css later without re-editing this rule. */
+  padding-bottom: var(--emr-ruo-ribbon-reserve, 60px);
 }
 
 /* ── Hero header band (compact, single row) ─────────────────────────── */
@@ -12,12 +25,15 @@
 .hero {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 8px 16px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--emr-border-color);
   background: var(--emr-bg-card);
-  min-height: 52px;
+  min-height: 60px;
+  box-shadow: var(--emr-shadow-sm);
+  position: relative;
+  z-index: 1;
 }
 
 .heroBack {
@@ -25,17 +41,17 @@
 }
 
 .heroIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--emr-border-radius);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--emr-border-radius-lg);
   background: var(--emr-gradient-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--emr-text-inverse);
   flex-shrink: 0;
-  box-shadow: 0 2px 6px var(--emr-secondary-alpha-30),
-    inset 0 1px 0 var(--emr-white-alpha-20, rgba(255, 255, 255, 0.2));
+  box-shadow: 0 2px 8px var(--emr-secondary-alpha-30),
+    inset 0 1px 0 var(--emr-white-alpha-20);
   position: relative;
   overflow: hidden;
 }
@@ -44,7 +60,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 60%);
+  background: radial-gradient(circle at 30% 30%, var(--emr-white-alpha-25) 0%, transparent 60%);
   pointer-events: none;
 }
 
@@ -57,15 +73,16 @@
 }
 
 .heroTitle {
-  font-size: var(--emr-font-md);
-  font-weight: var(--emr-font-semibold);
+  font-size: var(--emr-font-lg);
+  font-weight: var(--emr-font-bold);
   color: var(--emr-text-primary);
-  line-height: 1.25;
-  letter-spacing: var(--emr-letter-spacing-tight);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 .heroPatientRef {
@@ -104,39 +121,52 @@
 .metric {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px;
+  gap: 8px;
+  padding: 5px 12px;
   border-radius: 999px;
-  background: var(--emr-secondary-alpha-04, var(--emr-bg-card));
+  background: var(--emr-secondary-alpha-04);
   border: 1px solid var(--emr-border-color);
-  font-size: 11px;
+  font-size: var(--emr-font-xs);
   color: var(--emr-text-secondary);
   white-space: nowrap;
-  height: 24px;
+  height: 28px;
   line-height: 1;
+  transition: border-color var(--emr-transition-base), background var(--emr-transition-base);
+}
+
+.metric:hover {
+  border-color: var(--emr-secondary-alpha-30);
+  background: var(--emr-secondary-alpha-08);
 }
 
 .metricLabel {
   color: var(--emr-text-tertiary);
   text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: var(--emr-font-3xs);
+  letter-spacing: 0.08em;
   font-weight: var(--emr-font-semibold);
 }
 
 .metricValue {
   color: var(--emr-text-primary);
-  font-weight: var(--emr-font-semibold);
-  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  font-size: var(--emr-font-sm);
   letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── 3-zone main layout ──────────────────────────────────────────────── */
 
 .workspace {
+  /* `flex: 1` is load-bearing — it lets the workspace row grow to fill
+     remaining vertical space in the page-level flex column so the viewer
+     stays the tall hero on big screens. Do NOT change this. */
   flex: 1;
   display: grid;
   grid-template-columns: var(--rail-left, 300px) minmax(0, 1fr) var(--rail-right, 320px);
+  /* NOTE: do NOT set `align-items: start` here — that would force the
+     viewer column to stop at its content height. Per-column control is
+     applied via `align-self` on the rail that needs it (`.railRight`). */
   gap: 12px;
   padding: 12px 16px 16px;
   min-height: 0;
@@ -211,32 +241,43 @@
   min-width: 0;
   background: var(--emr-bg-card);
   border: 1px solid var(--emr-border-color);
-  border-radius: var(--emr-border-radius-lg);
+  border-radius: var(--emr-border-radius-xl);
   overflow: hidden;
   transition: opacity 200ms ease, transform 200ms ease;
   min-height: 0;
+  box-shadow: var(--emr-shadow-sm);
+}
+
+/* FLR rail (right column) opts out of the grid's default `stretch`
+   alignment so it stops at its content height instead of matching the
+   tall viewer column. Prevents an empty band below the threshold
+   legend on wide screens. The left rail keeps its default `stretch`
+   so the segments list naturally fills the viewer height. */
+.railRight {
+  align-self: start;
 }
 
 .railHeader {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--emr-border-color);
   flex-shrink: 0;
   background: var(--emr-bg-card);
 }
 
 .railHeaderIcon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--emr-border-radius);
-  background: var(--emr-secondary-alpha-08);
+  background: var(--emr-secondary-alpha-10);
   color: var(--emr-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px var(--emr-secondary-alpha-08);
 }
 
 .railHeaderText {
@@ -326,21 +367,21 @@
   min-height: 0;
   background: var(--emr-bg-card);
   border: 1px solid var(--emr-border-color);
-  border-radius: var(--emr-border-radius-lg);
+  border-radius: var(--emr-border-radius-xl);
   overflow: hidden;
-  box-shadow: var(--emr-shadow-card);
+  box-shadow: var(--emr-shadow-md);
 }
 
 .viewerToolbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--emr-border-color);
   background: var(--emr-bg-card);
   flex-wrap: wrap;
   flex-shrink: 0;
-  min-height: 44px;
+  min-height: 48px;
 }
 
 .viewerToolbarLeft {
@@ -361,19 +402,21 @@
 }
 
 .viewerStudyLabel {
-  font-size: var(--emr-font-xs);
+  font-size: var(--emr-font-sm);
   font-weight: var(--emr-font-semibold);
   color: var(--emr-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .viewerLastUpdated {
   font-size: var(--emr-font-xs);
   color: var(--emr-text-tertiary);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .viewerKbdHint {
@@ -384,7 +427,7 @@
   font-weight: var(--emr-font-semibold);
   letter-spacing: 0.05em;
   border-radius: 4px;
-  background: var(--emr-gray-alpha-04, rgba(107, 114, 128, 0.08));
+  background: var(--emr-gray-alpha-08);
   color: var(--emr-text-tertiary);
   border: 1px solid var(--emr-border-color);
 }
@@ -393,7 +436,7 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  background: var(--emr-bg-canvas, #0a0d12);
+  background: var(--emr-gray-900);
 }
 
 .viewerLoading {
@@ -404,7 +447,7 @@
   justify-content: center;
   height: 100%;
   padding: 24px;
-  color: var(--emr-text-inverse-secondary, rgba(255, 255, 255, 0.7));
+  color: var(--emr-text-inverse-secondary);
 }
 
 /* ── Right rail FLR card ─────────────────────────────────────────────── */
@@ -415,19 +458,34 @@
   overflow-y: auto;
 }
 
+/* ── ACR structured readout slot (full-width below the workspace) ──── */
+
+.acrReadoutSlot {
+  margin: 0 16px 16px;
+  display: block;
+  width: auto;
+}
+
+@media (max-width: 767px) {
+  .acrReadoutSlot {
+    margin: 0 8px 8px;
+  }
+}
+
 /* ── Bottom status / RUO strip (chrome — hidden in theater) ────────── */
 
 .footer {
   margin: 0 16px 16px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-  border-radius: var(--emr-border-radius-lg);
+  border-radius: var(--emr-border-radius-xl);
   background: var(--emr-bg-card);
   border: 1px solid var(--emr-border-color);
+  box-shadow: var(--emr-shadow-sm);
 }
 
 .footerLeft {

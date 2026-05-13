@@ -13,7 +13,7 @@
  */
 
 /**
- * Canonical enumeration of audit event categories. Exactly 24 members.
+ * Canonical enumeration of audit event categories. Exactly 25 members.
  * Declared as a `const` object + union for tree-shakable compile output.
  */
 export const AuditCategory = {
@@ -41,6 +41,8 @@ export const AuditCategory = {
   StepUpMfa: 'step_up_mfa',
   ConfigChange: 'config_change',
   TamperingAttempt: 'tampering_attempt',
+  /** Added by 002-acr-structured-readout — clipboard export of the ACR structured readout panel. */
+  ReadoutClipboardExport: 'readout_clipboard_export',
 } as const;
 export type AuditCategory = (typeof AuditCategory)[keyof typeof AuditCategory];
 

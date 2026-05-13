@@ -77,7 +77,8 @@ export type TranslationNamespace =
   | 'navigation'
   | 'review'
   | 'session'
-  | 'takeover';
+  | 'takeover'
+  | 'reportAcr';
 
 export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
@@ -109,6 +110,7 @@ export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'review',
   'session',
   'takeover',
+  'reportAcr',
 ] as const;
 
 /** Recursive type for nested JSON translation values. */

@@ -334,7 +334,92 @@ def create_app() -> FastAPI:
     except Exception as exc:
         _strict_boot("auth router", exc)
 
+    # --- Annual retention attestation cron (T092) ----------------------
+    _maybe_start_retention_scheduler(app)
+
     return app
+
+
+# ---------------------------------------------------------------------------
+# Annual retention-attestation cron (T092 — 002-acr-structured-readout)
+# ---------------------------------------------------------------------------
+#
+# Plain-English:
+#     Once a year on Jan 2 at 03:00 UTC, we summarise every
+#     ``readout-clipboard-export`` audit row from the previous calendar
+#     year and stash a signed JSON in S3. APScheduler is optional —
+#     when not installed (or explicitly disabled via env var), this is
+#     a no-op so dev environments don't need extra deps.
+
+
+def _maybe_start_retention_scheduler(app: FastAPI) -> None:
+    """Wire APScheduler to run the annual attestation if available.
+
+    Env-var controls:
+        LIVERRA_RETENTION_SCHEDULER — set to ``false``/``0``/``no`` to
+            disable wiring. Defaults to ``true``.
+        LIVERRA_RETENTION_BUCKET — S3 bucket name for the signed
+            envelope. Defaults to ``liverra-audit-retention``.
+    """
+    if os.environ.get("LIVERRA_RETENTION_SCHEDULER", "true").lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
+        logger.info("Retention scheduler disabled by LIVERRA_RETENTION_SCHEDULER env.")
+        return
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-not-found]
+    except ImportError:
+        logger.info(
+            "APScheduler not installed; annual retention attestation job not scheduled."
+        )
+        return
+
+    try:
+        from src.jobs.audit_retention_attestation import run_attestation
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("audit_retention_attestation not importable: %s", exc)
+        return
+
+    bucket = os.environ.get("LIVERRA_RETENTION_BUCKET", "liverra-audit-retention")
+    scheduler = AsyncIOScheduler()
+
+    @scheduler.scheduled_job("cron", month=1, day=2, hour=3, minute=0)
+    async def _annual_attestation() -> None:  # pragma: no cover — runs in prod
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        try:
+            import boto3  # type: ignore[import-not-found]
+
+            s3 = boto3.client("s3")
+        except Exception as exc:
+            logger.error("boto3 unavailable for retention job: %s", exc)
+            return
+
+        factory = _get_session_factory()
+        if factory is None:
+            logger.error("DB session factory unavailable for retention job.")
+            return
+
+        prev_year = _dt.now(_tz.utc).year - 1
+        await run_attestation(
+            year=prev_year,
+            session_factory=factory,
+            s3_client=s3,
+            bucket=bucket,
+        )
+
+    try:
+        scheduler.start()
+        app.state.retention_scheduler = scheduler
+        logger.info(
+            "Annual retention attestation scheduler started (Jan 2 03:00 UTC, bucket=%s).",
+            bucket,
+        )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("Could not start retention scheduler: %s", exc)
 
 
 # ---------------------------------------------------------------------------

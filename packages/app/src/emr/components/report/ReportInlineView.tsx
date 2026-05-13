@@ -16,7 +16,6 @@
  * — the browser's native PDF viewer handles it without iframe wrapping.
  */
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Badge,
   Box,
@@ -36,59 +35,13 @@ import { useReport } from '../../hooks/useReport';
 import { useRUOClaim } from '../../hooks/useRUOClaim';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { EMRButton } from '../common/EMRButton';
-import { FindingsCard, type FindingsPayload } from './FindingsCard';
+import { ACRStructuredReadout } from './ACRStructuredReadout';
+import type { ReportSummary } from '../../services/report/reportSummary';
+import { useReportSummary } from '../../hooks/useReportSummary';
 
 function readApiBaseUrl(): string {
   const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
   return (meta.VITE_LIVERRA_API_BASE_URL ?? '/api/v1').replace(/\/$/, '');
-}
-
-interface ReportSummary {
-  analysis_id: string;
-  study_id: string;
-  patient_ref: string | null;
-  status: string;
-  started_at: string | null;
-  completed_at: string | null;
-  pipeline_version: string | null;
-  stages: Array<{
-    stage_no: number;
-    stage: string;
-    model_version: string | null;
-    license_hash: string | null;
-    written_at: string | null;
-  }>;
-  flr: {
-    total_ml: number | null;
-    flr_ml: number | null;
-    flr_pct: number | null;
-    plane_pose: Record<string, unknown> | null;
-  } | null;
-  segmentations: Array<{
-    anatomy_category: string;
-    anatomy_detail: string | null;
-    volume_ml: number | null;
-  }>;
-  lesions: Array<{
-    id: string;
-    bbox3d: number[] | null;
-    longest_diameter_mm: number | null;
-  }>;
-  qc_flags: Array<{
-    level: 'info' | 'warn' | string;
-    code: string;
-    message: string;
-  }>;
-  findings?: FindingsPayload;
-}
-
-async function fetchReportSummary(analysisId: string): Promise<ReportSummary> {
-  const base = readApiBaseUrl();
-  const r = await fetch(`${base}/analyses/${encodeURIComponent(analysisId)}/report/summary`, {
-    credentials: 'include',
-  });
-  if (!r.ok) throw new Error(`Report summary failed: HTTP ${r.status}`);
-  return (await r.json()) as ReportSummary;
 }
 
 function StageImage({
@@ -149,12 +102,7 @@ export function ReportInlineView({
   const claim = useRUOClaim(claimKey);
   const analysisId = report.data?.analysis_id ?? '';
 
-  const summary = useQuery<ReportSummary, Error>({
-    queryKey: ['report-summary', analysisId],
-    queryFn: () => fetchReportSummary(analysisId),
-    enabled: !!analysisId,
-    staleTime: 60_000,
-  });
+  const { query: summary } = useReportSummary(analysisId);
 
   const downloadHref = useMemo(() => {
     if (!analysisId) return '';
@@ -262,8 +210,8 @@ export function ReportInlineView({
         </Stack>
       )}
 
-      {/* Phase 1 heuristic findings (steatosis / spleen / GB / etc.) */}
-      <FindingsCard findings={s.findings} />
+      {/* ACR-aligned structured anatomical readout (002-acr-structured-readout). */}
+      <ACRStructuredReadout analysisId={analysisId} />
 
       {/* Stats grid */}
       <SimpleGrid cols={{ base: 2, md: 4 }} spacing="md">

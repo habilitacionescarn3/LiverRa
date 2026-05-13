@@ -1,6 +1,6 @@
 ---
 name: frontend-designer
-description: "Use this agent when you need to upgrade any page's UI to production-ready, beautiful design. Takes a screenshot or page route, analyzes current state, and IMPLEMENTS all improvements following MediMind design system. Combines design expertise with coding to deliver world-class interfaces.\n\n<example>\nContext: User wants to upgrade a page's appearance\nuser: \"Upgrade the patient history page UI\"\nassistant: \"I'll use the frontend-designer agent to analyze and upgrade the patient history page to production-ready quality.\"\n<commentary>\nThe frontend-designer agent will take screenshots, analyze issues, and implement all visual improvements.\n</commentary>\n</example>\n\n<example>\nContext: User provides a screenshot to match\nuser: \"Make this page look like screenshots/target-design.png\"\nassistant: \"I'll use the frontend-designer agent to analyze the target design and implement the changes.\"\n<commentary>\nThe agent reads screenshots, extracts design patterns, and implements them in code.\n</commentary>\n</example>\n\n<example>\nContext: User wants mobile responsiveness fixed\nuser: \"The registration form looks broken on mobile\"\nassistant: \"I'll use the frontend-designer agent to fix the mobile responsiveness issues.\"\n<commentary>\nThe agent will test at mobile viewports and implement mobile-first fixes.\n</commentary>\n</example>"
+description: "Use this agent when you need to upgrade any page's UI to production-ready, beautiful design. Takes a screenshot or page route, analyzes current state, and IMPLEMENTS all improvements following LiverRa design system. Combines design expertise with coding to deliver world-class interfaces.\n\n<example>\nContext: User wants to upgrade a page's appearance\nuser: \"Upgrade the patient history page UI\"\nassistant: \"I'll use the frontend-designer agent to analyze and upgrade the patient history page to production-ready quality.\"\n<commentary>\nThe frontend-designer agent will take screenshots, analyze issues, and implement all visual improvements.\n</commentary>\n</example>\n\n<example>\nContext: User provides a screenshot to match\nuser: \"Make this page look like screenshots/target-design.png\"\nassistant: \"I'll use the frontend-designer agent to analyze the target design and implement the changes.\"\n<commentary>\nThe agent reads screenshots, extracts design patterns, and implements them in code.\n</commentary>\n</example>\n\n<example>\nContext: User wants mobile responsiveness fixed\nuser: \"The registration form looks broken on mobile\"\nassistant: \"I'll use the frontend-designer agent to fix the mobile responsiveness issues.\"\n<commentary>\nThe agent will test at mobile viewports and implement mobile-first fixes.\n</commentary>\n</example>"
 model: opus
 color: yellow
 ---
@@ -72,7 +72,7 @@ Use the Skill tool to invoke "playwright" for browser automation
 
 Before ANY UI work, read these files:
 
-1. **UI Component Library**: `/Users/toko/Desktop/medplum_medimind/explanations/ui-component-library.md`
+1. **UI Component Library**: `/Users/toko/Desktop/LiverRa/explanations/ui-component-library.md`
    - Read the **Component Architecture** section first (Custom-Built vs Mantine Wrapper patterns)
    - Read the **component mapping table** to know what EMR component replaces each Mantine component
    - Check the **Known Gaps** section to know which Mantine components have NO wrapper yet
@@ -99,7 +99,7 @@ Before ANY UI work, read these files:
 npx tsx scripts/playwright/ensure-server.ts
 
 # 2. Navigate to the page (ALWAYS include --context)
-npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:3000/emr/[route]"
+npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:5173/emr/[route]"
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] wait 2000
 
 # 3. Take BEFORE screenshot (prefix with context name to avoid collisions)
@@ -251,7 +251,7 @@ Write a plan to `tasks/ui-upgrade-todo.md`:
 ...
 
 ### Color Violations
-1. [ ] Hardcoded #1a365d in [file]:[line] → use var(--emr-primary)
+1. [ ] Hardcoded `<offending-hex>` in [file]:[line] → use `var(--emr-primary)` (or other semantic token)
 ...
 
 ## Implementation Tasks
@@ -334,7 +334,7 @@ grep -rnE 'data-mantine-color-scheme.*dark' [css-modules-you-edited]
 
 ```bash
 # Refresh and capture AFTER state (ALWAYS use --context)
-npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:3000/emr/[route]"
+npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:5173/emr/[route]"
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] wait 2000
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] screenshot "fd-[page-slug]-AFTER-main"
 
@@ -394,7 +394,7 @@ If creating a wrapper is too complex for the current task, **flag it as tech deb
 
 ## UI COMPONENT LIBRARY (MUST USE)
 
-**Source of Truth:** `/Users/toko/Desktop/medplum_medimind/explanations/ui-component-library.md`
+**Source of Truth:** `/Users/toko/Desktop/LiverRa/explanations/ui-component-library.md`
 
 ### Required Components (ALWAYS use these)
 
@@ -591,35 +591,28 @@ grep -rnE "from '@mantine/dates'" [your-file]
 - **EMR Components**: `packages/app/src/emr/components/common/`
 - **Form Fields**: `packages/app/src/emr/components/shared/EMRFormFields/`
 
-### Color Variables (NEVER hardcode)
+### Color Variables (NEVER hardcode hex)
 
-```css
-/* Primary Blues - MEMORIZE THESE */
---emr-primary: #1a365d;        /* Dark navy - brand */
---emr-secondary: #2b6cb0;      /* Medium blue */
---emr-accent: #3182ce;         /* Light blue */
---emr-light-accent: #bee3f8;   /* Very light blue bg */
+**The only place hex values live is `packages/app/src/emr/styles/theme.css`.** In your code, in your greps, and in your conversation with the user, refer to colors by their semantic token name. The brand ramp (`--liverra-primary-50…900`) is pending design-lead sign-off (see T464); never freeze its current placeholder values into rules, screenshots, or imports.
 
-/* Grays */
---emr-gray-50: #f9fafb;   --emr-gray-100: #f3f4f6;
---emr-gray-200: #e5e7eb;  --emr-gray-300: #d1d5db;
---emr-gray-400: #9ca3af;  --emr-gray-500: #6b7280;
---emr-gray-600: #4b5563;  --emr-gray-700: #374151;
---emr-gray-800: #1f2937;  --emr-gray-900: #111827;
+**Categories of semantic tokens** (full list in `theme.css`):
 
-/* Semantic */
---emr-success: #38a169;   --emr-warning: #dd6b20;
---emr-error: #e53e3e;     --emr-info: #3182ce;
+- **Brand:** `--emr-primary`, `--emr-secondary`, `--emr-accent`, `--emr-light-accent` (all aliased onto the `--liverra-primary-*` ramp)
+- **Surfaces:** `--emr-bg-page`, `--emr-bg-card`, `--emr-bg-modal`, `--emr-bg-input`, `--emr-bg-hover` (auto-switch light/dark)
+- **Text:** `--emr-text-primary`, `--emr-text-secondary`, `--emr-text-inverse`
+- **Semantic status:** `--emr-success`, `--emr-warning`, `--emr-error`, `--emr-info`
+- **Borders:** `--emr-border-color`, `--emr-border-default`
+- **Alpha overlays:** `--emr-primary-alpha-*`, `--emr-secondary-alpha-*`, `--emr-white-alpha-*` (numbered by percent)
+- **Typography:** `--emr-font-xs` through `--emr-font-3xl`, weights `--emr-font-normal` through `--emr-font-bold`
+- **Shadows / radius:** `--emr-shadow-sm/md/lg/xl`, `--emr-border-radius`, `--emr-border-radius-sm/lg/xl`
 
-/* Surfaces */
---emr-bg-page: #ffffff;   --emr-bg-card: #ffffff;
---emr-bg-modal: #ffffff;  --emr-bg-hover: #f7fafc;
-
-/* Text */
---emr-text-primary: #1f2937;
---emr-text-secondary: #6b7280;
---emr-text-inverse: #ffffff;
+**For TypeScript inline-style contexts** (where CSS variables can't be referenced — chart libs, Cornerstone3D canvas labels):
+```typescript
+import { THEME_COLORS, STATUS_COLORS } from '../constants/theme-colors';
+// THEME_COLORS.primary, STATUS_COLORS.inProgress — values mirror theme.css
 ```
+
+**Never** quote a hex literal in a CSS module, agent rule, or summary. If you find yourself typing `#`, stop and check whether the right answer is `var(--emr-…)` or a `THEME_COLORS.*` import.
 
 ### FORBIDDEN COLORS (ZERO TOLERANCE - MEMORIZE THIS LIST)
 
@@ -627,13 +620,13 @@ grep -rnE "from '@mantine/dates'" [your-file]
 
 | FORBIDDEN | What It Is | USE INSTEAD |
 |-----------|------------|-------------|
-| `#3b82f6` | Tailwind blue-500 | `var(--emr-secondary)` or `#2b6cb0` |
-| `#60a5fa` | Tailwind blue-400 | `var(--emr-accent)` or `#3182ce` |
-| `#2563eb` | Tailwind blue-600 | `var(--emr-primary)` or `#1a365d` |
-| `#93c5fd` | Tailwind blue-300 | `var(--emr-light-accent)` or `#bee3f8` |
-| `#1d4ed8` | Tailwind blue-700 | `var(--emr-primary)` or `#1a365d` |
-| `#4299e1` | Chakra blue-400 | `var(--emr-accent)` or `#3182ce` |
-| `#63b3ed` | Chakra blue-300 | `var(--emr-accent)` or `#3182ce` |
+| `#3b82f6` | Tailwind blue-500 | `var(--emr-secondary)` |
+| `#60a5fa` | Tailwind blue-400 | `var(--emr-accent)` |
+| `#2563eb` | Tailwind blue-600 | `var(--emr-primary)` |
+| `#93c5fd` | Tailwind blue-300 | `var(--emr-light-accent)` |
+| `#1d4ed8` | Tailwind blue-700 | `var(--emr-primary)` |
+| `#4299e1` | Chakra blue-400 | `var(--emr-accent)` |
+| `#63b3ed` | Chakra blue-300 | `var(--emr-accent)` |
 
 **For TypeScript files (type definitions, inline styles):**
 ```typescript
@@ -644,7 +637,7 @@ import { THEME_COLORS, STATUS_COLORS } from '../constants/theme-colors';
 const color = '#3b82f6';
 
 // CORRECT - Theme color
-const color = THEME_COLORS.secondary; // '#2b6cb0'
+const color = THEME_COLORS.secondary; // resolves to the current brand secondary
 ```
 
 **VALIDATION STEP:** Before completing ANY file, run this grep:
@@ -655,13 +648,14 @@ grep -E "#3b82f6|#60a5fa|#2563eb|#4299e1|#63b3ed" [your-file]
 
 ### Primary Button Gradient (CRITICAL)
 
-**ALL primary buttons MUST use:**
+**ALL primary buttons MUST use the gradient token — never inline the gradient hex:**
 ```css
 background: var(--emr-gradient-primary);
-/* = linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%) */
-box-shadow: 0 2px 8px rgba(43, 108, 176, 0.3);
-border-radius: 10px;
+box-shadow: var(--emr-shadow-button, var(--emr-shadow-md));
+border-radius: var(--emr-border-radius);
 ```
+
+The gradient definition itself lives in `theme.css` and follows the brand ramp — when T464 lands and warm-gray flips to the approved ramp, the gradient automatically updates everywhere.
 
 ### Typography Variables
 
@@ -828,7 +822,7 @@ npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] close-context fd-[pag
 
 ### Navigation & Interaction (ALWAYS include --context)
 ```bash
-npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:3000/emr/page"
+npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] navigate "http://localhost:5173/emr/page"
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] click "button.submit"
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] click "text=Submit"
 npx tsx scripts/playwright/cmd.ts --context fd-[page-slug] fill "#email" "test@example.com"

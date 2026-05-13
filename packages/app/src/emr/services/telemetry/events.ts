@@ -39,7 +39,13 @@ export type PostHogEventName =
   | 'seat_released'
   | 'config_changed'
   | 'erasure_requested'
-  | 'ruo_disclaimer_acknowledged';
+  | 'ruo_disclaimer_acknowledged'
+  | 'acr_readout_viewed'
+  | 'acr_clipboard_copy_succeeded'
+  | 'acr_clipboard_copy_failed'
+  | 'acr_pdf_section_rendered'
+  | 'acr_copy_tooltip_seen'
+  | 'acr_copy_tooltip_dismissed';
 
 /**
  * Runtime-readable array of every valid event name. The PostHog
@@ -68,6 +74,12 @@ export const POSTHOG_EVENTS = [
   'config_changed',
   'erasure_requested',
   'ruo_disclaimer_acknowledged',
+  'acr_readout_viewed',
+  'acr_clipboard_copy_succeeded',
+  'acr_clipboard_copy_failed',
+  'acr_pdf_section_rendered',
+  'acr_copy_tooltip_seen',
+  'acr_copy_tooltip_dismissed',
 ] as const satisfies readonly PostHogEventName[];
 
 /** Return true if `event` is a recognised PostHog event name. */

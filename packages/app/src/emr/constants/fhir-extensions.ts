@@ -48,6 +48,24 @@ export const LIVERRA_EXTENSIONS = {
    *  Merkle root pushed to S3 Object Lock. */
   AUDIT_CHAIN_LEAF_HASH: `${EXT_BASE}/audit-chain-leaf-hash`,
 
+  // -- AuditEvent extensions added by 002-acr-structured-readout --
+
+  /** Code. Locale actually rendered for an export (after fallback resolution).
+   *  Used by ReadoutClipboardExport events. */
+  AUDIT_LOCALE: `${EXT_BASE}/audit-locale`,
+
+  /** Reference(Organization). Tenant the audited action belongs to.
+   *  Included for forensic completeness on cross-tenant access attempts. */
+  AUDIT_TENANT: `${EXT_BASE}/audit-tenant`,
+
+  /** Uuid. Client-supplied idempotency key per user click; identical across
+   *  durable retries of the same export. */
+  AUDIT_CLIENT_ACTION_ID: `${EXT_BASE}/audit-client-action-id`,
+
+  /** Code. Why a failed AuditEvent failed
+   *  (network | clipboard_blocked | audit_chain_unavailable | auth_denied | tenant_violation). */
+  AUDIT_FAILURE_CATEGORY: `${EXT_BASE}/audit-failure-category`,
+
   // -- RUO (Research Use Only) watermark + claim tracking --
 
   /** Code. Which RUO claim-registry key applies to this output (FR-028b). */

@@ -66,6 +66,21 @@ const LiverErrorBoundary = EMRErrorBoundary;
 // ── Lazy chunks ───────────────────────────────────────────────────────────
 const LiverViewer3D = lazy(() => import('../../components/liver/LiverViewer3D'));
 const FLRPanel = lazy(() => import('../../components/liver/FLRPanel'));
+// ACR structured readout panel (002-acr-structured-readout) — lazy so the
+// extra ~10 KB only ships once the analysis page actually mounts.
+const ACRStructuredReadout = lazy(() =>
+  import('../../components/report/ACRStructuredReadout').then((m) => ({
+    default: m.ACRStructuredReadout,
+  })),
+);
+// Hero-level Copy CTA (002-acr-structured-readout FR-009 fix) — keeps
+// the Copy action visible without scrolling regardless of viewport
+// height. Eager-loaded because it sits in the always-visible hero.
+import { ACRHeroCopyButton } from '../../components/report/ACRHeroCopyButton';
+// Print stylesheet (002-acr-structured-readout T072) — imported as a side
+// effect so Cmd/Ctrl+P produces the print-mode layout that suppresses
+// viewer chrome, rails, and footer banner.
+import '../../components/report/ACRStructuredReadout.print.module.css';
 
 interface BackendAnalysis {
   id: string;
@@ -401,8 +416,10 @@ function AnalysisDetailViewInner({
     return () => window.removeEventListener('keydown', onKey);
   }, [theater]);
 
-  // Mobile bottom-sheets for the workspace + FLR rails.
-  const [mobileSheet, setMobileSheet] = useState<'workspace' | 'flr' | null>(null);
+  // Mobile bottom-sheets for the workspace + FLR rails + ACR readout.
+  const [mobileSheet, setMobileSheet] = useState<
+    'workspace' | 'flr' | 'acr-readout' | null
+  >(null);
 
   // Drawer tab state.
   const [drawerTab, setDrawerTab] = useState<DrawerTab>('segments');
@@ -796,6 +813,7 @@ function AnalysisDetailViewInner({
         </div>
 
         <div className={styles.heroActions}>
+          {analysisReady && id && <ACRHeroCopyButton analysisId={id} />}
           {analysisReady && (
             <PermissionButton
               permission="report.finalize"
@@ -849,6 +867,13 @@ function AnalysisDetailViewInner({
           onClick={() => setMobileSheet('flr')}
         >
           {t('analysis:flr.title')}
+        </EMRButton>
+        <EMRButton
+          variant="secondary"
+          icon={IconClipboardList}
+          onClick={() => setMobileSheet('acr-readout')}
+        >
+          {t('reportAcr:openPanel')}
         </EMRButton>
       </div>
 
@@ -944,6 +969,23 @@ function AnalysisDetailViewInner({
         {!isMobile && !isTablet && flrRail}
       </main>
 
+      {/* ACR structured readout — full-width card below the workspace,
+          above the footer. NOT gated on theater mode (FR-024). */}
+      <div className={styles.acrReadoutSlot}>
+        <LiverErrorBoundary>
+          <Suspense
+            fallback={
+              <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <EMRSkeleton height={24} width="40%" />
+                <EMRSkeleton height={120} />
+              </div>
+            }
+          >
+            <ACRStructuredReadout analysisId={analysis.id} />
+          </Suspense>
+        </LiverErrorBoundary>
+      </div>
+
       {/* Bottom status / RUO footer */}
       <div className={styles.footer} aria-label={t('analysis:detail.mprAria')}>
         <div className={styles.footerLeft}>
@@ -997,6 +1039,28 @@ function AnalysisDetailViewInner({
                   }
                 >
                   <FLRPanel analysisId={analysis.id} initialFlrPct={flrPct} />
+                </Suspense>
+              </LiverErrorBoundary>
+            </div>
+          </EMRBottomSheet>
+
+          <EMRBottomSheet
+            opened={mobileSheet === 'acr-readout'}
+            onClose={() => setMobileSheet(null)}
+            title={t('reportAcr:panelHeading')}
+            snapPoint="half"
+          >
+            <div className={styles.sheetBody}>
+              <LiverErrorBoundary>
+                <Suspense
+                  fallback={
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <EMRSkeleton height={24} width="50%" />
+                      <EMRSkeleton height={120} />
+                    </div>
+                  }
+                >
+                  <ACRStructuredReadout analysisId={analysis.id} />
                 </Suspense>
               </LiverErrorBoundary>
             </div>

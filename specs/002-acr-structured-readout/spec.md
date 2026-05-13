@@ -166,7 +166,7 @@ A radiology resident drafts a report under attending supervision; an MDT coordin
 #### Concurrency and freshness
 
 - **FR-023a**: The clipboard text MUST reflect the analysis state as of the moment the copy action is invoked, not the moment the panel was opened. If the system has detected a server-side change since the panel was rendered, the copy action MUST be blocked until the user explicitly refreshes, and the blocking message MUST name what changed.
-- **FR-023b**: If the readout panel has been open without interaction for longer than a clinically meaningful interval, the next copy action MUST verify the analysis state against the authoritative source before emitting clipboard text. If state has changed, the copy MUST be blocked pending explicit refresh.
+- **FR-023b**: If the readout panel has been open without interaction for longer than five minutes (the "clinically meaningful interval" — long enough for another reviewer to finalize the analysis without alerting the current user), the next copy action MUST verify the analysis state against the authoritative source before emitting clipboard text. If state has changed, the copy MUST be blocked pending explicit refresh. Implementations MAY satisfy this by unconditionally probing freshness on every copy action; the five-minute interval is the minimum staleness window, not a polling cadence.
 - **FR-023c**: Stale findings (a finding's compute time predating the most recent successful cascade run for the same analysis) MUST display a visible, locale-aware "Last computed [time]" marker on screen, in the PDF, and in the clipboard text.
 
 #### Cross-channel parity
@@ -194,7 +194,7 @@ A radiology resident drafts a report under attending supervision; an MDT coordin
 
 #### Failure-mode behavior
 
-- **FR-033**: When the report summary fails to load or is malformed, the readout panel MUST surface a non-blocking, locale-aware error state with a retry affordance and MUST NOT render partial sections that could be mistaken for "no findings." When the user is offline, the Copy action MUST remain functional against the last-loaded data AND MUST mark that data as potentially stale in the clipboard output. When PDF generation exceeds a reasonable rendering budget, the system MUST show an in-progress state with the option to cancel; failed PDF generation MUST surface a clear error and MUST NOT silently produce a partial document.
+- **FR-033**: When the report summary fails to load or is malformed, the readout panel MUST surface a non-blocking, locale-aware error state with a retry affordance and MUST NOT render partial sections that could be mistaken for "no findings." When the user is offline, the Copy action MUST remain functional against the last-loaded data AND MUST mark that data as potentially stale in the clipboard output. When PDF generation exceeds the rendering budget of 30 seconds, the system MUST show an in-progress state with the option to cancel; PDF generation that takes longer than 60 seconds MUST be aborted server-side and surface a clear error. Failed PDF generation MUST NOT silently produce a partial document.
 
 ### Non-Functional Requirements
 

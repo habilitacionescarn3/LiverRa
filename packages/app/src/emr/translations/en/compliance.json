@@ -37,6 +37,8 @@
     "colSeq": "#",
     "colTimestamp": "Timestamp (UTC)",
     "colCategory": "Category",
+    "categoryLabel": "Category filter",
+    "categoryAll": "All categories",
     "colActor": "Actor",
     "colSubject": "Subject",
     "colOutcome": "Outcome",
