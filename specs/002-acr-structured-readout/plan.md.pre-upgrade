@@ -1,0 +1,192 @@
+# Implementation Plan: Structured ACR-Style Radiologic Readout
+
+**Branch**: `002-acr-structured-readout` | **Date**: 2026-05-13 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/002-acr-structured-readout/spec.md`
+
+## Summary
+
+Render the seven already-persisted Phase 1 heuristic findings as six fixed ACR/RSNA anatomical sections (Liver, Lesions, Vessels, Gallbladder, Spleen, FLR Assessment) on the analysis detail view AND the inline report view AND the PDF AND a copy-to-clipboard plain-text export. The clipboard export emits an auditable FHIR R4 `AuditEvent` participating in the existing tamper-evident chain. Every export carries the Research Use Only disclaimer.
+
+**Technical approach**: Pure rendering + audit-emission feature. Zero changes to the cascade, zero new finding types, zero new migrations to the `analysis_finding` table. One new audit-event subtype. One canonical anatomical-section mapping shared by the React renderer, the Jinja2 PDF template renderer, and a plain-text serializer. New translation namespace `reportAcr.*` in en/ru/ka with the `__TODO_TRANSLATE__:` convention for `ru`/`ka` medical terms pending CODEOWNERS review.
+
+## Technical Context
+
+**Language/Version**: TypeScript 5 strict (frontend), Python 3.11 (PDF render)
+**Primary Dependencies**: React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure
+**Storage**: PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables
+**Testing**: Vitest + React Testing Library (frontend unit), Playwright (E2E), pytest (PDF golden tests)
+**Target Platform**: Web (Chrome/Edge/Safari/Firefox latest), responsive down to tablet (md breakpoint 992px); iPad Safari clipboard API support required
+**Project Type**: Web application (monorepo packages: `app` frontend, `ml-inference` Python services)
+**Performance Goals**: readout render ≤500ms after data available; clipboard copy ≤200ms (≤20 lesions) or ≤1s (≤100 lesions); PDF section render adds ≤1s to existing PDF generation budget
+**Constraints**: must inherit existing tenant authorization boundary; clipboard write must function on iOS/iPadOS Safari; audit-event emission must survive transient network failure via durable retry; cross-channel parity (screen/PDF/clipboard) byte-equivalent for same locale + state
+**Scale/Scope**: 0–100 lesions per analysis; 7 finding types → 6 anatomical sections; 3 locales (en/ru/ka) + de legacy fallback; ~52 functional requirements + 18 testing scenarios from the upgraded spec
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+| Principle | Status | Notes |
+|---|---|---|
+| **I. Spec-Driven Development** | ✅ PASS | Spec exists, upgraded to v2 with 52 FRs. This plan is the next mandated artifact. |
+| **II. Apache 2.0 Model Licensing** | ✅ N/A | No model integration. Pure rendering feature. |
+| **III. Cascaded Inference Architecture** | ✅ N/A | No cascade change. |
+| **IV. FHIR-First Healthcare Data** | ✅ PASS | FR-030 mandates FHIR R4 `AuditEvent` representation with `http://liverra.ai/fhir/StructureDefinition/` extensions. AuditEvent is in the v1 canonical resource vocabulary. |
+| **V. Auditability & Regulatory Traceability** | ✅ PASS | FR-017..FR-020c capture actor, role-at-action-time, analysis, locale, timestamp; FR-028 mandates 10-year retention; PHI scope explicit (FR-020, FR-034). |
+| **VI. Research Use Only Until CE Mark** | ✅ PASS | FR-027 makes RUO disclaimer binding on every surface (screen, PDF, clipboard first and last line). |
+| **VII. Security, Privacy & Data Residency** | ✅ PASS | FR-022b tenant boundary inheritance; FR-034 forbids identifying patient data in clipboard/PDF section; existing AuthZ path reused. |
+| **VIII. Type Safety & Strict Mode** | ✅ PASS | Plan adopts strict TS for frontend renderer + Pydantic models for the audit-event payload + Python type hints for PDF section builder. |
+| **IX. Unified Design System** | ✅ PASS | FR-032 explicitly requires semantic color variables + EMR component library, forbidden hex blues, dark-mode parity, mobile-first (FR-035). |
+| **X. Internationalization** | ⚠️ DOCUMENTED DEVIATION | Constitution X mandates `en/de/ka` triad. Spec FR-023 targets `en/ru/ka` per current CLAUDE.md operational guidance (DACH product direction shift, `ru` for CEE markets). `de` retained as legacy fallback only. See Complexity Tracking. |
+
+**Gate verdict**: ✅ PASS WITH ONE DOCUMENTED DEVIATION — proceed to Phase 0.
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/002-acr-structured-readout/
+├── spec.md                  # Feature specification (upgraded v2)
+├── plan.md                  # This file
+├── research.md              # Phase 0 — design decisions
+├── data-model.md            # Phase 1 — entity & payload shapes
+├── contracts/               # Phase 1 — public interface contracts
+│   ├── audit-event.md         # FHIR AuditEvent payload contract
+│   ├── readout-api.md         # /report/summary contract additions
+│   └── plaintext-renderer.md  # Plain-text serializer contract
+├── quickstart.md            # Phase 1 — local dev quickstart
+├── checklists/
+│   └── requirements.md      # Spec quality validation
+└── tasks.md                 # Phase 2 — /speckit.tasks output (not created here)
+```
+
+### Source Code (repository root)
+
+```text
+packages/app/                                                    # Vite + React 19 + Mantine 7 frontend
+├── src/emr/
+│   ├── components/report/
+│   │   ├── ACRStructuredReadout.tsx                             # NEW — six-section renderer (frontend-designer agent owns)
+│   │   ├── ACRSectionLiver.tsx                                  # NEW — subcomponents per anatomical section
+│   │   ├── ACRSectionLesions.tsx                                # NEW
+│   │   ├── ACRSectionVessels.tsx                                # NEW (stable empty container per FR-002)
+│   │   ├── ACRSectionGallbladder.tsx                            # NEW
+│   │   ├── ACRSectionSpleen.tsx                                 # NEW
+│   │   ├── ACRSectionFLR.tsx                                    # NEW
+│   │   ├── ReportInlineView.tsx                                 # MODIFY — swap FindingsCard for ACRStructuredReadout
+│   │   └── FindingsCard.tsx                                     # DELETE in same release (replacement contract per Assumptions)
+│   ├── services/report/
+│   │   ├── acrAnatomicalMapping.ts                              # NEW — single canonical finding→section mapping (FR-024b)
+│   │   ├── acrPlainTextRenderer.ts                              # NEW — pure transform: findings + locale → plain text
+│   │   ├── acrClipboardService.ts                               # NEW — clipboard write + audit-event emit + durable retry
+│   │   └── acrTelemetry.ts                                      # NEW — non-PHI product-analytics events (FR-036)
+│   ├── translations/{en,ru,ka,de}/
+│   │   └── reportAcr.json                                       # NEW — namespace `reportAcr.*` per locale
+│   ├── views/cases/
+│   │   └── AnalysisDetailView.tsx                               # MODIFY — host the readout panel per UI Integration section
+│   └── styles/
+│       └── (theme.css extended only if new semantic variables truly needed; default: reuse existing)
+└── tests/
+    ├── unit/report/acrPlainTextRenderer.spec.ts
+    ├── unit/report/acrAnatomicalMapping.spec.ts
+    └── e2e/cases/acr-readout.spec.ts                            # NEW — 18 testing scenarios from spec
+
+packages/ml-inference/                                           # Python FastAPI services
+├── src/services/export/
+│   ├── pdf_templates/
+│   │   ├── en/report.html                                       # MODIFY — heuristic-findings section grouped by ACR
+│   │   ├── ru/report.html                                       # NEW
+│   │   ├── ka/report.html                                       # MODIFY
+│   │   └── de/report.html                                       # MODIFY — keep legacy
+│   ├── acr_section_builder.py                                   # NEW — pre-groups findings by anatomical section before Jinja2 binding
+│   └── pdf_builder.py                                           # MODIFY — call acr_section_builder
+├── src/api/
+│   └── audit.py                                                 # MODIFY (or NEW) — POST /api/v1/analyses/{id}/audit/clipboard-export
+├── src/services/audit/
+│   └── clipboard_export_event.py                                # NEW — emits AuditEvent into existing audit_event_chain
+└── tests/
+    ├── unit/test_acr_section_builder.py
+    ├── unit/test_clipboard_export_event.py
+    └── integration/test_acr_pdf_parity.py
+```
+
+**Structure Decision**: Web-application layout reusing the existing monorepo split. **Frontend** owns the rendering, clipboard write, plain-text serialization, and product-analytics emission. **Backend** owns the audit-event persistence into the existing tamper-evident chain and the PDF template wiring. The shared anatomical-section mapping is duplicated in TS and Python on purpose — the contract is a stable enumeration, and synchronizing it via a shared schema is over-engineering for 7 finding types. Drift is prevented by the cross-channel parity test (FR-038-d).
+
+## Complexity Tracking
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|---|---|---|
+| **Constitution X i18n drift (`en/ru/ka` vs `en/de/ka`)** | LiverRa product direction shifted: CEE market (`ru`) is a higher near-term revenue lane than DACH-internal Georgian-speaking centers, and CLAUDE.md captures this as the operational rule. `de` remains a legacy bundle. Following CLAUDE.md, which is the documented operational source of truth post-amendment. | Hard-blocking until `/speckit.constitution` is amended would stall a non-controversial rendering feature for the duration of a constitution PR cycle. Constitution v2.0.0 already enumerated deferred follow-ups in its Sync Impact Report; this is one. **Follow-up TODO**: amend Principle X to `en/ru/ka` with `de` legacy clause in a future patch bump. |
+| **Duplicating anatomical-section mapping in TS and Python** | The mapping is 7 entries → 6 sections, immutable, and read once per render. Generating it from a shared JSON schema or proto would add a build-time codegen step for a one-time gain. | Two-line drift is caught by FR-024a / FR-038-d cross-channel parity tests. The cost of codegen tooling exceeds the cost of the test. |
+
+No other constitutional violations.
+
+## Phase 0 — Outline & Research
+
+Resolved in `research.md`. Key decisions:
+
+1. **Clipboard API approach**: `navigator.clipboard.writeText` with legacy `execCommand` fallback gated by feature detection (iOS Safari compatibility).
+2. **Audit emission ordering**: optimistic clipboard write → audit POST → toast (per FR-020a). Failure path queues to IndexedDB for next-session retry (FR-020b).
+3. **Plain-text format**: section headers ALL-CAPS in en, locale-appropriate emphasis in ru/ka; blank-line separators; indented sub-items; RUO first and last line; NFC unicode normalization.
+4. **PDF parity**: server-side `acr_section_builder.py` pre-groups findings into the same six-section structure, passed to Jinja2 as `acr_sections` dict.
+5. **Concurrency detection**: existing analysis-summary `etag` (if present) compared on copy; if absent, use `updated_at` timestamp comparison; on mismatch block copy with refresh prompt.
+6. **Translation namespace**: new `reportAcr` namespace registered in `TranslationContext.TRANSLATION_NAMESPACES`, NOT nested under existing `report.*` to keep blast radius minimal.
+7. **Audit category enum**: add `ReadoutClipboardExport` to existing `AuditCategory` enum in `packages/core/src/types/audit.ts`. Backend emits this category with `outcome: 'success' | 'failure'` and a `failure_category` extension when negative.
+8. **FindingsCard disposition**: replace, not coexist (per spec Assumptions). Delete `FindingsCard.tsx` and all imports in the same PR series.
+
+## Phase 1 — Design & Contracts
+
+**Prerequisites**: research.md complete.
+
+### Data model (`data-model.md`)
+
+Captures the four entities from the spec (Anatomical Section, Anatomical-Section Mapping, Finding, Clipboard Export Event, Readout Plain-Text Renderer) as TypeScript and Python type shapes, plus the exact JSON payload of the new audit event and the row-level expectations on `analysis_finding` (read-only — no schema changes).
+
+### Contracts (`contracts/`)
+
+Three documents:
+- **`audit-event.md`** — FHIR R4 AuditEvent payload shape for `ReadoutClipboardExport`, including required fields, the locale extension URL, role-at-action-time capture, and the failure-event variant.
+- **`readout-api.md`** — additive surface on existing `GET /api/v1/analyses/{id}/report/summary` (no breaking change): asserts `findings`, `lesions`, `flr`, `updated_at` are returned; specifies what the readout consumes; introduces `POST /api/v1/analyses/{id}/audit/clipboard-export` for the audit-event POST.
+- **`plaintext-renderer.md`** — pure-function contract: input `{findings, lesions, flr, locale, ruoEnabled}` → output `string`. Specifies header casing, separators, list formatting, RUO placement, unicode normalization (NFC), no-truncation guarantee, parity expectations with the on-screen and PDF renderers.
+
+### Agent context update
+
+Run `.specify/scripts/bash/update-agent-context.sh claude` to refresh `CLAUDE.md`'s "Active Features" markers (preserves all manual additions).
+
+### Quickstart (`quickstart.md`)
+
+Step-by-step: bring up the local stack (Postgres + Redis + MinIO + Orthanc per CLAUDE.md), run a cascade against the Todua-CT sample, open analysis detail, verify all six sections render, click Copy, confirm the audit event appears in the chain, generate the PDF and diff its findings section against the screen, switch locale and re-verify parity.
+
+## Re-Constitution Check (post-design)
+
+| Principle | Status post-design | Notes |
+|---|---|---|
+| **I. Spec-Driven Development** | ✅ PASS | All four mandated artifacts (spec, plan, research, data-model+contracts) authored. |
+| **II / III** | ✅ N/A | No ML changes. |
+| **IV. FHIR-First** | ✅ PASS | `audit-event.md` contract uses canonical AuditEvent shape with `http://liverra.ai/fhir/StructureDefinition/` extensions. |
+| **V. Auditability** | ✅ PASS | Contract specifies all required AuditEvent fields including SHA-256 of canonical-JSON payload contributing to chain integrity. |
+| **VI. RUO** | ✅ PASS | Plaintext-renderer contract requires RUO first and last line; PDF section builder contract requires RUO line. |
+| **VII. Security** | ✅ PASS | API contract reuses existing analysis-detail authorization path; tenant boundary inherited. |
+| **VIII. Type Safety** | ✅ PASS | Pydantic models for audit event; strict TS for renderer + clipboard service. |
+| **IX. Design System** | ✅ PASS | Plan delegates all UI work to `frontend-designer` agent per Assumptions; semantic-variable usage tracked in the agent-handoff prompt. |
+| **X. i18n** | ⚠️ DOCUMENTED DEVIATION | Same as pre-design; follow-up TODO captured. |
+
+**Gate verdict (post-design)**: ✅ PASS — proceed to `/speckit.tasks`.
+
+## Artifacts Generated
+
+| Artifact | Status |
+|---|---|
+| `spec.md` (upgraded v2) | ✅ existed |
+| `plan.md` | ✅ this file |
+| `research.md` | ✅ generated |
+| `data-model.md` | ✅ generated |
+| `contracts/audit-event.md` | ✅ generated |
+| `contracts/readout-api.md` | ✅ generated |
+| `contracts/plaintext-renderer.md` | ✅ generated |
+| `quickstart.md` | ✅ generated |
+| Agent context (`CLAUDE.md`) | ✅ updated via script |
+
+## Next Step
+
+Run `/speckit.tasks` to produce dependency-ordered tasks.md. Then `/speckit.analyze` for cross-artifact consistency before `/speckit.implement`.

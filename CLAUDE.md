@@ -572,3 +572,10 @@ Comprehensive research was completed BEFORE this scaffold was built. Consolidate
 5. Follow plan → tasks → analyze → implement cycle
 
 **Remember:** First line of code gets written AFTER the constitution and the first feature spec are complete. Not before.
+
+## Active Technologies
+- TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure (002-acr-structured-readout)
+- PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables (002-acr-structured-readout)
+
+## Recent Changes
+- 002-acr-structured-readout: Added TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure
