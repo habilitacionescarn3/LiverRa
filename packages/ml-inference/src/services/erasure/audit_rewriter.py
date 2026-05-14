@@ -134,13 +134,23 @@ async def rewrite(
         Useful for the erasure confirmation PDF to show "N residual
         identifiers redacted" before committing the irreversible step.
     """
+    # B-AUDIT-1 fix: business AuditEvents live in ``audit_event_chain`` per
+    # migration 0005 — the side-channel ``audit_event`` table is reserved
+    # for ``tampering_attempt`` rows. Querying the wrong table here silently
+    # returned ``events_rewritten=0`` and the DPO signed a PDF certifying a
+    # step that never ran. Keys here:
+    #   - the chain table has no ``id`` column; rows are keyed by
+    #     ``(tenant_id, sequence_no)``. We use ``sequence_no`` as the WHERE
+    #     selector on UPDATE.
+    #   - ``canonical_json`` on this table is ``text`` (not jsonb) so the
+    #     UPDATE cast is intentionally a plain string assignment.
     rows = await session.execute(
         text(
             """
-            SELECT id, canonical_json
-            FROM audit_event
+            SELECT sequence_no, canonical_json
+            FROM audit_event_chain
             WHERE tenant_id = :tid
-              AND canonical_json::text ILIKE :needle
+              AND canonical_json ILIKE :needle
             """
         ),
         {
@@ -161,8 +171,10 @@ async def rewrite(
                 parsed = json.loads(payload)
             except json.JSONDecodeError:
                 logger.warning(
-                    "audit_event %s canonical_json not parseable — skipping",
-                    row["id"],
+                    "audit_event_chain (tenant=%s seq=%s) canonical_json "
+                    "not parseable — skipping",
+                    tenant_id,
+                    row["sequence_no"],
                 )
                 continue
         else:
@@ -193,12 +205,16 @@ async def rewrite(
         await session.execute(
             text(
                 """
-                UPDATE audit_event
-                SET canonical_json = CAST(:json AS jsonb)
-                WHERE id = :id
+                UPDATE audit_event_chain
+                SET canonical_json = :json
+                WHERE tenant_id = :tid AND sequence_no = :seq
                 """
             ),
-            {"json": new_json, "id": row["id"]},
+            {
+                "json": new_json,
+                "tid": str(tenant_id),
+                "seq": row["sequence_no"],
+            },
         )
 
     return RewriteResult(

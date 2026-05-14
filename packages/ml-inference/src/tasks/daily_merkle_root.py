@@ -100,8 +100,57 @@ def compute_merkle_root(leaves: list[bytes]) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Main task
+# Main task — registered with the main Celery app (H-CASCADE-6 fix)
 # ---------------------------------------------------------------------------
+#
+# Before this registration, the daily anchor task lived on a SEPARATE Celery
+# app built by ``build_celery_app(...)`` which was never invoked, so the
+# CE-MDR audit-trail integrity claim ("daily Merkle root anchors in S3
+# Object-Lock for 6 years") had no actual job running. We now bind the
+# coroutine to the main ``src.workers.app.app`` AND add a Celery beat
+# schedule entry so it fires every day at 02:00 UTC alongside the rest of
+# the cascade telemetry tasks.
+
+
+def _register_with_main_app() -> None:
+    """Bind ``compute_daily_merkle_root`` to ``src.workers.app.app``.
+
+    Wrapped in a function so an ImportError in dev (no Celery installed)
+    doesn't fail-fast the entire tasks module import.
+    """
+    try:
+        from src.workers.app import app as _main_app  # type: ignore[import-not-found]
+    except Exception:  # noqa: BLE001
+        return
+
+    if _main_app is None:
+        return
+
+    @_main_app.task(  # type: ignore[misc]
+        name="src.tasks.daily_merkle_root.compute_daily_merkle_root",
+        bind=False,
+        acks_late=True,
+    )
+    def _task_wrapper(target_date: str | None = None) -> list[dict[str, Any]]:
+        # Celery tasks are sync entry points; wrap the async coroutine.
+        import asyncio
+
+        return asyncio.run(compute_daily_merkle_root(target_date))
+
+    # Beat schedule — fires daily at 02:00 UTC. Beat must run as a
+    # separate process (``celery -A src.workers.app beat``); the entry
+    # below only activates when that beat process is up.
+    if crontab is not None:
+        _main_app.conf.beat_schedule = {
+            **(getattr(_main_app.conf, "beat_schedule", None) or {}),
+            "daily-merkle-root": {
+                "task": "src.tasks.daily_merkle_root.compute_daily_merkle_root",
+                "schedule": crontab(hour=2, minute=0),
+            },
+        }
+
+
+_register_with_main_app()
 
 
 async def compute_daily_merkle_root(target_date: str | None = None) -> list[dict[str, Any]]:

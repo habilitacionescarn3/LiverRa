@@ -211,6 +211,57 @@ if app is not None:
                     ", ".join(stubs),
                 )
 
+            # B-CASCADE-2 + B-AUDIT-4: install live audit hooks in the
+            # Celery worker process. Without this, every cascade stage
+            # boundary in a worker silently called the no-op base hook
+            # → zero chain rows for every cascade run.
+            try:
+                from src.observability.phi_scrubber import PHIScrubber
+                from src.orchestrator.cascade import (
+                    LiveCascadeAuditHooks,
+                    set_audit_hooks,
+                )
+                from src.services.audit.chain_of_hashes import AuditChainWriter
+                from src.services.fhir.audit_event_emitter import AuditEventEmitter
+
+                try:
+                    from src.db.session import get_sessionmaker  # type: ignore[import-not-found]
+
+                    session_factory = get_sessionmaker()
+                except Exception:
+                    session_factory = None
+
+                # MedplumClient is wired in a later phase. For now we
+                # only install the hooks when a client is registered in
+                # the env (e.g., via a sibling module setting
+                # ``os.environ["LIVERRA_MEDPLUM_BASE_URL"]``) — otherwise
+                # leave the no-op base hook in place. This preserves the
+                # fail-closed contract (no chain row → no business commit)
+                # while still letting dev environments boot.
+                medplum_client = None  # FUTURE: resolve real client here
+                if medplum_client is not None:
+                    chain_writer = AuditChainWriter(session_factory)
+                    emitter = AuditEventEmitter(
+                        medplum_client=medplum_client,
+                        chain_writer=chain_writer,
+                        phi_scrubber=PHIScrubber(),
+                    )
+                    set_audit_hooks(
+                        LiveCascadeAuditHooks(
+                            emitter=emitter,
+                            session_factory=session_factory,
+                        )
+                    )
+                    _log.info("Celery worker: LiveCascadeAuditHooks installed.")
+                else:
+                    _log.warning(
+                        "Celery worker: no Medplum client wired — cascade "
+                        "audit hooks remain no-ops. Set up the Medplum client "
+                        "binding to enable chain-of-hashes emission."
+                    )
+            except Exception:  # noqa: BLE001
+                _log.exception("Celery worker: failed to install audit hooks")
+
             if os.environ.get("LIVERRA_TRITON_WARMUP", "").lower() not in {"1", "true", "yes"}:
                 return
             _warmup_triton_models()

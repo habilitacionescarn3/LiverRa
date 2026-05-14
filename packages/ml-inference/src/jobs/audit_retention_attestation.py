@@ -36,6 +36,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,12 +87,15 @@ async def _count_clipboard_export_rows_by_tenant(
     start = datetime(year, 1, 1, tzinfo=timezone.utc)
     end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
 
+    # LIKE pattern MUST match the no-space convention emitted by
+    # ``services.audit.chain_of_hashes.canonical_json`` (B-AUDIT-2). A
+    # ``": "`` here silently misses every row.
     result = await session.execute(
         text(
             """
             SELECT tenant_id::text, COUNT(*)
               FROM audit_event_chain
-             WHERE canonical_json LIKE '%"code": "readout-clipboard-export"%'
+             WHERE canonical_json LIKE '%"code":"readout-clipboard-export"%'
                AND written_at >= :start
                AND written_at <  :end
              GROUP BY tenant_id
@@ -100,6 +104,77 @@ async def _count_clipboard_export_rows_by_tenant(
         {"start": start, "end": end},
     )
     return {row[0]: int(row[1]) for row in result.all()}
+
+
+async def _verify_chain_for_tenants(
+    session: AsyncSession,
+    *,
+    tenant_ids: list[str],
+    year: int,
+) -> dict[str, dict[str, Any]]:
+    """Run :func:`verify_chain_db` for each tenant over the attestation year.
+
+    Implements H-AUDIT-4: the attestation must not just count rows — it must
+    also assert the leaf-hash chain is intact for the year. Returns
+    ``{tenant_id: {"chain_valid": bool, "rows_checked": int, "first_invalid_seq": int|None, "gaps": list[[int, int]]}}``.
+    Failures are reported per-tenant rather than aborting the whole job; the
+    operator can act on the specific tenant whose chain broke.
+    """
+    from src.services.audit.chain_of_hashes import verify_chain_db
+
+    start = datetime(year, 1, 1, tzinfo=timezone.utc)
+    end = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+
+    out: dict[str, dict[str, Any]] = {}
+    for tid_str in tenant_ids:
+        try:
+            tid = UUID(tid_str)
+        except (TypeError, ValueError):
+            logger.warning("verify_chain skipped: invalid tenant id %r", tid_str)
+            continue
+        # Resolve sequence-no boundaries for the year.
+        bounds = await session.execute(
+            text(
+                """
+                SELECT MIN(sequence_no), MAX(sequence_no)
+                  FROM audit_event_chain
+                 WHERE tenant_id = :tid
+                   AND written_at >= :start
+                   AND written_at <  :end
+                """
+            ),
+            {"tid": tid_str, "start": start, "end": end},
+        )
+        first_row = bounds.first()
+        if first_row is None or first_row[0] is None:
+            out[tid_str] = {
+                "chain_valid": True,
+                "rows_checked": 0,
+                "first_invalid_seq": None,
+                "gaps": [],
+            }
+            continue
+        start_seq = int(first_row[0])
+        end_seq = int(first_row[1])
+        result = await verify_chain_db(
+            session, tid, start_seq=start_seq, end_seq=end_seq
+        )
+        out[tid_str] = {
+            "chain_valid": result.ok,
+            "rows_checked": result.rows_checked,
+            "first_invalid_seq": result.first_invalid_sequence_no,
+            "gaps": [list(g) for g in result.gaps],
+        }
+        if not result.ok:
+            logger.error(
+                "audit_retention_attestation: chain INVALID for tenant=%s year=%d "
+                "first_invalid_seq=%s gaps=%s",
+                tid_str,
+                year,
+                result.first_invalid_sequence_no,
+                result.gaps,
+            )
+    return out
 
 
 def _existing_summary(s3_client: Any, bucket: str, key: str) -> dict[str, int] | None:
@@ -177,14 +252,27 @@ async def run_attestation(
     if hasattr(raw, "__aenter__"):
         async with raw as session:  # type: ignore[union-attr]
             counts = await _count_clipboard_export_rows_by_tenant(session, year=year)
+            # H-AUDIT-4: also verify chain integrity per tenant. Two
+            # independent witnesses (row count + leaf-hash walk) is what
+            # makes the attestation actually attest to anything.
+            chain_status = await _verify_chain_for_tenants(
+                session, tenant_ids=list(counts.keys()), year=year
+            )
     else:
         # Caller already handed us an active session.
         counts = await _count_clipboard_export_rows_by_tenant(raw, year=year)  # type: ignore[arg-type]
+        chain_status = await _verify_chain_for_tenants(
+            raw, tenant_ids=list(counts.keys()), year=year  # type: ignore[arg-type]
+        )
 
     summary: dict[str, Any] = {
         "kind": "readout_clipboard_export_attestation",
         "year": year,
         "counts_by_tenant": counts,
+        "chain_integrity_by_tenant": chain_status,
+        "all_chains_valid": all(
+            c.get("chain_valid", False) for c in chain_status.values()
+        ),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "row_total": sum(counts.values()),
     }

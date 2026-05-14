@@ -211,7 +211,10 @@ async def emit_clipboard_export(
         ),
         {
             "tid": str(tenant_id),
-            "pattern": f'%"valueUuid": "{payload.client_action_id}"%',
+            # Match canonical-JSON encoding (no space after colon) — drift
+            # between this LIKE pattern and the canonical_json() output is
+            # what caused B-AUDIT-2 (idempotency replays silently missed).
+            "pattern": f'%"valueUuid":"{payload.client_action_id}"%',
         },
     )
     prior = existing.first()

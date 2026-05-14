@@ -86,11 +86,15 @@ def test_rewriter_source_never_updates_leaf_hash() -> None:
     ).read_text(encoding="utf-8")
 
     # We allow the strings to appear in COMMENTS (docstring), but there
-    # must be no SQL write targeting them.
+    # must be no SQL write targeting them. Covers both the legacy table
+    # name and the actual chain table the rewriter now targets (B-AUDIT-1).
     forbidden_sql_snippets = (
         "UPDATE audit_event SET leaf_hash",
         "UPDATE audit_event SET prev_leaf_hash",
         "UPDATE audit_event SET sequence_no",
+        "UPDATE audit_event_chain SET leaf_hash",
+        "UPDATE audit_event_chain SET prev_leaf_hash",
+        "UPDATE audit_event_chain SET sequence_no",
     )
     for needle in forbidden_sql_snippets:
         assert needle not in src, (
@@ -98,8 +102,9 @@ def test_rewriter_source_never_updates_leaf_hash() -> None:
             "would break chain integrity (research §A.3)."
         )
 
-    # Positive assertion: the only column we UPDATE is canonical_json.
-    assert "UPDATE audit_event" in src
+    # Positive assertion: the only table we UPDATE is audit_event_chain
+    # and the only column we UPDATE is canonical_json.
+    assert "UPDATE audit_event_chain" in src
     assert "SET canonical_json" in src
 
 

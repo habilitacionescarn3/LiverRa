@@ -158,7 +158,17 @@ def insert_checkpoint(
     output_uri: str,
     model_version: str,
     license_hash: str = "n/a",
+    *,
+    tenant_id: str | None = None,
 ) -> None:
+    """Insert a pipeline_checkpoint row AND co-write the audit chain row.
+
+    The audit chain co-write fixes B-CASCADE-1 + B-CLIN-5: before this
+    fix, every cascade stage wrote clinical rows with ZERO AuditEvent /
+    audit_event_chain emission. We mirror :class:`AuditChainWriter.write`'s
+    hashing formula here because the async writer cannot share a
+    transaction with the script's psycopg connection.
+    """
     conn.execute(
         """
         INSERT INTO pipeline_checkpoint
@@ -168,6 +178,148 @@ def insert_checkpoint(
         """,
         (analysis_id, stage_no, stage, output_uri, model_version, license_hash),
     )
+    if tenant_id is not None:
+        try:
+            _write_chain_stage_complete_sync(
+                conn,
+                tenant_id=tenant_id,
+                analysis_id=analysis_id,
+                stage_no=stage_no,
+                stage=stage,
+                output_uri=output_uri,
+                model_version=model_version,
+                license_hash=license_hash,
+            )
+        except Exception as exc:
+            # Log loudly; do not let a chain-write failure kill the demo.
+            # The HTTP cascade path (src/tasks/real_cascade_task.py) owns
+            # the strict fail-closed enforcement.
+            print(f"      ! audit chain write failed for stage {stage}: {exc}")
+
+
+def _canonical_json_sync(obj) -> str:
+    """Sync-side mirror of services.audit.chain_of_hashes.canonical_json.
+
+    No-space separators are mandatory (B-AUDIT-2). Keep in lock-step with
+    the async writer or LIKE-pattern probes silently miss rows.
+    """
+    return json.dumps(
+        obj,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def _write_chain_stage_complete_sync(
+    conn,
+    *,
+    tenant_id: str,
+    analysis_id: str,
+    stage_no: int,
+    stage: str,
+    output_uri: str,
+    model_version: str,
+    license_hash: str,
+) -> None:
+    """Write a stage_complete row to audit_event_chain via psycopg.
+
+    Mirrors :meth:`AuditChainWriter.write` exactly:
+      1. ``pg_advisory_lock`` keyed on the tenant id (session-scoped here
+         because psycopg autocommit=True means no xact lock available).
+      2. ``SELECT ... ORDER BY sequence_no DESC LIMIT 1`` for the previous
+         leaf hash.
+      3. ``MAX(sequence_no) + 1`` for the next sequence number.
+      4. ``leaf_hash = sha256(prev || sha256(tid:seq:canonical))``.
+      5. INSERT.
+    """
+    import hashlib
+    from datetime import datetime, timezone
+
+    event = {
+        "resourceType": "AuditEvent",
+        "type": {
+            "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
+            "code": "rest",
+            "display": "RESTful Operation",
+        },
+        "subtype": [
+            {
+                "system": "http://liverra.ai/fhir/CodeSystem/audit-subtypes",
+                "code": "inference_stage_complete",
+            }
+        ],
+        "recorded": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "outcome": "0",
+        "agent": [
+            {
+                "who": {"reference": "Device/liverra-ml-inference"},
+                "requestor": True,
+            }
+        ],
+        "source": {"observer": {"reference": "Device/liverra-ml-inference"}},
+        "entity": [{"what": {"reference": f"Analysis/{analysis_id}"}}],
+        "extension": [
+            {"url": "stage", "valueString": stage},
+            {"url": "stage_no", "valueInteger": stage_no},
+            {"url": "output_uri", "valueString": output_uri},
+            {"url": "model_version", "valueString": model_version},
+            {"url": "model_license_hash", "valueString": license_hash},
+        ],
+    }
+    canonical = _canonical_json_sync(event)
+    canonical_bytes = canonical.encode("utf-8")
+    tid = str(tenant_id)
+
+    def _sha(b: bytes) -> bytes:
+        return hashlib.sha256(b).digest()
+
+    conn.execute("SELECT pg_advisory_lock(hashtext(%s))", (tid,))
+    try:
+        cur = conn.execute(
+            """
+            SELECT leaf_hash
+              FROM audit_event_chain
+             WHERE tenant_id = %s
+             ORDER BY sequence_no DESC
+             LIMIT 1
+            """,
+            (tid,),
+        )
+        prev_row = cur.fetchone()
+        prev_leaf = bytes(prev_row[0]) if prev_row else b"\x00" * 32
+
+        cur = conn.execute(
+            """
+            SELECT COALESCE(MAX(sequence_no), 0) + 1
+              FROM audit_event_chain
+             WHERE tenant_id = %s
+            """,
+            (tid,),
+        )
+        seq = int(cur.fetchone()[0])
+
+        canonical_sha = _sha(
+            tid.encode("utf-8")
+            + b":"
+            + str(seq).encode("utf-8")
+            + b":"
+            + canonical_bytes
+        )
+        leaf_hash = _sha(prev_leaf + canonical_sha)
+
+        conn.execute(
+            """
+            INSERT INTO audit_event_chain
+              (tenant_id, sequence_no, leaf_hash, prev_leaf_hash,
+               canonical_json, written_at)
+            VALUES (%s, %s, %s, %s, %s, now())
+            """,
+            (tid, seq, leaf_hash, prev_leaf, canonical),
+        )
+    finally:
+        conn.execute("SELECT pg_advisory_unlock(hashtext(%s))", (tid,))
 
 
 # ---------------------------------------------------------------------------
@@ -243,6 +395,7 @@ def run_real_cascade(
             "anonymization",
             f"s3://liverra-dev/anonymized/{study_id}.zip",
             "ctp+presidio@v1-passthrough",
+            tenant_id=tenant_id,
         )
     print(f"      ✓ +{time.perf_counter()-t0:.2f}s")
 
@@ -337,6 +490,7 @@ def run_real_cascade(
             parenchyma_uri,
             "totalsegmentator-v2",
             license_hash="cc-by-nc-sa-4.0",
+            tenant_id=tenant_id,
         )
     print(f"      ✓ {parenchyma_uri.split('/')[-1]}  +{time.perf_counter()-t0:.2f}s")
 
@@ -397,6 +551,7 @@ def run_real_cascade(
                 vessel_uri,
                 "totalsegmentator-v2-liver_vessels",
                 license_hash="cc-by-nc-sa-4.0",
+                tenant_id=tenant_id,
             )
             v_arr = sitk.GetArrayFromImage(portal_native if portal_native is not None else hepatic_native)
             v_voxels = int((v_arr > 0).sum())
@@ -411,6 +566,7 @@ def run_real_cascade(
                 f"s3://liverra-dev/stub/{analysis_id}/vessels.nii.gz",
                 "stub-vessels@v1",
                 license_hash="n/a-dev-stub",
+                tenant_id=tenant_id,
             )
 
         # Stage 4 — Couinaud (anatomical heuristic via Cantlie + portal
@@ -452,6 +608,7 @@ def run_real_cascade(
             couinaud_uri,
             "couinaud-heuristic-v1",
             license_hash="n/a-heuristic",
+            tenant_id=tenant_id,
         )
         # Segmentation rows for the report — one per mask the UI surfaces.
         # AI-generated, so generation_source='ai'. sop_instance_uid is a
@@ -580,6 +737,7 @@ def run_real_cascade(
             if tumor_native is not None
             else "stub-no-tumor",
             license_hash="cc-by-nc-sa-4.0" if tumor_native is not None else "n/a-dev-stub",
+            tenant_id=tenant_id,
         )
 
     # ----------------------------------------------------------------------
@@ -690,6 +848,7 @@ def run_real_cascade(
                 f"s3://{ANALYSES_BUCKET}/analyses/{analysis_id}/lesion_classifications.json",
                 classifier_version,
                 license_hash="n/a-rule-based",
+                tenant_id=tenant_id,
             )
             # Lesion rows — one per classified lesion. The UI's lesions list +
             # report rendering both read from this table. bbox3d is required
@@ -818,6 +977,7 @@ def run_real_cascade(
                 f"s3://liverra-dev/stub/{analysis_id}/classification.json",
                 "skipped-no-lesions",
                 license_hash="n/a",
+                tenant_id=tenant_id,
             )
 
     # ----------------------------------------------------------------------
@@ -869,7 +1029,43 @@ def run_real_cascade(
             f"flr://analyses/{analysis_id}",
             f"flr-segment-aware-{resection_pattern}@v1",
             license_hash="n/a-heuristic",
+            tenant_id=tenant_id,
         )
+        # B-CASCADE-3 fix: persist model_versions to the Analysis row so
+        # MBoM / provenance queries can answer "which model produced this
+        # analysis?" without scraping pipeline_checkpoint. Vessel
+        # provenance falls back to a sentinel string when the GPU service
+        # didn't return version metadata (see B-INFER-1 — separate fix).
+        model_versions = {
+            "anonymization": "ctp+presidio@v1-passthrough",
+            "parenchyma": "totalsegmentator-v2",
+            "vessels": (
+                "totalsegmentator-v2-liver_vessels"
+                if vessels_done
+                else "stub-vessels@v1"
+            ),
+            "couinaud": "couinaud-heuristic-v1",
+            "lesion_detection": (
+                "totalsegmentator-v2-liver_vessels"
+                if tumor_native is not None
+                else "stub-no-tumor"
+            ),
+            "classification": (
+                classifier_version if classifications else "skipped-no-lesions"
+            ),
+            "flr_init": f"flr-segment-aware-{resection_pattern}@v1",
+        }
+        try:
+            conn.execute(
+                """
+                UPDATE analysis
+                   SET model_versions = %s::jsonb
+                 WHERE id = %s
+                """,
+                (json.dumps(model_versions), analysis_id),
+            )
+        except Exception as exc:
+            print(f"      ! model_versions UPDATE skipped (column may be absent): {exc}")
         # Mark Analysis completed.
         conn.execute(
             "UPDATE analysis SET status='completed', completed_at=now() WHERE id=%s",

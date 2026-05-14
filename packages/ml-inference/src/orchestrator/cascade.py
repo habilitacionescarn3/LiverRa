@@ -201,6 +201,207 @@ def get_audit_hooks() -> CascadeAuditHooks:
 
 
 # ---------------------------------------------------------------------------
+# LiveCascadeAuditHooks — wires every cascade stage boundary into the
+# chain-of-hashes via AuditEventEmitter (B-CASCADE-1 + B-CASCADE-2 + B-AUDIT-4)
+# ---------------------------------------------------------------------------
+
+
+class LiveCascadeAuditHooks(CascadeAuditHooks):
+    """Production audit hooks for the cascade.
+
+    Plain-English:
+        Every time the cascade starts/finishes/fails a stage, we write a
+        FHIR AuditEvent + a chain-of-hashes row so an auditor can trace
+        exactly which model produced which output for which patient and
+        when. Before this class existed, the cascade base class's
+        ``...`` bodies meant ZERO audit rows for every cascade run.
+
+    Implementation notes:
+        - Routes through :class:`AuditEventEmitter` so PHI is scrubbed
+          before either the FHIR mirror or the chain row is written.
+        - Each hook opens its own short-lived async session — the Celery
+          task that calls them is sync (psycopg) and cannot share the
+          asyncpg-backed session. ``LIVERRA_AUDIT_TENANT_ID`` is the
+          fallback tenant when none is wired through (dev/CLI runs).
+        - Errors are logged + Sentry-captured but never re-raised. The
+          cascade IS allowed to continue if the audit emitter is offline
+          (constitution §Defense-in-depth — never let audit IO take
+          down a clinical pipeline). A successful audit emission is the
+          desired path, not a blocking precondition.
+    """
+
+    def __init__(
+        self,
+        emitter: Any | None = None,
+        *,
+        session_factory: Callable[[], Any] | None = None,
+        actor_reference: str = "Device/liverra-ml-inference",
+    ) -> None:
+        self._emitter = emitter
+        self._session_factory = session_factory
+        self._actor_reference = actor_reference
+
+    # -- internals ------------------------------------------------------
+
+    def _resolve_tenant(self) -> UUID | None:
+        env_tid = os.environ.get("LIVERRA_AUDIT_TENANT_ID")
+        if not env_tid:
+            return None
+        try:
+            return UUID(env_tid)
+        except (TypeError, ValueError):
+            return None
+
+    async def _emit(
+        self,
+        *,
+        action_code: str,
+        outcome: str,
+        analysis_id: UUID,
+        stage: str,
+        result: dict[str, Any] | None = None,
+        error_slug: str | None = None,
+        correlation_id: str | None = None,
+        model_version: str | None = None,
+    ) -> None:
+        if self._emitter is None or self._session_factory is None:
+            logger.debug(
+                "LiveCascadeAuditHooks: emitter unwired — skipping %s for "
+                "analysis=%s stage=%s",
+                action_code,
+                analysis_id,
+                stage,
+            )
+            return
+
+        tenant = self._resolve_tenant()
+        if tenant is None:
+            logger.debug(
+                "LiveCascadeAuditHooks: no tenant id — skipping %s for "
+                "analysis=%s stage=%s",
+                action_code,
+                analysis_id,
+                stage,
+            )
+            return
+
+        # Lazy import to avoid a circular import between cascade.py and the
+        # FHIR emitter module (the emitter imports cascade for hook type).
+        try:
+            from src.services.fhir.audit_event_emitter import DomainAuditEvent
+        except Exception:  # pragma: no cover — defensive
+            logger.exception("LiveCascadeAuditHooks: emitter import failed")
+            return
+
+        extra: list[dict[str, Any]] = [
+            {"url": "stage", "valueString": stage},
+        ]
+        if correlation_id:
+            extra.append({"url": "correlation_id", "valueString": correlation_id})
+        if error_slug:
+            extra.append({"url": "error_slug", "valueString": error_slug})
+        if result is not None:
+            # Keep the result blob small + PHI-free — the emitter's
+            # PHIScrubber will still run, but smaller payloads are kinder
+            # to the chain canonical_json column.
+            keep = {
+                k: v
+                for k, v in result.items()
+                if k in {"sanity", "model_version", "model_id", "weights_sha"}
+                or isinstance(v, (int, float, str, bool))
+            }
+            extra.append({"url": "result_summary", "valueString": str(keep)})
+
+        event = DomainAuditEvent(
+            action_code=action_code,
+            outcome=outcome,
+            actor_reference=self._actor_reference,
+            entity_references=[f"Analysis/{analysis_id}"],
+            model_version=model_version,
+            extra_extensions=extra,
+        )
+
+        try:
+            session_ctx = self._session_factory()
+            if hasattr(session_ctx, "__aenter__"):
+                async with session_ctx as session:  # type: ignore[union-attr]
+                    await self._emitter.emit(event, tenant, session)
+                    await session.commit()
+            else:
+                await self._emitter.emit(event, tenant, session_ctx)
+        except Exception:
+            logger.exception(
+                "LiveCascadeAuditHooks: emit FAILED action=%s analysis=%s stage=%s",
+                action_code,
+                analysis_id,
+                stage,
+            )
+            try:
+                import sentry_sdk  # type: ignore[import-not-found]
+
+                sentry_sdk.capture_message(
+                    f"cascade-audit-emit-failed:{action_code}:{stage}",
+                    level="error",
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+    # -- public hook API ------------------------------------------------
+
+    async def on_stage_start(
+        self,
+        analysis_id: UUID,
+        stage: str,
+        correlation_id: str | None,
+    ) -> None:
+        await self._emit(
+            action_code="inference_stage_start",
+            outcome="0",
+            analysis_id=analysis_id,
+            stage=stage,
+            correlation_id=correlation_id,
+        )
+
+    async def on_stage_complete(
+        self,
+        analysis_id: UUID,
+        stage: str,
+        result: dict[str, Any],
+        correlation_id: str | None,
+    ) -> None:
+        model_version = None
+        if isinstance(result, dict):
+            mv = result.get("model_version") or result.get("model_id")
+            if isinstance(mv, str):
+                model_version = mv
+        await self._emit(
+            action_code="inference_stage_complete",
+            outcome="0",
+            analysis_id=analysis_id,
+            stage=stage,
+            result=result if isinstance(result, dict) else None,
+            correlation_id=correlation_id,
+            model_version=model_version,
+        )
+
+    async def on_stage_failed(
+        self,
+        analysis_id: UUID,
+        stage: str,
+        error_slug: str,
+        correlation_id: str | None,
+    ) -> None:
+        await self._emit(
+            action_code="inference_stage_failed",
+            outcome="8",
+            analysis_id=analysis_id,
+            stage=stage,
+            error_slug=error_slug,
+            correlation_id=correlation_id,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Stage-execution wrapper (T166 target)
 # ---------------------------------------------------------------------------
 
@@ -414,6 +615,7 @@ def check_lesion_containment(
 
 __all__ = [
     "CascadeAuditHooks",
+    "LiveCascadeAuditHooks",
     "STAGE_BUDGETS",
     "StageBudget",
     "build_cascade",
