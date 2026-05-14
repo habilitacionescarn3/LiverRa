@@ -31,7 +31,7 @@
   color: var(--emr-text-secondary);
   text-align: center;
   white-space: nowrap;
-  letter-spacing: var(--emr-letter-spacing-tight, 0);
+  letter-spacing: var(--emr-letter-spacing-tight);
 
   background-color: transparent;
   border: none;
@@ -60,7 +60,7 @@
 }
 
 .menuItem:hover:not(.active) {
-  background-color: var(--emr-hover-bg, var(--emr-bg-hover));
+  background-color: var(--emr-hover-bg);
   color: var(--emr-secondary);
 }
 
@@ -71,9 +71,9 @@
 
 .menuItem.active {
   background: var(--emr-gradient-primary);
-  color: var(--emr-text-white, var(--emr-text-inverse));
+  color: var(--emr-text-white);
   font-weight: var(--emr-font-semibold);
-  box-shadow: var(--emr-shadow-button, var(--emr-shadow-md));
+  box-shadow: var(--emr-shadow-button);
 }
 
 .menuItem.active .menuIcon {
@@ -87,13 +87,13 @@
   transform: translateX(-50%);
   width: 4px;
   height: 4px;
-  background: var(--emr-text-white, var(--emr-text-inverse));
+  background: var(--emr-text-white);
   border-radius: 50%;
   opacity: 0.9;
 }
 
 .menuItem.active:hover {
-  box-shadow: var(--emr-shadow-button-hover, var(--emr-shadow-lg));
+  box-shadow: var(--emr-shadow-button-hover);
   transform: translateY(-1px);
 }
 
@@ -104,7 +104,7 @@
 }
 
 .menuItem.active:focus-visible {
-  outline-color: var(--emr-text-white, var(--emr-text-inverse));
+  outline-color: var(--emr-text-white);
   outline-offset: 3px;
 }
 
@@ -172,7 +172,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: var(--emr-z-mainmenu, 40);
+  z-index: var(--emr-z-mainmenu);
 
   display: flex;
   flex-direction: row;
@@ -185,7 +185,7 @@
 
   background: var(--emr-bg-card);
   border-top: 1px solid var(--emr-border-color);
-  box-shadow: 0 -2px 12px var(--emr-black-alpha-08, rgba(0, 0, 0, 0.08));
+  box-shadow: 0 -2px 12px var(--emr-black-alpha-08);
 
   -webkit-tap-highlight-color: transparent;
   touch-action: pan-y;
@@ -272,7 +272,7 @@
 }
 
 .overflowItemActive {
-  background: var(--emr-primary-light, var(--emr-bg-hover));
+  background: var(--emr-primary-light);
   color: var(--emr-primary);
   font-weight: var(--emr-font-semibold);
 }

@@ -443,7 +443,8 @@ export function SegmentationPanel({
               disabled={!newSegmentName.trim()}
               style={{
                 flex: 1,
-                background: 'linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%)',
+                /* Brand gradient — uses theme token, follows T464 brand ramp. */
+                background: 'var(--emr-gradient-primary)',
               }}
               styles={{ label: { overflow: 'visible', height: 'auto' } }}
             >

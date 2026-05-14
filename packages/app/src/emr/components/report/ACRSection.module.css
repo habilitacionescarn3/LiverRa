@@ -84,7 +84,7 @@
   padding: 8px;
   border-radius: 4px;
   font-size: var(--emr-font-xs);
-  font-weight: 500;
+  font-weight: var(--emr-font-medium);
   margin-top: var(--emr-spacing-xs);
 }
 

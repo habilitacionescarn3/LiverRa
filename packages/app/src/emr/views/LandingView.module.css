@@ -59,8 +59,8 @@
   background: var(--emr-warning-bg);
   color: var(--emr-warning-text);
   border: 1px solid var(--emr-warning-border);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1;
@@ -78,7 +78,7 @@
   font-size: clamp(44px, 6.5vw, 72px);
   line-height: 1.02;
   letter-spacing: -0.03em;
-  font-weight: 700;
+  font-weight: var(--emr-font-bold);
   color: var(--emr-text-primary);
   background-image: linear-gradient(
     135deg,
@@ -96,7 +96,7 @@
   margin: 0;
   font-size: clamp(18px, 2vw, 22px);
   line-height: 1.45;
-  font-weight: 400;
+  font-weight: var(--emr-font-normal);
   color: var(--emr-text-secondary);
   max-width: 720px;
 }
@@ -189,8 +189,8 @@
   border-radius: var(--emr-border-radius);
   color: var(--emr-text-secondary);
   text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-medium);
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -224,8 +224,8 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--emr-font-lg);
+  font-weight: var(--emr-font-semibold);
   letter-spacing: 0.02em;
   color: var(--emr-text-primary);
   text-transform: uppercase;
@@ -233,8 +233,8 @@
 
 .sectionKicker {
   color: var(--emr-text-secondary);
-  font-size: 13px;
-  font-weight: 400;
+  font-size: var(--emr-font-base);
+  font-weight: var(--emr-font-normal);
   letter-spacing: normal;
   text-transform: none;
 }
@@ -323,15 +323,15 @@
 
 .featureTitle {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
   color: var(--emr-text-primary);
   letter-spacing: -0.005em;
 }
 
 .featureBody {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--emr-font-base);
   line-height: 1.55;
   color: var(--emr-text-secondary);
   min-width: 0;
@@ -367,8 +367,8 @@
   background: var(--emr-bg-card);
   color: var(--emr-text-primary);
   text-decoration: none;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--emr-font-base);
+  font-weight: var(--emr-font-medium);
   transition: background-color 0.15s ease, border-color 0.15s ease,
     transform 0.15s ease;
   min-width: 0;
@@ -408,7 +408,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: var(--emr-font-sm);
   color: var(--emr-text-tertiary);
 }
 
@@ -431,7 +431,7 @@
 
 .footerRuo {
   color: var(--emr-warning-text);
-  font-weight: 600;
+  font-weight: var(--emr-font-semibold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;

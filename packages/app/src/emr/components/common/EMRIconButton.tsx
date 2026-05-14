@@ -15,7 +15,18 @@ import styles from './EMRIconButton.module.css';
 export interface EMRIconButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   icon: ComponentType<{ size?: number; stroke?: number }>;
-  size?: 'sm' | 'md' | 'lg';
+  /**
+   * Visual size of the button.
+   *
+   * - `md` (default) — 44×44, WCAG 2.5.5 AAA compliant. Use everywhere by default.
+   * - `sm` — 38×38 visual, 44×44 hit zone via ::before pseudo-element. Use
+   *   only in dense toolbars where layout precludes 44px squares.
+   * - `lg` — 50×50, for hero CTAs (theater toggle).
+   * - `clinicalControl` — 44×44, for DICOM viewer + measurement / segmentation
+   *   panel controls. Same dimensions as `md` but a dedicated class so viewer
+   *   styling can scope clinical accents without bleeding into general buttons.
+   */
+  size?: 'sm' | 'md' | 'lg' | 'clinicalControl';
   variant?: 'subtle' | 'solid';
   active?: boolean;
   iconSize?: number;
@@ -37,8 +48,17 @@ export const EMRIconButton = forwardRef<HTMLButtonElement, EMRIconButtonProps>(
     },
     ref,
   ) {
-    const sizeClass = size === 'sm' ? styles.sm : size === 'lg' ? styles.lg : '';
-    const computedIconSize = iconSize ?? (size === 'sm' ? 14 : size === 'lg' ? 22 : 18);
+    const sizeClass =
+      size === 'sm'
+        ? styles.sm
+        : size === 'lg'
+        ? styles.lg
+        : size === 'clinicalControl'
+        ? styles.clinicalControl
+        : '';
+    const computedIconSize =
+      iconSize ??
+      (size === 'sm' ? 16 : size === 'lg' ? 24 : 20);
     return (
       <button
         ref={ref}

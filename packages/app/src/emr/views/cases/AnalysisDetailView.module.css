@@ -17,7 +17,7 @@
      tall + 16 px bottom offset + 8 px breathing = 60 px reserve.
      Exposed as a CSS variable so the reserved height can be tuned
      from theme.css later without re-editing this rule. */
-  padding-bottom: var(--emr-ruo-ribbon-reserve, 60px);
+  padding-bottom: var(--emr-ruo-ribbon-reserve);
 }
 
 /* ── Hero header band (compact, single row) ─────────────────────────── */
@@ -163,7 +163,7 @@
      stays the tall hero on big screens. Do NOT change this. */
   flex: 1;
   display: grid;
-  grid-template-columns: var(--rail-left, 300px) minmax(0, 1fr) var(--rail-right, 320px);
+  grid-template-columns: var(--rail-left) minmax(0, 1fr) var(--rail-right);
   /* NOTE: do NOT set `align-items: start` here — that would force the
      viewer column to stop at its content height. Per-column control is
      applied via `align-self` on the rail that needs it (`.railRight`). */
@@ -212,7 +212,7 @@
 /* Tablet: hide right rail; left can collapse to icons. */
 @media (max-width: 1199px) {
   .workspace {
-    grid-template-columns: var(--rail-left, 280px) minmax(0, 1fr);
+    grid-template-columns: var(--rail-left) minmax(0, 1fr);
     --rail-right: 0;
   }
   .railRight {
@@ -423,7 +423,7 @@
   display: inline-flex;
   align-items: center;
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--emr-font-2xs);
   font-weight: var(--emr-font-semibold);
   letter-spacing: 0.05em;
   border-radius: 4px;

@@ -1,0 +1,669 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=de scenario=complete 1`] = `
+"--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---
+
+[de] LIVER
+  [de] Mean HU: 55 (p10 48, p90 62)
+  [de] Steatosis grade: [de] Moderate ([de] Δ liver–spleen = -15.0 HU)
+
+[de] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([de] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([de] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([de] Confidence 93%)
+  [de] Calcified lesion: 1
+  [de] LR-M: 1
+
+[de] VESSELS
+  [de] Not assessed
+
+[de] GALLBLADDER
+  [de] Volume: 22 mL
+  [de] Wall thickness: 2.5 mm
+  [de] Stones detected: [de] No
+
+[de] SPLEEN
+  [de] Volume: 220 mL
+  [de] Splenomegaly: [de] Within reference
+
+[de] FLRASSESSMENT
+  [de] Plan: right hepatectomy
+  [de] FLR: 518 mL (28.4%) — [de] LOW
+  [de] Recommendation: [de] consider PVE or ALPPS
+
+--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=de scenario=degraded-spleen 1`] = `
+"--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---
+
+[de] LIVER
+  [de] Mean HU: 55 (p10 48, p90 62)
+  [de] Steatosis grade: [de] Moderate ([de] Δ liver–spleen = -15.0 HU)
+
+[de] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([de] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([de] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([de] Confidence 93%)
+  [de] Calcified lesion: 1
+  [de] LR-M: 1
+
+[de] VESSELS
+  [de] Not assessed
+
+[de] GALLBLADDER
+  [de] Volume: 22 mL
+  [de] Wall thickness: 2.5 mm
+  [de] Stones detected: [de] No
+
+[de] SPLEEN
+  [de] Volume: 220 mL
+  ! Spleen mask <500 voxels — volume estimate degraded
+  [de] Splenomegaly: [de] Within reference
+
+[de] FLRASSESSMENT
+  [de] Plan: right hepatectomy
+  [de] FLR: 518 mL (28.4%) — [de] LOW
+  [de] Recommendation: [de] consider PVE or ALPPS
+
+--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=de scenario=no-lesions 1`] = `
+"--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---
+
+[de] LIVER
+  [de] Mean HU: 55 (p10 48, p90 62)
+  [de] Steatosis grade: [de] Moderate ([de] Δ liver–spleen = -15.0 HU)
+
+[de] LESIONS
+  [de] Calcified lesion: 1
+
+[de] VESSELS
+  [de] Not assessed
+
+[de] GALLBLADDER
+  [de] Volume: 22 mL
+  [de] Wall thickness: 2.5 mm
+  [de] Stones detected: [de] No
+
+[de] SPLEEN
+  [de] Volume: 220 mL
+  [de] Splenomegaly: [de] Within reference
+
+[de] FLRASSESSMENT
+  [de] Plan: right hepatectomy
+  [de] FLR: 518 mL (28.4%) — [de] LOW
+  [de] Recommendation: [de] consider PVE or ALPPS
+
+--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=de scenario=partial-payload 1`] = `
+"--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---
+
+[de] LIVER
+  [de] Mean HU: 55 (p10 NaN, p90 NaN)
+  [de] Steatosis grade: [de] Moderate ([de] Δ liver–spleen = -15.0 HU)
+
+[de] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([de] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([de] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([de] Confidence 93%)
+  [de] Calcified lesion: 1
+  [de] LR-M: 1
+
+[de] VESSELS
+  [de] Not assessed
+
+[de] GALLBLADDER
+  [de] Volume: 22 mL
+  [de] Wall thickness: NaN mm
+  [de] Stones detected: [de] No
+
+[de] SPLEEN
+  [de] Volume: 220 mL
+  [de] Splenomegaly: [de] Within reference
+
+[de] FLRASSESSMENT
+  [de] Plan: right hepatectomy
+  [de] FLR: 518 mL (28.4%) — [de] LOW
+  [de] Recommendation: [de] consider PVE or ALPPS
+
+--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=de scenario=stale-finding 1`] = `
+"--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---
+
+[de] LIVER
+  [de] Mean HU: 55 (p10 48, p90 62)
+  [de] Steatosis grade: [de] Moderate ([de] Δ liver–spleen = -15.0 HU)
+
+[de] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([de] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([de] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([de] Confidence 93%)
+  [de] Calcified lesion: 1
+  [de] LR-M: 1
+
+[de] VESSELS
+  [de] Not assessed
+
+[de] GALLBLADDER
+  [de] Volume: 22 mL
+  [de] Wall thickness: 2.5 mm
+  [de] Stones detected: [de] No
+
+[de] SPLEEN
+  [de] Volume: 220 mL
+  [de] Splenomegaly: [de] Within reference
+
+[de] FLRASSESSMENT
+  [de] Plan: right hepatectomy
+  [de] FLR: 518 mL (28.4%) — [de] LOW
+  [de] Recommendation: [de] consider PVE or ALPPS
+
+--- NUR FÜR FORSCHUNGSZWECKE — NICHT FÜR DIE PRIMÄRE DIAGNOSTIK ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=en scenario=complete 1`] = `
+"--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---
+
+[en] LIVER
+  [en] Mean HU: 55 (p10 48, p90 62)
+  [en] Steatosis grade: [en] Moderate ([en] Δ liver–spleen = -15.0 HU)
+
+[en] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([en] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([en] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([en] Confidence 93%)
+  [en] Calcified lesion: 1
+  [en] LR-M: 1
+
+[en] VESSELS
+  [en] Not assessed
+
+[en] GALLBLADDER
+  [en] Volume: 22 mL
+  [en] Wall thickness: 2.5 mm
+  [en] Stones detected: [en] No
+
+[en] SPLEEN
+  [en] Volume: 220 mL
+  [en] Splenomegaly: [en] Within reference
+
+[en] FLRASSESSMENT
+  [en] Plan: right hepatectomy
+  [en] FLR: 518 mL (28.4%) — [en] LOW
+  [en] Recommendation: [en] consider PVE or ALPPS
+
+--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=en scenario=degraded-spleen 1`] = `
+"--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---
+
+[en] LIVER
+  [en] Mean HU: 55 (p10 48, p90 62)
+  [en] Steatosis grade: [en] Moderate ([en] Δ liver–spleen = -15.0 HU)
+
+[en] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([en] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([en] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([en] Confidence 93%)
+  [en] Calcified lesion: 1
+  [en] LR-M: 1
+
+[en] VESSELS
+  [en] Not assessed
+
+[en] GALLBLADDER
+  [en] Volume: 22 mL
+  [en] Wall thickness: 2.5 mm
+  [en] Stones detected: [en] No
+
+[en] SPLEEN
+  [en] Volume: 220 mL
+  ! Spleen mask <500 voxels — volume estimate degraded
+  [en] Splenomegaly: [en] Within reference
+
+[en] FLRASSESSMENT
+  [en] Plan: right hepatectomy
+  [en] FLR: 518 mL (28.4%) — [en] LOW
+  [en] Recommendation: [en] consider PVE or ALPPS
+
+--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=en scenario=no-lesions 1`] = `
+"--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---
+
+[en] LIVER
+  [en] Mean HU: 55 (p10 48, p90 62)
+  [en] Steatosis grade: [en] Moderate ([en] Δ liver–spleen = -15.0 HU)
+
+[en] LESIONS
+  [en] Calcified lesion: 1
+
+[en] VESSELS
+  [en] Not assessed
+
+[en] GALLBLADDER
+  [en] Volume: 22 mL
+  [en] Wall thickness: 2.5 mm
+  [en] Stones detected: [en] No
+
+[en] SPLEEN
+  [en] Volume: 220 mL
+  [en] Splenomegaly: [en] Within reference
+
+[en] FLRASSESSMENT
+  [en] Plan: right hepatectomy
+  [en] FLR: 518 mL (28.4%) — [en] LOW
+  [en] Recommendation: [en] consider PVE or ALPPS
+
+--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=en scenario=partial-payload 1`] = `
+"--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---
+
+[en] LIVER
+  [en] Mean HU: 55 (p10 NaN, p90 NaN)
+  [en] Steatosis grade: [en] Moderate ([en] Δ liver–spleen = -15.0 HU)
+
+[en] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([en] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([en] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([en] Confidence 93%)
+  [en] Calcified lesion: 1
+  [en] LR-M: 1
+
+[en] VESSELS
+  [en] Not assessed
+
+[en] GALLBLADDER
+  [en] Volume: 22 mL
+  [en] Wall thickness: NaN mm
+  [en] Stones detected: [en] No
+
+[en] SPLEEN
+  [en] Volume: 220 mL
+  [en] Splenomegaly: [en] Within reference
+
+[en] FLRASSESSMENT
+  [en] Plan: right hepatectomy
+  [en] FLR: 518 mL (28.4%) — [en] LOW
+  [en] Recommendation: [en] consider PVE or ALPPS
+
+--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=en scenario=stale-finding 1`] = `
+"--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---
+
+[en] LIVER
+  [en] Mean HU: 55 (p10 48, p90 62)
+  [en] Steatosis grade: [en] Moderate ([en] Δ liver–spleen = -15.0 HU)
+
+[en] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([en] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([en] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([en] Confidence 93%)
+  [en] Calcified lesion: 1
+  [en] LR-M: 1
+
+[en] VESSELS
+  [en] Not assessed
+
+[en] GALLBLADDER
+  [en] Volume: 22 mL
+  [en] Wall thickness: 2.5 mm
+  [en] Stones detected: [en] No
+
+[en] SPLEEN
+  [en] Volume: 220 mL
+  [en] Splenomegaly: [en] Within reference
+
+[en] FLRASSESSMENT
+  [en] Plan: right hepatectomy
+  [en] FLR: 518 mL (28.4%) — [en] LOW
+  [en] Recommendation: [en] consider PVE or ALPPS
+
+--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ka scenario=complete 1`] = `
+"--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---
+
+[ka] LIVER
+  [ka] Mean HU: 55 (p10 48, p90 62)
+  [ka] Steatosis grade: [ka] Moderate ([ka] Δ liver–spleen = -15.0 HU)
+
+[ka] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ka] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ka] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ka] Confidence 93%)
+  [ka] Calcified lesion: 1
+  [ka] LR-M: 1
+
+[ka] VESSELS
+  [ka] Not assessed
+
+[ka] GALLBLADDER
+  [ka] Volume: 22 mL
+  [ka] Wall thickness: 2.5 mm
+  [ka] Stones detected: [ka] No
+
+[ka] SPLEEN
+  [ka] Volume: 220 mL
+  [ka] Splenomegaly: [ka] Within reference
+
+[ka] FLRASSESSMENT
+  [ka] Plan: right hepatectomy
+  [ka] FLR: 518 mL (28.4%) — [ka] LOW
+  [ka] Recommendation: [ka] consider PVE or ALPPS
+
+--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ka scenario=degraded-spleen 1`] = `
+"--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---
+
+[ka] LIVER
+  [ka] Mean HU: 55 (p10 48, p90 62)
+  [ka] Steatosis grade: [ka] Moderate ([ka] Δ liver–spleen = -15.0 HU)
+
+[ka] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ka] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ka] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ka] Confidence 93%)
+  [ka] Calcified lesion: 1
+  [ka] LR-M: 1
+
+[ka] VESSELS
+  [ka] Not assessed
+
+[ka] GALLBLADDER
+  [ka] Volume: 22 mL
+  [ka] Wall thickness: 2.5 mm
+  [ka] Stones detected: [ka] No
+
+[ka] SPLEEN
+  [ka] Volume: 220 mL
+  ! Spleen mask <500 voxels — volume estimate degraded
+  [ka] Splenomegaly: [ka] Within reference
+
+[ka] FLRASSESSMENT
+  [ka] Plan: right hepatectomy
+  [ka] FLR: 518 mL (28.4%) — [ka] LOW
+  [ka] Recommendation: [ka] consider PVE or ALPPS
+
+--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ka scenario=no-lesions 1`] = `
+"--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---
+
+[ka] LIVER
+  [ka] Mean HU: 55 (p10 48, p90 62)
+  [ka] Steatosis grade: [ka] Moderate ([ka] Δ liver–spleen = -15.0 HU)
+
+[ka] LESIONS
+  [ka] Calcified lesion: 1
+
+[ka] VESSELS
+  [ka] Not assessed
+
+[ka] GALLBLADDER
+  [ka] Volume: 22 mL
+  [ka] Wall thickness: 2.5 mm
+  [ka] Stones detected: [ka] No
+
+[ka] SPLEEN
+  [ka] Volume: 220 mL
+  [ka] Splenomegaly: [ka] Within reference
+
+[ka] FLRASSESSMENT
+  [ka] Plan: right hepatectomy
+  [ka] FLR: 518 mL (28.4%) — [ka] LOW
+  [ka] Recommendation: [ka] consider PVE or ALPPS
+
+--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ka scenario=partial-payload 1`] = `
+"--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---
+
+[ka] LIVER
+  [ka] Mean HU: 55 (p10 NaN, p90 NaN)
+  [ka] Steatosis grade: [ka] Moderate ([ka] Δ liver–spleen = -15.0 HU)
+
+[ka] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ka] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ka] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ka] Confidence 93%)
+  [ka] Calcified lesion: 1
+  [ka] LR-M: 1
+
+[ka] VESSELS
+  [ka] Not assessed
+
+[ka] GALLBLADDER
+  [ka] Volume: 22 mL
+  [ka] Wall thickness: NaN mm
+  [ka] Stones detected: [ka] No
+
+[ka] SPLEEN
+  [ka] Volume: 220 mL
+  [ka] Splenomegaly: [ka] Within reference
+
+[ka] FLRASSESSMENT
+  [ka] Plan: right hepatectomy
+  [ka] FLR: 518 mL (28.4%) — [ka] LOW
+  [ka] Recommendation: [ka] consider PVE or ALPPS
+
+--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ka scenario=stale-finding 1`] = `
+"--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---
+
+[ka] LIVER
+  [ka] Mean HU: 55 (p10 48, p90 62)
+  [ka] Steatosis grade: [ka] Moderate ([ka] Δ liver–spleen = -15.0 HU)
+
+[ka] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ka] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ka] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ka] Confidence 93%)
+  [ka] Calcified lesion: 1
+  [ka] LR-M: 1
+
+[ka] VESSELS
+  [ka] Not assessed
+
+[ka] GALLBLADDER
+  [ka] Volume: 22 mL
+  [ka] Wall thickness: 2.5 mm
+  [ka] Stones detected: [ka] No
+
+[ka] SPLEEN
+  [ka] Volume: 220 mL
+  [ka] Splenomegaly: [ka] Within reference
+
+[ka] FLRASSESSMENT
+  [ka] Plan: right hepatectomy
+  [ka] FLR: 518 mL (28.4%) — [ka] LOW
+  [ka] Recommendation: [ka] consider PVE or ALPPS
+
+--- მხოლოდ კვლევითი დანიშნულებით — არ გამოიყენება პირველად დიაგნოსტიკაში ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ru scenario=complete 1`] = `
+"--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---
+
+[ru] LIVER
+  [ru] Mean HU: 55 (p10 48, p90 62)
+  [ru] Steatosis grade: [ru] Moderate ([ru] Δ liver–spleen = -15.0 HU)
+
+[ru] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ru] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ru] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ru] Confidence 93%)
+  [ru] Calcified lesion: 1
+  [ru] LR-M: 1
+
+[ru] VESSELS
+  [ru] Not assessed
+
+[ru] GALLBLADDER
+  [ru] Volume: 22 mL
+  [ru] Wall thickness: 2.5 mm
+  [ru] Stones detected: [ru] No
+
+[ru] SPLEEN
+  [ru] Volume: 220 mL
+  [ru] Splenomegaly: [ru] Within reference
+
+[ru] FLRASSESSMENT
+  [ru] Plan: right hepatectomy
+  [ru] FLR: 518 mL (28.4%) — [ru] LOW
+  [ru] Recommendation: [ru] consider PVE or ALPPS
+
+--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ru scenario=degraded-spleen 1`] = `
+"--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---
+
+[ru] LIVER
+  [ru] Mean HU: 55 (p10 48, p90 62)
+  [ru] Steatosis grade: [ru] Moderate ([ru] Δ liver–spleen = -15.0 HU)
+
+[ru] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ru] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ru] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ru] Confidence 93%)
+  [ru] Calcified lesion: 1
+  [ru] LR-M: 1
+
+[ru] VESSELS
+  [ru] Not assessed
+
+[ru] GALLBLADDER
+  [ru] Volume: 22 mL
+  [ru] Wall thickness: 2.5 mm
+  [ru] Stones detected: [ru] No
+
+[ru] SPLEEN
+  [ru] Volume: 220 mL
+  ! Spleen mask <500 voxels — volume estimate degraded
+  [ru] Splenomegaly: [ru] Within reference
+
+[ru] FLRASSESSMENT
+  [ru] Plan: right hepatectomy
+  [ru] FLR: 518 mL (28.4%) — [ru] LOW
+  [ru] Recommendation: [ru] consider PVE or ALPPS
+
+--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ru scenario=no-lesions 1`] = `
+"--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---
+
+[ru] LIVER
+  [ru] Mean HU: 55 (p10 48, p90 62)
+  [ru] Steatosis grade: [ru] Moderate ([ru] Δ liver–spleen = -15.0 HU)
+
+[ru] LESIONS
+  [ru] Calcified lesion: 1
+
+[ru] VESSELS
+  [ru] Not assessed
+
+[ru] GALLBLADDER
+  [ru] Volume: 22 mL
+  [ru] Wall thickness: 2.5 mm
+  [ru] Stones detected: [ru] No
+
+[ru] SPLEEN
+  [ru] Volume: 220 mL
+  [ru] Splenomegaly: [ru] Within reference
+
+[ru] FLRASSESSMENT
+  [ru] Plan: right hepatectomy
+  [ru] FLR: 518 mL (28.4%) — [ru] LOW
+  [ru] Recommendation: [ru] consider PVE or ALPPS
+
+--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ru scenario=partial-payload 1`] = `
+"--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---
+
+[ru] LIVER
+  [ru] Mean HU: 55 (p10 NaN, p90 NaN)
+  [ru] Steatosis grade: [ru] Moderate ([ru] Δ liver–spleen = -15.0 HU)
+
+[ru] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ru] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ru] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ru] Confidence 93%)
+  [ru] Calcified lesion: 1
+  [ru] LR-M: 1
+
+[ru] VESSELS
+  [ru] Not assessed
+
+[ru] GALLBLADDER
+  [ru] Volume: 22 mL
+  [ru] Wall thickness: NaN mm
+  [ru] Stones detected: [ru] No
+
+[ru] SPLEEN
+  [ru] Volume: 220 mL
+  [ru] Splenomegaly: [ru] Within reference
+
+[ru] FLRASSESSMENT
+  [ru] Plan: right hepatectomy
+  [ru] FLR: 518 mL (28.4%) — [ru] LOW
+  [ru] Recommendation: [ru] consider PVE or ALPPS
+
+--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---"
+`;
+
+exports[`renderReadoutPlainText — locale × scenario snapshots > locale=ru scenario=stale-finding 1`] = `
+"--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---
+
+[ru] LIVER
+  [ru] Mean HU: 55 (p10 48, p90 62)
+  [ru] Steatosis grade: [ru] Moderate ([ru] Δ liver–spleen = -15.0 HU)
+
+[ru] LESIONS
+  - L1 (segment VIII): 89.6 mm, ICC ([ru] Confidence 88%)
+  - L2 (segment IVb): 14.2 mm, METASTASIS ([ru] Confidence 71%)
+  - L3 (segment II): 5.4 mm, CYST ([ru] Confidence 93%)
+  [ru] Calcified lesion: 1
+  [ru] LR-M: 1
+
+[ru] VESSELS
+  [ru] Not assessed
+
+[ru] GALLBLADDER
+  [ru] Volume: 22 mL
+  [ru] Wall thickness: 2.5 mm
+  [ru] Stones detected: [ru] No
+
+[ru] SPLEEN
+  [ru] Volume: 220 mL
+  [ru] Splenomegaly: [ru] Within reference
+
+[ru] FLRASSESSMENT
+  [ru] Plan: right hepatectomy
+  [ru] FLR: 518 mL (28.4%) — [ru] LOW
+  [ru] Recommendation: [ru] consider PVE or ALPPS
+
+--- ТОЛЬКО ДЛЯ НАУЧНЫХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---"
+`;

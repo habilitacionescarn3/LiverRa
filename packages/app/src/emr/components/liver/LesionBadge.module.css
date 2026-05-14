@@ -21,8 +21,8 @@
   gap: 6px;
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: var(--emr-font-xs, 11px);
-  font-weight: var(--emr-font-semibold, 600);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
   letter-spacing: 0.02em;
   line-height: 1.4;
   border: 1px solid transparent;
@@ -32,23 +32,24 @@
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-/* Malignant (HCC / ICC / MET) — red family */
+/* Malignant (HCC / ICC / MET) — red family. Uses *-current alias which
+ * auto-switches between light/dark in theme.css (H-DS-4 / M-DS-8 fix). */
 .malignant {
-  background: var(--liverra-lesion-marker);
-  border-color: var(--liverra-lesion-marker);
+  background: var(--liverra-lesion-marker-current);
+  border-color: var(--liverra-lesion-marker-current);
 }
 
 /* Benign (FNH / HEM / CYST) — green family */
 .benign {
-  background: var(--liverra-lesion-benign);
-  border-color: var(--liverra-lesion-benign);
+  background: var(--liverra-lesion-benign-current);
+  border-color: var(--liverra-lesion-benign-current);
 }
 
 /* Abstained (FR-011) — gray + italic + dashed border */
 .abstained {
   background: transparent;
-  color: var(--liverra-lesion-abstain);
-  border: 1px dashed var(--liverra-lesion-abstain);
+  color: var(--liverra-lesion-abstain-current);
+  border: 1px dashed var(--liverra-lesion-abstain-current);
   font-style: italic;
 }
 
@@ -59,8 +60,8 @@
 }
 
 .suffix {
-  font-size: var(--emr-font-xs, 11px);
-  font-weight: var(--emr-font-normal, 400);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-normal);
   opacity: 0.85;
   margin-left: 4px;
 }
@@ -70,7 +71,7 @@
   position: relative;
   width: 100%;
   height: 4px;
-  background: var(--emr-gray-200, #e5e7eb);
+  background: var(--emr-gray-200);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -85,47 +86,28 @@
 }
 
 .barFillMalignant {
-  background: var(--liverra-lesion-marker);
+  background: var(--liverra-lesion-marker-current);
 }
 
 .barFillBenign {
-  background: var(--liverra-lesion-benign);
+  background: var(--liverra-lesion-benign-current);
 }
 
 .barFillAbstained {
-  background: var(--liverra-lesion-abstain);
+  background: var(--liverra-lesion-abstain-current);
 }
 
 .barLabel {
-  font-size: var(--emr-font-xs, 11px);
-  font-weight: var(--emr-font-medium, 500);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
   color: var(--emr-text-secondary);
   font-variant-numeric: tabular-nums;
   min-width: 0;
 }
 
-/* Dark-mode overrides — pick the `*-dark` tokens defined in theme.css */
-:global([data-mantine-color-scheme='dark']) .malignant {
-  background: var(--liverra-lesion-marker-dark);
-  border-color: var(--liverra-lesion-marker-dark);
-}
-:global([data-mantine-color-scheme='dark']) .benign {
-  background: var(--liverra-lesion-benign-dark);
-  border-color: var(--liverra-lesion-benign-dark);
-}
-:global([data-mantine-color-scheme='dark']) .abstained {
-  color: var(--liverra-lesion-abstain-dark);
-  border-color: var(--liverra-lesion-abstain-dark);
-}
-:global([data-mantine-color-scheme='dark']) .barFillMalignant {
-  background: var(--liverra-lesion-marker-dark);
-}
-:global([data-mantine-color-scheme='dark']) .barFillBenign {
-  background: var(--liverra-lesion-benign-dark);
-}
-:global([data-mantine-color-scheme='dark']) .barFillAbstained {
-  background: var(--liverra-lesion-abstain-dark);
-}
+/* Dark-mode handling: the *-current tokens above auto-resolve to their
+ * `*-dark` value in theme.css under [data-mantine-color-scheme='dark']
+ * — no module-level overrides per Dark Mode Rule #5 (H-DS-4 / M-DS-8 fix). */
 
 @media (prefers-reduced-motion: reduce) {
   .pill,

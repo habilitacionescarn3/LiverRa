@@ -3,9 +3,11 @@
 
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
-import { Alert, Anchor, Button, Stack, Text, Code, Box, Group } from '@mantine/core';
-import { IconAlertCircle, IconRefresh, IconExternalLink } from '@tabler/icons-react';
+import { Anchor, Stack, Text, Code, Box, Group } from '@mantine/core';
+import { IconRefresh, IconExternalLink } from '@tabler/icons-react';
 import DOMPurify from 'dompurify';
+import { EMRAlert } from './EMRAlert';
+import { EMRButton } from './EMRButton';
 
 /**
  * Props for EMRErrorBoundary
@@ -199,7 +201,24 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
         return fallback;
       }
 
-      // Default error UI
+      // Default error UI.
+      //
+      // i18n: errorTitle / errorMessage / retryLabel / reloadPageLabel /
+      // reportIssueLabel are all overrideable via props so callers can pass
+      // t('error.boundary.title') etc. The defaults below are English fallbacks
+      // for when no override is provided (e.g. early-boot errors before the
+      // TranslationContext is ready). Agent 4.2 owns wiring the actual i18n
+      // keys (error.boundary.*) into the translation bundles.
+      const resolvedTitle = errorTitle || 'Something went wrong';
+      const resolvedMessage =
+        errorMessage ||
+        (componentName
+          ? `An error occurred in the ${componentName} component. Please try again or contact support if the problem persists.`
+          : 'An unexpected error occurred. Please try again or contact support if the problem persists.');
+      const resolvedRetryLabel = retriesExhausted
+        ? (reloadPageLabel || 'Please reload the page')
+        : (this.props.retryLabel || 'Try Again');
+
       return (
         <Box
           role="alert"
@@ -209,25 +228,18 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
           style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}
         >
           <Stack align="center" gap="md" style={{ maxWidth: '500px' }}>
-            <Alert
-              icon={<IconAlertCircle size={24} />}
-              title={errorTitle || 'Something went wrong'}
-              color="red"
-              variant="light"
-              style={{ width: '100%' }}
+            <EMRAlert
+              variant="error"
+              title={resolvedTitle}
+              data-testid="emr-error-boundary-alert"
             >
               <Stack gap="md">
-                <Text size="sm">
-                  {errorMessage ||
-                    (componentName
-                      ? `An error occurred in the ${componentName} component. Please try again or contact support if the problem persists.`
-                      : 'An unexpected error occurred. Please try again or contact support if the problem persists.')}
-                </Text>
+                <Text size="sm">{resolvedMessage}</Text>
 
                 {/* Show error details in development mode */}
                 {process.env.NODE_ENV === 'development' && error && (
                   <Box>
-                    <Text size="xs" c="dimmed" mb="xs">
+                    <Text size="xs" c="var(--emr-text-secondary)" mb="xs">
                       Error Details:
                     </Text>
                     <Code block style={{ fontSize: 'var(--emr-font-xs)', maxHeight: '120px', overflow: 'auto' }}>
@@ -239,7 +251,7 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
                 {/* Show component stack in development mode */}
                 {process.env.NODE_ENV === 'development' && errorInfo?.componentStack && (
                   <Box>
-                    <Text size="xs" c="dimmed" mb="xs">
+                    <Text size="xs" c="var(--emr-text-secondary)" mb="xs">
                       Component Stack:
                     </Text>
                     <Code block style={{ fontSize: 'calc(var(--emr-font-xs) - 1px)', maxHeight: '100px', overflow: 'auto' }}>
@@ -248,21 +260,18 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
                   </Box>
                 )}
               </Stack>
-            </Alert>
+            </EMRAlert>
 
             <Group gap="md" wrap="wrap" justify="center">
-              <Button
-                leftSection={<IconRefresh size={16} />}
+              <EMRButton
+                variant="primary"
+                icon={IconRefresh}
                 onClick={this.handleRetry}
-                variant="light"
-                color="blue"
                 disabled={retriesExhausted}
                 data-testid="emr-error-boundary-retry"
               >
-                {retriesExhausted
-                  ? (reloadPageLabel || 'Please reload the page')
-                  : (this.props.retryLabel || 'Try Again')}
-              </Button>
+                {resolvedRetryLabel}
+              </EMRButton>
 
               {this.props.reportIssueUrl && (
                 <Anchor
@@ -271,14 +280,12 @@ export class EMRErrorBoundary extends Component<EMRErrorBoundaryProps, EMRErrorB
                   rel="noopener noreferrer"
                   data-testid="emr-error-boundary-report"
                 >
-                  <Button
-                    leftSection={<IconExternalLink size={16} />}
-                    variant="subtle"
-                    color="gray"
-                    component="span"
+                  <EMRButton
+                    variant="ghost"
+                    icon={IconExternalLink}
                   >
                     {this.props.reportIssueLabel || 'Report Issue'}
-                  </Button>
+                  </EMRButton>
                 </Anchor>
               )}
             </Group>

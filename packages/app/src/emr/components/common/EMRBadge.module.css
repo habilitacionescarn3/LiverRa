@@ -19,7 +19,7 @@
 
 .sizeSm {
   padding: 1px 8px;
-  font-size: 10px;
+  font-size: var(--emr-font-2xs);
 }
 
 .sizeMd {
@@ -34,7 +34,7 @@
 
 /* Variants — all token-driven. */
 .neutral {
-  background: var(--emr-gray-alpha-04, rgba(107, 114, 128, 0.08));
+  background: var(--emr-gray-alpha-04);
   color: var(--emr-text-secondary);
   border-color: var(--emr-border-color);
 }

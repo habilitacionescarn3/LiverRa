@@ -77,11 +77,18 @@ export interface UseSegmentationReturn {
 /** Default segmentation ID used for CS3D state management */
 const DEFAULT_SEGMENTATION_ID = 'liverra-segmentation-1';
 
-/** Default colors for new segments (cycles through these) */
+import { THEME_COLORS } from '../../constants/theme-colors';
+
+/**
+ * Default colors for new segments (cycles through these).
+ *
+ * Slot 3 uses THEME_COLORS.accent so the palette picks up the brand-ramp
+ * swap (T464). The rest are categorical domain colors.
+ */
 const DEFAULT_SEGMENT_COLORS = [
   '#ef4444', // red
   '#22c55e', // green
-  '#3182ce', // blue (--emr-accent)
+  THEME_COLORS.accent, // brand accent (tracks T464)
   '#f59e0b', // amber
   '#8b5cf6', // violet
   '#ec4899', // pink

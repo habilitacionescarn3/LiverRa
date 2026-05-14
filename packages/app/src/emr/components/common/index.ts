@@ -133,3 +133,6 @@ export type { EMRTabsProps, EMRTabItem } from './EMRTabs';
 
 export { EMRIconButton } from './EMRIconButton';
 export type { EMRIconButtonProps } from './EMRIconButton';
+
+export { EMRTable } from './EMRTable';
+export type { EMRTableProps, EMRTableColumn, EMRTableSort } from './EMRTable';

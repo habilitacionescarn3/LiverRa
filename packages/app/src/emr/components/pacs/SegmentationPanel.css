@@ -63,7 +63,7 @@
 
 /* Active segment — highlighted with accent border */
 .segmentation-segment-row--active {
-  border-color: var(--emr-accent, #3182ce);
+  border-color: var(--emr-accent);
   background: #252525;
 }
 

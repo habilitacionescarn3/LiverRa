@@ -356,9 +356,11 @@
 .emr-switch-input {
   appearance: none;
   width: 40px;
+  /* WCAG: 22px visual but expanded hit area via min-height on wrapper. */
   height: 22px;
   border-radius: 11px;
-  background-color: var(--emr-gray-300);
+  /* Semantic switch-track token auto-switches in dark mode (theme.css). */
+  background-color: var(--emr-switch-track);
   cursor: inherit;
   transition: var(--emr-input-transition);
   position: relative;
@@ -390,10 +392,10 @@
   box-shadow: var(--emr-input-focus-ring);
 }
 
-/* Dark mode switch track color */
-:root[data-mantine-color-scheme="dark"] .emr-switch-input {
-  background-color: var(--emr-text-secondary);
-}
+/* Dark-mode track value is provided by --emr-switch-track (defined in
+ * theme.css for both light and dark schemes) — picked up automatically.
+ * Module-level :root[data-mantine-color-scheme="dark"] override removed
+ * per Dark Mode Rule #5 (H-DS-4 fix). */
 
 /* ==================== RADIO GROUP ==================== */
 .emr-radio-group {
@@ -579,12 +581,10 @@
 .emr-form-section-title-text {
   font-size: var(--emr-font-md);
   font-weight: var(--emr-font-semibold);
-  color: var(--emr-section-personal);
-}
-
-/* Dark mode: Use white title text for better readability */
-:root[data-mantine-color-scheme="dark"] .emr-form-section-title-text {
-  color: var(--emr-text-primary);
+  /* Semantic token --emr-form-section-title-color auto-switches between
+   * the section accent (light) and primary text (dark) — defined in
+   * theme.css. Replaces module-level dark-mode override (H-DS-4 fix). */
+  color: var(--emr-form-section-title-color);
 }
 
 .emr-form-section-subtitle {
@@ -600,12 +600,8 @@
   gap: 10px;
   font-size: var(--emr-font-md);
   font-weight: var(--emr-font-semibold);
-  color: var(--emr-section-personal);
-}
-
-/* Dark mode: Use white title text for legacy class */
-:root[data-mantine-color-scheme="dark"] .emr-form-section-title {
-  color: var(--emr-text-primary);
+  /* See note above on --emr-form-section-title-color (H-DS-4 fix). */
+  color: var(--emr-form-section-title-color);
 }
 
 .emr-form-section-icon {
@@ -1039,44 +1035,12 @@
   border-radius: 4px;
 }
 
-/* ==================== DARK MODE OVERRIDES ==================== */
-/* Ensure EMR inputs use dark mode variables in dark color scheme */
-
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DateInput-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DatePickerInput-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-PasswordInput-input,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TimeInput-input {
-  background-color: var(--emr-input-bg-solid) !important;
-  background: var(--emr-input-bg) !important;
-  border-color: var(--emr-input-border) !important;
-  color: var(--emr-input-text) !important;
-}
-
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DateInput-input:focus,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-DatePickerInput-input:focus {
-  background-color: var(--emr-input-bg-focus) !important;
-  border-color: var(--emr-input-border-focus) !important;
-  box-shadow: var(--emr-input-shadow-focus) !important;
-}
-
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-TextInput-input:disabled,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Select-input:disabled,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-MultiSelect-input:disabled,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-NumberInput-input:disabled,
-[data-mantine-color-scheme="dark"] .emr-field-wrapper .mantine-Textarea-input:disabled {
-  background-color: var(--emr-input-bg-disabled) !important;
-  color: var(--emr-input-text-disabled) !important;
-}
+/* ==================== DARK MODE NOTE (H-DS-4) ====================
+ * Previously this file contained ~35 lines of [data-mantine-color-scheme="dark"]
+ * overrides on .emr-field-wrapper .mantine-*-input selectors. Every override
+ * re-applied the SAME semantic var() (e.g. --emr-input-bg-solid) that already
+ * auto-switches in theme.css. They were no-ops and have been removed per
+ * Dark Mode Rule #5 (single source of dark mode = theme.css). */
 
 /* Filter bar inputs: blend with parent card background */
 .filter-input-transparent .mantine-TextInput-input,

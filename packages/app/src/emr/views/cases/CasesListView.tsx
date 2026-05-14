@@ -316,7 +316,7 @@ function CaseCard({
         padding: 16,
         borderRadius: 'var(--emr-border-radius-lg)',
         background: 'var(--emr-bg-card)',
-        border: '1px solid var(--emr-gray-200)',
+        border: '1px solid var(--emr-border-color)',
         cursor: 'pointer',
         minHeight: 88,
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
@@ -327,7 +327,7 @@ function CaseCard({
           width: 64,
           height: 64,
           borderRadius: 'var(--emr-border-radius)',
-          background: 'var(--emr-gray-100)',
+          background: 'var(--emr-bg-hover)',
           backgroundImage: row.thumbnailUrl ? `url(${row.thumbnailUrl})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -453,7 +453,7 @@ function CasesListViewInner({
           padding: 12,
           borderRadius: 'var(--emr-border-radius-lg)',
           background: 'var(--emr-bg-card)',
-          border: '1px solid var(--emr-gray-200)',
+          border: '1px solid var(--emr-border-color)',
         }}
       >
         <Group wrap="wrap" gap="sm" align="flex-end">
@@ -480,7 +480,7 @@ function CasesListViewInner({
                 height: 32,
                 padding: '4px 8px',
                 fontSize: 'var(--emr-font-sm)',
-                border: '1px solid var(--emr-gray-300)',
+                border: '1px solid var(--emr-border-color)',
                 borderRadius: 'var(--emr-border-radius-sm)',
                 background: 'var(--emr-bg-input)',
                 color: 'var(--emr-text-primary)',
@@ -500,7 +500,7 @@ function CasesListViewInner({
                 height: 32,
                 padding: '4px 8px',
                 fontSize: 'var(--emr-font-sm)',
-                border: '1px solid var(--emr-gray-300)',
+                border: '1px solid var(--emr-border-color)',
                 borderRadius: 'var(--emr-border-radius-sm)',
                 background: 'var(--emr-bg-input)',
                 color: 'var(--emr-text-primary)',
@@ -580,7 +580,7 @@ function CasesListViewInner({
         <Box
           style={{
             borderRadius: 'var(--emr-border-radius-lg)',
-            border: '1px solid var(--emr-gray-200)',
+            border: '1px solid var(--emr-border-color)',
             overflow: 'hidden',
             background: 'var(--emr-bg-card)',
           }}
@@ -616,7 +616,7 @@ function CasesListViewInner({
                         width: 56,
                         height: 56,
                         borderRadius: 'var(--emr-border-radius-sm)',
-                        background: 'var(--emr-gray-100)',
+                        background: 'var(--emr-bg-hover)',
                         backgroundImage: row.thumbnailUrl
                           ? `url(${row.thumbnailUrl})`
                           : undefined,

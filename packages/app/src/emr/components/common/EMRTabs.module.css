@@ -5,7 +5,8 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 6px;
-  background: var(--emr-gray-alpha-04, var(--emr-gray-100));
+  /* Semantic surface — auto-switches in dark mode (Rule #6: never use --emr-gray-N for bg). */
+  background: var(--emr-bg-hover);
   border-radius: var(--emr-border-radius-lg);
   border: 1px solid var(--emr-border-color);
 }
@@ -24,18 +25,19 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 6px 12px;
+  padding: 10px 14px;
   border: 1px solid transparent;
   border-radius: var(--emr-border-radius);
   background: transparent;
   color: var(--emr-text-secondary);
-  font-size: var(--emr-font-xs);
+  font-size: var(--emr-font-sm);
   font-weight: var(--emr-font-semibold);
   line-height: 1.2;
   letter-spacing: 0.01em;
   cursor: pointer;
   white-space: nowrap;
-  min-height: 32px;
+  /* WCAG 2.5.5 AAA: 44×44 tap target. */
+  min-height: 44px;
   transition: background var(--emr-transition-base), color var(--emr-transition-base),
     border-color var(--emr-transition-base), box-shadow var(--emr-transition-base);
 }

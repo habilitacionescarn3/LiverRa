@@ -5,6 +5,7 @@ import React from 'react';
 import type { ComponentType } from 'react';
 import { Box, Group, Text, ActionIcon, Stack, Progress } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight, IconCheck } from '@tabler/icons-react';
+import { useTranslation } from '../../contexts/TranslationContext';
 import styles from './EMRWizardStepper.module.css';
 
 /**
@@ -66,6 +67,7 @@ export function EMRWizardStepper({
   onStepChange,
   'data-testid': testId,
 }: EMRWizardStepperProps): React.ReactElement {
+  const { t } = useTranslation();
   const currentIndex = steps.findIndex((step) => step.key === currentStep);
   const currentStepData = steps[currentIndex];
   const totalSteps = steps.length;
@@ -99,7 +101,7 @@ export function EMRWizardStepper({
           onClick={handlePrevious}
           disabled={!canGoPrevious}
           className={styles.navButton}
-          aria-label="Previous step"
+          aria-label={t('common.previousStep', 'Previous step')}
         >
           <IconChevronLeft size={24} />
         </ActionIcon>
@@ -131,7 +133,7 @@ export function EMRWizardStepper({
           onClick={handleNext}
           disabled={!canGoNext}
           className={styles.navButton}
-          aria-label="Next step"
+          aria-label={t('common.nextStep', 'Next step')}
         >
           <IconChevronRight size={24} />
         </ActionIcon>
@@ -142,8 +144,11 @@ export function EMRWizardStepper({
         value={progressPercent}
         size="xs"
         className={styles.progressBar}
-        color="blue"
-        aria-label={`Step ${currentIndex + 1} of ${totalSteps}`}
+        /* Brand-aligned fill via inline style (no Mantine palette key). */
+        styles={{ section: { backgroundColor: 'var(--emr-secondary)' } }}
+        aria-label={t('wizardStepper.progressLabel', `Step ${currentIndex + 1} of ${totalSteps}`)
+          .replace('{{current}}', String(currentIndex + 1))
+          .replace('{{total}}', String(totalSteps))}
       />
 
       {/* Step Dots Navigation */}
