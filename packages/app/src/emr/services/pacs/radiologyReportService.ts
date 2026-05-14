@@ -586,11 +586,15 @@ export async function saveRadiologyReport(
       throw new Error('Cannot modify a finalized report. Create an addendum instead.');
     }
 
-    saved = await medplum.updateResource<DiagnosticReport>({
-      ...reportData,
-      id: currentReport?.id ?? existing[0].id,
-      meta: { versionId: currentReport?.meta?.versionId },
-    });
+    // C-LOCK-3: pass the observed versionId as If-Match.
+    saved = await medplum.updateResource<DiagnosticReport>(
+      {
+        ...reportData,
+        id: currentReport?.id ?? existing[0].id,
+        meta: { versionId: currentReport?.meta?.versionId },
+      },
+      { ifMatch: currentReport?.meta?.versionId },
+    );
   } else {
     saved = await medplum.createResource<DiagnosticReport>(reportData);
   }
@@ -739,11 +743,38 @@ export async function signRadiologyReport(
   };
 
   // Step 2: finalize the report (sequential — transaction lands in Phase 4).
+  //
+  // C-LOCK-2: two surgeons hitting "Finalize" simultaneously must not
+  // both succeed at flipping the report to ``final`` (the second flip
+  // would race-overwrite the first signer's Provenance attribution).
+  // We thread the version we just read as ``If-Match``; Phase 4's FHIR
+  // server will reject the second mutation with 412 Precondition
+  // Failed, and the catch surfaces the conflict as a friendly toast
+  // rather than a generic "save failed".
   if (report) {
-    await medplum.updateResource<DiagnosticReport>({
-      ...report,
-      status: 'final',
-    });
+    try {
+      await medplum.updateResource<DiagnosticReport>(
+        {
+          ...report,
+          status: 'final',
+        },
+        { ifMatch: report.meta?.versionId },
+      );
+    } catch (err) {
+      // Phase 4 will surface a real Response with status === 412; for
+      // the stub we map by message-string so the user-facing error is
+      // already wired when the backend lands.
+      const status =
+        err && typeof err === 'object' && 'status' in err
+          ? (err as { status: number }).status
+          : null;
+      if (status === 412) {
+        throw new Error(
+          'Another reviewer finalized this report — refresh to see the latest.',
+        );
+      }
+      throw err;
+    }
   }
   await medplum.createResource<Provenance>(provenance);
 
@@ -818,11 +849,15 @@ async function updateStudyStatusToReported(
     valueString: JSON.stringify(existingTimeline),
   });
 
-  await medplum.updateResource<ImagingStudy>({
-    ...study,
-    meta: { versionId: study.meta?.versionId },
-    extension: extensions,
-  });
+  // C-LOCK-3: pass the observed versionId as If-Match.
+  await medplum.updateResource<ImagingStudy>(
+    {
+      ...study,
+      meta: { versionId: study.meta?.versionId },
+      extension: extensions,
+    },
+    { ifMatch: study.meta?.versionId },
+  );
 }
 
 // ============================================================================
@@ -951,6 +986,10 @@ body {
   line-height: 1.5;
   color: #1a1a1a;
 }
+/* Print stylesheet — uses static hex literals because PDF renderers don't
+ * evaluate CSS custom properties. Brand-ramp swap (T464) requires a separate
+ * touch-up: once brand-tokens.md status flips to 'approved', replace #1a365d
+ * here with the new --liverra-primary-700 raw hex value. */
 .header {
   border-bottom: 2px solid #1a365d;
   padding-bottom: 12px;

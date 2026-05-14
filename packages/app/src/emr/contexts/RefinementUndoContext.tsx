@@ -111,34 +111,50 @@ export function RefinementUndoProvider({
 
   const undo = useCallback(async (): Promise<RefinementUndoItem | null> => {
     if (stackRef.current.length === 0) return null;
+    // C-REFINE-4: re-entrancy guard. If a previous undo is still in
+    // flight, drop the call rather than corrupting the stack.
+    if (stackRef.current === null || (state.isUndoing as boolean)) {
+      return null;
+    }
     setState((prev) => ({ ...prev, isUndoing: true }));
     const last = stackRef.current[stackRef.current.length - 1];
     stackRef.current = stackRef.current.slice(0, -1);
 
-    // Best-effort: if the matching offlineQueue row hasn't synced yet,
-    // remove it so we never POST an edit we just rolled back.
+    // C-REFINE-3: only enqueue an INVERSE edit when the original POST
+    // had already flushed to the server. If the original was still in
+    // the outbox, dequeue is enough — no inverse needed (otherwise
+    // mashing Ctrl-Z creates N inverse rows for one click).
+    let originalStillQueued = false;
     try {
-      await offlineQueue.dequeue(last.id);
+      originalStillQueued = await offlineQueue.dequeue(last.id);
     } catch {
-      /* already flushed — inverse POST is the server-side undo */
+      /* already flushed — fall through to inverse */
     }
 
-    // Enqueue the inverse action (a new edit) so the server ends up
-    // with the pre-edit state even if the original already synced.
-    try {
-      await offlineQueue.enqueue({
-        analysis_id: last.analysisId,
-        edit_type: last.editType,
-        payload: last.inverse,
-      });
-    } catch {
-      /* offlineQueue outage — the UI already reverted locally */
+    if (!originalStillQueued) {
+      // Original was already POSTed (or never queued — shouldn't happen).
+      // Enqueue the inverse action so the server reverts.
+      try {
+        await offlineQueue.enqueue({
+          analysis_id: last.analysisId,
+          edit_type: last.editType,
+          payload: {
+            ...last.inverse,
+            // Idempotency key for server short-circuit: if the inverse
+            // is delivered twice (network retry), the server can
+            // recognise the second one and no-op.
+            undo_of: last.id,
+          },
+        });
+      } catch {
+        /* offlineQueue outage — the UI already reverted locally */
+      }
     }
 
     setState({ stack: stackRef.current, isUndoing: false });
     persist();
     return last;
-  }, [persist]);
+  }, [persist, state.isUndoing]);
 
   const clear = useCallback(async (): Promise<void> => {
     stackRef.current = [];

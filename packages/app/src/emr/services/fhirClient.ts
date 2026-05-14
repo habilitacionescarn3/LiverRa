@@ -76,11 +76,24 @@ export class LiverRaFhirClient {
   /**
    * Update an existing resource. STUB: echoes the input and logs the call.
    * Phase 4 will issue a real PUT /<resourceType>/<id>.
+   *
+   * C-LOCK-3: ``options.ifMatch`` carries the ETag / ``meta.versionId``
+   * the caller last observed. Phase 4 will send it as an ``If-Match``
+   * header so the FHIR server returns 412 Precondition Failed on a
+   * concurrent edit (FHIR optimistic-locking, §3.1.0.5). For now the
+   * stub records it so the log stream surfaces every call site that
+   * passes a version — and ones that don't.
    */
-  async updateResource<T extends FhirResourceLike>(resource: T): Promise<T> {
+  async updateResource<T extends FhirResourceLike>(
+    resource: T,
+    options?: { ifMatch?: string },
+  ): Promise<T> {
+    const ifMatch = options?.ifMatch;
     // eslint-disable-next-line no-console
     console.warn(
-      `[fhir-stub] updateResource not wired: ${resource.resourceType}/${resource.id ?? '(no-id)'}`,
+      `[fhir-stub] updateResource not wired: ${resource.resourceType}/${
+        resource.id ?? '(no-id)'
+      } ifMatch=${ifMatch ?? '(none)'}`,
     );
     return resource;
   }
@@ -92,10 +105,22 @@ export class LiverRaFhirClient {
    * content (annotations, key images, hanging protocols, macros), do NOT
    * call this method — clinical retention rules require soft-delete.
    * Use {@link softDeleteResource} instead.
+   *
+   * C-LOCK-3: ``options.ifMatch`` mirrors ``updateResource`` so a delete
+   * of a resource the caller just read can use the same versionId guard.
    */
-  async deleteResource(resourceType: string, id: string): Promise<void> {
+  async deleteResource(
+    resourceType: string,
+    id: string,
+    options?: { ifMatch?: string },
+  ): Promise<void> {
+    const ifMatch = options?.ifMatch;
     // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] deleteResource not wired: ${resourceType}/${id}`);
+    console.warn(
+      `[fhir-stub] deleteResource not wired: ${resourceType}/${id} ifMatch=${
+        ifMatch ?? '(none)'
+      }`,
+    );
   }
 
   /**
@@ -114,6 +139,7 @@ export class LiverRaFhirClient {
    */
   async softDeleteResource<T extends FhirResourceLike>(
     resource: T,
+    options?: { ifMatch?: string },
   ): Promise<T> {
     const now = new Date().toISOString();
     const extension = Array.isArray((resource as { extension?: unknown }).extension)
@@ -128,7 +154,7 @@ export class LiverRaFhirClient {
       status: 'entered-in-error',
       extension,
     } as T;
-    return this.updateResource(next);
+    return this.updateResource(next, options);
   }
 
   /**

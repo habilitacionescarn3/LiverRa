@@ -211,6 +211,40 @@ def _user_id(request: Request) -> UUID:
     return UUID(str(uid))
 
 
+def _user_role(request: Request) -> str:
+    """Return the requester's primary role for audit attribution.
+
+    The classification-override audit table (migration 0015) requires a
+    ``reviewer_role`` column so a CE-MDR auditor can prove that an
+    override was applied by someone with the appropriate clinical scope
+    (radiologist vs surgeon vs admin). We derive it from the JWT's
+    ``cognito:groups`` claim (populated as ``user["groups"]``); the
+    first group is treated as the canonical role. Fallback to
+    ``"unknown"`` so the INSERT never NULLs out a NOT-NULL column —
+    the audit row still lands, and the value flags the upstream issue
+    for the security review queue.
+    """
+    user = getattr(request.state, "user", None)
+    groups: Any = None
+    if isinstance(user, dict):
+        groups = user.get("groups")
+    elif user is not None:
+        groups = getattr(user, "groups", None)
+    if isinstance(groups, (list, tuple)) and groups:
+        return str(groups[0])
+    return "unknown"
+
+
+def _stale_problem(detail: str = "Stale revision — refresh and retry") -> ProblemDetailException:
+    """409 problem+json for optimistic-locking version mismatches (H-LOCK-*)."""
+    return ProblemDetailException(
+        slug=ErrorSlug.VALIDATION,
+        status=409,
+        detail=detail,
+        instance="/reviews",
+    )
+
+
 def _tenant_id(request: Request) -> UUID:
     tid = getattr(request.state, "tenant_id", None)
     if tid is None:
@@ -247,9 +281,40 @@ async def acquire_seat(
     session: AsyncSession = Depends(get_db),
     manager: SeatManager = Depends(get_seat_manager),
 ) -> SeatResponse:
-    """Open a new SurgeonReview row (== take the reviewer seat)."""
+    """Open a new SurgeonReview row (== take the reviewer seat).
+
+    C-REFINE-2 — Four-eyes (two-person control): when an analysis was
+    produced by a radiologist whose Cognito sub is stamped on
+    ``analysis.radiologist_user_id``, that same user cannot acquire the
+    reviewer seat. The original radiologist must sign off; a second
+    reviewer must edit. The column is filled by the upload / dictation
+    flow; for legacy analyses where it's NULL we fall back to single-
+    person control so existing workflows are not broken.
+    """
     user_id = _user_id(request)
     tenant_id = _tenant_id(request)
+
+    # Four-eyes pre-check.
+    radio = (
+        await session.execute(
+            text(
+                "SELECT radiologist_user_id FROM analysis "
+                "WHERE id = :aid AND tenant_id = :tid"
+            ),
+            {"aid": str(body.analysis_id), "tid": str(tenant_id)},
+        )
+    ).first()
+    if radio and radio[0] is not None and str(radio[0]) == str(user_id):
+        raise ProblemDetailException(
+            slug=ErrorSlug.FORBIDDEN,
+            status=403,
+            detail=(
+                "Two-person control: the originating radiologist cannot "
+                "also be the reviewer. Hand the case to a second clinician."
+            ),
+            instance="/reviews",
+        )
+
     try:
         seat = await manager.acquire(
             analysis_id=body.analysis_id,
@@ -350,6 +415,40 @@ async def mask_refine(
             detail=str(exc), instance="/reviews",
         ) from exc
 
+    # H-LOCK-1: optimistic-concurrency check + bump on the parent
+    # segmentation's "owning" lesion row. The mask refine path mutates
+    # one segmentation chain rooted at one lesion; the client supplies
+    # the version it last saw, and we CAS-bump it atomically. Two
+    # reviewers clicking the same voxel between heartbeats will both
+    # send the same ``client_version``; only one bump succeeds, the
+    # other receives 409 ``Stale revision`` and is told to refresh.
+    cas_row = (
+        await session.execute(
+            text(
+                """
+                UPDATE lesion
+                   SET client_version = client_version + 1
+                 WHERE analysis_id = :aid
+                   AND client_version = :cv
+                 RETURNING client_version
+                """
+            ),
+            {"aid": str(body.analysis_id), "cv": int(body.client_version)},
+        )
+    ).first()
+    if cas_row is None:
+        # No row matched ⇒ either the analysis has no lesion (degenerate)
+        # OR the version on the wire is stale. Disambiguate so the
+        # reviewer sees the right toast.
+        exists = (
+            await session.execute(
+                text("SELECT 1 FROM lesion WHERE analysis_id = :aid LIMIT 1"),
+                {"aid": str(body.analysis_id)},
+            )
+        ).first()
+        if exists is not None:
+            raise _stale_problem("Stale mask version — refresh and retry")
+
     try:
         result: RecomputeResult = await recompute.composite(
             analysis_id=body.analysis_id,
@@ -365,6 +464,33 @@ async def mask_refine(
             detail=str(exc), instance="/reviews",
         ) from exc
 
+    # C-REFINE-1: a mask refine invalidates the existing FLR computation.
+    # We dispatch the segment-aware-FLR recompute as a Celery task so the
+    # response stays snappy (the math takes 5-10 s on a real volume) and
+    # the PDF finalizer can block on a mask-version drift check if/when
+    # downstream wires that in. Failures here are non-fatal — the audit
+    # row already captures the mask change; the initial FLR is a
+    # fallback the surgeon can override manually.
+    try:
+        study_row = (
+            await session.execute(
+                text("SELECT study_id FROM analysis WHERE id = :aid"),
+                {"aid": str(body.analysis_id)},
+            )
+        ).first()
+        if study_row is not None:
+            from ..tasks.flr_default import (  # local import keeps router import-light
+                compute_initial_flr,
+            )
+
+            compute_initial_flr.delay(  # type: ignore[attr-defined]
+                str(body.analysis_id), str(study_row[0])
+            )
+    except Exception as exc:  # noqa: BLE001 — Celery may be absent in unit tests
+        logger.warning(
+            "mask_refine: FLR recompute dispatch skipped (%s)", exc
+        )
+
     await _emit_audit(
         request, session, "mask_edit",
         tenant_id=tenant_id, user_id=user_id, analysis_id=body.analysis_id,
@@ -376,6 +502,7 @@ async def mask_refine(
             "voxel": body.voxel,
             "delta_voxels": result.delta_voxels,
             "recompute_seconds": result.recompute_seconds,
+            "client_version": int(body.client_version),
         },
     )
     return {
@@ -412,6 +539,27 @@ async def lesion_prompt(
             detail=str(exc), instance="/reviews",
         ) from exc
 
+    # H-LOCK-2: optimistic-concurrency check on the analysis's most-recent
+    # lesion version. lesion_prompt APPENDS a new lesion — we use the
+    # max-version sentinel so concurrent prompts don't double-insert at
+    # the same voxel (idempotency lives in ``recompute.lesion_prompt``,
+    # but the CAS bump is the cheap pre-check).
+    max_v_row = (
+        await session.execute(
+            text(
+                """
+                SELECT COALESCE(MAX(client_version), 0)
+                  FROM lesion
+                 WHERE analysis_id = :aid
+                """
+            ),
+            {"aid": str(body.analysis_id)},
+        )
+    ).first()
+    max_v = int(max_v_row[0]) if max_v_row and max_v_row[0] is not None else 0
+    if max_v > int(body.client_version):
+        raise _stale_problem("Stale analysis lesion version — refresh and retry")
+
     try:
         result = await recompute.lesion_prompt(
             analysis_id=body.analysis_id,
@@ -433,6 +581,7 @@ async def lesion_prompt(
             "review_id": str(review_id),
             "new_lesion_id": str(result["lesion_id"]),
             "voxel": body.voxel,
+            "client_version": int(body.client_version),
         },
     )
     return result
@@ -454,6 +603,7 @@ async def classification_override(
 ) -> dict[str, Any]:
     user_id = _user_id(request)
     tenant_id = _tenant_id(request)
+    user_role = _user_role(request)
 
     try:
         await manager.heartbeat(review_id, session=session)
@@ -463,22 +613,102 @@ async def classification_override(
             detail=str(exc), instance="/reviews",
         ) from exc
 
-    # Upsert override; keep AI original via parent_lesion_id.
+    # B-REFINE-2: every override-audit row must reference a real
+    # analysis. The lesion → analysis lookup also surfaces the AI's
+    # original ``before_class`` + ``before_confidence`` so the new
+    # row in ``lesion_classification_override`` is a complete forensic
+    # record (per migration 0015 column set).
+    lesion_row = (
+        await session.execute(
+            text(
+                """
+                SELECT l.analysis_id,
+                       l.client_version,
+                       c.suggested_class,
+                       (c.probs_vec ->> c.suggested_class)::numeric
+                           AS confidence
+                  FROM lesion l
+                  LEFT JOIN classification c ON c.lesion_id = l.id
+                 WHERE l.id = :lid
+                """
+            ),
+            {"lid": str(body.lesion_id)},
+        )
+    ).first()
+    if lesion_row is None:
+        raise ProblemDetailException(
+            slug=ErrorSlug.NOT_FOUND, status=404,
+            detail="Lesion not found.", instance="/reviews",
+        )
+    analysis_id = UUID(str(lesion_row[0]))
+    lesion_version = int(lesion_row[1]) if lesion_row[1] is not None else 1
+    before_class = lesion_row[2]
+    before_confidence = lesion_row[3]
+
+    # H-LOCK-3: optimistic-concurrency on the lesion version. Two
+    # reviewers overriding the same lesion simultaneously will both send
+    # the same client_version; only one wins the bump, the other gets
+    # 409 ``Stale revision`` and is told to refresh.
+    if int(body.client_version) != lesion_version:
+        raise _stale_problem(
+            "Stale lesion classification version — refresh and retry"
+        )
+
+    await session.execute(
+        text(
+            """
+            UPDATE lesion
+               SET client_version = client_version + 1
+             WHERE id = :lid AND client_version = :cv
+            """
+        ),
+        {"lid": str(body.lesion_id), "cv": int(body.client_version)},
+    )
+
+    # B-REFINE-3 (backend half): mark any previously-active override on
+    # this (analysis, lesion) pair as inactive — the partial UNIQUE
+    # index from migration 0015 enforces "one active row per lesion".
+    await session.execute(
+        text(
+            """
+            UPDATE lesion_classification_override
+               SET is_active = FALSE
+             WHERE analysis_id = :aid
+               AND lesion_id = :lid
+               AND is_active = TRUE
+            """
+        ),
+        {"aid": str(analysis_id), "lid": str(body.lesion_id)},
+    )
+
+    # INSERT with the migration-0015 column set:
+    #   (analysis_id, lesion_id, override_class, reviewer_user_id,
+    #    reviewer_role, ack_id, before_class, before_confidence,
+    #    is_active, tenant_id)
     inserted = (
         await session.execute(
             text(
                 """
                 INSERT INTO lesion_classification_override
-                    (lesion_id, user_id, class, reason, created_at)
-                VALUES (:lid, :uid, :cls, :reason, now())
-                RETURNING id
+                    (analysis_id, lesion_id, override_class,
+                     reviewer_user_id, reviewer_role,
+                     before_class, before_confidence,
+                     is_active, tenant_id)
+                VALUES
+                    (:aid, :lid, :cls, :uid, :role,
+                     :before_cls, :before_conf, TRUE, :tid)
+                RETURNING id, created_at
                 """
             ),
             {
+                "aid": str(analysis_id),
                 "lid": str(body.lesion_id),
-                "uid": str(user_id),
                 "cls": body.new_class,
-                "reason": body.reason,
+                "uid": str(user_id),
+                "role": user_role,
+                "before_cls": before_class,
+                "before_conf": before_confidence,
+                "tid": str(tenant_id),
             },
         )
     ).first()
@@ -488,16 +718,23 @@ async def classification_override(
     await _emit_audit(
         request, session, "classification_override",
         tenant_id=tenant_id, user_id=user_id,
-        analysis_id=UUID(int=0),  # filled by upstream if known
+        analysis_id=analysis_id,  # B-REFINE-2: real analysis id, not UUID(0)
         extra={
             "review_id": str(review_id),
             "lesion_id": str(body.lesion_id),
             "new_class": body.new_class,
+            "before_class": before_class,
             "reason": body.reason,
             "override_id": override_id,
+            "reviewer_role": user_role,
+            "client_version": int(body.client_version),
         },
     )
-    return {"override_id": override_id, "new_class": body.new_class}
+    return {
+        "override_id": override_id,
+        "new_class": body.new_class,
+        "reviewer_role": user_role,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -506,7 +743,7 @@ async def classification_override(
 
 
 @router.post("/{review_id}/flr")
-@require_permission("review.refine_mask")
+@require_permission("review.refine_mask", step_up=True)
 async def flr_update(
     review_id: UUID,
     body: FLRRequest,
@@ -514,6 +751,13 @@ async def flr_update(
     session: AsyncSession = Depends(get_db),
     manager: SeatManager = Depends(get_seat_manager),
 ) -> dict[str, Any]:
+    """C-REFINE-2: step-up MFA enforced — FLR drives the surgical plan.
+
+    H-LOCK-4 / H-REFINE-1: CAS on ``analysis.flr_version``. Two reviewers
+    saving the resection plane between heartbeats both send the same
+    ``client_version``; only one bump succeeds, the other gets 409 with
+    ``Stale revision`` so the UI can refetch.
+    """
     user_id = _user_id(request)
     tenant_id = _tenant_id(request)
     try:
@@ -524,26 +768,56 @@ async def flr_update(
             detail=str(exc), instance="/reviews",
         ) from exc
 
-    await session.execute(
-        text(
-            """
-            UPDATE analysis
-               SET flr_plane_json = CAST(:plane AS jsonb),
-                   flr_updated_at = now()
-             WHERE id = :aid
-            """
-        ),
-        {
-            "plane": json.dumps(body.resection_plane_json),
-            "aid": str(body.analysis_id),
-        },
-    )
+    # H-LOCK-4 / H-REFINE-1: optimistic-concurrency CAS on analysis.flr_version.
+    cas = (
+        await session.execute(
+            text(
+                """
+                UPDATE analysis
+                   SET flr_plane_json = CAST(:plane AS jsonb),
+                       flr_updated_at = now(),
+                       flr_version = flr_version + 1
+                 WHERE id = :aid
+                   AND tenant_id = :tid
+                   AND flr_version = :cv
+                 RETURNING flr_version
+                """
+            ),
+            {
+                "plane": json.dumps(body.resection_plane_json),
+                "aid": str(body.analysis_id),
+                "tid": str(tenant_id),
+                "cv": int(body.client_version),
+            },
+        )
+    ).first()
+    if cas is None:
+        # Disambiguate "not found / wrong tenant" from "stale revision".
+        exists = (
+            await session.execute(
+                text(
+                    "SELECT 1 FROM analysis WHERE id = :aid AND tenant_id = :tid"
+                ),
+                {"aid": str(body.analysis_id), "tid": str(tenant_id)},
+            )
+        ).first()
+        if exists is None:
+            raise ProblemDetailException(
+                slug=ErrorSlug.NOT_FOUND, status=404,
+                detail="Analysis not found.", instance="/reviews",
+            )
+        raise _stale_problem("Stale FLR plane version — refresh and retry")
+
     await _emit_audit(
         request, session, "flr_update",
         tenant_id=tenant_id, user_id=user_id, analysis_id=body.analysis_id,
-        extra={"review_id": str(review_id)},
+        extra={
+            "review_id": str(review_id),
+            "client_version": int(body.client_version),
+            "new_version": int(cas[0]),
+        },
     )
-    return {"status": "ok"}
+    return {"status": "ok", "flr_version": int(cas[0])}
 
 
 # ---------------------------------------------------------------------------

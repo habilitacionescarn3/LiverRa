@@ -149,10 +149,21 @@ export async function enqueue(input: EnqueueInput): Promise<OfflineEdit> {
   return edit;
 }
 
-/** Remove an edit from the outbox (called after a successful POST). */
-export async function dequeue(id: string): Promise<void> {
+/**
+ * Remove an edit from the outbox (called after a successful POST).
+ *
+ * Returns ``true`` when a row was actually deleted, ``false`` when the
+ * id had already been flushed (or never existed). C-REFINE-3 depends
+ * on this signal — undo only enqueues an INVERSE edit when the
+ * original was NOT in the outbox, so mashing Ctrl-Z never double-flips
+ * server state.
+ */
+export async function dequeue(id: string): Promise<boolean> {
   const db = await getDb();
+  const existed = (await db.get(STORE_EDITS, id)) !== undefined;
+  if (!existed) return false;
   await db.delete(STORE_EDITS, id);
+  return true;
 }
 
 /**

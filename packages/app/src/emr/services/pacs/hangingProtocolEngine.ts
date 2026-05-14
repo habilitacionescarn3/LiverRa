@@ -498,7 +498,10 @@ export async function deleteUserProtocol(
     | (Basic & { id?: string })
     | null;
   if (existing && existing.resourceType === 'Basic') {
-    await fhir.softDeleteResource(existing);
+    // C-LOCK-3: thread the observed versionId as If-Match.
+    await fhir.softDeleteResource(existing, {
+      ifMatch: (existing.meta as { versionId?: string } | undefined)?.versionId,
+    });
     return;
   }
   await fhir.deleteResource('Basic', protocolId);

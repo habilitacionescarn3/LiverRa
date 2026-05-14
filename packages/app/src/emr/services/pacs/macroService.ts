@@ -206,10 +206,14 @@ export async function updateMacro(
     throw new Error('Macro trigger must start with "."');
   }
 
-  return medplum.updateResource<Basic>({
-    ...existing,
-    extension: buildMacroExtensions(newTrigger, newExpansion, newCategory),
-  });
+  // C-LOCK-3: thread the observed versionId as If-Match.
+  return medplum.updateResource<Basic>(
+    {
+      ...existing,
+      extension: buildMacroExtensions(newTrigger, newExpansion, newCategory),
+    },
+    { ifMatch: (existing.meta as { versionId?: string } | undefined)?.versionId },
+  );
 }
 
 /**
@@ -231,7 +235,10 @@ export async function deleteMacro(
     | (Basic & { id?: string })
     | null;
   if (existing && existing.resourceType === 'Basic') {
-    await medplum.softDeleteResource(existing);
+    // C-LOCK-3: thread the observed versionId as If-Match.
+    await medplum.softDeleteResource(existing, {
+      ifMatch: (existing.meta as { versionId?: string } | undefined)?.versionId,
+    });
     return;
   }
   await medplum.deleteResource('Basic', macroId);

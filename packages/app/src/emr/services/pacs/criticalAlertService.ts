@@ -190,13 +190,21 @@ export async function acknowledgeCriticalAlert(
     return;
   }
 
-  await fhir.updateResource({
-    ...(existing as Communication),
-    id: communicationId,
-    resourceType: 'Communication',
-    status: 'completed',
-    received: new Date().toISOString(),
-  });
+  // C-LOCK-3: thread the observed versionId as If-Match.
+  const existingTyped = existing as Communication;
+  await fhir.updateResource(
+    {
+      ...existingTyped,
+      id: communicationId,
+      resourceType: 'Communication',
+      status: 'completed',
+      received: new Date().toISOString(),
+    },
+    {
+      ifMatch: (existingTyped.meta as { versionId?: string } | undefined)
+        ?.versionId,
+    },
+  );
 }
 
 /**

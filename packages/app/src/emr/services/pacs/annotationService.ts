@@ -175,11 +175,15 @@ export async function saveAnnotations(
   if (existing.length > 0) {
     // Update with optimistic locking — HTTP 412 = another user saved in between
     try {
-      saved = await client.updateResource<FhirBasic>({
-        ...existing[0],
-        meta: { versionId: existing[0].meta?.versionId },
-        extension: buildExtensions(annotationJson),
-      });
+      // C-LOCK-3: thread the observed versionId as If-Match.
+      saved = await client.updateResource<FhirBasic>(
+        {
+          ...existing[0],
+          meta: { versionId: existing[0].meta?.versionId },
+          extension: buildExtensions(annotationJson),
+        },
+        { ifMatch: existing[0].meta?.versionId },
+      );
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'statusCode' in err && (err as { statusCode: number }).statusCode === 412) {
         throw new Error('Annotations were modified by another user. Please refresh and retry.');
