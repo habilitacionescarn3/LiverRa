@@ -48,6 +48,7 @@ import {
 } from './components/nav';
 import { StepUpAuthModal } from './components/access-control';
 import { FULL_MENU_ITEMS } from './constants/nav-registry';
+import { useTranslation } from './contexts/TranslationContext';
 
 /**
  * Placeholder persistent RUO disclaimer — final impl lives in T178 (Phase 3).
@@ -56,6 +57,7 @@ import { FULL_MENU_ITEMS } from './constants/nav-registry';
  * development. Replace with the real component when T178 ships.
  */
 function RUODisclaimer(): ReactElement {
+  const { t } = useTranslation();
   return (
     <Box
       aria-live="polite"
@@ -76,8 +78,7 @@ function RUODisclaimer(): ReactElement {
         letterSpacing: '0.04em',
       }}
     >
-      {/* TODO(T178): translate via `common:ruo.disclaimer` */}
-      Research Use Only
+      {t('ruo:badge')}
     </Box>
   );
 }

@@ -44,6 +44,7 @@ import {
   IconCloudUpload,
 } from '@tabler/icons-react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { INTL_TAG, type Locale } from '../../services/localeService';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
 import type { FhirResourceLike } from '../../services/fhirClient';
@@ -154,7 +155,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatStudyDate(raw: string): string {
+function formatStudyDate(raw: string, locale: Locale): string {
   if (!raw || raw.length < 8) {
     return '';
   }
@@ -165,7 +166,7 @@ function formatStudyDate(raw: string): string {
   if (isNaN(d.getTime())) {
     return `${year}-${month}-${day}`;
   }
-  return d.toLocaleDateString();
+  return d.toLocaleDateString(INTL_TAG[locale] ?? 'en-GB');
 }
 
 // --------------------------------------------------------------------------
@@ -400,7 +401,7 @@ const StudyGroupCard = memo(function StudyGroupCard({
               <span className={styles.studyHeaderMetaSep}>•</span>
             )}
             {summary?.studyDate && (
-              <span>{formatStudyDate(summary.studyDate)}</span>
+              <span>{formatStudyDate(summary.studyDate, locale)}</span>
             )}
             {(summary?.seriesCount ?? 0) > 0 && (
               <>
@@ -442,7 +443,7 @@ export const StudyImporter = memo(function StudyImporter({
   preSelectedPatientName,
   onImportComplete,
 }: StudyImporterProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
   const dicomWebClient = useDicomWebClient();
 
@@ -870,10 +871,15 @@ export const StudyImporter = memo(function StudyImporter({
         });
         const hit = bundle.entry?.[0]?.resource as FhirResourceLike | undefined;
         if (hit?.id) {
-          await fhir.updateResource({
-            ...hit,
-            subject: { reference: `Patient/${selectedPatient.id}` },
-          });
+          // C-LOCK-3: thread the observed versionId as If-Match.
+          const hitMeta = (hit as { meta?: { versionId?: string } }).meta;
+          await fhir.updateResource(
+            {
+              ...hit,
+              subject: { reference: `Patient/${selectedPatient.id}` },
+            },
+            { ifMatch: hitMeta?.versionId },
+          );
         }
       } catch (err) {
         // eslint-disable-next-line no-console

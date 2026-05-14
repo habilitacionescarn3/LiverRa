@@ -3,13 +3,83 @@
   "prefs": {
     "page": {
       "title": "__TODO_TRANSLATE__:Notification preferences",
-      "subtitle": "__TODO_TRANSLATE__:Choose which events send an email."
+      "subtitle": "__TODO_TRANSLATE__:Choose which events send an email.",
+      "saveError": "__TODO_TRANSLATE__:Failed to save preferences. Your change was reverted.",
+      "saving": "Сохранение…",
+      "saved": "Сохранено"
     },
     "groups": {
-      "clinical":    { "title": "__TODO_TRANSLATE__:Clinical events" },
-      "operational": { "title": "__TODO_TRANSLATE__:Operational events" },
-      "security":    { "title": "__TODO_TRANSLATE__:Security & compliance" }
+      "clinical": {
+        "title": "__TODO_TRANSLATE__:Clinical events",
+        "description": "__TODO_TRANSLATE__:Case pipeline outcomes relevant to your reviews."
+      },
+      "operational": {
+        "title": "__TODO_TRANSLATE__:Operational events",
+        "description": "__TODO_TRANSLATE__:Queue health, PACS delivery, system maintenance."
+      },
+      "security": {
+        "title": "__TODO_TRANSLATE__:Security & compliance",
+        "description": "__TODO_TRANSLATE__:Account activity, invites, erasure confirmations, PHI incidents."
+      }
     },
-    "phiLocked": { "badge": "__TODO_TRANSLATE__:Required" }
-  }
+    "phiLocked": {
+      "badge": "__TODO_TRANSLATE__:Required",
+      "tooltip": "__TODO_TRANSLATE__:PHI-incident alerts are mandated by compliance policy and cannot be disabled."
+    },
+    "events": {
+      "analysis_complete": {
+        "label": "__TODO_TRANSLATE__:Analysis complete",
+        "description": "__TODO_TRANSLATE__:Sent when one of your uploaded cases finishes all pipeline stages.",
+        "group": "__TODO_TRANSLATE__:clinical"
+      },
+      "analysis_failed": {
+        "label": "__TODO_TRANSLATE__:Analysis failed",
+        "description": "__TODO_TRANSLATE__:Sent when a pipeline stage fails with a non-retryable error.",
+        "group": "__TODO_TRANSLATE__:clinical"
+      },
+      "queued_long": {
+        "label": "__TODO_TRANSLATE__:Case queued over 15 min",
+        "description": "__TODO_TRANSLATE__:Sent when a queued case has waited longer than the ops SLO.",
+        "group": "__TODO_TRANSLATE__:operational"
+      },
+      "pacs_failed": {
+        "label": "__TODO_TRANSLATE__:PACS push failed",
+        "description": "__TODO_TRANSLATE__:Sent when a report delivery exhausts its retry budget.",
+        "group": "__TODO_TRANSLATE__:operational"
+      },
+      "maintenance_window": {
+        "label": "__TODO_TRANSLATE__:Maintenance window",
+        "description": "__TODO_TRANSLATE__:Sent 24h before a scheduled infrastructure change that may affect availability.",
+        "group": "__TODO_TRANSLATE__:operational"
+      },
+      "mfa_reset": {
+        "label": "__TODO_TRANSLATE__:MFA reset",
+        "description": "__TODO_TRANSLATE__:Sent when someone (you or an admin) resets your multi-factor credentials.",
+        "group": "__TODO_TRANSLATE__:security"
+      },
+      "invite_accepted": {
+        "label": "__TODO_TRANSLATE__:Invite accepted",
+        "description": "__TODO_TRANSLATE__:Sent to the inviter when a new user completes onboarding.",
+        "group": "__TODO_TRANSLATE__:security"
+      },
+      "erasure_confirmed": {
+        "label": "__TODO_TRANSLATE__:Erasure confirmed",
+        "description": "__TODO_TRANSLATE__:Sent to the requester when a GDPR Art. 17 erasure completes with tombstone.",
+        "group": "__TODO_TRANSLATE__:security"
+      },
+      "phi_incident": {
+        "label": "__TODO_TRANSLATE__:PHI incident",
+        "description": "__TODO_TRANSLATE__:Mandatory alert — cannot be disabled — sent if a PHI-touching error is detected.",
+        "group": "__TODO_TRANSLATE__:security"
+      }
+    }
+  },
+  "title": "Уведомления",
+  "empty": "__TODO_TRANSLATE__:No notifications",
+  "high": "__TODO_TRANSLATE__:High",
+  "urgent": "__TODO_TRANSLATE__:Urgent",
+  "unread": "__TODO_TRANSLATE__:Unread",
+  "unreadNotifications": "__TODO_TRANSLATE__:{{count}} unread notifications",
+  "markAllRead": "__TODO_TRANSLATE__:Mark all as read",
+  "viewAll": "__TODO_TRANSLATE__:View all"
 }

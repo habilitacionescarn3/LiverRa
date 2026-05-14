@@ -40,6 +40,7 @@ import {
   IconStarOff,
 } from '@tabler/icons-react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { INTL_TAG } from '../../services/localeService';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 // Direct imports avoid a `services/pacs/index.ts` barrel (per port constraints).
 import {
@@ -312,7 +313,7 @@ function KeyImageCard({
   onNavigate,
   onUnflag,
 }: KeyImageCardProps): JSX.Element {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const handleClick = useCallback(() => {
     onNavigate?.(keyImage.sopInstanceUid, keyImage.frameNumber);
@@ -325,7 +326,7 @@ function KeyImageCard({
 
   // Format the timestamp to a readable short form
   const flaggedDate = keyImage.flaggedAt
-    ? new Date(keyImage.flaggedAt).toLocaleDateString(undefined, {
+    ? new Date(keyImage.flaggedAt).toLocaleDateString(INTL_TAG[locale] ?? 'en-GB', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',

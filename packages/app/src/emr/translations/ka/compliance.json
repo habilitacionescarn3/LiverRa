@@ -13,7 +13,13 @@
     "emptyTitle": "მოდელები არ არის ჩამოთვლილი",
     "emptyDescription": "მიმდინარე build-ში ჯერ არ არის MBoM ჩანაწერები.",
     "tableAriaLabel": "MBoM ცხრილი",
-    "loadError": "MBoM-ის ჩატვირთვა ვერ მოხერხდა."
+    "loadError": "MBoM-ის ჩატვირთვა ვერ მოხერხდა.",
+    "downloadJson": "__TODO_TRANSLATE__:Download JSON",
+    "filterLicense": "__TODO_TRANSLATE__:License",
+    "filterAll": "__TODO_TRANSLATE__:All licenses",
+    "summaryModels": "__TODO_TRANSLATE__:{{n}} models",
+    "summaryApproved": "__TODO_TRANSLATE__:{{n}} approved",
+    "summaryPending": "__TODO_TRANSLATE__:{{n}} pending"
   },
   "audit": {
     "title": "აუდიტის შეჯამება",
@@ -36,7 +42,20 @@
     "colOutcome": "შედეგი",
     "tableAriaLabel": "აუდიტის მოვლენების ცხრილი",
     "categoryLabel": "__TODO_TRANSLATE__:Category filter",
-    "categoryAll": "__TODO_TRANSLATE__:All categories"
+    "categoryAll": "__TODO_TRANSLATE__:All categories",
+    "summary": {
+      "title": "__TODO_TRANSLATE__:Compliance overview",
+      "subtitle": "__TODO_TRANSLATE__:Snapshot of audit, erasure, and RUO claim signals (last 30 days).",
+      "totalEvents": "__TODO_TRANSLATE__:Total events",
+      "successRate": "__TODO_TRANSLATE__:Success rate",
+      "deniedEvents": "__TODO_TRANSLATE__:Denied",
+      "erasurePending": "__TODO_TRANSLATE__:Pending erasure requests",
+      "ruoCleared": "__TODO_TRANSLATE__:Cleared claims",
+      "ruoUnderAssessment": "__TODO_TRANSLATE__:Under assessment",
+      "ruoOnly": "__TODO_TRANSLATE__:RUO only",
+      "byCategory": "__TODO_TRANSLATE__:Events by category",
+      "noData": "__TODO_TRANSLATE__:No data in this window."
+    }
   },
   "chain": {
     "verifying": "ჯაჭვი მოწმდება…",

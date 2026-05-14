@@ -1,17 +1,169 @@
 {
   "__reviewers": "@georgian-hpb-reviewer — გთხოვთ გადაამოწმოთ ტერმინოლოგია (Couinaud სეგმენტები; HPB ქირურგიის ნომენკლატურა). Latin transliteration kept alongside the Georgian script so terminology lookups remain interoperable.",
   "couinaud": {
-    "I":    { "name": "სეგმენტი I",    "latin": "Lobus caudatus",                                       "role": "კუდიანი წილი (Lobus caudatus)" },
-    "II":   { "name": "სეგმენტი II",   "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",    "role": "მარცხენა ლატერალური ზედა" },
-    "III":  { "name": "სეგმენტი III",  "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",   "role": "მარცხენა ლატერალური ქვედა" },
-    "IV":   { "name": "სეგმენტი IV",   "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",             "role": "მარცხენა მედიალური" },
-    "V":    { "name": "სეგმენტი V",    "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",      "role": "მარჯვენა წინა ქვედა" },
-    "VI":   { "name": "სეგმენტი VI",   "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",    "role": "მარჯვენა უკანა ქვედა" },
-    "VII":  { "name": "სეგმენტი VII",  "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",   "role": "მარჯვენა უკანა ზედა" },
-    "VIII": { "name": "სეგმენტი VIII", "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",   "role": "მარჯვენა წინა ზედა" }
+    "I": {
+      "name": "სეგმენტი I",
+      "latin": "Lobus caudatus",
+      "role": "კუდიანი წილი (Lobus caudatus)"
+    },
+    "II": {
+      "name": "სეგმენტი II",
+      "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",
+      "role": "მარცხენა ლატერალური ზედა"
+    },
+    "III": {
+      "name": "სეგმენტი III",
+      "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",
+      "role": "მარცხენა ლატერალური ქვედა"
+    },
+    "IV": {
+      "name": "სეგმენტი IV",
+      "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",
+      "role": "მარცხენა მედიალური"
+    },
+    "V": {
+      "name": "სეგმენტი V",
+      "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",
+      "role": "მარჯვენა წინა ქვედა"
+    },
+    "VI": {
+      "name": "სეგმენტი VI",
+      "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",
+      "role": "მარჯვენა უკანა ქვედა"
+    },
+    "VII": {
+      "name": "სეგმენტი VII",
+      "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",
+      "role": "მარჯვენა უკანა ზედა"
+    },
+    "VIII": {
+      "name": "სეგმენტი VIII",
+      "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",
+      "role": "მარჯვენა წინა ზედა"
+    }
   },
   "vessels": {
-    "portal":  { "name": "კარიბჭის ვენა",    "latin": "Vena portae hepatis", "role": "შემოსადინებელი ვენური ღერო — ნაწლავებიდან და ელენთიდან" },
-    "hepatic": { "name": "ღვიძლის ვენები",   "latin": "Venae hepaticae",     "role": "გამომყოფი ვენური ღერო — ქვედა ღრუ ვენისკენ" }
+    "portal": {
+      "name": "კარიბჭის ვენა",
+      "latin": "Vena portae hepatis",
+      "role": "შემოსადინებელი ვენური ღერო — ნაწლავებიდან და ელენთიდან"
+    },
+    "hepatic": {
+      "name": "ღვიძლის ვენები",
+      "latin": "Venae hepaticae",
+      "role": "გამომყოფი ვენური ღერო — ქვედა ღრუ ვენისკენ"
+    }
+  },
+  "page": {
+    "title": "__TODO_TRANSLATE__:Clinical glossary",
+    "subtitle": "__TODO_TRANSLATE__:Terminology used across LiverRa: Couinaud anatomy, vessels, lesion classes, and abbreviations.",
+    "searchPlaceholder": "__TODO_TRANSLATE__:Search terms, Latin names, or abbreviations…",
+    "clearFilter": "__TODO_TRANSLATE__:Clear filter",
+    "noMatches": "__TODO_TRANSLATE__:No terms match your search.",
+    "resultsCount": "__TODO_TRANSLATE__:{{count}} of {{total}} terms"
+  },
+  "categories": {
+    "all": "__TODO_TRANSLATE__:All",
+    "couinaud": "__TODO_TRANSLATE__:Couinaud segments",
+    "vessels": "__TODO_TRANSLATE__:Vessels",
+    "lesions": "__TODO_TRANSLATE__:Lesion classes",
+    "phases": "__TODO_TRANSLATE__:Contrast phases",
+    "abbreviations": "__TODO_TRANSLATE__:Abbreviations"
+  },
+  "lesions": {
+    "hcc": {
+      "name": "__TODO_TRANSLATE__:Hepatocellular carcinoma",
+      "abbr": "__TODO_TRANSLATE__:HCC",
+      "role": "__TODO_TRANSLATE__:Primary liver malignancy arising from hepatocytes; typically cirrhotic background."
+    },
+    "icc": {
+      "name": "__TODO_TRANSLATE__:Intrahepatic cholangiocarcinoma",
+      "abbr": "__TODO_TRANSLATE__:ICC",
+      "role": "__TODO_TRANSLATE__:Primary biliary-tract malignancy arising from intrahepatic bile ducts."
+    },
+    "metastasis": {
+      "name": "__TODO_TRANSLATE__:Metastasis",
+      "abbr": "__TODO_TRANSLATE__:MET",
+      "role": "__TODO_TRANSLATE__:Secondary malignancy — commonly colorectal, pancreatic, breast, or neuroendocrine primaries."
+    },
+    "fnh": {
+      "name": "__TODO_TRANSLATE__:Focal nodular hyperplasia",
+      "abbr": "__TODO_TRANSLATE__:FNH",
+      "role": "__TODO_TRANSLATE__:Benign hyperplastic lesion; central scar characteristic on MRI."
+    },
+    "hemangioma": {
+      "name": "__TODO_TRANSLATE__:Hemangioma",
+      "abbr": "__TODO_TRANSLATE__:HEM",
+      "role": "__TODO_TRANSLATE__:Benign vascular lesion; peripheral nodular enhancement typical."
+    },
+    "cyst": {
+      "name": "__TODO_TRANSLATE__:Simple cyst",
+      "abbr": "__TODO_TRANSLATE__:CYST",
+      "role": "__TODO_TRANSLATE__:Benign fluid-filled lesion; no enhancement expected."
+    }
+  },
+  "phases": {
+    "native": {
+      "name": "__TODO_TRANSLATE__:Non-contrast (native)",
+      "role": "__TODO_TRANSLATE__:Baseline CT acquired before contrast injection."
+    },
+    "arterial": {
+      "name": "__TODO_TRANSLATE__:Late arterial",
+      "role": "__TODO_TRANSLATE__:~30s post-injection; hepatic artery enhancement — HCC and FNH conspicuous."
+    },
+    "portal": {
+      "name": "__TODO_TRANSLATE__:Portal venous",
+      "role": "__TODO_TRANSLATE__:~65–75s; liver parenchyma maximally enhanced — metastases conspicuous."
+    },
+    "venous": {
+      "name": "__TODO_TRANSLATE__:Hepatic venous",
+      "role": "__TODO_TRANSLATE__:~3min; equilibrium phase — tumor washout detectable."
+    },
+    "delayed": {
+      "name": "__TODO_TRANSLATE__:Delayed",
+      "role": "__TODO_TRANSLATE__:~5–10min; fibrous components retain contrast."
+    }
+  },
+  "abbreviations": {
+    "flr": {
+      "name": "__TODO_TRANSLATE__:Future Liver Remnant",
+      "abbr": "__TODO_TRANSLATE__:FLR",
+      "role": "__TODO_TRANSLATE__:Post-resection liver volume expressed as % of total liver volume. Target ≥30–40% in healthy liver, higher with impairment."
+    },
+    "alpps": {
+      "name": "__TODO_TRANSLATE__:Associating Liver Partition and Portal vein ligation for Staged hepatectomy",
+      "abbr": "__TODO_TRANSLATE__:ALPPS",
+      "role": "__TODO_TRANSLATE__:Two-stage hepatectomy technique that accelerates FLR hypertrophy."
+    },
+    "ruo": {
+      "name": "Только для исследовательских целей",
+      "abbr": "__TODO_TRANSLATE__:RUO",
+      "role": "__TODO_TRANSLATE__:Regulatory scope — output is not cleared for clinical decision-making."
+    },
+    "mrn": {
+      "name": "__TODO_TRANSLATE__:Medical Record Number",
+      "abbr": "__TODO_TRANSLATE__:MRN",
+      "role": "__TODO_TRANSLATE__:Hospital-assigned patient identifier."
+    },
+    "sop_uid": {
+      "name": "__TODO_TRANSLATE__:SOP Instance UID",
+      "abbr": "__TODO_TRANSLATE__:SOP UID",
+      "role": "__TODO_TRANSLATE__:DICOM unique identifier per object — regenerated on every finalize."
+    },
+    "dicom_seg": {
+      "name": "__TODO_TRANSLATE__:DICOM Segmentation",
+      "abbr": "__TODO_TRANSLATE__:SEG",
+      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for 3D mask export."
+    },
+    "dicom_sr": {
+      "name": "__TODO_TRANSLATE__:DICOM Structured Report",
+      "abbr": "__TODO_TRANSLATE__:SR",
+      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for structured clinical findings."
+    },
+    "pacs": {
+      "name": "__TODO_TRANSLATE__:Picture Archiving and Communication System",
+      "abbr": "__TODO_TRANSLATE__:PACS",
+      "role": "__TODO_TRANSLATE__:Hospital image storage + routing system; DICOM-native."
+    }
   }
 }

@@ -1,0 +1,82 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "title": "__TODO_TRANSLATE__:Welcome to LiverRa",
+  "subtitle": "__TODO_TRANSLATE__:Complete these 5 steps to activate your account (approx 15 min).",
+  "privacyNote": "__TODO_TRANSLATE__:This wizard collects no patient information. Every step is auditable.",
+  "steps": {
+    "password": "Пароль",
+    "mfa": "__TODO_TRANSLATE__:MFA",
+    "ruo": "__TODO_TRANSLATE__:RUO",
+    "tour": "__TODO_TRANSLATE__:Tour",
+    "sample": "Демо"
+  },
+  "password": {
+    "title": "__TODO_TRANSLATE__:Set your password",
+    "subtitle": "__TODO_TRANSLATE__:Choose a strong password (min 12 chars) or link your hospital single sign-on.",
+    "new": "__TODO_TRANSLATE__:New password",
+    "confirm": "__TODO_TRANSLATE__:Confirm password",
+    "tooShort": "__TODO_TRANSLATE__:Password must be at least 12 characters.",
+    "mismatch": "__TODO_TRANSLATE__:Passwords do not match.",
+    "useSso": "__TODO_TRANSLATE__:Use hospital SSO"
+  },
+  "mfa": {
+    "title": "__TODO_TRANSLATE__:Set up multi-factor authentication",
+    "subtitle": "__TODO_TRANSLATE__:Scan the QR code with your authenticator app, save the backup codes, then enter a code to confirm.",
+    "qrAlt": "__TODO_TRANSLATE__:MFA QR code",
+    "secretLabel": "__TODO_TRANSLATE__:Or enter this secret manually:",
+    "downloadBackup": "__TODO_TRANSLATE__:Download backup codes",
+    "enterCode": "__TODO_TRANSLATE__:Enter 6-digit code",
+    "loading": "__TODO_TRANSLATE__:Generating secret and backup codes…"
+  },
+  "ruo": {
+    "title": "__TODO_TRANSLATE__:Research Use Only — accept the terms",
+    "body": "__TODO_TRANSLATE__:LiverRa is classified as Research Use Only. Outputs are not a medical device and must not be used as the sole basis for clinical decisions. You remain the responsible clinician. All analyses are logged to an immutable audit trail.",
+    "checkbox": "__TODO_TRANSLATE__:I have read and accept the Research Use Only terms.",
+    "version": "__TODO_TRANSLATE__:Version",
+    "accept": "__TODO_TRANSLATE__:Accept and continue"
+  },
+  "tour": {
+    "title": "__TODO_TRANSLATE__:Quick tour",
+    "skip": "__TODO_TRANSLATE__:Skip tour",
+    "next": "Далее",
+    "s1": "__TODO_TRANSLATE__:Drop a DICOM archive here to start a new analysis.",
+    "s2": "__TODO_TRANSLATE__:Watch the per-stage status — each checkpoint is audited.",
+    "s3": "__TODO_TRANSLATE__:Drag the resection plane to see FLR update live.",
+    "s4": "__TODO_TRANSLATE__:Append or refine lesions with the AI assistant.",
+    "s5": "__TODO_TRANSLATE__:Finalize when ready — the PDF + DICOM-SEG are saved to PACS."
+  },
+  "sample": {
+    "title": "__TODO_TRANSLATE__:Run a demo case",
+    "subtitle": "__TODO_TRANSLATE__:Open a pre-seeded demo analysis to explore the viewer, FLR calculator, and finalize flow. This is synthetic data.",
+    "ready": "__TODO_TRANSLATE__:Demo ready",
+    "redirecting": "__TODO_TRANSLATE__:Redirecting you to the demo case…",
+    "run": "__TODO_TRANSLATE__:Run demo case",
+    "badge": "__TODO_TRANSLATE__:Sample data — not real patient"
+  },
+  "demo": {
+    "title": "__TODO_TRANSLATE__:Demo case",
+    "subtitle": "__TODO_TRANSLATE__:Explore the full pipeline on synthetic data. Re-open any time from the Help menu.",
+    "body": "__TODO_TRANSLATE__:The demo case has no real patient data. PACS push is disabled; outputs are watermarked \"Sample data\".",
+    "open": "__TODO_TRANSLATE__:Open demo case",
+    "navLabel": "__TODO_TRANSLATE__:Demo case",
+    "heroTitle": "__TODO_TRANSLATE__:See LiverRa end to end in 30 seconds",
+    "feature": {
+      "segmentation": {
+        "title": "__TODO_TRANSLATE__:AI segmentation",
+        "body": "__TODO_TRANSLATE__:Liver parenchyma, 8 Couinaud segments, vessels, and lesions — all auto-segmented."
+      },
+      "flr": {
+        "title": "__TODO_TRANSLATE__:FLR & volumetry",
+        "body": "__TODO_TRANSLATE__:Future Liver Remnant calculation with surgical-grade volumetric outputs."
+      },
+      "ruo": {
+        "title": "Только для исследовательских целей",
+        "body": "__TODO_TRANSLATE__:Synthetic data, watermarked exports, PACS push disabled — safe to explore."
+      }
+    }
+  }
+}

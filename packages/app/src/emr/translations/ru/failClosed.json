@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "cashier": {
+    "title": "__TODO_TRANSLATE__:Cashier service unavailable",
+    "message": "__TODO_TRANSLATE__:The cashier service is temporarily unreachable. Payments cannot be processed right now.",
+    "alternative": "__TODO_TRANSLATE__:You can retry in a moment or use a manual backup process.",
+    "retryLabel": "Повторить",
+    "suggestion1": "__TODO_TRANSLATE__:Check your network connection.",
+    "suggestion2": "__TODO_TRANSLATE__:Wait a moment and retry.",
+    "suggestion3": "__TODO_TRANSLATE__:Contact support if the problem persists."
+  },
+  "emergencyAccess": {
+    "title": "__TODO_TRANSLATE__:Emergency access check failed",
+    "message": "__TODO_TRANSLATE__:We could not verify your emergency-access rights.",
+    "retryLabel": "Повторить",
+    "breakGlassLabel": "__TODO_TRANSLATE__:Request break-glass access",
+    "autoRetrying": "__TODO_TRANSLATE__:Automatically retrying…",
+    "autoRetryExhausted": "__TODO_TRANSLATE__:Automatic retries exhausted. Please retry manually.",
+    "suggestion1": "__TODO_TRANSLATE__:Check your network connection.",
+    "suggestion2": "__TODO_TRANSLATE__:Verify your credentials.",
+    "suggestion3": "__TODO_TRANSLATE__:Request break-glass access if this is an emergency."
+  },
+  "pharmacyDDI": {
+    "title": "__TODO_TRANSLATE__:Drug interaction check unavailable",
+    "message": "__TODO_TRANSLATE__:The drug-drug interaction (DDI) service is unreachable.",
+    "alternative": "__TODO_TRANSLATE__:You can retry or request a supervised override.",
+    "retryLabel": "Повторить",
+    "overrideLabel": "__TODO_TRANSLATE__:Request override",
+    "suggestion1": "__TODO_TRANSLATE__:Check your network connection.",
+    "suggestion2": "__TODO_TRANSLATE__:Wait a moment and retry.",
+    "suggestion3": "__TODO_TRANSLATE__:Request an override from a pharmacist if urgent."
+  },
+  "roleAssignment": {
+    "title": "__TODO_TRANSLATE__:Role assignment failed",
+    "message": "__TODO_TRANSLATE__:Your user role could not be determined.",
+    "alternative": "__TODO_TRANSLATE__:Sign out and back in, or contact your administrator.",
+    "suggestion1": "__TODO_TRANSLATE__:Sign out and sign in again.",
+    "suggestion2": "__TODO_TRANSLATE__:Refresh the page.",
+    "suggestion3": "__TODO_TRANSLATE__:Contact your administrator for role reassignment."
+  },
+  "shiftOverlap": {
+    "title": "__TODO_TRANSLATE__:Shift overlap detected",
+    "message": "__TODO_TRANSLATE__:Your shift assignment overlaps with another scheduled shift.",
+    "alternative": "__TODO_TRANSLATE__:Verify your shift calendar or request an override.",
+    "verifyLabel": "__TODO_TRANSLATE__:Verify shift",
+    "suggestion1": "__TODO_TRANSLATE__:Check your shift calendar.",
+    "suggestion2": "__TODO_TRANSLATE__:Ask your scheduler to resolve the overlap.",
+    "suggestion3": "__TODO_TRANSLATE__:Contact your supervisor."
+  },
+  "warehouse": {
+    "title": "__TODO_TRANSLATE__:Warehouse service unavailable",
+    "message": "__TODO_TRANSLATE__:The inventory warehouse is temporarily unreachable.",
+    "alternative": "__TODO_TRANSLATE__:Retry shortly or use an offline stock sheet.",
+    "suggestion1": "__TODO_TRANSLATE__:Check your network connection.",
+    "suggestion2": "__TODO_TRANSLATE__:Wait a moment and retry.",
+    "suggestion3": "__TODO_TRANSLATE__:Use a paper backup if critical."
+  }
+}

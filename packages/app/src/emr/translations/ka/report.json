@@ -63,7 +63,25 @@
       "simpleBiliaryCysts": "__TODO_TRANSLATE__:Simple biliary cysts",
       "cystsDetail": "__TODO_TRANSLATE__:Meets all 4 simple-cyst criteria — no follow-up needed.",
       "lrM": "__TODO_TRANSLATE__:Indeterminate malignant (LR-M)"
-    }
+    },
+    "heading": "__TODO_TRANSLATE__:Analysis report",
+    "downloadPdf": "__TODO_TRANSLATE__:Download PDF",
+    "claimHidden": "__TODO_TRANSLATE__:Report is restricted for the current RUO claim scope.",
+    "noIdDescription": "__TODO_TRANSLATE__:Open a finalized analysis from your cases list to view its report.",
+    "stats": {
+      "liver": "__TODO_TRANSLATE__:Liver volume",
+      "flr": "__TODO_TRANSLATE__:Future Liver Remnant",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "status": "Статус"
+    },
+    "parenchymaTitle": "__TODO_TRANSLATE__:Parenchyma segmentation",
+    "vesselsTitle": "__TODO_TRANSLATE__:Vessels (portal + hepatic)",
+    "flrTitle": "__TODO_TRANSLATE__:FLR — resection plane",
+    "fourPhaseTitle": "__TODO_TRANSLATE__:4-phase axial comparison",
+    "mesh3dTitle": "__TODO_TRANSLATE__:3D liver mesh",
+    "lesionsTitle": "__TODO_TRANSLATE__:Lesions",
+    "pipelineTitle": "__TODO_TRANSLATE__:Pipeline checkpoints",
+    "downloadPerSlice": "__TODO_TRANSLATE__:Per-slice PDF"
   },
   "artifact": {
     "seg": "DICOM-SEG (ღვიძლი + სეგმენტები + ლეზიები)",

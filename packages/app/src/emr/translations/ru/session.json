@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "timeout": {
+    "title": "__TODO_TRANSLATE__:Session about to expire",
+    "description": "__TODO_TRANSLATE__:You will be signed out automatically if there is no activity.",
+    "remainingTime": "__TODO_TRANSLATE__:Time remaining: {{time}}",
+    "progressLabel": "__TODO_TRANSLATE__:Session expiration progress",
+    "stayLoggedIn": "__TODO_TRANSLATE__:Stay signed in",
+    "logoutNow": "__TODO_TRANSLATE__:Sign out now",
+    "hipaaNote": "__TODO_TRANSLATE__:HIPAA requires automatic sign-out after inactivity to protect patient data.",
+    "announcement": "__TODO_TRANSLATE__:Your session has expired. You have been signed out.",
+    "warningAnnouncement": "__TODO_TRANSLATE__:Your session will expire soon. Press Stay signed in to continue."
+  }
+}

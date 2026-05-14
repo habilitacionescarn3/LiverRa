@@ -1,0 +1,9 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "back": "Назад",
+  "home": "__TODO_TRANSLATE__:Home"
+}

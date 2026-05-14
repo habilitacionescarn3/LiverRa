@@ -1,4 +1,26 @@
 {
+  "studies": {
+    "selectFolder": "Select folder",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "dropzoneTitle": "Drag DICOM files or a folder here",
+    "dropzoneSubtitle": "Single .dcm, multiple files, or a whole series folder. Uploads go directly to Orthanc via STOW-RS (max 2 GB).",
+    "uploadIssue": "Upload issue",
+    "cannotReachOrthanc": "Cannot reach Orthanc",
+    "dicomwebFailed": "DICOMweb request failed.",
+    "checkOrthancRunning": "Check that Orthanc is running:",
+    "emptyTitle": "No studies yet",
+    "emptyDescription": "Drop a DICOM file or folder above to upload your first study, then run AI on it.",
+    "column": {
+      "patientId": "Patient ID",
+      "patientName": "Patient name",
+      "studyDate": "Study date",
+      "description": "Description",
+      "modality": "Modality",
+      "instances": "Instances",
+      "actions": "Actions"
+    }
+  },
   "cine": {
     "exporting": "Exporting…",
     "exportVideo": "Export video",

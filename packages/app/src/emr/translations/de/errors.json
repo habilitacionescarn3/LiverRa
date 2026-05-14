@@ -11,5 +11,25 @@
     "404": "Not found.",
     "500": "Server error. Please try again later."
   },
-  "requestAccess": "Request access from your administrator."
+  "requestAccess": "Request access from your administrator.",
+  "boundary": {
+    "title": "Что-то пошло не так",
+    "messageGeneric": "__TODO_TRANSLATE__:An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "messageNamed": "__TODO_TRANSLATE__:An error occurred in the {{component}} component. Please try again or contact support if the problem persists.",
+    "retry": "Повторить",
+    "reload": "__TODO_TRANSLATE__:Please reload the page",
+    "report": "__TODO_TRANSLATE__:Report Issue",
+    "errorDetails": "__TODO_TRANSLATE__:Error Details:",
+    "componentStack": "__TODO_TRANSLATE__:Component Stack:"
+  },
+  "finalize": {
+    "generic": "__TODO_TRANSLATE__:Unable to finalize the report. Please try again.",
+    "seat_expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-taken": "__TODO_TRANSLATE__:Another reviewer is currently holding the review seat.",
+    "no_review_seat": "__TODO_TRANSLATE__:No active review seat. Open the case to acquire one before finalizing.",
+    "analysis_not_complete": "__TODO_TRANSLATE__:The analysis is not yet complete. Finalize is only available for completed analyses.",
+    "finalize-failed": "__TODO_TRANSLATE__:The server rejected the finalize request. Please try again.",
+    "mfa_required": "__TODO_TRANSLATE__:Step-up multi-factor authentication is required to finalize."
+  }
 }

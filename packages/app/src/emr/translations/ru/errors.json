@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "network": "__TODO_TRANSLATE__:Network error. Please try again.",
+  "unknown": "__TODO_TRANSLATE__:An unexpected error occurred.",
+  "validation": {
+    "required": "__TODO_TRANSLATE__:This field is required",
+    "invalid": "__TODO_TRANSLATE__:Invalid value"
+  },
+  "http": {
+    "401": "__TODO_TRANSLATE__:Please sign in again.",
+    "403": "__TODO_TRANSLATE__:You don't have permission to do that.",
+    "404": "__TODO_TRANSLATE__:Not found.",
+    "500": "__TODO_TRANSLATE__:Server error. Please try again later."
+  },
+  "requestAccess": "__TODO_TRANSLATE__:Request access from your administrator.",
+  "finalize": {
+    "generic": "__TODO_TRANSLATE__:Unable to finalize the report. Please try again.",
+    "seat_expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
+    "seat-taken": "__TODO_TRANSLATE__:Another reviewer is currently holding the review seat.",
+    "no_review_seat": "__TODO_TRANSLATE__:No active review seat. Open the case to acquire one before finalizing.",
+    "analysis_not_complete": "__TODO_TRANSLATE__:The analysis is not yet complete. Finalize is only available for completed analyses.",
+    "finalize-failed": "__TODO_TRANSLATE__:The server rejected the finalize request. Please try again.",
+    "mfa_required": "__TODO_TRANSLATE__:Step-up multi-factor authentication is required to finalize."
+  },
+  "boundary": {
+    "title": "Что-то пошло не так",
+    "messageGeneric": "__TODO_TRANSLATE__:An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "messageNamed": "__TODO_TRANSLATE__:An error occurred in the {{component}} component. Please try again or contact support if the problem persists.",
+    "retry": "Повторить",
+    "reload": "__TODO_TRANSLATE__:Please reload the page",
+    "report": "__TODO_TRANSLATE__:Report Issue",
+    "errorDetails": "__TODO_TRANSLATE__:Error Details:",
+    "componentStack": "__TODO_TRANSLATE__:Component Stack:"
+  }
+}

@@ -19,8 +19,10 @@
       "status": "Status",
       "requested_at": "Beantragt",
       "tombstone": "Tombstone",
-      "pdf": "PDF"
-    }
+      "pdf": "PDF",
+      "actions": "__TODO_TRANSLATE__:Actions"
+    },
+    "view": "Просмотр"
   },
   "wizard": {
     "title": "Neuer DSGVO-Löschantrag",

@@ -375,7 +375,7 @@ export function EMRModal({
               type="button"
               onClick={onClose}
               style={closeButtonStyles}
-              aria-label={t('common.close', 'Close')}
+              aria-label={t('common.close')}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--emr-button-close-hover-bg)';
                 e.currentTarget.style.color = 'var(--emr-button-close-hover-color)';

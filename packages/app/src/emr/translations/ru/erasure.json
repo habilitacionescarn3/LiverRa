@@ -1,0 +1,77 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "status": {
+    "requested": "__TODO_TRANSLATE__:Requested",
+    "executing": "__TODO_TRANSLATE__:Executing",
+    "completed": "Завершено",
+    "rolled_back": "__TODO_TRANSLATE__:Rolled back"
+  },
+  "list": {
+    "title": "__TODO_TRANSLATE__:GDPR erasure requests",
+    "subtitle": "__TODO_TRANSLATE__:Article 17 of the GDPR. All actions on this page are audited.",
+    "new_request": "__TODO_TRANSLATE__:New erasure request",
+    "empty": "__TODO_TRANSLATE__:No erasure requests yet.",
+    "error_title": "__TODO_TRANSLATE__:Could not load requests",
+    "download_pdf": "__TODO_TRANSLATE__:PDF",
+    "case_not_found": "__TODO_TRANSLATE__:Case not found.",
+    "view": "Просмотр",
+    "col": {
+      "request_id": "__TODO_TRANSLATE__:Request",
+      "study_id": "__TODO_TRANSLATE__:Study",
+      "status": "Статус",
+      "requested_at": "__TODO_TRANSLATE__:Requested",
+      "tombstone": "__TODO_TRANSLATE__:Tombstone",
+      "pdf": "__TODO_TRANSLATE__:PDF",
+      "actions": "__TODO_TRANSLATE__:Actions"
+    }
+  },
+  "wizard": {
+    "title": "__TODO_TRANSLATE__:New GDPR erasure request",
+    "irreversible_warning": "__TODO_TRANSLATE__:Erasure is irreversible. Once executed, the case and its derived artefacts cannot be recovered.",
+    "step": {
+      "select_label": "Выбрать",
+      "select_desc": "__TODO_TRANSLATE__:Target study",
+      "justify_label": "__TODO_TRANSLATE__:Justify",
+      "justify_desc": "__TODO_TRANSLATE__:Art. 17 grounds",
+      "mfa_label": "__TODO_TRANSLATE__:MFA",
+      "mfa_desc": "__TODO_TRANSLATE__:Step-up auth",
+      "review_label": "__TODO_TRANSLATE__:Review",
+      "review_desc": "__TODO_TRANSLATE__:Confirm details",
+      "execute_label": "__TODO_TRANSLATE__:Execute",
+      "execute_desc": "__TODO_TRANSLATE__:Running…"
+    },
+    "study_id_label": "__TODO_TRANSLATE__:Study ID",
+    "study_id_help": "__TODO_TRANSLATE__:Paste the UUID of the study to erase. The study must belong to your tenant.",
+    "justification_label": "__TODO_TRANSLATE__:Justification (Art. 17 grounds)",
+    "justification_help": "__TODO_TRANSLATE__:Documented reason. Minimum 10 characters. Will appear on the confirmation PDF.",
+    "justification_placeholder": "__TODO_TRANSLATE__:e.g., Data subject request received 2025-04-10 — Art. 17(1)(a) consent withdrawn.",
+    "mfa_body": "__TODO_TRANSLATE__:Confirm your identity. You will be prompted for a fresh multi-factor check before submission.",
+    "mfa_help": "__TODO_TRANSLATE__:If step-up is required, a secure prompt will appear at submission time.",
+    "review_study_id": "__TODO_TRANSLATE__:Study to erase:",
+    "review_justification": "__TODO_TRANSLATE__:Justification:",
+    "review_irreversible": "__TODO_TRANSLATE__:After submission the case, its segmentations, lesions, reports, and deliveries will be permanently removed. Audit events are retained but residual identifiers are hashed.",
+    "confirm_phrase_label": "__TODO_TRANSLATE__:Type to confirm",
+    "confirm_phrase_help": "__TODO_TRANSLATE__:Type {{phrase}} (all caps) to unlock the Execute button.",
+    "execute_cta": "__TODO_TRANSLATE__:Execute erasure",
+    "next_cta": "Далее",
+    "executing_body": "__TODO_TRANSLATE__:Running the erasure pipeline. This usually finishes within 60 seconds.",
+    "error_title": "__TODO_TRANSLATE__:Erasure failed",
+    "step_up_required": "__TODO_TRANSLATE__:Fresh multi-factor authentication required. Please retry after re-authenticating.",
+    "timeout_body": "__TODO_TRANSLATE__:The erasure did not complete within 90 seconds. Check the ops dashboard or retry."
+  },
+  "confirmation": {
+    "title": "__TODO_TRANSLATE__:Erasure completed",
+    "body": "__TODO_TRANSLATE__:The case and its derived artefacts have been erased. A confirmation PDF has been generated.",
+    "elapsed": "__TODO_TRANSLATE__:in {{seconds}} s",
+    "erasure_request_id": "__TODO_TRANSLATE__:Erasure request ID",
+    "tombstone_hash": "__TODO_TRANSLATE__:Tombstone hash (SHA-256)",
+    "tombstone_help": "__TODO_TRANSLATE__:Cryptographic anchor linking this confirmation PDF to the audit log entry. Keep with your compliance records.",
+    "download_pdf": "__TODO_TRANSLATE__:Download confirmation PDF",
+    "pdf_pending": "__TODO_TRANSLATE__:PDF render pending — refresh in a moment",
+    "back_to_list": "__TODO_TRANSLATE__:Back to requests"
+  }
+}

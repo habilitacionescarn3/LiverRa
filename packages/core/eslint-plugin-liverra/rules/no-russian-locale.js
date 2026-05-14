@@ -1,76 +1,31 @@
 /**
- * liverra/no-russian-locale
+ * liverra/no-russian-locale (DEPRECATED — kept as a no-op for now).
  *
- * Plain-language: LiverRa ships en / de / ka only (no Russian). If any
- * translations file under `translations/**` references a `ru` locale key
- * or imports a `ru.json`, this rule flags it.
+ * Historical context: LiverRa originally shipped en/de/ka only. The 2026
+ * spec re-activated the Georgia/CIS market and made `ru` part of the
+ * canonical triad (per CLAUDE.md). Russian locale references in
+ * `translations/**` are now SUPPORTED, so this rule is intentionally a
+ * no-op pending plugin removal.
  *
- * We only scan files under `translations/**` to avoid matching ordinary
- * words like "true" or "instructor" that happen to contain "ru".
- *
- * See plan.md §Guardrail lint rules.
+ * TODO: remove this rule + its `recommended` registration entirely once
+ * the eslint-plugin-liverra index drops the export (audit M-I18N-5).
  */
 'use strict';
-
-const TRANSLATIONS_PATH_PATTERN = /[\\/]translations[\\/]/;
-// Match `ru` as a whole token — either quoted in a string ("ru", 'ru'),
-// as an object key 'ru:', or as an import path segment ending in `ru.json`.
-const RU_TOKEN_PATTERN = /(^|[^a-zA-Z])ru([^a-zA-Z]|$)/;
-const RU_JSON_PATTERN = /\bru\.json$/;
 
 module.exports = {
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Forbid Russian locale references in translations/** — LiverRa ships en/de/ka only.',
+        'DEPRECATED — Russian is now part of the active triad (CLAUDE.md). This rule is a no-op.',
       category: 'LiverRa Guardrails',
-      recommended: true,
+      recommended: false,
     },
     schema: [],
-    messages: {
-      russianLocale:
-        'Russian locale reference detected (`{{token}}`). LiverRa supports en, de, ka only.',
-    },
+    messages: {},
   },
-  create(context) {
-    const filename = context.getFilename();
-    if (!TRANSLATIONS_PATH_PATTERN.test(filename)) {
-      return {};
-    }
-
-    function checkString(node, value) {
-      if (typeof value !== 'string') return;
-      // Direct path import like `./ru.json`.
-      if (RU_JSON_PATTERN.test(value)) {
-        context.report({ node, messageId: 'russianLocale', data: { token: value } });
-        return;
-      }
-      // Exact locale key literals ("ru").
-      if (value === 'ru' || value === 'RU') {
-        context.report({ node, messageId: 'russianLocale', data: { token: value } });
-      }
-    }
-
-    return {
-      Literal(node) {
-        checkString(node, node.value);
-      },
-      // `{ ru: { ... } }` — unquoted object key.
-      Property(node) {
-        if (
-          node.key &&
-          node.key.type === 'Identifier' &&
-          (node.key.name === 'ru' || node.key.name === 'RU') &&
-          RU_TOKEN_PATTERN.test(node.key.name)
-        ) {
-          context.report({
-            node: node.key,
-            messageId: 'russianLocale',
-            data: { token: node.key.name },
-          });
-        }
-      },
-    };
+  create() {
+    // Intentional no-op: see file docstring.
+    return {};
   },
 };

@@ -13,7 +13,13 @@
     "emptyTitle": "Keine Modelle gelistet",
     "emptyDescription": "Der aktuelle Build enthält noch keine MBoM-Einträge.",
     "tableAriaLabel": "Model Bill of Materials Tabelle",
-    "loadError": "Die Model Bill of Materials konnte nicht geladen werden."
+    "loadError": "Die Model Bill of Materials konnte nicht geladen werden.",
+    "downloadJson": "__TODO_TRANSLATE__:Download JSON",
+    "filterLicense": "__TODO_TRANSLATE__:License",
+    "filterAll": "__TODO_TRANSLATE__:All licenses",
+    "summaryModels": "__TODO_TRANSLATE__:{{n}} models",
+    "summaryApproved": "__TODO_TRANSLATE__:{{n}} approved",
+    "summaryPending": "__TODO_TRANSLATE__:{{n}} pending"
   },
   "audit": {
     "title": "Audit-Zusammenfassung",
@@ -36,7 +42,20 @@
     "colOutcome": "Ergebnis",
     "tableAriaLabel": "Audit-Ereignistabelle",
     "categoryLabel": "__TODO_TRANSLATE__:Category filter",
-    "categoryAll": "__TODO_TRANSLATE__:All categories"
+    "categoryAll": "__TODO_TRANSLATE__:All categories",
+    "summary": {
+      "title": "__TODO_TRANSLATE__:Compliance overview",
+      "subtitle": "__TODO_TRANSLATE__:Snapshot of audit, erasure, and RUO claim signals (last 30 days).",
+      "totalEvents": "__TODO_TRANSLATE__:Total events",
+      "successRate": "__TODO_TRANSLATE__:Success rate",
+      "deniedEvents": "__TODO_TRANSLATE__:Denied",
+      "erasurePending": "__TODO_TRANSLATE__:Pending erasure requests",
+      "ruoCleared": "__TODO_TRANSLATE__:Cleared claims",
+      "ruoUnderAssessment": "__TODO_TRANSLATE__:Under assessment",
+      "ruoOnly": "__TODO_TRANSLATE__:RUO only",
+      "byCategory": "__TODO_TRANSLATE__:Events by category",
+      "noData": "__TODO_TRANSLATE__:No data in this window."
+    }
   },
   "chain": {
     "verifying": "Kette wird geprüft…",

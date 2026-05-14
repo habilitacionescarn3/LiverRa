@@ -52,6 +52,7 @@ import {
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import { useAuth } from '../../services/auth';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
 import { useRadiologyReport } from '../../hooks/pacs/useRadiologyReport';
 import { useReportMacros } from '../../hooks/pacs/useReportMacros';
 import {
@@ -105,7 +106,8 @@ export function ReportPanel({
   onClose,
   onReportSaved,
 }: ReportPanelProps): React.ReactElement {
-  const { t, lang } = useTranslation();
+  const { t, locale } = useTranslation();
+  const lang = locale; // alias preserved for legacy template-name dispatch
   const medplum = useLiverraFhir();
   const { user } = useAuth();
 
@@ -386,7 +388,7 @@ export function ReportPanel({
   const isReadOnly = report?.status === 'final';
 
   // Format study date
-  const formattedDate = study.date ? new Date(study.date).toLocaleDateString() : '';
+  const formattedDate = toLocaleDateForPacs(study.date, locale);
 
   // --------------------------------------------------------------------------
   // Render
@@ -490,9 +492,7 @@ export function ReportPanel({
             >
               <Text size="sm">
                 {t('pacs.addendum.banner', {
-                  date: report.effectiveDateTime
-                    ? new Date(report.effectiveDateTime).toLocaleDateString()
-                    : '',
+                  date: toLocaleDateForPacs(report.effectiveDateTime, locale),
                 })}
               </Text>
             </Alert>

@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "dropzone": {
+    "ariaLabel": "__TODO_TRANSLATE__:DICOM upload dropzone",
+    "title": "__TODO_TRANSLATE__:Upload DICOM study",
+    "description": "__TODO_TRANSLATE__:Drop a folder of DICOM slices or a zipped archive, or browse to pick files from your device.",
+    "chooseFiles": "Выбрать файлы",
+    "chooseFolder": "__TODO_TRANSLATE__:Choose folder",
+    "acceptedHint": "__TODO_TRANSLATE__:Accepts .dcm, .dicom, and .zip (≤ 2 GB)",
+    "progressAria": "__TODO_TRANSLATE__:Upload progress",
+    "preparing": "__TODO_TRANSLATE__:Preparing…",
+    "cancel": "__TODO_TRANSLATE__:Cancel upload",
+    "fileOfFile": "__TODO_TRANSLATE__:File {{current}} of {{total}}"
+  },
+  "errors": {
+    "title": "__TODO_TRANSLATE__:Upload failed",
+    "invalidType": "__TODO_TRANSLATE__:Only DICOM files and ZIP archives are accepted.",
+    "archiveTooLarge": "__TODO_TRANSLATE__:Archives must be smaller than {{max}}.",
+    "noFilesFound": "__TODO_TRANSLATE__:No valid DICOM files were found in the dropped content."
+  },
+  "phi": {
+    "title": "__TODO_TRANSLATE__:Patient-identifying data detected"
+  },
+  "progress": {
+    "uploading": "__TODO_TRANSLATE__:Uploading",
+    "anonymizing": "__TODO_TRANSLATE__:Anonymizing",
+    "queued": "В очереди",
+    "running": "Выполняется",
+    "done": "Готово",
+    "etaSeconds": "__TODO_TRANSLATE__:~{{seconds}} s until models ready",
+    "failedTitle": "__TODO_TRANSLATE__:Analysis failed",
+    "failedGeneric": "__TODO_TRANSLATE__:The pipeline reported an unrecoverable error. Please try again.",
+    "hint": {
+      "uploading": "__TODO_TRANSLATE__:Sending DICOM chunks to the secure ingest service.",
+      "anonymizing": "__TODO_TRANSLATE__:Stripping PHI and generating the anonymization sidecar.",
+      "queued": "__TODO_TRANSLATE__:Waiting for a GPU worker. Your analysis will start automatically.",
+      "running": "__TODO_TRANSLATE__:ML models are segmenting, classifying, and measuring.",
+      "done": "__TODO_TRANSLATE__:Analysis complete. You may now review the case."
+    }
+  }
+}

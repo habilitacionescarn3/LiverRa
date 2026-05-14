@@ -52,7 +52,7 @@ import {
 import { EMRSelect, EMRTextInput } from '../../components/shared/EMRFormFields';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useAuth, getCurrentAccessToken } from '../../services/auth';
-import { formatRelativeTime, type Locale } from '../../services/localeService';
+import { formatDate, formatRelativeTime, type Locale } from '../../services/localeService';
 import { useProfileUpdate } from '../../hooks/useProfileUpdate';
 import { LIVERRA_ERROR_EVENTS } from '../../services/errorClient';
 
@@ -141,7 +141,7 @@ function deriveInitials(name: string | null, email: string | null): string {
 // ---------------------------------------------------------------------------
 
 function ProfileViewInner(): ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const auth = useAuth();
   const authUser = auth.user as unknown as ProfileUser | null;
   const { update, isLoading: savingNetwork, error: saveError } = useProfileUpdate();
@@ -609,7 +609,7 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
             description={
               user.mfa_enrolled_at
                 ? t('profile:mfa.enrolledAt', {
-                    date: new Date(user.mfa_enrolled_at).toLocaleDateString(),
+                    date: formatDate(user.mfa_enrolled_at, { locale, dateStyle: 'medium' }),
                   })
                 : t('profile:mfa.resetBody')
             }
@@ -699,7 +699,7 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
             >
               {user.ruo_accepted_at
                 ? t('profile:ruo.acceptedAt', {
-                    date: new Date(user.ruo_accepted_at).toLocaleDateString(),
+                    date: formatDate(user.ruo_accepted_at, { locale, dateStyle: 'medium' }),
                   })
                 : t('profile:ruo.neverAccepted')}
             </Text>

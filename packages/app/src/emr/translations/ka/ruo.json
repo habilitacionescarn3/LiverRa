@@ -4,6 +4,8 @@
     "short": "Research Use Only — Not for clinical use",
     "long": "AI-generated outputs on this page are advisory and have not been cleared for clinical decision-making.",
     "ceShort": "Approved for surgical planning",
-    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently."
-  }
+    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently.",
+    "ceClassIib": "__TODO_TRANSLATE__:Approved for surgical planning. Not a substitute for clinical judgment."
+  },
+  "badge": "Только для исследовательских целей"
 }

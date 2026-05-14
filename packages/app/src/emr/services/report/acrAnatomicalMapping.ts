@@ -142,15 +142,17 @@ function fmtFloat(n: number | null | undefined, digits = 1): string | null {
 }
 
 function notAvailable(t: TFn): string {
-  return t('reportAcr:status.notAvailable', 'Not available');
+  return t('reportAcr:status.notAvailable');
 }
 
 function sectionTitle(t: TFn, section: AnatomicalSection): string {
-  return t(`reportAcr:sections.${section}.title`, section.toUpperCase());
+  // M-I18NLIT-2: dead positional fallback removed. If the bundle key is
+  // missing, the i18n fallback chain (en → marker-strip → raw key) handles it.
+  return t(`reportAcr:sections.${section}.title`);
 }
 
 function sectionEmpty(t: TFn, section: AnatomicalSection): string {
-  return t(`reportAcr:sections.${section}.empty`, 'Not assessed');
+  return t(`reportAcr:sections.${section}.empty`);
 }
 
 // -----------------------------------------------------------------
@@ -169,7 +171,7 @@ function buildLiverRows(findings: FindingsPayload | undefined, t: TFn): ReadoutR
     const hu = findings.hu_stats;
     rows.push({
       key: 'hu_mean',
-      label: t('reportAcr:labels.huMean', 'Mean HU'),
+      label: t('reportAcr:labels.huMean'),
       value: `${hu.mean.toFixed(1)} (p10 ${hu.p10.toFixed(1)}, p90 ${hu.p90.toFixed(1)})`,
     });
   }
@@ -183,11 +185,11 @@ function buildLiverRows(findings: FindingsPayload | undefined, t: TFn): ReadoutR
     );
     const delta =
       st.liver_spleen_delta != null
-        ? `${gradeLabel} (${t('reportAcr:labels.liverSpleenDelta', 'Δ liver–spleen')} = ${st.liver_spleen_delta.toFixed(1)} HU)`
-        : `${gradeLabel} (${t('reportAcr:labels.liverSpleenDelta', 'Δ liver–spleen')} unavailable)`;
+        ? `${gradeLabel} (${t('reportAcr:labels.liverSpleenDelta')} = ${st.liver_spleen_delta.toFixed(1)} HU)`
+        : `${gradeLabel} (${t('reportAcr:labels.liverSpleenDelta')} unavailable)`;
     rows.push({
       key: 'steatosis',
-      label: t('reportAcr:labels.steatosisGrade', 'Steatosis grade'),
+      label: t('reportAcr:labels.steatosisGrade'),
       value: delta,
       badge: { label: gradeLabel, color: STEATOSIS_BADGE_COLOR[st.grade] },
     });
@@ -215,7 +217,7 @@ function buildLesionsRows(
     const cls = lesion.classification;
     const clsLabel = cls?.label ? cls.label.toUpperCase() : null;
     const conf =
-      cls?.confidence != null ? ` (${t('reportAcr:labels.lesionConfidence', 'Confidence')} ${(cls.confidence * 100).toFixed(0)}%)` : '';
+      cls?.confidence != null ? ` (${t('reportAcr:labels.lesionConfidence')} ${(cls.confidence * 100).toFixed(0)}%)` : '';
     const interpretation = clsLabel
       ? `${size}, ${clsLabel}${conf}`
       : size;
@@ -235,7 +237,7 @@ function buildLesionsRows(
       const list = findings.calcified_lesions;
       rows.push({
         key: 'calcified-summary',
-        label: t('reportAcr:lesions.interpretationCalcified', 'Calcified lesion'),
+        label: t('reportAcr:lesions.interpretationCalcified'),
         value: `${list.length}`,
       });
     }
@@ -244,7 +246,7 @@ function buildLesionsRows(
       const list = findings.simple_biliary_cysts;
       rows.push({
         key: 'cysts-summary',
-        label: t('reportAcr:lesions.interpretationSimpleCyst', 'Simple biliary cyst'),
+        label: t('reportAcr:lesions.interpretationSimpleCyst'),
         value: `${list.length}`,
       });
     }
@@ -256,9 +258,9 @@ function buildLesionsRows(
       const lrm = findings.indeterminate_malignant;
       rows.push({
         key: 'lr-m-summary',
-        label: t('reportAcr:labels.lrM', 'LR-M'),
+        label: t('reportAcr:labels.lrM'),
         value: `${lrm.lr_m_count}`,
-        badge: { label: t('reportAcr:labels.lrM', 'LR-M'), color: 'red' },
+        badge: { label: t('reportAcr:labels.lrM'), color: 'red' },
         interpretation: lrm.interpretation,
       });
     }
@@ -280,26 +282,26 @@ function buildGallbladderRows(findings: FindingsPayload | undefined, t: TFn): Re
   // FindingsCard.tsx:188-201 — flag concatenation rule.
   rows.push({
     key: 'gb-volume',
-    label: t('reportAcr:labels.volume', 'Volume'),
+    label: t('reportAcr:labels.volume'),
     // H-ACR-1: 1-decimal precision matches Python.
     value: `${gb.volume_ml.toFixed(1)} mL`,
   });
   rows.push({
     key: 'gb-wall',
-    label: t('reportAcr:labels.wallThickness', 'Wall thickness'),
+    label: t('reportAcr:labels.wallThickness'),
     value: `${gb.wall_thickness_mm.toFixed(1)} mm`,
     warning: gb.wall_thickened
-      ? t('reportAcr:warnings.degraded', 'Wall thickened')
+      ? t('reportAcr:warnings.degraded')
       : undefined,
   });
   rows.push({
     key: 'gb-stones',
-    label: t('reportAcr:labels.stones', 'Stones detected'),
+    label: t('reportAcr:labels.stones'),
     value: gb.stones_detected
-      ? t('reportAcr:labels.yes', 'Yes')
-      : t('reportAcr:labels.no', 'No'),
+      ? t('reportAcr:labels.yes')
+      : t('reportAcr:labels.no'),
     badge: gb.stones_detected
-      ? { label: t('reportAcr:labels.yes', 'Yes'), color: 'orange' }
+      ? { label: t('reportAcr:labels.yes'), color: 'orange' }
       : undefined,
   });
   return rows;
@@ -314,20 +316,20 @@ function buildSpleenRows(findings: FindingsPayload | undefined, t: TFn): Readout
   const warningField = (sp as unknown as { warning?: string | null }).warning;
   rows.push({
     key: 'spleen-volume',
-    label: t('reportAcr:labels.volume', 'Volume'),
+    label: t('reportAcr:labels.volume'),
     // H-ACR-1: 1-decimal precision matches Python.
     value: `${sp.volume_ml.toFixed(1)} mL`,
     warning: warningField ?? undefined,
     badge: sp.splenomegaly
-      ? { label: t('reportAcr:labels.splenomegaly', 'Splenomegaly'), color: 'orange' }
+      ? { label: t('reportAcr:labels.splenomegaly'), color: 'orange' }
       : undefined,
   });
   rows.push({
     key: 'spleen-splenomegaly',
-    label: t('reportAcr:labels.splenomegaly', 'Splenomegaly'),
+    label: t('reportAcr:labels.splenomegaly'),
     value: sp.splenomegaly
-      ? t('reportAcr:values.splenomegalyPresent', 'Present')
-      : t('reportAcr:values.splenomegalyAbsent', 'Within reference'),
+      ? t('reportAcr:values.splenomegalyPresent')
+      : t('reportAcr:values.splenomegalyAbsent'),
   });
   return rows;
 }
@@ -341,7 +343,7 @@ function buildFlrRows(
   if (flr.plan_pattern) {
     rows.push({
       key: 'flr-plan',
-      label: t('reportAcr:labels.flrPlan', 'Plan'),
+      label: t('reportAcr:labels.flrPlan'),
       value: flr.plan_pattern.replace(/_/g, ' '),
     });
   }
@@ -350,11 +352,11 @@ function buildFlrRows(
   const safety = flr.safety_class;
   const safetyLabel =
     safety === 'low'
-      ? t('reportAcr:values.flrSafetyLow', 'LOW')
+      ? t('reportAcr:values.flrSafetyLow')
       : safety === 'borderline'
-        ? t('reportAcr:values.flrSafetyBorderline', 'BORDERLINE')
+        ? t('reportAcr:values.flrSafetyBorderline')
         : safety === 'adequate'
-          ? t('reportAcr:values.flrSafetyAdequate', 'ADEQUATE')
+          ? t('reportAcr:values.flrSafetyAdequate')
           : safety ?? '';
   const valueParts: string[] = [];
   // H-ACR-1: 1-decimal precision matches Python.
@@ -363,7 +365,7 @@ function buildFlrRows(
   if (safetyLabel) valueParts.push(`— ${safetyLabel}`);
   rows.push({
     key: 'flr-value',
-    label: t('reportAcr:labels.flrPercent', 'FLR'),
+    label: t('reportAcr:labels.flrPercent'),
     value: valueParts.length ? valueParts.join(' ') : notAvailable(t),
     badge:
       safety === 'low'
@@ -377,19 +379,19 @@ function buildFlrRows(
   if (safety === 'low') {
     rows.push({
       key: 'flr-recommendation',
-      label: t('reportAcr:labels.flrRecommendation', 'Recommendation'),
-      value: t('reportAcr:recommendations.considerPveAlpps', 'consider PVE or ALPPS'),
+      label: t('reportAcr:labels.flrRecommendation'),
+      value: t('reportAcr:recommendations.considerPveAlpps'),
     });
   } else if (safety === 'borderline') {
     rows.push({
       key: 'flr-recommendation',
-      label: t('reportAcr:labels.flrRecommendation', 'Recommendation'),
-      value: t('reportAcr:recommendations.borderlineDiscussMdt', 'borderline remnant — discuss at MDT'),
+      label: t('reportAcr:labels.flrRecommendation'),
+      value: t('reportAcr:recommendations.borderlineDiscussMdt'),
     });
   } else if (safety === 'adequate') {
     rows.push({
       key: 'flr-recommendation',
-      label: t('reportAcr:labels.flrRecommendation', 'Recommendation'),
+      label: t('reportAcr:labels.flrRecommendation'),
       value: t(
         'reportAcr:recommendations.noteAdequateRemnant',
         'remnant volume meets institutional threshold',
@@ -450,9 +452,9 @@ export function buildReadoutSnapshot(args: BuildReadoutSnapshotArgs): ReadoutSna
       status: sectionStatus,
       emptyMessage:
         sectionStatus === 'computing'
-          ? t('reportAcr:status.computing', 'Computing')
+          ? t('reportAcr:status.computing')
           : sectionStatus === 'unavailable'
-            ? t('reportAcr:status.computationFailed', 'Computation unavailable')
+            ? t('reportAcr:status.computationFailed')
             : sectionEmpty(t, section),
     };
   });

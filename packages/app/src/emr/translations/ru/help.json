@@ -4,14 +4,193 @@
     "title": "__TODO_TRANSLATE__:Help & resources",
     "subtitle": "__TODO_TRANSLATE__:Guides, keyboard shortcuts, and references for day-to-day use.",
     "tiles": {
-      "sampleCase":  { "title": "__TODO_TRANSLATE__:Run the sample case",  "body": "__TODO_TRANSLATE__:Ship-ready demo dataset.",  "cta": "__TODO_TRANSLATE__:Open demo case" },
-      "glossary":    { "title": "__TODO_TRANSLATE__:Clinical glossary",    "body": "__TODO_TRANSLATE__:Couinaud, vessels, lesions, phases, abbreviations.", "cta": "__TODO_TRANSLATE__:Open glossary" },
-      "keyboard":    { "title": "__TODO_TRANSLATE__:Keyboard shortcuts",   "body": "__TODO_TRANSLATE__:Speed up refinement.",          "cta": "__TODO_TRANSLATE__:Show shortcuts" },
-      "ruoPolicy":   { "title": "__TODO_TRANSLATE__:RUO policy",           "body": "__TODO_TRANSLATE__:Research Use Only scope.",      "cta": "__TODO_TRANSLATE__:Read policy" },
-      "tutorials":   { "title": "__TODO_TRANSLATE__:Video tutorials",      "body": "__TODO_TRANSLATE__:Short walkthroughs.",            "cta": "__TODO_TRANSLATE__:Watch" },
-      "support":     { "title": "__TODO_TRANSLATE__:Contact support",      "body": "__TODO_TRANSLATE__:Reach engineering + compliance.", "cta": "__TODO_TRANSLATE__:Email support" }
+      "sampleCase": {
+        "title": "__TODO_TRANSLATE__:Run the sample case",
+        "body": "__TODO_TRANSLATE__:Ship-ready demo dataset.",
+        "cta": "__TODO_TRANSLATE__:Open demo case"
+      },
+      "glossary": {
+        "title": "__TODO_TRANSLATE__:Clinical glossary",
+        "body": "__TODO_TRANSLATE__:Couinaud, vessels, lesions, phases, abbreviations.",
+        "cta": "__TODO_TRANSLATE__:Open glossary"
+      },
+      "keyboard": {
+        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
+        "body": "__TODO_TRANSLATE__:Speed up refinement.",
+        "cta": "__TODO_TRANSLATE__:Show shortcuts"
+      },
+      "ruoPolicy": {
+        "title": "__TODO_TRANSLATE__:RUO policy",
+        "body": "__TODO_TRANSLATE__:Research Use Only scope.",
+        "cta": "__TODO_TRANSLATE__:Read policy"
+      },
+      "tutorials": {
+        "title": "__TODO_TRANSLATE__:Video tutorials",
+        "body": "__TODO_TRANSLATE__:Short walkthroughs.",
+        "cta": "__TODO_TRANSLATE__:Watch"
+      },
+      "support": {
+        "title": "__TODO_TRANSLATE__:Contact support",
+        "body": "__TODO_TRANSLATE__:Reach engineering + compliance.",
+        "cta": "__TODO_TRANSLATE__:Email support"
+      }
     },
-    "tutorials": { "comingSoon": "__TODO_TRANSLATE__:Coming soon" },
-    "role": { "label": "__TODO_TRANSLATE__:For your role" }
+    "tutorials": {
+      "comingSoon": "__TODO_TRANSLATE__:Coming soon"
+    },
+    "role": {
+      "label": "__TODO_TRANSLATE__:For your role",
+      "surgeon": [
+        "__TODO_TRANSLATE__:finalize",
+        "__TODO_TRANSLATE__:refinement"
+      ],
+      "radiologist": [
+        "__TODO_TRANSLATE__:refinement",
+        "__TODO_TRANSLATE__:lesionDetection"
+      ],
+      "admin": [
+        "__TODO_TRANSLATE__:support",
+        "__TODO_TRANSLATE__:ruoPolicy"
+      ],
+      "operations": [
+        "__TODO_TRANSLATE__:support"
+      ],
+      "compliance": [
+        "__TODO_TRANSLATE__:ruoPolicy"
+      ],
+      "dpo": [
+        "__TODO_TRANSLATE__:ruoPolicy",
+        "__TODO_TRANSLATE__:support"
+      ],
+      "fellow": [
+        "__TODO_TRANSLATE__:sampleCase",
+        "Глоссарий"
+      ]
+    },
+    "modals": {
+      "keyboard": {
+        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
+        "close": "Закрыть",
+        "sections": {
+          "global": "__TODO_TRANSLATE__:Global",
+          "viewer": "__TODO_TRANSLATE__:3D viewer",
+          "refine": "__TODO_TRANSLATE__:Refinement"
+        },
+        "rows": {
+          "searchCases": {
+            "keys": "__TODO_TRANSLATE__:/",
+            "label": "__TODO_TRANSLATE__:Focus case search"
+          },
+          "nextCase": {
+            "keys": "__TODO_TRANSLATE__:J",
+            "label": "__TODO_TRANSLATE__:Next case"
+          },
+          "prevCase": {
+            "keys": "__TODO_TRANSLATE__:K",
+            "label": "__TODO_TRANSLATE__:Previous case"
+          },
+          "pan": {
+            "keys": "__TODO_TRANSLATE__:Space",
+            "label": "__TODO_TRANSLATE__:Pan viewer"
+          },
+          "zoomIn": {
+            "keys": "__TODO_TRANSLATE__:+",
+            "label": "__TODO_TRANSLATE__:Zoom in"
+          },
+          "zoomOut": {
+            "keys": "__TODO_TRANSLATE__:-",
+            "label": "__TODO_TRANSLATE__:Zoom out"
+          },
+          "sliceUp": {
+            "keys": "__TODO_TRANSLATE__:↑",
+            "label": "__TODO_TRANSLATE__:Next slice"
+          },
+          "sliceDown": {
+            "keys": "__TODO_TRANSLATE__:↓",
+            "label": "__TODO_TRANSLATE__:Previous slice"
+          },
+          "vistaAdd": {
+            "keys": "__TODO_TRANSLATE__:V",
+            "label": "__TODO_TRANSLATE__:VISTA3D add"
+          },
+          "vistaSubtract": {
+            "keys": "__TODO_TRANSLATE__:B",
+            "label": "__TODO_TRANSLATE__:VISTA3D subtract"
+          },
+          "lesionPrompt": {
+            "keys": "__TODO_TRANSLATE__:L",
+            "label": "__TODO_TRANSLATE__:MedSAM-2 lesion prompt"
+          },
+          "undo": {
+            "keys": "__TODO_TRANSLATE__:Ctrl+Z",
+            "label": "__TODO_TRANSLATE__:Undo last edit"
+          },
+          "redo": {
+            "keys": "__TODO_TRANSLATE__:Ctrl+Y",
+            "label": "__TODO_TRANSLATE__:Redo"
+          }
+        }
+      },
+      "ruo": {
+        "title": "__TODO_TRANSLATE__:Research Use Only — what it means",
+        "close": "Закрыть",
+        "intro": "__TODO_TRANSLATE__:Every output from LiverRa v1 is marked Research Use Only. That means outputs inform but do not replace clinical judgement.",
+        "whatItMeans": "__TODO_TRANSLATE__:What \"RUO\" means",
+        "whatItMeansBody": "__TODO_TRANSLATE__:Volumes, lesion classes, FLR percentages, and segmentations are shown for investigative and planning context. Treatment decisions remain the responsibility of a qualified physician.",
+        "narrowing": "__TODO_TRANSLATE__:How the scope narrows",
+        "narrowingBody": "__TODO_TRANSLATE__:As individual claims (parenchyma volumetry, FLR, segmentation, vessels, lesion detection + classification, surgical planning) clear conformity assessment, the disclaimer text automatically narrows for that claim. See the Claim registry.",
+        "close2": "__TODO_TRANSLATE__:Got it"
+      }
+    },
+    "footer": {
+      "version": "__TODO_TRANSLATE__:Version {{version}}",
+      "support": "__TODO_TRANSLATE__:support@liverra.ai"
+    }
+  },
+  "landing": {
+    "tagline": "__TODO_TRANSLATE__:AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
+    "sections": {
+      "v1": {
+        "title": "__TODO_TRANSLATE__:What v1 does",
+        "kicker": "__TODO_TRANSLATE__:Zero-training cascaded pipeline · Apache 2.0 model stack"
+      },
+      "admin": {
+        "title": "__TODO_TRANSLATE__:Admin & operator surfaces",
+        "kicker": "__TODO_TRANSLATE__:Internal tools for staff roles"
+      }
+    },
+    "features": {
+      "upload": {
+        "title": "__TODO_TRANSLATE__:Upload → 3D + FLR",
+        "body": "__TODO_TRANSLATE__:4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+      },
+      "lesionDetection": {
+        "title": "__TODO_TRANSLATE__:Lesion detection",
+        "body": "__TODO_TRANSLATE__:6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+      },
+      "refinement": {
+        "title": "__TODO_TRANSLATE__:Interactive refinement",
+        "body": "__TODO_TRANSLATE__:VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+      },
+      "finalize": {
+        "title": "__TODO_TRANSLATE__:Finalize & PACS",
+        "body": "__TODO_TRANSLATE__:DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+      },
+      "compliance": {
+        "title": "__TODO_TRANSLATE__:Compliance & audit",
+        "body": "__TODO_TRANSLATE__:Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+      },
+      "erasure": {
+        "title": "__TODO_TRANSLATE__:GDPR Art. 17 erasure",
+        "body": "__TODO_TRANSLATE__:Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+      }
+    },
+    "footer": {
+      "preview": "__TODO_TRANSLATE__:Design-partner preview build",
+      "ce": "__TODO_TRANSLATE__:CE MDR Class IIb track · 24–30 months",
+      "gdpr": "__TODO_TRANSLATE__:GDPR · eu-central-1 residency",
+      "ruo": "Только для исследовательских целей",
+      "brand": "__TODO_TRANSLATE__:liverra.ai"
+    }
   }
 }

@@ -59,5 +59,15 @@
   "errors": {
     "load_title": "Warteschlange konnte nicht geladen werden",
     "load_body": "Der Ops-Endpunkt ist nicht erreichbar. Automatische Wiederholung läuft."
+  },
+  "header": {
+    "refresh": "__TODO_TRANSLATE__:Refresh now",
+    "autoRefresh": "__TODO_TRANSLATE__:Auto-refresh",
+    "autoRefreshOn": "__TODO_TRANSLATE__:Auto-refresh on (every 5s)",
+    "autoRefreshOff": "__TODO_TRANSLATE__:Auto-refresh paused",
+    "lastUpdated": "__TODO_TRANSLATE__:Last updated {{time}}",
+    "selectCase": "__TODO_TRANSLATE__:Select a stuck case from the table to view actions.",
+    "noStuckTitle": "__TODO_TRANSLATE__:Pipeline is healthy",
+    "noStuckDescription": "__TODO_TRANSLATE__:No analyses have been stuck for more than 15 minutes."
   }
 }

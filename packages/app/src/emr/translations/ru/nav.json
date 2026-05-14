@@ -26,5 +26,20 @@
   "try_demo": "__TODO_TRANSLATE__:Try a sample case",
   "user_menu_signout": "__TODO_TRANSLATE__:Sign out",
   "user_menu_language": "__TODO_TRANSLATE__:Language",
-  "notifications": "__TODO_TRANSLATE__:Notifications"
+  "notifications": "__TODO_TRANSLATE__:Notifications",
+  "cta": {
+    "openCases": "__TODO_TRANSLATE__:Open cases",
+    "signIn": "Войти",
+    "help": "__TODO_TRANSLATE__:Help & demo case"
+  },
+  "admin": {
+    "users": "__TODO_TRANSLATE__:User management",
+    "pacs": "__TODO_TRANSLATE__:PACS config",
+    "ops": "__TODO_TRANSLATE__:Ops queue",
+    "mbom": "__TODO_TRANSLATE__:MBoM",
+    "claimRegistry": "__TODO_TRANSLATE__:Claim registry",
+    "auditSummary": "__TODO_TRANSLATE__:Audit summary",
+    "ruoSpotcheck": "__TODO_TRANSLATE__:RUO spot-check",
+    "erasure": "__TODO_TRANSLATE__:Erasure (DPO)"
+  }
 }

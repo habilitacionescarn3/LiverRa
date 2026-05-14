@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "title": "__TODO_TRANSLATE__:Release review seat?",
+  "body": "__TODO_TRANSLATE__:Another reviewer is requesting this case.",
+  "keep": "__TODO_TRANSLATE__:Keep",
+  "release": "__TODO_TRANSLATE__:Release"
+}

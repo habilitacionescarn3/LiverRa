@@ -57,6 +57,21 @@
     "subtitle": "სინთეტურ მონაცემებზე შეისწავლეთ სრული pipeline. ნებისმიერ დროს გახსენით Help მენიუდან.",
     "body": "დემო ქეისი არ შეიცავს რეალურ პაციენტის მონაცემებს. PACS-push გამორთულია; გამომავალი მონიშნულია „Sample data\" ნიშნულით.",
     "open": "დემო ქეისის გახსნა",
-    "navLabel": "დემო ქეისი"
+    "navLabel": "დემო ქეისი",
+    "heroTitle": "__TODO_TRANSLATE__:See LiverRa end to end in 30 seconds",
+    "feature": {
+      "segmentation": {
+        "title": "__TODO_TRANSLATE__:AI segmentation",
+        "body": "__TODO_TRANSLATE__:Liver parenchyma, 8 Couinaud segments, vessels, and lesions — all auto-segmented."
+      },
+      "flr": {
+        "title": "__TODO_TRANSLATE__:FLR & volumetry",
+        "body": "__TODO_TRANSLATE__:Future Liver Remnant calculation with surgical-grade volumetric outputs."
+      },
+      "ruo": {
+        "title": "Только для исследовательских целей",
+        "body": "__TODO_TRANSLATE__:Synthetic data, watermarked exports, PACS push disabled — safe to explore."
+      }
+    }
   }
 }

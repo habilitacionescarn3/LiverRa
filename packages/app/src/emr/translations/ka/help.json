@@ -46,6 +46,150 @@
     }
   },
   "hub": {
-    "tutorials": { "comingSoon": "__TODO_TRANSLATE__:Coming soon" }
+    "tutorials": {
+      "comingSoon": "__TODO_TRANSLATE__:Coming soon"
+    },
+    "title": "__TODO_TRANSLATE__:Help & resources",
+    "subtitle": "__TODO_TRANSLATE__:Guides, keyboard shortcuts, and references for day-to-day use.",
+    "tiles": {
+      "sampleCase": {
+        "title": "__TODO_TRANSLATE__:Run the sample case",
+        "body": "__TODO_TRANSLATE__:Ship-ready demo dataset that exercises upload → 3D → lesions → finalize end-to-end.",
+        "cta": "__TODO_TRANSLATE__:Open demo case"
+      },
+      "glossary": {
+        "title": "__TODO_TRANSLATE__:Clinical glossary",
+        "body": "__TODO_TRANSLATE__:Couinaud segments, vessels, lesion classes, contrast phases, abbreviations.",
+        "cta": "__TODO_TRANSLATE__:Open glossary"
+      },
+      "keyboard": {
+        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
+        "body": "__TODO_TRANSLATE__:Speed up refinement with V (VISTA3D add), B (subtract), L (lesion prompt), Ctrl-Z / Ctrl-Y.",
+        "cta": "__TODO_TRANSLATE__:Show shortcuts"
+      },
+      "ruoPolicy": {
+        "title": "__TODO_TRANSLATE__:RUO policy",
+        "body": "__TODO_TRANSLATE__:What Research Use Only means for your outputs, how scope narrows when claims clear conformity.",
+        "cta": "__TODO_TRANSLATE__:Read policy"
+      },
+      "tutorials": {
+        "title": "__TODO_TRANSLATE__:Video tutorials",
+        "body": "__TODO_TRANSLATE__:Short walkthroughs: upload a study, review a case, sign off a report.",
+        "cta": "__TODO_TRANSLATE__:Watch"
+      },
+      "support": {
+        "title": "__TODO_TRANSLATE__:Contact support",
+        "body": "__TODO_TRANSLATE__:Reach engineering + compliance via the support inbox.",
+        "cta": "__TODO_TRANSLATE__:Email support"
+      }
+    },
+    "role": {
+      "label": "__TODO_TRANSLATE__:For your role",
+      "surgeon": [
+        "__TODO_TRANSLATE__:finalize",
+        "__TODO_TRANSLATE__:refinement"
+      ],
+      "radiologist": [
+        "__TODO_TRANSLATE__:refinement",
+        "__TODO_TRANSLATE__:lesionDetection"
+      ],
+      "admin": [
+        "__TODO_TRANSLATE__:support",
+        "__TODO_TRANSLATE__:ruoPolicy"
+      ],
+      "operations": [
+        "__TODO_TRANSLATE__:support"
+      ],
+      "compliance": [
+        "__TODO_TRANSLATE__:ruoPolicy"
+      ],
+      "dpo": [
+        "__TODO_TRANSLATE__:ruoPolicy",
+        "__TODO_TRANSLATE__:support"
+      ],
+      "fellow": [
+        "__TODO_TRANSLATE__:sampleCase",
+        "Глоссарий"
+      ]
+    },
+    "modals": {
+      "keyboard": {
+        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
+        "close": "Закрыть",
+        "sections": {
+          "global": "__TODO_TRANSLATE__:Global",
+          "viewer": "__TODO_TRANSLATE__:3D viewer",
+          "refine": "__TODO_TRANSLATE__:Refinement"
+        },
+        "rows": {
+          "searchCases": {
+            "keys": "__TODO_TRANSLATE__:/",
+            "label": "__TODO_TRANSLATE__:Focus case search"
+          },
+          "nextCase": {
+            "keys": "__TODO_TRANSLATE__:J",
+            "label": "__TODO_TRANSLATE__:Next case"
+          },
+          "prevCase": {
+            "keys": "__TODO_TRANSLATE__:K",
+            "label": "__TODO_TRANSLATE__:Previous case"
+          },
+          "pan": {
+            "keys": "__TODO_TRANSLATE__:Space",
+            "label": "__TODO_TRANSLATE__:Pan viewer"
+          },
+          "zoomIn": {
+            "keys": "__TODO_TRANSLATE__:+",
+            "label": "__TODO_TRANSLATE__:Zoom in"
+          },
+          "zoomOut": {
+            "keys": "__TODO_TRANSLATE__:-",
+            "label": "__TODO_TRANSLATE__:Zoom out"
+          },
+          "sliceUp": {
+            "keys": "__TODO_TRANSLATE__:↑",
+            "label": "__TODO_TRANSLATE__:Next slice"
+          },
+          "sliceDown": {
+            "keys": "__TODO_TRANSLATE__:↓",
+            "label": "__TODO_TRANSLATE__:Previous slice"
+          },
+          "vistaAdd": {
+            "keys": "__TODO_TRANSLATE__:V",
+            "label": "__TODO_TRANSLATE__:VISTA3D add"
+          },
+          "vistaSubtract": {
+            "keys": "__TODO_TRANSLATE__:B",
+            "label": "__TODO_TRANSLATE__:VISTA3D subtract"
+          },
+          "lesionPrompt": {
+            "keys": "__TODO_TRANSLATE__:L",
+            "label": "__TODO_TRANSLATE__:MedSAM-2 lesion prompt"
+          },
+          "undo": {
+            "keys": "__TODO_TRANSLATE__:Ctrl+Z",
+            "label": "__TODO_TRANSLATE__:Undo last edit"
+          },
+          "redo": {
+            "keys": "__TODO_TRANSLATE__:Ctrl+Y",
+            "label": "__TODO_TRANSLATE__:Redo"
+          }
+        }
+      },
+      "ruo": {
+        "title": "__TODO_TRANSLATE__:Research Use Only — what it means",
+        "close": "Закрыть",
+        "intro": "__TODO_TRANSLATE__:Every output from LiverRa v1 is marked Research Use Only. That means outputs inform but do not replace clinical judgement.",
+        "whatItMeans": "__TODO_TRANSLATE__:What \"RUO\" means",
+        "whatItMeansBody": "__TODO_TRANSLATE__:Volumes, lesion classes, FLR percentages, and segmentations are shown for investigative and planning context. Treatment decisions remain the responsibility of a qualified physician.",
+        "narrowing": "__TODO_TRANSLATE__:How the scope narrows",
+        "narrowingBody": "__TODO_TRANSLATE__:As individual claims (parenchyma volumetry, FLR, segmentation, vessels, lesion detection + classification, surgical planning) clear conformity assessment, the disclaimer text automatically narrows for that claim. See the Claim registry.",
+        "close2": "__TODO_TRANSLATE__:Got it"
+      }
+    },
+    "footer": {
+      "version": "__TODO_TRANSLATE__:Version {{version}}",
+      "support": "__TODO_TRANSLATE__:support@liverra.ai"
+    }
   }
 }

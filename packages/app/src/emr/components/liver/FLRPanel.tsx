@@ -8,8 +8,10 @@
  * pose through `useFLR()` (sibling agent) and renders:
  *
  *   - Large numeric value (mL + % of total)
- *   - Adequacy badge (green ≥ 40%, yellow 30–40%, red < 30%) — advisory per
- *     FR-014b, explicitly NOT prescriptive clinical guidance
+ *   - Adequacy badge whose green/yellow/red cutoffs depend on the
+ *     `liverHealthContext` prop (H-CLIN-1): normal {warn 30, fail 25},
+ *     post-chemo {warn 35, fail 30}, cirrhotic {warn 40, fail 35} —
+ *     advisory per FR-014b, explicitly NOT prescriptive clinical guidance
  *   - RUO disclaimer variant chip via `useRUOClaim()`
  *
  * `aria-live="polite"` ensures screen readers announce FLR changes during
@@ -36,6 +38,31 @@ export interface RUOClaim {
   disclaimerVariant: DisclaimerVariant;
 }
 
+/**
+ * H-CLIN-1: liver-health context drives FLR adequacy thresholds.
+ * ESSO / ALPPS literature: healthy parenchyma needs ≥25 % remnant,
+ * post-chemo livers ≥30 %, cirrhotic livers ≥40 %. Defaults to `normal`
+ * so behaviour is preserved when the prop is omitted; callers that
+ * know the patient context (chemo history, fibrosis grade) should
+ * pass the matching value.
+ */
+export type LiverHealthContext = 'normal' | 'post-chemo' | 'cirrhotic';
+
+/**
+ * Adequacy thresholds (FLR % cutoffs) per liver-health context.
+ * The `warn` cutoff is the borderline boundary; `fail` is the low/red
+ * boundary. ≥ `warn` is adequate; [`fail`, `warn`) is borderline;
+ * < `fail` is low.
+ */
+const LIVER_HEALTH_THRESHOLDS: Record<
+  LiverHealthContext,
+  { warn: number; fail: number }
+> = {
+  normal: { warn: 30, fail: 25 },
+  'post-chemo': { warn: 35, fail: 30 },
+  cirrhotic: { warn: 40, fail: 35 },
+};
+
 /** Props for {@link FLRPanel}. */
 export interface FLRPanelProps {
   /** Analysis ID (cache key). */
@@ -48,6 +75,13 @@ export interface FLRPanelProps {
   initialTotalMl?: number;
   /** Optional RUO claim (sibling agent); when absent we default to `ruo`. */
   ruoClaim?: RUOClaim;
+  /**
+   * Liver-health context — selects the adequacy thresholds bar against
+   * which the FLR % is graded. Defaults to `'normal'` for backward
+   * compatibility; the FLRPanel renders the same UI either way, just
+   * with different cutoff numbers.
+   */
+  liverHealthContext?: LiverHealthContext;
   /** Optional callback to recompute FLR on demand. */
   onRecompute?: () => void;
   /** Optional test id. */
@@ -62,10 +96,16 @@ function useRUOClaimStub(): RUOClaim {
   return { disclaimerVariant: 'ruo' };
 }
 
-/** Map FLR% into an adequacy tier. Advisory only — never prescriptive. */
-function adequacyTier(pct: number): 'adequate' | 'borderline' | 'low' {
-  if (pct >= 40) return 'adequate';
-  if (pct >= 30) return 'borderline';
+/**
+ * Map FLR % into an adequacy tier given a {warn, fail} threshold pair.
+ * Advisory only — never prescriptive.
+ */
+function adequacyTier(
+  pct: number,
+  thresholds: { warn: number; fail: number },
+): 'adequate' | 'borderline' | 'low' {
+  if (pct >= thresholds.warn) return 'adequate';
+  if (pct >= thresholds.fail) return 'borderline';
   return 'low';
 }
 
@@ -97,11 +137,19 @@ export function FLRPanel({
   initialFlrMl,
   initialTotalMl,
   ruoClaim,
+  liverHealthContext = 'normal',
   onRecompute,
   'data-testid': testId = 'flr-panel',
 }: FLRPanelProps): React.ReactElement {
   const { t, locale } = useTranslation();
-  const claim = ruoClaim ?? useRUOClaimStub();
+  // H-CLIN-2: Rules-of-Hooks. The previous code conditionally called the
+  // hook (`ruoClaim ?? useRUOClaimStub()`), which means the hook was
+  // invoked or skipped depending on whether the prop was passed —
+  // forbidden because React tracks hook order positionally per render.
+  // Always call the stub hook; pick the prop value when provided.
+  const fallbackClaim = useRUOClaimStub();
+  const claim = ruoClaim ?? fallbackClaim;
+  const thresholds = LIVER_HEALTH_THRESHOLDS[liverHealthContext];
 
   const [flrPct, setFlrPct] = useState<number | undefined>(initialFlrPct);
   const [flrMl, setFlrMl] = useState<number | undefined>(initialFlrMl);
@@ -123,8 +171,8 @@ export function FLRPanel({
   }, []);
 
   const tier = useMemo(
-    () => (flrPct === undefined ? undefined : adequacyTier(flrPct)),
-    [flrPct],
+    () => (flrPct === undefined ? undefined : adequacyTier(flrPct, thresholds)),
+    [flrPct, thresholds],
   );
   const tierStyle = tier ? TIER_STYLES[tier] : undefined;
   const TierIcon = tierStyle?.icon ?? IconActivityHeartbeat;
@@ -133,7 +181,7 @@ export function FLRPanel({
   // licensed for CE-IIb output (FR-028b). MVP will always be `ruo`.
   const disclaimerText =
     claim.disclaimerVariant === 'ce_class_iib'
-      ? 'Approved for surgical planning. Not a substitute for clinical judgment.'
+      ? t('ruo:disclaimer.ceClassIib')
       : t('ruo:disclaimer.short');
 
   // Bar fill width: clamp to [0, 100] but visually anchor to 50% threshold.
@@ -180,7 +228,7 @@ export function FLRPanel({
               letterSpacing: '0.08em',
             }}
           >
-            {t('analysis:detail.flr.subtitle') || 'Remnant pct functional'}
+            {t('analysis:detail.flr.subtitle')}
           </Text>
           <Group align="baseline" gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
             <Text
@@ -212,7 +260,7 @@ export function FLRPanel({
             >
               {t('analysis:flr.valueMl', { ml: flrMl.toLocaleString(locale) })}
               {' • '}
-              {totalMl.toLocaleString(locale)} mL total
+              {t('analysis:flr.totalMl', { ml: totalMl.toLocaleString(locale) })}
             </Text>
           )}
 
@@ -253,9 +301,10 @@ export function FLRPanel({
             letterSpacing: '0.08em',
           }}
         >
-          Adequacy thresholds
+          Adequacy thresholds ({liverHealthContext.replace('-', ' ')})
         </Text>
-        {/* Three-segment bar */}
+        {/* Three-segment bar — proportions reflect the active thresholds.
+            Failing zone = [0, fail], borderline = [fail, warn], adequate = [warn, 100]. */}
         <Box
           aria-hidden="true"
           style={{
@@ -268,9 +317,9 @@ export function FLRPanel({
             display: 'flex',
           }}
         >
-          <Box style={{ flex: '0 0 30%', background: 'var(--emr-error-alpha-30)' }} />
-          <Box style={{ flex: '0 0 10%', background: 'var(--emr-warning-alpha-30)' }} />
-          <Box style={{ flex: '0 0 60%', background: 'var(--emr-success-alpha-30)' }} />
+          <Box style={{ flex: `0 0 ${thresholds.fail}%`, background: 'var(--emr-error-alpha-30)' }} />
+          <Box style={{ flex: `0 0 ${thresholds.warn - thresholds.fail}%`, background: 'var(--emr-warning-alpha-30)' }} />
+          <Box style={{ flex: `0 0 ${100 - thresholds.warn}%`, background: 'var(--emr-success-alpha-30)' }} />
           {flrPct !== undefined && (
             <Box
               aria-hidden="true"
@@ -302,7 +351,7 @@ export function FLRPanel({
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              &lt; 30%
+              &lt; {thresholds.fail}%
             </Text>
           </Stack>
           <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'center' }}>
@@ -319,7 +368,7 @@ export function FLRPanel({
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              30–40%
+              {thresholds.fail}–{thresholds.warn}%
             </Text>
           </Stack>
           <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'flex-end' }}>
@@ -336,7 +385,7 @@ export function FLRPanel({
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              ≥ 40%
+              ≥ {thresholds.warn}%
             </Text>
           </Stack>
         </Group>

@@ -47,6 +47,8 @@ import { EMRTable, type EMRTableColumn } from './LiverraPacsTable';
 import { EMRModal } from '../common/EMRModal';
 import { RequirePermission } from '../access-control/RequirePermission';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
+import type { Locale } from '../../services/localeService';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import type { FhirResourceLike } from '../../services/fhirClient';
 import {
@@ -398,12 +400,14 @@ interface MobileCardProps {
   study: UnmatchedStudyRow;
   onLink: () => void;
   t: (key: string) => string;
+  locale: Locale;
 }
 
 const MobileCard = memo(function MobileCard({
   study,
   onLink,
   t,
+  locale,
 }: MobileCardProps): React.ReactElement {
   return (
     <Box className={styles.mobileCard} data-testid={`unmatched-card-${study.id}`}>
@@ -428,9 +432,7 @@ const MobileCard = memo(function MobileCard({
 
       <Group justify="space-between" wrap="wrap" gap="xs">
         <Text size="xs" c="dimmed">
-          {study.studyDate
-            ? new Date(study.studyDate).toLocaleDateString()
-            : ''}{' '}
+          {toLocaleDateForPacs(study.studyDate, locale)}{' '}
           · {study.imageCount} {t('pacs.images')}
         </Text>
         <button
@@ -451,7 +453,7 @@ const MobileCard = memo(function MobileCard({
 // ============================================================================
 
 function UnmatchedStudiesQueueInner(): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -581,7 +583,7 @@ function UnmatchedStudiesQueueInner(): React.ReactElement {
         sortable: true,
         render: (row) => (
           <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
-            {row.studyDate ? new Date(row.studyDate).toLocaleDateString() : ''}
+            {row.studyDate ? toLocaleDateForPacs(row.studyDate, locale) : ''}
           </Text>
         ),
       },
@@ -728,6 +730,7 @@ function UnmatchedStudiesQueueInner(): React.ReactElement {
               study={study}
               onLink={() => handleLinkClick(study)}
               t={t}
+              locale={locale}
             />
           ))}
         </Stack>

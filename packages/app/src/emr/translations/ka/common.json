@@ -65,5 +65,8 @@
     "explanation": "This action requires a fresh authentication to protect sensitive data.",
     "reauthenticate": "Re-authenticate",
     "title": "Confirm it's you"
-  }
+  },
+  "somethingWentWrong": "Что-то пошло не так.",
+  "insert": "Вставить",
+  "print": "Печать"
 }

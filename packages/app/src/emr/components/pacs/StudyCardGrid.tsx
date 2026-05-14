@@ -13,6 +13,8 @@
 import React, { memo, useCallback } from 'react';
 import { IconPhoto, IconEye, IconColumns } from '@tabler/icons-react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
+import type { Locale } from '../../services/localeService';
 import type { ImagingStudyListItem } from '../../types/pacs';
 import {
   StudyStatusBadge,
@@ -46,6 +48,7 @@ interface StudyCardProps {
   isSelected: boolean;
   showCompare: boolean;
   t: (key: string) => string;
+  locale: Locale;
 }
 
 function getModalityLabel(modalities: string[]): string {
@@ -62,6 +65,7 @@ const StudyCard = memo(function StudyCard({
   isSelected,
   showCompare,
   t,
+  locale,
 }: StudyCardProps): React.ReactElement {
   const isPending = !study.orthancStudyId;
 
@@ -94,9 +98,7 @@ const StudyCard = memo(function StudyCard({
       onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}
-      aria-label={`${study.description || t('pacs.imagingOrder')} - ${
-        study.date ? new Date(study.date).toLocaleDateString() : ''
-      }`}
+      aria-label={`${study.description || t('pacs.imagingOrder')} - ${toLocaleDateForPacs(study.date, locale)}`}
     >
       {/* Zone 1 — modality icon */}
       <div className={styles.modalityIcon}>
@@ -109,7 +111,7 @@ const StudyCard = memo(function StudyCard({
           {study.description || t('pacs.imagingOrder')}
         </p>
         <p className={styles.cardDate}>
-          {study.date ? new Date(study.date).toLocaleDateString() : '—'}
+          {study.date ? toLocaleDateForPacs(study.date, locale) : '—'}
         </p>
       </div>
 
@@ -214,7 +216,7 @@ export const StudyCardGrid = memo(function StudyCardGrid({
   activeStudyId,
   studiesWithImages,
 }: StudyCardGridProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const handleClick = useCallback(
     (study: ImagingStudyListItem) => {
@@ -242,6 +244,7 @@ export const StudyCardGrid = memo(function StudyCardGrid({
           isSelected={activeStudyId === study.id}
           showCompare={studiesWithImages >= 2}
           t={t}
+          locale={locale}
         />
       ))}
     </div>

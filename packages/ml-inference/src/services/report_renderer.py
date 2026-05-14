@@ -1019,7 +1019,7 @@ def render_analysis_pdf(
         phases_bucket: CT phases bucket override (consumed by stage_render
             via env var; kept for backward-compatible callers).
         analyses_bucket: analyses (mask) bucket override (same pattern).
-        locale: report locale; one of ``en | de | ka`` (defaults to en).
+        locale: report locale; one of ``en | de | ka | ru`` (defaults to en).
 
     The function NEVER raises on missing CT/mask objects — those
     screenshots are skipped so the PDF still delivers the structured

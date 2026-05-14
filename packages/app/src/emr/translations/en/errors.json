@@ -1,6 +1,16 @@
 {
   "network": "Network error. Please try again.",
   "unknown": "An unexpected error occurred.",
+  "boundary": {
+    "title": "Something went wrong",
+    "messageGeneric": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+    "messageNamed": "An error occurred in the {{component}} component. Please try again or contact support if the problem persists.",
+    "retry": "Try Again",
+    "reload": "Please reload the page",
+    "report": "Report Issue",
+    "errorDetails": "Error Details:",
+    "componentStack": "Component Stack:"
+  },
   "validation": {
     "required": "This field is required",
     "invalid": "Invalid value"

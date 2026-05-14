@@ -27,6 +27,8 @@ import {
 } from '@tabler/icons-react';
 import { EMRTable, type EMRTableColumn } from './LiverraPacsTable';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
+import type { Locale } from '../../services/localeService';
 import type {
   ImagingStudyListItem,
   ImagingStudyStatus,
@@ -328,12 +330,14 @@ interface MobileCardProps {
   study: ImagingStudyListItem;
   onClick?: () => void;
   t: (key: string) => string;
+  locale: Locale;
 }
 
 const MobileCard = memo(function MobileCard({
   study,
   onClick,
   t,
+  locale,
 }: MobileCardProps): React.ReactElement {
   const isPending = !study.orthancStudyId;
   const cardClassName = `${styles.mobileCard}${
@@ -357,9 +361,7 @@ const MobileCard = memo(function MobileCard({
       onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}
-      aria-label={`${study.description || t('pacs.imagingOrder')} - ${
-        study.date ? new Date(study.date).toLocaleDateString() : ''
-      }`}
+      aria-label={`${study.description || t('pacs.imagingOrder')} - ${toLocaleDateForPacs(study.date, locale)}`}
     >
       <Group justify="space-between" wrap="wrap" gap="xs" mb="xs">
         <Group gap="xs" wrap="nowrap">
@@ -372,7 +374,7 @@ const MobileCard = memo(function MobileCard({
             fw={500}
             style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
           >
-            {study.date ? new Date(study.date).toLocaleDateString() : '—'}
+            {study.date ? toLocaleDateForPacs(study.date, locale) : '—'}
           </Text>
         </Group>
         <StatusWithPriority study={study} t={t} />
@@ -459,7 +461,7 @@ export const StudyList = memo(function StudyList({
   compact = false,
   viewMode = 'table',
 }: StudyListProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const studiesWithImages = useMemo(
@@ -477,7 +479,7 @@ export const StudyList = memo(function StudyList({
         sortable: true,
         render: (row) => (
           <Text size="xs" style={{ whiteSpace: 'nowrap' }}>
-            {row.date ? new Date(row.date).toLocaleDateString() : '—'}
+            {row.date ? toLocaleDateForPacs(row.date, locale) : '—'}
           </Text>
         ),
       },
@@ -521,7 +523,7 @@ export const StudyList = memo(function StudyList({
         },
       },
     ],
-    [t, onStudyClick]
+    [t, onStudyClick, locale]
   );
 
   // Full columns
@@ -534,7 +536,7 @@ export const StudyList = memo(function StudyList({
         sortable: true,
         render: (row) => (
           <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
-            {row.date ? new Date(row.date).toLocaleDateString() : '—'}
+            {row.date ? toLocaleDateForPacs(row.date, locale) : '—'}
           </Text>
         ),
       },
@@ -662,7 +664,7 @@ export const StudyList = memo(function StudyList({
         },
       },
     ],
-    [t, onStudyClick, onCompareClick, studiesWithImages]
+    [t, onStudyClick, onCompareClick, studiesWithImages, locale]
   );
 
   // Row click — dispatch based on source.
@@ -736,6 +738,7 @@ export const StudyList = memo(function StudyList({
               study={study}
               onClick={() => handleMobileClick(study)}
               t={t}
+              locale={locale}
             />
           ))}
         </Stack>

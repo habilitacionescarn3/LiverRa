@@ -102,11 +102,15 @@
         "queued": "Queued",
         "stageCount_one": "{{count}} stage · {{total}} total",
         "stageCount_other": "{{count}} stages · {{total}} total",
+        "stageCount_few": "{{count}} stages · {{total}} total",
+        "stageCount_many": "{{count}} stages · {{total}} total",
         "expand": "Show pipeline details",
         "collapse": "Hide pipeline details",
         "liverVolume": "Liver {{ml}} ml",
         "lesionCount_one": "{{count}} lesion",
         "lesionCount_other": "{{count}} lesions",
+        "lesionCount_few": "{{count}} lesions",
+        "lesionCount_many": "{{count}} lesions",
         "flr": "FLR {{pct}}%"
       }
     },
@@ -237,6 +241,7 @@
   "flr": {
     "title": "Future Liver Remnant",
     "valueMl": "{{ml}} mL",
+    "totalMl": "{{ml}} mL total",
     "valuePct": "{{pct}}% of total",
     "adequacy": {
       "adequate": "Adequate (advisory ≥ 40%)",

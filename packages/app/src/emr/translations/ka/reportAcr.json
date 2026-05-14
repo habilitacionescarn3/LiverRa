@@ -1,24 +1,25 @@
 {
-  "panelHeading": "__TODO_TRANSLATE__:Structured Radiologic Readout",
-  "openPanel": "__TODO_TRANSLATE__:Open structured readout",
-  "ruoDisclaimer": "__TODO_TRANSLATE__:--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---",
+  "_note": "C-ACR-1: UI chrome translated; clinical terms (anatomical labels, grading scales, LR-M, LI-RADS recommendations) retain __TODO_TRANSLATE__ markers pending CODEOWNERS medical-terminology review per CLAUDE.md i18n discipline.",
+  "panelHeading": "სტრუქტურირებული რადიოლოგიური დასკვნა",
+  "openPanel": "სტრუქტურირებული დასკვნის გახსნა",
+  "ruoDisclaimer": "--- მხოლოდ კვლევითი გამოყენებისთვის — არ არის პირველადი დიაგნოსტიკისთვის ---",
   "sections": {
-    "liver": { "title": "__TODO_TRANSLATE__:LIVER", "empty": "__TODO_TRANSLATE__:Not assessed" },
-    "lesions": { "title": "__TODO_TRANSLATE__:LESIONS", "empty": "__TODO_TRANSLATE__:No lesions detected" },
-    "vessels": { "title": "__TODO_TRANSLATE__:VESSELS", "empty": "__TODO_TRANSLATE__:Not assessed" },
-    "gallbladder": { "title": "__TODO_TRANSLATE__:GALLBLADDER", "empty": "__TODO_TRANSLATE__:Not assessed" },
-    "spleen": { "title": "__TODO_TRANSLATE__:SPLEEN", "empty": "__TODO_TRANSLATE__:Not assessed" },
-    "flrAssessment": { "title": "__TODO_TRANSLATE__:FLR ASSESSMENT", "empty": "__TODO_TRANSLATE__:FLR plan not requested" }
+    "liver": { "title": "__TODO_TRANSLATE__:LIVER", "empty": "არ შეფასებულა" },
+    "lesions": { "title": "__TODO_TRANSLATE__:LESIONS", "empty": "დაზიანებები არ აღმოჩენილა" },
+    "vessels": { "title": "__TODO_TRANSLATE__:VESSELS", "empty": "არ შეფასებულა" },
+    "gallbladder": { "title": "__TODO_TRANSLATE__:GALLBLADDER", "empty": "არ შეფასებულა" },
+    "spleen": { "title": "__TODO_TRANSLATE__:SPLEEN", "empty": "არ შეფასებულა" },
+    "flrAssessment": { "title": "__TODO_TRANSLATE__:FLR ASSESSMENT", "empty": "FLR გათვლა არ მოთხოვნილა" }
   },
   "status": {
-    "computing": "__TODO_TRANSLATE__:Computing — results will appear when the cascade completes",
-    "awaitingAnalysis": "__TODO_TRANSLATE__:Awaiting analysis",
-    "computationFailed": "__TODO_TRANSLATE__:Computation unavailable",
-    "notAvailable": "__TODO_TRANSLATE__:Not available",
-    "noFindings": "__TODO_TRANSLATE__:No findings to report"
+    "computing": "გამოთვლა — შედეგები გამოჩნდება კასკადის დასრულების შემდეგ",
+    "awaitingAnalysis": "ანალიზის მოლოდინში",
+    "computationFailed": "გამოთვლა მიუწვდომელია",
+    "notAvailable": "მიუწვდომელია",
+    "noFindings": "მონაცემები ვერ მოიძებნა"
   },
   "labels": {
-    "volume": "__TODO_TRANSLATE__:Volume",
+    "volume": "მოცულობა",
     "wallThickness": "__TODO_TRANSLATE__:Wall thickness",
     "attenuation": "__TODO_TRANSLATE__:Attenuation",
     "huMean": "__TODO_TRANSLATE__:Mean HU",
@@ -28,17 +29,17 @@
     "steatosisGrade": "__TODO_TRANSLATE__:Steatosis grade",
     "flrPercent": "__TODO_TRANSLATE__:FLR %",
     "flrSafety": "__TODO_TRANSLATE__:Safety classification",
-    "flrPlan": "__TODO_TRANSLATE__:Plan",
-    "flrRecommendation": "__TODO_TRANSLATE__:Recommendation",
+    "flrPlan": "გეგმა",
+    "flrRecommendation": "რეკომენდაცია",
     "primaryLesionSize": "__TODO_TRANSLATE__:Primary lesion size",
     "primaryLesionClass": "__TODO_TRANSLATE__:Primary lesion class",
-    "lesionSegment": "__TODO_TRANSLATE__:Segment",
-    "lesionConfidence": "__TODO_TRANSLATE__:Confidence",
-    "lesionInterpretation": "__TODO_TRANSLATE__:Interpretation",
+    "lesionSegment": "სეგმენტი",
+    "lesionConfidence": "სანდოობა",
+    "lesionInterpretation": "ინტერპრეტაცია",
     "liverSpleenDelta": "__TODO_TRANSLATE__:Δ liver–spleen",
-    "lrM": "__TODO_TRANSLATE__:LR-M",
-    "yes": "__TODO_TRANSLATE__:Yes",
-    "no": "__TODO_TRANSLATE__:No"
+    "lrM": "LR-M",
+    "yes": "დიახ",
+    "no": "არა"
   },
   "values": {
     "splenomegalyPresent": "__TODO_TRANSLATE__:Present",
@@ -52,23 +53,23 @@
     "flrSafetyAdequate": "__TODO_TRANSLATE__:ADEQUATE"
   },
   "copy": {
-    "buttonLabel": "__TODO_TRANSLATE__:Copy to Clipboard",
-    "buttonAriaLabel": "__TODO_TRANSLATE__:Copy structured readout to clipboard",
-    "successToast": "__TODO_TRANSLATE__:Readout copied to clipboard",
-    "warningToastAuditPending": "__TODO_TRANSLATE__:Readout copied; export audit will retry",
-    "errorToastBlocked": "__TODO_TRANSLATE__:Browser blocked clipboard access — try again",
-    "errorToastStale": "__TODO_TRANSLATE__:Analysis updated by another reviewer — refresh to copy",
-    "errorToastAuthDenied": "__TODO_TRANSLATE__:Your access to this analysis was revoked — refresh",
-    "errorToastUnknown": "__TODO_TRANSLATE__:Could not copy readout — please retry",
-    "tooltipFirstTime": "__TODO_TRANSLATE__:Copy this readout as plain text for PACS dictation. One audit row is recorded per click.",
-    "tooltipDismiss": "__TODO_TRANSLATE__:Got it"
+    "buttonLabel": "ბუფერში კოპირება",
+    "buttonAriaLabel": "სტრუქტურირებული დასკვნის ბუფერში კოპირება",
+    "successToast": "დასკვნა დაკოპირდა ბუფერში",
+    "warningToastAuditPending": "დასკვნა დაკოპირდა; ექსპორტის აუდიტი ხელახლა ცდილობს",
+    "errorToastBlocked": "ბრაუზერმა დაბლოკა ბუფერის წვდომა — სცადეთ ხელახლა",
+    "errorToastStale": "ანალიზი განახლდა სხვა ექსპერტის მიერ — განაახლეთ კოპირებისთვის",
+    "errorToastAuthDenied": "ამ ანალიზთან თქვენი წვდომა გაუქმდა — განაახლეთ",
+    "errorToastUnknown": "დასკვნის კოპირება ვერ მოხერხდა — სცადეთ ხელახლა",
+    "tooltipFirstTime": "დაკოპირეთ ეს დასკვნა მარტივი ტექსტის სახით PACS დიქტოვებისთვის. ერთი აუდიტის ჩანაწერი ფიქსირდება თითო კლიკზე.",
+    "tooltipDismiss": "გასაგებია"
   },
   "staleness": {
-    "lastComputed": "__TODO_TRANSLATE__:Last computed {{time}}",
-    "stale": "__TODO_TRANSLATE__:stale"
+    "lastComputed": "ბოლოს გამოთვლილია {{time}}",
+    "stale": "მოძველებული"
   },
   "warnings": {
-    "degraded": "__TODO_TRANSLATE__:Quality degraded"
+    "degraded": "ხარისხი დაბალია"
   },
   "lesions": {
     "interpretationIcc": "__TODO_TRANSLATE__:ICC pattern",
@@ -76,15 +77,15 @@
     "interpretationSimpleCyst": "__TODO_TRANSLATE__:Simple biliary cyst",
     "interpretationCalcified": "__TODO_TRANSLATE__:Calcified lesion",
     "interpretationIndeterminate": "__TODO_TRANSLATE__:LR-M (indeterminate)",
-    "noFurther": "__TODO_TRANSLATE__:No further lesions detected.",
-    "primary": "__TODO_TRANSLATE__:Primary",
-    "size": "__TODO_TRANSLATE__:Size",
-    "count": "__TODO_TRANSLATE__:Lesion count"
+    "noFurther": "დამატებითი დაზიანებები არ აღმოჩენილა.",
+    "primary": "ძირითადი",
+    "size": "ზომა",
+    "count": "დაზიანებების რაოდენობა"
   },
   "recommendations": {
     "considerPveAlpps": "__TODO_TRANSLATE__:consider PVE or ALPPS",
     "noteAdequateRemnant": "__TODO_TRANSLATE__:remnant volume meets institutional threshold",
     "borderlineDiscussMdt": "__TODO_TRANSLATE__:borderline remnant — discuss at MDT"
   },
-  "panelDescription": "__TODO_TRANSLATE__:ACR-style structured anatomical readout summarizing the cascade's heuristic findings."
+  "panelDescription": "ACR-სტილის სტრუქტურირებული ანატომიური დასკვნა კასკადის ევრისტიკული მონაცემებით."
 }

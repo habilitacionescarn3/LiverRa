@@ -2,11 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Locale service (T077).
+ * Locale service — CANONICAL Locale + SUPPORTED_LOCALES + INTL_TAG source.
  *
- * Ports MediMind's localeService with LiverRa's locale set
- * (`en | de | ka`, dropping `ru`). Provides:
+ * Active triad per CLAUDE.md: en (primary), ru (Georgia/CIS market), ka
+ * (Georgian). de retained as DACH fallback. `TranslationContext` re-exports
+ * these symbols — never declare a second copy.
+ *
+ * Provides:
  *   - {@link SUPPORTED_LOCALES} — readonly list used for validation.
+ *   - {@link DEFAULT_LOCALE} — fallback when nothing else resolves.
+ *   - {@link INTL_TAG} — BCP-47 tag per locale for `Intl.*` formatters.
  *   - {@link detectPreferredLocale} — the storage → navigator fallback
  *     chain used by `<TranslationProvider>`.
  *   - {@link getLocalePreference} / {@link setLocalePreference} —
@@ -20,6 +25,14 @@ export type Locale = 'en' | 'de' | 'ka' | 'ru';
 
 export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka', 'ru'] as const;
 export const DEFAULT_LOCALE: Locale = 'en';
+
+/** BCP-47 tag per locale — exported so callers can use directly with `Intl.*`. */
+export const INTL_TAG: Record<Locale, string> = {
+  en: 'en-GB',
+  de: 'de-DE',
+  ka: 'ka-GE',
+  ru: 'ru-RU',
+};
 
 /** Canonical storage key; legacy MediMind key migrated transparently. */
 const STORAGE_KEY = 'liverra.locale';
@@ -105,15 +118,8 @@ export function detectPreferredLocale(): Locale {
 }
 
 // ---------------------------------------------------------------------------
-// Intl tag mapping
+// Intl tag mapping (constant `INTL_TAG` is declared at the top of the file)
 // ---------------------------------------------------------------------------
-
-const INTL_TAG: Record<Locale, string> = {
-  en: 'en-GB',
-  de: 'de-DE',
-  ka: 'ka-GE',
-  ru: 'ru-RU',
-};
 
 /** Return the BCP 47 language tag used for `Intl.*` formatters. */
 export function intlTag(locale: Locale = detectPreferredLocale()): string {
