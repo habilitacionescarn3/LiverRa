@@ -145,6 +145,19 @@ def _gallbladder_centroid(
     return float(ylo + 0.25 * (yhi - ylo)), float(xlo + 0.55 * (xhi - xlo))
 
 
+class CouinaudHeuristicError(RuntimeError):
+    """Raised by :func:`compute_couinaud` when output is too sparse to use.
+
+    Caught by the cascade orchestrator to mark ``Analysis.status =
+    'partial_result'`` rather than ``'completed'`` (M-CASCADE-2). Carries
+    ``non_empty`` so the audit / UI can show "x/8 segments produced".
+    """
+
+    def __init__(self, msg: str, *, non_empty: int) -> None:
+        super().__init__(msg)
+        self.non_empty = non_empty
+
+
 def compute_couinaud(
     liver: np.ndarray,
     ivc: Optional[np.ndarray] = None,
@@ -170,9 +183,40 @@ def compute_couinaud(
     -------
     np.ndarray of UINT8 in {0, 1, …, 8} with the same shape as ``liver``.
     Labels are stable across runs given the same inputs.
+
+    Orientation contract (C-CLIN-3)
+    --------------------------------
+    All mask arrays MUST share the same voxel grid AND be canonicalized
+    to a consistent orientation before being passed in. nibabel callers
+    should run ``nib.as_closest_canonical(img)`` first; SimpleITK callers
+    should ensure all landmark masks were resampled against the same
+    reference image (so direction-cosines match).
+
+    The Cantlie line and "right-lobe-is-positive" sign are derived from
+    the IVC + gallbladder centroids themselves, so the algorithm is
+    robust to L/R swaps as long as the landmark masks live in the SAME
+    coordinate frame as the liver mask. The remaining orientation
+    assumption is the IVC / gallbladder anatomical-prior fallback in
+    :func:`_ivc_centroid_in_liver_z` and :func:`_gallbladder_centroid`
+    (only used when those masks are missing) — those default to the
+    posterior-midline / anterior-right hint typical of canonical
+    radiological axial slices.
     """
     if liver.dtype != np.uint8:
         liver = liver.astype(np.uint8)
+    # C-CLIN-3: sanity-check that all landmark masks share the liver's
+    # shape — a silent mismatch (e.g., the caller forgot to resample the
+    # gallbladder mask to the liver reference) would have the algorithm
+    # querying landmarks at the wrong voxel grid and producing a Cantlie
+    # line in entirely the wrong place.
+    for name, arr in (("ivc", ivc), ("gallbladder", gallbladder), ("vessels", vessels)):
+        if arr is not None and arr.shape != liver.shape:
+            raise ValueError(
+                f"compute_couinaud: {name} mask shape {arr.shape} does not "
+                f"match liver mask shape {liver.shape} — caller must "
+                f"resample all landmark masks to the same voxel grid "
+                f"(see docstring orientation contract)."
+            )
     out = np.zeros_like(liver)
 
     if not (liver > 0).any():
@@ -306,7 +350,60 @@ def compute_couinaud(
         z_out[caudate_here] = 1
         out[z] = z_out
 
+    # H-CLIN-6: voxels exactly on the Cantlie line (signed-distance == 0)
+    # are neither > 0 nor < 0, so neither right_mask nor left_mask claimed
+    # them. Likewise for floating-point boundary cases on the per-lobe
+    # sub-splits. A 0.1–0.5 % sliver of liver voxels would otherwise stay
+    # labeled as "background" (0), leaking into per-segment volumes and
+    # therefore the segment-aware FLR. Post-pass: assign each orphan liver
+    # voxel the label of its nearest labeled neighbour.
+    liver_mask = liver > 0
+    orphans = liver_mask & (out == 0)
+    if orphans.any():
+        try:
+            from scipy.ndimage import distance_transform_edt
+            labeled_mask = (out > 0)
+            # ``return_indices=True`` returns, for every voxel in the
+            # background (=== not labeled), the coordinates of the
+            # nearest labeled voxel. We then look up that voxel's label
+            # in ``out`` and assign it to the orphan.
+            _, indices = distance_transform_edt(
+                ~labeled_mask, return_indices=True
+            )
+            zz_i, yy_i, xx_i = indices
+            nearest_labels = out[zz_i, yy_i, xx_i]
+            out[orphans] = nearest_labels[orphans]
+        except ImportError:
+            # Fallback when scipy isn't installed: per-slice mode of the
+            # labeled voxels. Coarser but never silently leaves liver
+            # voxels with label 0.
+            for z in range(zlo, zhi + 1):
+                sl_orphans = orphans[z]
+                if not sl_orphans.any():
+                    continue
+                z_out = out[z]
+                slice_labels = z_out[z_out > 0]
+                if slice_labels.size == 0:
+                    continue
+                mode_label = int(np.bincount(slice_labels.ravel()).argmax())
+                z_out[sl_orphans] = mode_label
+                out[z] = z_out
+
+    # M-CASCADE-2: when fewer than 4 of the 8 segments have any voxels,
+    # the heuristic has collapsed (typically because the liver bbox is
+    # tiny or both IVC + gallbladder priors fired). Reporting `flr_pct=0`
+    # downstream is anatomically meaningless — surface this as a partial
+    # result so the cascade marks the analysis 'partial_result' and the
+    # UI shows the warning instead of a misleading number.
+    non_empty = sum(1 for sid in range(1, 9) if int((out == sid).sum()) > 0)
+    if non_empty < 4:
+        raise CouinaudHeuristicError(
+            f"Couinaud heuristic produced only {non_empty}/8 non-empty "
+            "segments; cannot trust segment-aware downstream stages",
+            non_empty=non_empty,
+        )
+
     return out
 
 
-__all__ = ["compute_couinaud", "SEGMENT_LABELS"]
+__all__ = ["compute_couinaud", "CouinaudHeuristicError", "SEGMENT_LABELS"]

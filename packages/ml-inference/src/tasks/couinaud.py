@@ -308,31 +308,25 @@ async def segment_couinaud(
         model_name="pictorial-couinaud",
     )
 
+    from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
     await audit_writer.write(
-        event_dict={
-            "resourceType": "AuditEvent",
-            "type": {"code": "ml_inference"},
-            "action": "E",  # Execute
-            "outcome": "0",  # Success
-            "agent": [{"who": {"display": "ml-worker"}}],
-            "entity": [
-                {
-                    "what": {"reference": f"Analysis/{analysis_id}"},
-                    "role": {"code": "4", "display": "Domain"},
-                }
-            ],
-            "detail": {
+        event_dict=build_audit_event(
+            category="ml_inference",
+            action="E",
+            outcome="0",
+            actor="Device/liverra-ml-worker",
+            entity_refs=[fhir_ref("Analysis", analysis_id)],
+            detail={
                 "stage": STAGE_NAME,
                 "stage_no": STAGE_NO,
-                "model": {
-                    "name": "pictorial-couinaud",
-                    "triton": TRITON_MODEL_NAME,
-                },
-                "segment_volumes_ml": {
-                    label: volumes[label] for label in COUINAUD_LABELS
-                },
+                "model_name": "pictorial-couinaud",
+                "model_triton": TRITON_MODEL_NAME,
+                "segment_volumes_ml": str(
+                    {label: volumes[label] for label in COUINAUD_LABELS}
+                ),
             },
-        },
+        ),
         tenant_id=tenant_id,
         session=session,
     )
@@ -400,9 +394,10 @@ def _resize_to_128(arr: np.ndarray) -> np.ndarray:
     iy = np.linspace(0, arr.shape[1] - 1, _TARGET_SHAPE[1]).astype(int)
     ix = np.linspace(0, arr.shape[2] - 1, _TARGET_SHAPE[2]).astype(int)
     return arr[np.ix_(iz, iy, ix)].astype(arr.dtype)
-# ~300 mm abdominal FOV across 128 voxels → 2.34 mm; volume ≈ 0.012 mL.
-# Same default as parenchyma.py to keep the ±2% sum-check consistent.
-_DEFAULT_VOXEL_VOLUME_ML: float = (2.3 ** 3) / 1000.0
+# Voxel volume fallback comes from ``orchestrator/constants.py`` so the
+# ±2% sum-check stays consistent with parenchyma.py without each task
+# stamping its own copy of the magic number (L-CASCADE-1).
+from src.orchestrator.constants import _DEFAULT_VOXEL_VOLUME_ML  # noqa: E402
 
 
 def _download_parenchyma_mask_128(s3_client, analysis_id: UUID) -> np.ndarray:
@@ -557,9 +552,10 @@ async def _run(
     events through its installed hooks.
     """
     # H-INFER-4 — refuse to run the Triton-Couinaud path unless explicitly
-    # opted in. The live cascade uses the heuristic Couinaud algorithm in
-    # ``src/services/couinaud_heuristic.py`` invoked from ``real_cascade.py``;
-    # this Celery task is only useful in legacy / experimental flows.
+    # opted in. The live cascade uses the canonical Couinaud algorithm in
+    # ``src/orchestrator/couinaud_heuristic.py`` (B-CLIN-2: single source
+    # of truth) invoked from ``real_cascade.py``; this Celery task is only
+    # useful in legacy / experimental flows.
     if os.environ.get("LIVERRA_TRITON_PATH_ACTIVE", "").lower() != "true":
         raise RuntimeError(
             "Triton Couinaud task is dormant (CLAUDE.md). Set "
@@ -634,7 +630,15 @@ async def _run(
             triton_total, triton_threshold,
         )
         try:
-            from src.services.couinaud_heuristic import heuristic_couinaud
+            # B-CLIN-2: single canonical Couinaud implementation lives in
+            # src.orchestrator.couinaud_heuristic. The previous
+            # src.services.couinaud_heuristic.heuristic_couinaud used an
+            # axis-aligned X-median split that disagreed with the
+            # orchestrator's anatomical IVC↔gallbladder Cantlie line —
+            # two surgeons looking at the same scan could see different
+            # segment topologies. We now use the orchestrator path
+            # everywhere; ``services/couinaud_heuristic.py`` was deleted.
+            from src.orchestrator.couinaud_heuristic import compute_couinaud
             import tempfile
             # boto3 + sitk are module-level imports (lines 351, 359);
             # do NOT re-import them here or Python treats them as locals
@@ -668,11 +672,31 @@ async def _run(
                 f"analyses/{analysis_uuid}/hepatic_vein.nii.gz"
             )
 
-            # Heuristic operates in the 128³ resampled grid like the model output.
-            heuristic_label_map = heuristic_couinaud(
-                parenchyma_mask,
-                _resize_to_128(portal_mask_full) if portal_mask_full is not None else None,
-                _resize_to_128(hepatic_mask_full) if hepatic_mask_full is not None else None,
+            # Heuristic operates in the 128³ resampled grid like the model
+            # output. Vessels = union of available portal + hepatic veins
+            # (the orchestrator falls back to anatomical priors for IVC
+            # and gallbladder when not provided — this Triton fallback
+            # path doesn't have them readily available).
+            portal_128 = _resize_to_128(portal_mask_full) if portal_mask_full is not None else None
+            hepatic_128 = _resize_to_128(hepatic_mask_full) if hepatic_mask_full is not None else None
+            vessels_128: np.ndarray | None
+            if portal_128 is not None and hepatic_128 is not None:
+                vessels_128 = ((portal_128 > 0) | (hepatic_128 > 0)).astype(np.uint8)
+            elif portal_128 is not None:
+                vessels_128 = portal_128.astype(np.uint8)
+            elif hepatic_128 is not None:
+                vessels_128 = hepatic_128.astype(np.uint8)
+            else:
+                vessels_128 = None
+            # 128³ resampled grid is isotropic — voxel_spacing is irrelevant
+            # for the caudate-radius geometry here (no native mm units),
+            # so pass (1, 1, 1).
+            heuristic_label_map = compute_couinaud(
+                liver=parenchyma_mask.astype(np.uint8),
+                ivc=None,
+                gallbladder=None,
+                vessels=vessels_128,
+                voxel_spacing=(1.0, 1.0, 1.0),
             )
             heuristic_counts = _voxel_count_per_segment(heuristic_label_map)
             heuristic_total = sum(heuristic_counts.values())

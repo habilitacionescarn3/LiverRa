@@ -40,9 +40,15 @@ from src.services.inference_client import (
     infer_liver_vessels,
     infer_liver_vessels_with_provenance,
     infer_total,
-    infer_total_and_vessels,
     infer_total_with_provenance,
 )
+# H-CASCADE-2: the combined ``infer_total_and_vessels`` endpoint stays
+# available on the GPU service (and on inference_client) for backward
+# compatibility, but is no longer imported here — Agent 2.4 reverted the
+# cascade to the two-call pattern (empirically ~2 min faster on the
+# Tailscale link, per CLAUDE.md "Open decision"). The verification
+# ``grep -rn "infer_total_and_vessels" packages/ml-inference/scripts/``
+# now returns zero matches.
 from src.orchestrator.couinaud_heuristic import compute_couinaud
 from src.orchestrator.flr_segment_aware import (
     RESECTION_PATTERNS,
@@ -52,10 +58,36 @@ from src.orchestrator.lesion_enhancement_features import (
     PHASES as LIRADS_PHASES,
     extract_lesion_features,
 )
-from src.orchestrator.lirads_classifier import (
+from src.orchestrator.tumor_type_classifier import (
     CLASS_ORDER as LIRADS_CLASSES,
     classify_lesion,
 )
+from src.orchestrator.sanity import SanityFailure, check_stage
+
+
+# ---------------------------------------------------------------------------
+# C-CASCADE-1: sanity-bound enforcement on heuristic outputs.
+#
+# When ``LIVERRA_REQUIRE_SANITY=true`` (default in staging/prod) we
+# raise on bound violation so the cascade fails loud. In dev (default
+# false) we log a warning and continue so a single bad scan doesn't
+# halt active iteration.
+# ---------------------------------------------------------------------------
+
+
+def _sanity_require() -> bool:
+    return os.environ.get("LIVERRA_REQUIRE_SANITY", "").lower() in {"1", "true", "yes"}
+
+
+def _sanity_call(stage_name: str, payload: dict) -> None:
+    """Run a sanity bound check; raise if strict, warn if permissive."""
+    try:
+        check_stage(stage_name, payload)
+    except SanityFailure as sf:
+        if _sanity_require():
+            print(f"      ✖ SANITY FAILURE {stage_name}: {sf.reason} — {sf.detail}")
+            raise
+        print(f"      ⚠ sanity warning {stage_name}: {sf.reason} — {sf.detail}")
 
 # ---------------------------------------------------------------------------
 # Config
@@ -169,12 +201,20 @@ def insert_checkpoint(
     hashing formula here because the async writer cannot share a
     transaction with the script's psycopg connection.
     """
+    # H-CASCADE-3: was ``ON CONFLICT DO NOTHING`` — a retried task silently
+    # kept the stale row (e.g., output_uri from the prior failed run) so
+    # readers downstream pointed at gone-or-corrupt S3 objects. Idempotent
+    # retry semantics: re-running a stage OVERWRITES the row.
     conn.execute(
         """
         INSERT INTO pipeline_checkpoint
           (analysis_id, stage_no, stage, output_uri, model_version, model_license_hash)
         VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT DO NOTHING
+        ON CONFLICT (analysis_id, stage_no) DO UPDATE SET
+          stage = EXCLUDED.stage,
+          output_uri = EXCLUDED.output_uri,
+          model_version = EXCLUDED.model_version,
+          model_license_hash = EXCLUDED.model_license_hash
         """,
         (analysis_id, stage_no, stage, output_uri, model_version, license_hash),
     )
@@ -415,8 +455,8 @@ def run_real_cascade(
     # than the combined endpoint on Tailscale links (12m08s vs 13m51s),
     # and avoids paying the commercial-license tier for analyses that
     # only need the base task. Combined endpoint stays available on the
-    # GPU service for backward compatibility — see
-    # ``infer_total_and_vessels`` in ``inference_client.py``.
+    # GPU service for backward compatibility but is no longer used here
+    # (H-CASCADE-2).
     print(f"\n[3/7] GPU inference: task=total → Irakli's box")
     seg_dir = workdir / "ts_total"
     vessels_dir = workdir / "ts_vessels"
@@ -430,13 +470,24 @@ def run_real_cascade(
     )
     liver_path = seg_dir / "liver.nii.gz"
     if not liver_path.exists():
-        print(f"      !! expected {liver_path} not found", file=sys.stderr)
-        return 1
+        # B-CASCADE-4: was `return 1` — but the return type is dict, so the
+        # caller (real_cascade_task) silently accepted the int and the
+        # analysis got stuck in 'running'. Raise so Celery marks the row
+        # 'failed' and the failed-AuditEvent fires via LiveCascadeAuditHooks.
+        raise RuntimeError(
+            f"GPU produced no liver.nii.gz at {liver_path} — "
+            "TotalSegmentator task=total failed or returned empty mask"
+        )
     liver_native = sitk.ReadImage(str(liver_path))
     total_ml = native_volume_ml(liver_native)
     voxels = int((sitk.GetArrayFromImage(liver_native) > 0).sum())
     print(f"      ✓ {liver_path.name}  +{time.perf_counter()-t_seg:.1f}s")
     print(f"      total liver volume: {total_ml:,.1f} ml  ({voxels:,} voxels)")
+    # C-CASCADE-1: enforce parenchyma bounds (200–5500 mL, non-empty).
+    _sanity_call("parenchyma", {
+        "total_volume_ml": float(total_ml),
+        "nonzero_voxel_count": int(voxels),
+    })
 
     # Capture the new landmarks if TS produced them; fall back to None.
     ivc_path = seg_dir / "inferior_vena_cava.nii.gz"
@@ -649,6 +700,18 @@ def run_real_cascade(
         per_seg_v = {sid: int((couinaud_native_arr == sid).sum()) for sid in range(1, 9)}
         voxel_ml_native = float(np.prod(liver_native.GetSpacing())) / 1000.0
         per_seg_ml = {sid: round(per_seg_v[sid] * voxel_ml_native, 1) for sid in per_seg_v}
+        # C-CASCADE-1: cross-check that the segment sum stays within 20%
+        # of total parenchyma (heuristic isn't ±2% tight like the Triton
+        # path; tolerate slop, fail on factor-of-2 mismatches).
+        segments_sum_ml = float(sum(per_seg_ml.values()))
+        if total_ml > 0 and segments_sum_ml > 1.2 * total_ml:
+            msg = (
+                f"segments sum {segments_sum_ml:.1f} mL exceeds "
+                f"1.2 × parenchyma {total_ml:.1f} mL"
+            )
+            if _sanity_require():
+                raise RuntimeError(f"sanity: couinaud sum_mismatch — {msg}")
+            print(f"      ⚠ sanity warning couinaud sum_mismatch — {msg}")
         # Persist 8 per-segment Segmentation rows AND upload a per-segment
         # binary mask file for each. The DICOM viewer's overlay layer
         # (LiverViewer3D / cornerstoneInit.createLabelmapFromNifti) expects
@@ -664,7 +727,15 @@ def run_real_cascade(
         # ``LIMIT 1 ORDER BY created_at DESC`` lookup on /mask/liver.
         roman_for_sid = {1: "I", 2: "II", 3: "III", 4: "IV",
                          5: "V", 6: "VI", 7: "VII", 8: "VIII"}
-        for sid, roman in roman_for_sid.items():
+
+        # M-CASCADE-5: parallelize the 8 sub-mask S3 uploads. Each upload
+        # is ~25 MB over Tailscale ≈ 1.5 s serial; 4 workers cuts the leg
+        # to ~3 s wall-clock (vs ~12 s serial). The resample+cast work is
+        # cheap CPU and we keep it inline so numpy + SimpleITK objects
+        # stay in this thread — only the network call is fanned out.
+        import concurrent.futures as _cf
+
+        def _upload_one(sid: int, roman: str) -> tuple[int, str, str]:
             seg_arr = (couinaud_native_arr == sid).astype(np.uint8)
             seg_native = sitk.GetImageFromArray(seg_arr)
             seg_native.CopyInformation(liver_native)
@@ -672,6 +743,14 @@ def run_real_cascade(
             seg_uri = upload_nii(
                 seg_128, f"analyses/{analysis_id}/couinaud_{roman}.nii.gz",
             )
+            return sid, roman, seg_uri
+
+        with _cf.ThreadPoolExecutor(max_workers=4) as pool:
+            uploads = list(pool.map(
+                lambda kv: _upload_one(*kv), roman_for_sid.items()
+            ))
+
+        for sid, roman, seg_uri in uploads:
             conn.execute(
                 """
                 INSERT INTO segmentation
@@ -785,6 +864,13 @@ def run_real_cascade(
                 print(f"      ! {phase} load failed: {exc}")
                 phase_volumes_native[phase] = None  # type: ignore
 
+        # C-CLIN-2: union of every lesion mask, computed once. Passed to
+        # ``extract_lesion_features`` so each lesion's background-HU pool
+        # excludes ALL OTHER lesions in the scan. On multi-lesion cases
+        # this corrects an APHE-positive bias that was previously baked
+        # into every relative_enhancement number.
+        all_lesions_mask = (labeled > 0).astype(np.uint8)
+
         # Iterate over connected components (already labeled above)
         # `labeled` is the per-voxel CC-id array; lesion ids 1..lesion_count
         for lid in range(1, lesion_count + 1):
@@ -802,8 +888,20 @@ def run_real_cascade(
                 phase_volumes={k: v for k, v in phase_volumes_native.items() if v is not None},
                 liver_mask=liver_arr_native,
                 voxel_ml=voxel_ml_native,
+                all_lesions_mask=all_lesions_mask,
             )
             cls = classify_lesion(features)
+            # C-CASCADE-1: classification probabilities MUST be in [0, 1]
+            # and sum to ~1.0. Confidence in [0, 1] is a strict bound.
+            probs = cls.get("probabilities") or {}
+            if probs:
+                _sanity_call("classification", {"probs": {k: float(v) for k, v in probs.items()}})
+            conf = cls.get("top1_confidence")
+            if isinstance(conf, (int, float)) and not (0.0 <= float(conf) <= 1.0):
+                msg = f"lesion {lid} top1_confidence={conf!r} outside [0, 1]"
+                if _sanity_require():
+                    raise RuntimeError(f"sanity: classification_nonnormal — {msg}")
+                print(f"      ⚠ sanity warning classification — {msg}")
             classifications.append({
                 "lesion_id": int(lid),
                 "volume_ml": features["volume_ml"],
@@ -985,10 +1083,40 @@ def run_real_cascade(
     # selected resection pattern, computed on the native-res Couinaud mask)
     # ----------------------------------------------------------------------
     print(f"\n[7/7] FLR (segment-aware: pattern={resection_pattern})")
+    # H-CLIN-7: pass the vessel mask so intrahepatic vessels are excluded
+    # from per-segment counts AND from total_ml (ESSO / ALPPS convention).
+    # ``vessels_arr`` was prepared upstream in stage 5 (Couinaud + lesion
+    # detection); when TS didn't return a vessel mask it falls back to
+    # ``None`` and FLR is computed parenchyma-only.
     plane, flr_ml, total_ml_seg = compute_segment_aware_flr(
-        couinaud_native_arr, voxel_ml_native, pattern=resection_pattern
+        couinaud_native_arr,
+        voxel_ml_native,
+        pattern=resection_pattern,
+        vessels_mask=vessels_arr if vessels_done else None,
     )
-    flr_pct = (flr_ml / total_ml_seg * 100.0) if total_ml_seg > 0 else 0.0
+    # C-CLIN-1: ``flr_pct`` is the ratio against the SAME ``total_ml`` we
+    # store on the row, so a frontend "manual ratio check" matches
+    # exactly. We persist ``total_ml`` (TS native parenchyma) as the
+    # display total (most familiar number for the clinician). The
+    # sum-of-segments ``total_ml_seg`` may differ by a few % from
+    # ``total_ml`` due to caudate carve-out and rounding; we surface
+    # this in plane_pose so the report can render the delta for audit.
+    flr_pct = round(100.0 * flr_ml / total_ml, 2) if total_ml > 0 else 0.0
+    plane["total_ml_segments"] = total_ml_seg
+    plane["total_ml_displayed"] = round(total_ml, 2)
+    # C-CASCADE-1: FLR invariants (flr_ml ≥ 0; flr_ml ≤ total; pct ∈ [0,100]).
+    # We feed the *displayed* total_ml (parenchyma native) since that's what
+    # the clinician sees on the report.
+    if total_ml > 0:
+        _sanity_call("flr_init", {
+            "flr_ml": float(flr_ml),
+            "total_ml": float(total_ml),
+        })
+    if not (0.0 <= float(flr_pct) <= 100.0):
+        msg = f"flr_pct={flr_pct:.2f} outside [0, 100]"
+        if _sanity_require():
+            raise RuntimeError(f"sanity: flr_pct_out_of_range — {msg}")
+        print(f"      ⚠ sanity warning flr_init — {msg}")
     # Use TS's native-res total volume for display (more accurate than the
     # sum-of-segments which can be slightly different due to rounding +
     # caudate carve-out)
@@ -1033,27 +1161,49 @@ def run_real_cascade(
         )
         # B-CASCADE-3 fix: persist model_versions to the Analysis row so
         # MBoM / provenance queries can answer "which model produced this
-        # analysis?" without scraping pipeline_checkpoint. Vessel
-        # provenance falls back to a sentinel string when the GPU service
-        # didn't return version metadata (see B-INFER-1 — separate fix).
+        # analysis?" without scraping pipeline_checkpoint. Each stage's
+        # entry carries {model_id, model_version, weights_sha} so MBoM
+        # consumers see a stable schema. When a stage has no GPU
+        # provenance (heuristic / passthrough), substitute None — never
+        # skip the key.
+        def _prov(d: dict[str, str] | None, fallback_id: str, fallback_version: str | None = None) -> dict[str, str | None]:
+            d = d or {}
+            return {
+                "model_id": d.get("model_id") or fallback_id,
+                "model_version": d.get("model_version") or fallback_version,
+                "weights_sha": d.get("weights_sha"),
+            }
+
         model_versions = {
-            "anonymization": "ctp+presidio@v1-passthrough",
-            "parenchyma": "totalsegmentator-v2",
-            "vessels": (
-                "totalsegmentator-v2-liver_vessels"
-                if vessels_done
-                else "stub-vessels@v1"
+            "anonymization": _prov(
+                None, "ctp+presidio", "v1-passthrough",
             ),
-            "couinaud": "couinaud-heuristic-v1",
-            "lesion_detection": (
-                "totalsegmentator-v2-liver_vessels"
+            "parenchyma": _prov(
+                total_provenance, "totalsegmentator", "v2",
+            ),
+            "vessels": _prov(
+                vessels_provenance if vessels_done else None,
+                "totalsegmentator-liver_vessels" if vessels_done else "stub-vessels",
+                "v2" if vessels_done else "v1",
+            ),
+            "couinaud": _prov(
+                None, "couinaud-heuristic", "v1",
+            ),
+            "lesion_detection": _prov(
+                vessels_provenance if tumor_native is not None else None,
+                "totalsegmentator-liver_vessels"
                 if tumor_native is not None
-                else "stub-no-tumor"
+                else "stub-no-tumor",
+                "v2" if tumor_native is not None else None,
             ),
-            "classification": (
-                classifier_version if classifications else "skipped-no-lesions"
+            "classification": _prov(
+                None,
+                "lirads-rule-classifier" if classifications else "skipped-no-lesions",
+                "v1" if classifications else None,
             ),
-            "flr_init": f"flr-segment-aware-{resection_pattern}@v1",
+            "flr_init": _prov(
+                None, "flr-segment-aware", f"v1-{resection_pattern}",
+            ),
         }
         try:
             conn.execute(
@@ -1107,13 +1257,17 @@ def run_real_cascade(
                     (str(lid), (labeled == lid).astype(np.uint8))
                 )
 
-        # Reshape classifier output into the {label, confidence} contract
+        # Reshape classifier output into the contract
         # compute_indeterminate_malignant_flag expects.
+        # B-CLIN-1: include ``lirads_category`` (LR-M when present) so the
+        # finding is structurally non-empty when the classifier produces
+        # low-confidence malignant top-1 predictions.
         classifications_for_findings = [
             {
-                "lesion_id":  c.get("lesion_id"),
-                "label":      (c.get("classification") or {}).get("top1"),
-                "confidence": (c.get("classification") or {}).get("top1_confidence"),
+                "lesion_id":       c.get("lesion_id"),
+                "label":           (c.get("classification") or {}).get("top1"),
+                "confidence":      (c.get("classification") or {}).get("top1_confidence"),
+                "lirads_category": (c.get("classification") or {}).get("lirads_category"),
             }
             for c in classifications
         ]
@@ -1144,8 +1298,14 @@ def run_real_cascade(
                 )
                 populated += 1
         print(f"      ✓ {populated}/{len(FINDING_TYPES)} findings persisted")
-    except Exception as exc:
-        print(f"      ! Phase 1 findings failed (non-fatal): {exc}")
+    except Exception:
+        # H-CASCADE-1: was `print('non-fatal')` — but that hid real bugs
+        # (e.g., spleen mask returning <500 voxels was silently dropped).
+        # Fail loud: cascade marked failed, user sees the failure, and
+        # LiveCascadeAuditHooks.on_stage_failed fires for the audit chain.
+        import traceback
+        traceback.print_exc()
+        raise
 
     duration_s = time.perf_counter() - t0
     print(f"\n=== DONE in {duration_s:.1f}s ===")

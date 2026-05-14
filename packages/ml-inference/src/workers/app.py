@@ -190,26 +190,32 @@ if app is not None:
             import logging as _logging
             _log = _logging.getLogger(__name__)
 
-            # Stub-detection guard: when the cascade is configured to
-            # route through Triton (i.e., real-mode is OFF), warn loudly
-            # if any local model.pt still matches the known stub SHAs.
-            # Real-mode bypasses Triton entirely so stubs there are
-            # harmless — only the Triton path produces garbage from stubs.
-            real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
-            stubs = _detect_stub_models()
-            if stubs and not real_mode:
-                _log.error(
-                    "STUB MODELS DETECTED — cascade will produce garbage masks. "
-                    "Replace these model.pt files with real exports before "
-                    "running cascades through Triton: %s",
-                    ", ".join(stubs),
-                )
-            elif stubs:
-                _log.info(
-                    "Stub models detected (%s) but LIVERRA_CASCADE_REAL_MODE=true "
-                    "bypasses Triton — safe to ignore.",
-                    ", ".join(stubs),
-                )
+            # L-CASCADE-2: gate the stub-SHA detection block behind the
+            # explicit Triton-path opt-in. The detection probes
+            # ``triton-models/{name}/1/model.pt`` paths that don't exist
+            # on the current Option-B layout — every worker boot was
+            # spending CPU + log noise on a dormant code path. Stays
+            # available for future Triton re-enablement (matches the
+            # gate Agent 2.4 added in tasks/couinaud.py + tasks/vessels.py).
+            triton_active = os.environ.get(
+                "LIVERRA_TRITON_PATH_ACTIVE", ""
+            ).lower() in {"1", "true", "yes"}
+            if triton_active:
+                real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
+                stubs = _detect_stub_models()
+                if stubs and not real_mode:
+                    _log.error(
+                        "STUB MODELS DETECTED — cascade will produce garbage masks. "
+                        "Replace these model.pt files with real exports before "
+                        "running cascades through Triton: %s",
+                        ", ".join(stubs),
+                    )
+                elif stubs:
+                    _log.info(
+                        "Stub models detected (%s) but LIVERRA_CASCADE_REAL_MODE=true "
+                        "bypasses Triton — safe to ignore.",
+                        ", ".join(stubs),
+                    )
 
             # B-CASCADE-2 + B-AUDIT-4: install live audit hooks in the
             # Celery worker process. Without this, every cascade stage

@@ -285,16 +285,16 @@ async def _emit_analysis_audit(
         getattr(request.app.state, "audit_chain_writer", None)
         or AuditChainWriter()
     )
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": user_id} if user_id else None}],
-        "entity": [{"what": {"reference": f"Analysis/{analysis_id}"}}],
-    }
-    if extra:
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+    from ..services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    event = build_audit_event(
+        category=category,
+        actor=user_id if user_id else None,
+        entity_refs=[fhir_ref("Analysis", analysis_id)],
+        extensions=(
+            [{"url": "liverra:extra", "valueString": str(extra)}] if extra else None
+        ),
+    )
 
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no
@@ -488,6 +488,13 @@ async def create_analysis(
     created = insert_row.mappings().one()
 
     # 4. Hand off to the cascade Celery task (best-effort dispatch).
+    # C-CASES-1: commit BEFORE dispatch. The cascade tasks open fresh sync
+    # connections (psycopg in a Celery worker) and must see this row.
+    # Without an explicit commit the INSERT lives in an uncommitted async
+    # transaction and the sync lookups in ``_dispatch_cascade`` return None
+    # → "analysis not found" silently kills the dispatch. The canonical
+    # pattern is in ``create_analysis_from_orthanc`` (commit → dispatch).
+    await session.commit()
     _dispatch_cascade(created["id"])
 
     return AnalysisQueuedResponse(
@@ -764,22 +771,71 @@ async def get_analysis_results(
             )
         ).mappings()
     ]
-    lesions = [
-        dict(r)
-        for r in (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, bbox3d, couinaud_location, longest_diameter_mm, volume_ml,
-                           discovery_source, classification
-                    FROM lesion
-                    WHERE analysis_id = :id
-                    """
-                ),
-                {"id": str(analysis_id)},
+    # H-REFINE-4: surface the active classification override (if any) so
+    # the UI can render the reviewer's correction without fabricating
+    # a placeholder reviewer/timestamp. The LEFT JOIN against
+    # ``lesion_classification_override`` is filtered to the single
+    # active row per (analysis, lesion) by the partial UNIQUE index
+    # created in migration 0015.
+    lesions = []
+    for row in (
+        await session.execute(
+            text(
+                """
+                SELECT l.id,
+                       l.bbox3d,
+                       l.couinaud_location,
+                       l.longest_diameter_mm,
+                       l.volume_ml,
+                       l.discovery_source,
+                       l.classification,
+                       l.client_version,
+                       o.override_class         AS override_class,
+                       o.reviewer_role          AS override_reviewer_role,
+                       o.reviewer_user_id       AS override_reviewer_user_id,
+                       o.created_at             AS override_created_at
+                  FROM lesion l
+                  LEFT JOIN lesion_classification_override o
+                    ON o.lesion_id = l.id
+                   AND o.is_active = TRUE
+                 WHERE l.analysis_id = :id
+                """
+            ),
+            {"id": str(analysis_id)},
+        )
+    ).mappings():
+        d = dict(row)
+        # If classification is a JSON dict, hoist override fields into it
+        # so the UI's `cls.reviewer_override_class` /
+        # `cls.override_reviewer_role` reads land where they belong. If
+        # it's a plain text class (legacy), wrap it.
+        raw_cls = d.get("classification")
+        cls = dict(raw_cls) if isinstance(raw_cls, dict) else (
+            {"suggested_class": raw_cls} if raw_cls else {}
+        )
+        if d.get("override_class") is not None:
+            cls["reviewer_override_class"] = d["override_class"]
+            cls["override_reviewer_role"] = d.get("override_reviewer_role")
+            cls["override_reviewer_user_id"] = (
+                str(d["override_reviewer_user_id"])
+                if d.get("override_reviewer_user_id") is not None
+                else None
             )
-        ).mappings()
-    ]
+            cls["override_created_at"] = (
+                d["override_created_at"].isoformat()
+                if d.get("override_created_at") is not None
+                else None
+            )
+        d["classification"] = cls
+        # Strip the JOIN-only columns from the wire response.
+        for k in (
+            "override_class",
+            "override_reviewer_role",
+            "override_reviewer_user_id",
+            "override_created_at",
+        ):
+            d.pop(k, None)
+        lesions.append(d)
     flr_default_row = (
         await session.execute(
             text(
@@ -917,6 +973,11 @@ async def retry_analysis(
     )
     created = new_row.mappings().one()
 
+    # C-CASES-1: commit BEFORE dispatch so the Celery worker's sync
+    # connection sees the new Analysis row. Without this, the dispatcher's
+    # ``SELECT study_id FROM analysis WHERE id = ...`` returns None and
+    # the cascade silently never starts.
+    await session.commit()
     _dispatch_cascade(created["id"], start_stage=start_stage)
 
     seq_no = await _emit_analysis_audit(

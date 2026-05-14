@@ -299,30 +299,24 @@ async def segment_vessels(
         model_name="pictorial-couinaud",
     )
 
+    from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
     await audit_writer.write(
-        event_dict={
-            "resourceType": "AuditEvent",
-            "type": {"code": "ml_inference"},
-            "action": "E",
-            "outcome": "0",
-            "agent": [{"who": {"display": "ml-worker"}}],
-            "entity": [
-                {
-                    "what": {"reference": f"Analysis/{analysis_id}"},
-                    "role": {"code": "4", "display": "Domain"},
-                }
-            ],
-            "detail": {
+        event_dict=build_audit_event(
+            category="ml_inference",
+            action="E",
+            outcome="0",
+            actor="Device/liverra-ml-worker",
+            entity_refs=[fhir_ref("Analysis", analysis_id)],
+            detail={
                 "stage": STAGE_NAME,
                 "stage_no": STAGE_NO,
-                "model": {
-                    "name": "pictorial-couinaud",
-                    "triton": TRITON_MODEL_NAME,
-                },
+                "model_name": "pictorial-couinaud",
+                "model_triton": TRITON_MODEL_NAME,
                 "portal_containment": round(portal_ratio, 4),
                 "hepatic_containment": round(hepatic_ratio, 4),
             },
-        },
+        ),
         tenant_id=tenant_id,
         session=session,
     )
@@ -373,7 +367,8 @@ from src.workers.app import app
 
 _TRITON_URL = os.environ.get("TRITON_URL", "triton:8001")
 _TARGET_SHAPE: tuple[int, int, int] = (128, 128, 128)
-_DEFAULT_VOXEL_VOLUME_ML: float = (2.3 ** 3) / 1000.0
+# Centralized in orchestrator/constants.py (L-CASCADE-1).
+from src.orchestrator.constants import _DEFAULT_VOXEL_VOLUME_ML  # noqa: E402
 
 
 def _vessels_download_parenchyma_mask_128(s3_client, analysis_id: UUID) -> np.ndarray:

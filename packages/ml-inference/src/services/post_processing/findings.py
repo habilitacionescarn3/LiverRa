@@ -45,6 +45,20 @@ FINDING_TYPES = (
 
 
 def _voxel_volume_ml(spacing_mm: tuple[float, float, float]) -> float:
+    """Voxel volume in mL given ``(spacing_x, spacing_y, spacing_z)`` in mm.
+
+    M-CLIN-1: spacing axis order is positional; callers MUST pass
+    ``(x, y, z)`` mm in that order — typically read from
+    ``SimpleITK.Image.GetSpacing()`` (which returns ``(x, y, z)``) or
+    ``nibabel`` ``header.get_zooms()[:3]`` (NIfTI native axis order).
+    The assertion guards against accidentally passing voxel counts or
+    cm instead of mm — clinical CT spacing is empirically in the
+    [0.5 mm, 5 mm] range, so 0.1 < s < 10 catches any sane input.
+    """
+    assert all(0.1 < float(s) < 10.0 for s in spacing_mm), (
+        f"_voxel_volume_ml: spacing_mm out of plausible range {spacing_mm!r} — "
+        "expected each axis in [0.5 mm, 5 mm] (clinical CT range)"
+    )
     return float(spacing_mm[0] * spacing_mm[1] * spacing_mm[2]) / 1000.0
 
 
@@ -73,9 +87,15 @@ def _wall_thickness_mm(
     *,
     inner_hu_max: float = 30.0,
     outer_hu_min: float = 30.0,
-) -> float:
+) -> tuple[float, bool]:
     """Estimate wall thickness via repeated 1-voxel erosion until interior HU
     drops below ``inner_hu_max`` (or mask exhausted).
+
+    Returns ``(thickness_mm, capped)``. M-CLIN-5: ``capped`` is True when
+    the loop exited via the iteration cap (no fluid interior reached) —
+    in that case the returned thickness is a floor, not the real wall.
+    On 0.7 mm scans the cap is 3.5 mm, which under-reports real
+    cholecystitis walls of 4–10 mm.
 
     Returns thickness in millimetres along the smallest in-plane spacing.
     For thin-walled fluid-filled structures (cysts) the boundary HU drops
@@ -90,30 +110,31 @@ def _wall_thickness_mm(
         from scipy.ndimage import binary_erosion
     except ImportError:
         logger.warning("scipy not available — wall_thickness defaulting to 0")
-        return 0.0
+        return 0.0, False
 
     if mask.sum() < 50:
-        return 0.0
+        return 0.0, False
 
     in_plane = float(min(spacing_mm))
     current = (mask > 0).copy()
     for step in range(1, 6):
         eroded = binary_erosion(current, iterations=1)
         if eroded.sum() < 10:
-            return step * in_plane
+            return step * in_plane, False
         ring = current & ~eroded
         ring_hu = ct_hu[ring]
         if ring_hu.size == 0:
-            return step * in_plane
+            return step * in_plane, False
         if float(ring_hu.mean()) < outer_hu_min and float(ring_hu.mean()) > inner_hu_max:
             # Ring is in the wall band — keep eroding.
             current = eroded
             continue
         # Reached fluid interior or fully outside — wall is "step" voxels.
         if float(ring_hu.mean()) <= inner_hu_max:
-            return step * in_plane
+            return step * in_plane, False
         current = eroded
-    return 5 * in_plane
+    # Loop exhausted — wall is at least 5×in_plane but real thickness may be larger.
+    return 5 * in_plane, True
 
 
 def _validate_hu_array(arr: np.ndarray | None, *, name: str) -> bool:
@@ -244,7 +265,15 @@ def compute_steatosis(
     """
     if hu_stats is None:
         return None
-    liver_mean = float(hu_stats.get("mean", 0))
+    # M-CLIN-3: bail out cleanly if the upstream HU stats dict is
+    # malformed rather than silently coercing the missing mean to 0.0
+    # (which falls below the <30 HU threshold and reports as "severe
+    # steatosis" — exactly the kind of false-positive that matters
+    # most in this finding).
+    liver_mean_opt = hu_stats.get("mean")
+    if liver_mean_opt is None:
+        return None
+    liver_mean = float(liver_mean_opt)
 
     spleen_mean: float | None = None
     delta: float | None = None
@@ -265,18 +294,40 @@ def compute_steatosis(
         else:
             spleen_status = "too_small"
 
+    # M-CLIN-2: two-criterion grading. Per RSNA 2024 meta-analysis the
+    # combined HU + liver-spleen-Δ criterion is the recommended grading
+    # rubric (HU-only over-calls "severe" in iron-overload patients;
+    # spleen-Δ-only misses when spleen is absent or too small). We:
+    #   - Grade by HU thresholds (severe < 30, moderate < 40, mild < 48).
+    #   - When the spleen-Δ is available, REQUIRE Δ < -10 HU to confirm
+    #     mild/moderate (severe is robust enough on its own).
+    #   - When the spleen-Δ is unavailable, surface a low-confidence
+    #     downgrade (mild → none-with-warning) rather than committing
+    #     to an HU-only call.
     if liver_mean < 30:
         grade = "severe"
+        confidence = "high"
     elif liver_mean < 40:
-        grade = "moderate"
-    elif delta is not None and delta < -10:
+        if delta is not None:
+            grade = "moderate" if delta < -10 else "mild"
+            confidence = "high"
+        else:
+            grade = "moderate"
+            confidence = "low"  # HU-only; iron overload could mask
+    elif liver_mean < 48 and delta is not None and delta < -10:
         grade = "mild"
+        confidence = "high"
     else:
         grade = "none"
+        confidence = "high" if delta is not None else "low"
 
     warnings: list[str] = []
     if spleen_status == "absent":
-        warnings.append("liver_spleen_delta missing — spleen mask absent")
+        warnings.append(
+            "liver_spleen_delta missing — spleen mask absent; "
+            "grade confidence downgraded (HU-only criterion is "
+            "unreliable in iron-overload patients)"
+        )
     elif spleen_status == "too_small":
         warnings.append(
             f"liver_spleen_delta missing — spleen mask only {spleen_voxels} voxels "
@@ -286,6 +337,7 @@ def compute_steatosis(
 
     return {
         "grade":               grade,
+        "confidence":          confidence,
         "liver_mean_hu":       liver_mean,
         "spleen_mean_hu":      spleen_mean,
         "liver_spleen_delta":  delta,
@@ -382,24 +434,40 @@ def compute_simple_biliary_cysts(
         hu_std = float(inside_hu.std())
 
         voxel_count = int(inside_idx.sum())
-        volume_mm3 = voxel_count * float(np.prod(spacing_mm))
+        # M-CASCADE-1: scope-tagged name. This value feeds only the
+        # sphericity formula below — it is NOT a clinical volume and
+        # MUST NOT be reported to the clinician as the lesion's volume
+        # (which lives in mL via voxel_ml in other call sites).
+        volume_mm3_for_sphericity = voxel_count * float(np.prod(spacing_mm))
         sa_mm2 = _surface_area_mm2(mask, spacing_mm)
         if sa_mm2 <= 0:
             continue
         sphericity = float(
-            (np.pi ** (1.0 / 3.0)) * ((6.0 * volume_mm3) ** (2.0 / 3.0)) / sa_mm2
+            (np.pi ** (1.0 / 3.0))
+            * ((6.0 * volume_mm3_for_sphericity) ** (2.0 / 3.0))
+            / sa_mm2
         )
 
-        wall_mm = _wall_thickness_mm(mask, spacing_mm, ct_hu)
+        wall_mm, wall_capped = _wall_thickness_mm(mask, spacing_mm, ct_hu)
 
-        if 0 <= hu_mean <= 20 and hu_std < 15 and sphericity > 0.8 and wall_mm < 2.0:
+        # Capped walls are only meaningful for the cyst rule if the value
+        # already falls below the 2 mm cyst cutoff; otherwise we cannot
+        # commit to "simple cyst" (the real wall may be thicker).
+        if (
+            0 <= hu_mean <= 20
+            and hu_std < 15
+            and sphericity > 0.8
+            and wall_mm < 2.0
+            and not wall_capped
+        ):
             results.append({
-                "lesion_id":         str(lesion_id),
-                "hu_mean":           hu_mean,
-                "hu_std":            hu_std,
-                "sphericity":        sphericity,
-                "wall_thickness_mm": wall_mm,
-                "interpretation":    "simple biliary cyst (benign — no follow-up needed)",
+                "lesion_id":             str(lesion_id),
+                "hu_mean":               hu_mean,
+                "hu_std":                hu_std,
+                "sphericity":            sphericity,
+                "wall_thickness_mm":     wall_mm,
+                "wall_thickness_capped": wall_capped,
+                "interpretation":        "simple biliary cyst (benign — no follow-up needed)",
             })
     return results
 
@@ -412,19 +480,30 @@ def compute_simple_biliary_cysts(
 def compute_indeterminate_malignant_flag(
     lesion_classifications: Iterable[dict[str, Any]] | None,
 ) -> dict[str, Any]:
-    """Surface LR-M lesions already produced by the LI-RADS classifier.
+    """Surface LR-M lesions already produced by the tumor-type classifier.
 
-    Pure exposure — no new computation. The cascade's
-    ``lirads-rule-classifier-v1`` already labels lesions; this helper
+    Pure exposure — no new computation. The cascade's tumor-type
+    classifier (:mod:`src.orchestrator.tumor_type_classifier`) emits a
+    ``lirads_category`` field on every lesion which is set to ``"LR-M"``
+    when the classifier produces a low-confidence malignant top-1
+    prediction (see B-CLIN-1 derivation in the classifier). This helper
     just filters and shapes the result for the report card.
+
+    Backward-compat: an older path emitted the LR-M designation in the
+    ``label`` / ``classification`` field. We still match that so a
+    re-render of legacy analyses surfaces the same finding.
     """
     if lesion_classifications is None:
         return {"lr_m_count": 0, "lesions": [], "interpretation": "No LR-M lesions detected"}
 
     lr_m: list[dict[str, Any]] = []
     for c in lesion_classifications:
-        label = c.get("label") or c.get("classification")
-        if label != "LR-M":
+        # New path: ``lirads_category`` is the canonical field.
+        category = c.get("lirads_category")
+        # Legacy path: some older callers stored LR-M directly as the
+        # label. Match both so we don't silently drop pre-2026-05 rows.
+        legacy_label = c.get("label") or c.get("classification")
+        if category != "LR-M" and legacy_label != "LR-M":
             continue
         lr_m.append({
             "lesion_id":  str(c.get("lesion_id", "")),
@@ -480,14 +559,18 @@ def compute_gallbladder(
     stone_voxels = int((inside_hu > 100).sum())
     has_stones = stone_voxels > 50
 
-    wall_mm = _wall_thickness_mm(gallbladder_mask, spacing_mm, ct_hu)
+    wall_mm, wall_capped = _wall_thickness_mm(gallbladder_mask, spacing_mm, ct_hu)
 
     return {
-        "volume_ml":         volume_ml,
-        "wall_thickness_mm": wall_mm,
-        "wall_thickened":    wall_mm > 3.0,
-        "stones_detected":   has_stones,
-        "stone_voxel_count": stone_voxels,
+        "volume_ml":             volume_ml,
+        "wall_thickness_mm":     wall_mm,
+        # M-CLIN-5: True means the wall extended past the iteration cap;
+        # the displayed thickness is a floor, not the real measurement.
+        # ``wall_thickened`` stays True when capped (real wall is ≥ cap).
+        "wall_thickness_capped": wall_capped,
+        "wall_thickened":        wall_mm > 3.0 or wall_capped,
+        "stones_detected":       has_stones,
+        "stone_voxel_count":     stone_voxels,
     }
 
 

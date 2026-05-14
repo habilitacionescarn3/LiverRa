@@ -112,6 +112,13 @@ _cl_s, _cl_h = _stage_budget("classification", 20, 30)
 _f_s, _f_h = _stage_budget("flr_init", 5, 10)
 _fin_s, _fin_h = _stage_budget("finalize", 5, 10)
 
+# M-CASCADE-4: ``stage_no`` numbering convention — 0 is the pre-clinical
+# ingest stage (DICOM→NIfTI staging in MinIO; runs BEFORE anonymization).
+# Stages 1..7 are the canonical clinical pipeline (anonymization through
+# flr_init). Stage 8 is the finalize bookkeeping task. The
+# pipeline_checkpoint composite PK ``(analysis_id, stage_no)`` and the
+# H-CASCADE-4 verification list ``_REQUIRED_STAGE_NOS`` in
+# ``tasks/cascade.py`` rely on this exact numbering.
 STAGE_BUDGETS: dict[str, StageBudget] = {
     "ingest": StageBudget("ingest", 0, _i_s, _i_h),
     "anonymization": StageBudget("anonymization", 1, _a_s, _a_h),
@@ -470,6 +477,34 @@ async def run_stage(
                 analysis_id, stage, sf.reason, correlation_id
             )
             raise
+    elif (
+        # H-CASCADE-5: in production / staging we require numeric
+        # invariants to be checked. A stage that produces volumes or
+        # probabilities without a sanity block is a coding bug — fail
+        # loud rather than let unbounded outputs reach the clinician.
+        # Stages without numeric output (anonymization, ingest, finalize)
+        # are exempt: they're not in ``_STAGE_MODELS``.
+        os.environ.get("LIVERRA_REQUIRE_SANITY", "").lower() in {"1", "true", "yes"}
+        and stage in {
+            "parenchyma",
+            "couinaud",
+            "lesion_detection",
+            "classification",
+            "flr_init",
+        }
+    ):
+        sf = SanityFailure(
+            reason="missing_sanity_block",
+            stage=stage,
+            detail=(
+                f"stage {stage!r} produced no 'sanity' block but "
+                "LIVERRA_REQUIRE_SANITY=true requires one"
+            ),
+        )
+        await hooks.on_stage_failed(
+            analysis_id, stage, sf.reason, correlation_id
+        )
+        raise sf
 
     await hooks.on_stage_complete(
         analysis_id, stage, result, correlation_id
