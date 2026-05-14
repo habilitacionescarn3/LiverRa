@@ -35,9 +35,44 @@ ATYPICAL_ANATOMY_FLAGS: Final[str] = f"{_EXT_BASE}/atypical-anatomy-flags"
 IMPLAUSIBLE_OUTPUT_REASON: Final[str] = f"{_EXT_BASE}/implausible-output-reason"
 PARTIAL_COVERAGE_FLAG: Final[str] = f"{_EXT_BASE}/partial-coverage-flag"
 
+# -- ImagingStudy workflow extensions (PACS reading worklist) --
+IMAGING_STUDY_STATUS: Final[str] = f"{_EXT_BASE}/imaging-study-status"
+IMAGING_STUDY_TIMELINE: Final[str] = f"{_EXT_BASE}/imaging-study-timeline"
+IMAGING_PRIORITY: Final[str] = f"{_EXT_BASE}/imaging-priority"
+ORTHANC_STUDY_ID: Final[str] = f"{_EXT_BASE}/orthanc-study-id"
+
 # Audit CodeSystem URLs (used by AuditEvent.subtype.system).
 AUDIT_SUBTYPE_SYSTEM: Final[str] = f"{FHIR_BASE_URL}/CodeSystem/audit-subtypes"
 CLINICAL_ROLES_SYSTEM: Final[str] = f"{FHIR_BASE_URL}/CodeSystem/clinical-roles"
+
+
+class LIVERRA_EXTENSIONS:
+    """Class-style alias matching ``LIVERRA_EXTENSIONS`` in
+    ``packages/app/src/emr/constants/fhir-extensions.ts``.
+
+    Exists so callers can write ``LIVERRA_EXTENSIONS.AUDIT_PERMISSION_CHECKED``
+    in parity with the TS object-literal shape. Previously this lived in a
+    separate ``services/fhir/constants.py`` mirror — folded in here so there
+    is exactly one Python source of truth.
+    """
+
+    AUDIT_PERMISSION_CHECKED: Final[str] = AUDIT_PERMISSION_CHECKED
+    AUDIT_MODEL_VERSION: Final[str] = AUDIT_MODEL_VERSION
+    AUDIT_CHAIN_SEQUENCE_NO: Final[str] = AUDIT_CHAIN_SEQUENCE_NO
+    AUDIT_CHAIN_LEAF_HASH: Final[str] = AUDIT_CHAIN_LEAF_HASH
+    AUDIT_LOCALE: Final[str] = AUDIT_LOCALE
+    AUDIT_TENANT: Final[str] = AUDIT_TENANT
+    AUDIT_CLIENT_ACTION_ID: Final[str] = AUDIT_CLIENT_ACTION_ID
+    AUDIT_FAILURE_CATEGORY: Final[str] = AUDIT_FAILURE_CATEGORY
+    RUO_CLAIM_KEY: Final[str] = RUO_CLAIM_KEY
+    RUO_WATERMARK_PRESENT: Final[str] = RUO_WATERMARK_PRESENT
+    ATYPICAL_ANATOMY_FLAGS: Final[str] = ATYPICAL_ANATOMY_FLAGS
+    IMPLAUSIBLE_OUTPUT_REASON: Final[str] = IMPLAUSIBLE_OUTPUT_REASON
+    PARTIAL_COVERAGE_FLAG: Final[str] = PARTIAL_COVERAGE_FLAG
+    IMAGING_STUDY_STATUS: Final[str] = IMAGING_STUDY_STATUS
+    IMAGING_STUDY_TIMELINE: Final[str] = IMAGING_STUDY_TIMELINE
+    IMAGING_PRIORITY: Final[str] = IMAGING_PRIORITY
+    ORTHANC_STUDY_ID: Final[str] = ORTHANC_STUDY_ID
 
 
 __all__ = [
@@ -54,6 +89,11 @@ __all__ = [
     "ATYPICAL_ANATOMY_FLAGS",
     "IMPLAUSIBLE_OUTPUT_REASON",
     "PARTIAL_COVERAGE_FLAG",
+    "IMAGING_STUDY_STATUS",
+    "IMAGING_STUDY_TIMELINE",
+    "IMAGING_PRIORITY",
+    "ORTHANC_STUDY_ID",
     "AUDIT_SUBTYPE_SYSTEM",
     "CLINICAL_ROLES_SYSTEM",
+    "LIVERRA_EXTENSIONS",
 ]

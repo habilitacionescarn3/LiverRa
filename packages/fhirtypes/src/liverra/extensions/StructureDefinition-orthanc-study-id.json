@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/orthanc-study-id",
+  "name": "LiverRaOrthancStudyId",
+  "title": "LiverRa ImagingStudy — Orthanc Study Id",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Internal Orthanc study identifier (UUID assigned by the edge PACS) that this FHIR `ImagingStudy` mirrors. Lets the FHIR layer round-trip back to Orthanc for WADO retrieval without a separate cross-reference table.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "ImagingStudy"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "Orthanc-side study UUID for WADO/QIDO lookups",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/orthanc-study-id"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "Orthanc UUID (32-hex-char study identifier)",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ]
+      }
+    ]
+  }
+}

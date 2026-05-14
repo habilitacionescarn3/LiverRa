@@ -86,6 +86,26 @@ export const LIVERRA_EXTENSIONS = {
 
   /** Boolean. True if the input CT did not fully cover the liver (cranial/caudal clipping). */
   PARTIAL_COVERAGE_FLAG: `${EXT_BASE}/partial-coverage-flag`,
+
+  // -- ImagingStudy workflow extensions (PACS reading worklist) --
+
+  /** Code. LiverRa workflow status complementing FHIR `ImagingStudy.status`.
+   *  Permitted values: ordered | scheduled | in-progress | images-available |
+   *  preliminary-read | reported. */
+  IMAGING_STUDY_STATUS: `${EXT_BASE}/imaging-study-status`,
+
+  /** String. JSON-encoded array of `{at, status, by}` workflow transitions for
+   *  this `ImagingStudy`. Single string slot keeps the timeline tamper-evidently
+   *  hashable from one extension. */
+  IMAGING_STUDY_TIMELINE: `${EXT_BASE}/imaging-study-timeline`,
+
+  /** Code. Reading-priority for the study (`stat | urgent | routine`). Resolved
+   *  onto `ImagingStudy` for worklist sorting; mirrors `ServiceRequest.priority`. */
+  IMAGING_PRIORITY: `${EXT_BASE}/imaging-priority`,
+
+  /** String. Orthanc-side study UUID (edge PACS) that this `ImagingStudy` mirrors,
+   *  used to round-trip back to Orthanc for WADO retrieval. */
+  ORTHANC_STUDY_ID: `${EXT_BASE}/orthanc-study-id`,
 } as const;
 
 export type LiverRaExtensionKey = keyof typeof LIVERRA_EXTENSIONS;

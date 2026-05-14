@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/audit-client-action-id",
+  "name": "LiverRaAuditClientActionId",
+  "title": "LiverRa AuditEvent — Client Action Id",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Client-supplied idempotency key for the user-initiated action. Identical across durable retries of the same click so duplicate AuditEvents can be deduplicated downstream (FR-029b, 002-acr-structured-readout).",
+  "context": [
+    {
+      "type": "element",
+      "expression": "AuditEvent"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "Per-click idempotency key",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/audit-client-action-id"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "RFC 4122 UUID minted by the client",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "uuid"
+          }
+        ]
+      }
+    ]
+  }
+}

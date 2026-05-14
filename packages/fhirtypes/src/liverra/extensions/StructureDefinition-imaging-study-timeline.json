@@ -1,0 +1,46 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/imaging-study-timeline",
+  "name": "LiverRaImagingStudyTimeline",
+  "title": "LiverRa ImagingStudy — Workflow Timeline",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Serialized JSON timeline of workflow status transitions for an `ImagingStudy` (e.g. ordered→scheduled→in-progress→reported). Each entry carries an ISO-8601 timestamp, the new status, and the actor reference. Stored as a single string so it stays sortable + tamper-evidently hashable from one extension slot.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "ImagingStudy"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "JSON-encoded workflow-status transition history",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/imaging-study-timeline"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "JSON array of {at: ISO-8601, status: code, by: Reference} entries",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "string"
+          }
+        ]
+      }
+    ]
+  }
+}

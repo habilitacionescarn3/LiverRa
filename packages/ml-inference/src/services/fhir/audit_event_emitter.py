@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.observability.phi_scrubber import PHIScrubber, ScrubberFailure
 from src.services.audit.chain_of_hashes import AuditChainRow, AuditChainWriter
-from src.services.fhir.constants import LIVERRA_EXTENSIONS
+from src.services.audit.fhir_extensions import LIVERRA_EXTENSIONS
 
 logger = logging.getLogger(__name__)
 
