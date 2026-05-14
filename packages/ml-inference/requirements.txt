@@ -42,10 +42,10 @@ celery[redis]>=5.4
 # under default real-mode the cascade uses inference_client.py instead.
 # ---------------------------------------------------------------------------
 tritonclient[grpc,http]>=2.50
-# Was pinned <2.0 for monai 1.4 compatibility; monai is gone from this
-# manifest now (moved to ml-inference-gpu) so the pin can be relaxed —
-# but leave it for the moment to avoid cascading dependency churn.
-numpy>=1.26,<2.0
+# numpy 2.x is supported now that monai is no longer in this manifest
+# (moved to ml-inference-gpu, Option B split). Upper-bound pin dropped
+# per audit L-DEP-4 (2026-05-14).
+numpy>=1.26
 nibabel>=5.3
 SimpleITK>=2.4
 # email extra: required by EmailStr in admin invite-user endpoint (api/admin.py).
@@ -56,7 +56,11 @@ pydantic[email]>=2.9
 # ---------------------------------------------------------------------------
 # Declared by T044-T050 (Cognito auth + JWKS validation)
 # ---------------------------------------------------------------------------
-python-jose[cryptography]>=3.3
+# python-jose removed per audit H-DEP-1 (2026-05-14): unmaintained, two open
+# CVEs on the JWKS path. Migrated to PyJWT in jwks_validator.py with RS256-only
+# enforcement preserved. invite_service.py already uses PyJWT.
+PyJWT>=2.8.0
+cryptography>=42.0  # RSA key construction for PyJWK + JWKS validation
 httpx>=0.27
 argon2-cffi>=23.1
 psycopg[binary]>=3.2

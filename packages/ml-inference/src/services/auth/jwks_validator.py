@@ -26,6 +26,8 @@ Spec reference: T047, research.md §A.1.
 """
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import threading
 import time
@@ -33,9 +35,25 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import httpx
-from jose import jwk, jwt
-from jose.exceptions import ExpiredSignatureError, JWTError
-from jose.utils import base64url_decode
+import jwt as pyjwt
+from jwt import ExpiredSignatureError, InvalidTokenError, PyJWK
+from jwt.exceptions import DecodeError
+
+
+def _b64url_decode(data: str | bytes) -> bytes:
+    """Decode base64url with auto-padding (replacement for jose.utils.base64url_decode)."""
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    rem = len(data) % 4
+    if rem:
+        data += b"=" * (4 - rem)
+    return base64.urlsafe_b64decode(data)
+
+
+# Re-export ``JWTError`` as an alias for PyJWT's base ``InvalidTokenError`` so that
+# any historical callers that imported ``JWTError`` from this module continue to
+# work transparently during the python-jose → PyJWT migration.
+JWTError = InvalidTokenError
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +177,8 @@ class JwksValidator:
 
         # 1. Inspect header to locate the signing key.
         try:
-            header = jwt.get_unverified_header(token)
-        except JWTError as exc:
+            header = pyjwt.get_unverified_header(token)
+        except (DecodeError, InvalidTokenError) as exc:
             raise InvalidToken("malformed", f"Unparseable header: {exc}") from exc
 
         kid = header.get("kid")
@@ -173,23 +191,32 @@ class JwksValidator:
 
         key_data = self._get_jwk(kid)
 
-        # 2. Verify signature manually (jose.jwt.decode's built-in
-        #    aud/iss checks are too strict for Cognito's access-token shape).
+        # 2. Verify signature manually. We bypass PyJWT.decode() because its
+        #    built-in aud / iss checks are too strict for Cognito's
+        #    access-token shape (Cognito puts the audience in `client_id`).
         try:
-            public_key = jwk.construct(key_data)
-        except JWTError as exc:
+            pyjwk_obj = PyJWK(key_data, algorithm="RS256")
+            public_key = pyjwk_obj.key
+        except (InvalidTokenError, ValueError, KeyError) as exc:
             raise InvalidToken("jwk-construct-failed", str(exc)) from exc
 
         message, encoded_sig = token.rsplit(".", 1)
-        decoded_sig = base64url_decode(encoded_sig.encode("utf-8"))
-        if not public_key.verify(message.encode("utf-8"), decoded_sig):
-            raise InvalidToken("bad-signature", "Signature verification failed")
-
-        # 3. Decode claims without running jose's validator (we're doing
-        #    the field-by-field checks below).
+        decoded_sig = _b64url_decode(encoded_sig)
         try:
-            claims = jwt.get_unverified_claims(token)
-        except JWTError as exc:
+            # PyJWT exposes the algorithm registry so we can run verify() on
+            # the prepared key without invoking the full decode pipeline.
+            rs256 = pyjwt.get_algorithm_by_name("RS256")
+            if not rs256.verify(message.encode("utf-8"), public_key, decoded_sig):
+                raise InvalidToken("bad-signature", "Signature verification failed")
+        except InvalidTokenError as exc:
+            raise InvalidToken("bad-signature", str(exc)) from exc
+
+        # 3. Decode claims directly from the JWT payload segment. We avoid
+        #    PyJWT.decode() because we run the field-by-field checks below.
+        try:
+            payload_segment = token.split(".")[1]
+            claims = json.loads(_b64url_decode(payload_segment).decode("utf-8"))
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise InvalidToken("malformed", str(exc)) from exc
 
         now = time.time()
@@ -255,12 +282,15 @@ class JwksValidator:
 # Convenience re-exports
 # ---------------------------------------------------------------------------
 
-__all__ = ["JwksValidator", "InvalidToken"]
+__all__ = ["JwksValidator", "InvalidToken", "JWTError", "ExpiredSignatureError"]
 
 # ---------------------------------------------------------------------------
-# Known ExpiredSignatureError alias (jose lib surface)
+# Compatibility re-exports
 # ---------------------------------------------------------------------------
-# We do NOT raise jose's ExpiredSignatureError because we skip jose's
-# built-in validation; the sentinel is re-exported here so callers that
-# used to rely on it continue to import cleanly during migration.
+# Historical callers may have imported ``ExpiredSignatureError`` / ``JWTError``
+# from this module (legacy python-jose surface). We re-export PyJWT's
+# equivalents so import sites continue to work transparently. We do NOT raise
+# these ourselves — the validator wraps every failure in :class:`InvalidToken`.
+# ``ExpiredSignatureError`` is already imported from ``jwt`` at the top of the
+# module; this assignment is a no-op kept only for documentation clarity.
 ExpiredSignatureError = ExpiredSignatureError  # noqa: F811 (intentional re-export)
