@@ -665,6 +665,22 @@ def _base_css(locale: str) -> str:
       font-size: 7.5pt;
       margin-top: 1mm;
     }}
+    /* B-ACR-1: stale-finding badge — FR-023c. */
+    .finding-row .finding-stale {{
+      color: #6b7280;
+      font-size: 7.5pt;
+      font-style: italic;
+      margin-left: 6pt;
+    }}
+    .finding-row .finding-warning {{
+      color: #b45309;
+      background: #fef3c7;
+      font-size: 7.5pt;
+      padding: 1mm 2mm;
+      border-radius: 1mm;
+      margin-top: 1mm;
+      display: inline-block;
+    }}
 
     /* --- Lesion reasoning bullets -------------------------------------- */
     .lesion-reasoning {{

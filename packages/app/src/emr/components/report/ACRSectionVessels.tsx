@@ -7,12 +7,13 @@
  *
  * No vessel findings are persisted yet — the section is structural only
  * (FR-002). Visible content is the per-stage `vessels` PNG rendered by
- * the API at `/analyses/:id/report/render/vessels`. We inline a minimal
- * <img> wrapper rather than importing StageImage from ReportInlineView
- * to keep the coupling between report components low.
+ * the API at `/analyses/:id/report/render/vessels`.
+ *
+ * H-ACR-7: uses Mantine `Image` with `fallbackSrc` so a 404 produces a
+ * neutral placeholder instead of a broken-image icon.
  */
 
-import { Stack } from '@mantine/core';
+import { Image, Stack } from '@mantine/core';
 
 import { EMRAlert, EMRSkeleton } from '../common';
 import type { ReadoutSection } from '../../services/report/acrAnatomicalMapping';
@@ -22,6 +23,18 @@ export interface ACRSectionVesselsProps {
   section: ReadoutSection;
   analysisId?: string;
 }
+
+/** Inline SVG placeholder — neutral grey card with a vessels glyph. */
+const PLACEHOLDER_SVG =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180">
+      <rect width="320" height="180" fill="#e5e7eb"/>
+      <text x="160" y="92" text-anchor="middle" font-family="system-ui" font-size="14" fill="#6b7280">
+        Vessels render unavailable
+      </text>
+    </svg>`,
+  );
 
 function readApiBaseUrl(): string {
   const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
@@ -52,11 +65,12 @@ export function ACRSectionVessels({
       ) : !analysisId ? (
         <span className={styles.emptyMessage}>{section.emptyMessage}</span>
       ) : (
-        <img
+        <Image
           src={src}
           alt={section.title}
           className={styles.lesionImage}
           loading="lazy"
+          fallbackSrc={PLACEHOLDER_SVG}
         />
       )}
     </section>

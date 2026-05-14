@@ -305,7 +305,19 @@ def _parse_event_summary(
         ev = {}
 
     ev_id = str(ev.get("id") or seq)
+    # CC-5 / C-FHIR-3: new events carry the legacy `category` slug in
+    # ``meta.tag[0].code`` (and ``subtype[0].code``) instead of the
+    # R5-only top-level ``category`` field. Read from all three slots so
+    # historical chain rows still render correctly.
     category = str(ev.get("category") or "")
+    if not category:
+        meta_tag = ((ev.get("meta") or {}).get("tag") or [])
+        if isinstance(meta_tag, list) and meta_tag:
+            category = str((meta_tag[0] or {}).get("code") or "")
+    if not category:
+        subtype = ev.get("subtype") or []
+        if isinstance(subtype, list) and subtype:
+            category = str((subtype[0] or {}).get("code") or "")
 
     actor = ""
     agents = ev.get("agent") or []

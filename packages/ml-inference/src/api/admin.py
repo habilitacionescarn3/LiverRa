@@ -126,6 +126,11 @@ class AuditEventSummary(BaseModel):
 
 class OverrideCoverageRequest(BaseModel):
     reason: str = Field(..., min_length=10, max_length=500)
+    # H-LOCK-6: optimistic-concurrency on
+    # ``analysis.coverage_override_version``. Two admins clicking
+    # "override" simultaneously will both send the same version; only
+    # one CAS bump wins, the other receives 409.
+    client_version: int = Field(1, description="Optimistic-concurrency tag.")
 
 
 # ---------------------------------------------------------------------------
@@ -153,17 +158,16 @@ async def _emit_audit(
     writer: AuditChainWriter = (
         getattr(request.app.state, "audit_chain_writer", None) or AuditChainWriter()
     )
-    event: dict[str, Any] = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": actor} if actor else None}],
-    }
-    if entity_ref:
-        event["entity"] = [{"what": {"reference": entity_ref}}]
-    if extra:
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+    from ..services.audit.audit_helpers import build_audit_event
+
+    event = build_audit_event(
+        category=category,
+        actor=actor if actor else None,
+        entity_refs=[entity_ref] if entity_ref else (),
+        extensions=(
+            [{"url": "liverra:extra", "valueString": str(extra)}] if extra else None
+        ),
+    )
     try:
         row = await writer.write(event, tenant_id, session)
         return row.sequence_no
@@ -307,7 +311,7 @@ async def invite_user(
         category="admin_invite",
         tenant_id=tid,
         actor=actor,
-        entity_ref=f"Invite/{invite.invite_id}",
+        entity_ref=f"Basic/invite-{invite.invite_id}",
         extra={"email_hash": invite.email_hash, "role": body.role},
     )
     _set_audit_header(response, seq)
@@ -350,7 +354,7 @@ async def suspend_user(
         category="admin_suspend_user",
         tenant_id=tid,
         actor=actor,
-        entity_ref=f"User/{user_id}",
+        entity_ref=f"Practitioner/{user_id}",
     )
     _set_audit_header(response, seq)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -497,7 +501,7 @@ async def approve_delete_request(
         category="admin_approve_deletion",
         tenant_id=tid,
         actor=actor,
-        entity_ref=f"Study/{study_id}",
+        entity_ref=f"ImagingStudy/{study_id}",
         extra={"affected_analyses": outcome.affected_analyses},
     )
     _set_audit_header(response, seq)
@@ -576,15 +580,20 @@ async def override_coverage(
     """
     tid = _tenant_uuid(request)
     actor = _actor(request)
+    # H-LOCK-6: CAS on coverage_override_version. Disambiguate
+    # "not found / wrong tenant" from "stale revision" so the UI shows
+    # the right toast.
     result = await session.execute(
         text(
             """
             UPDATE analysis
             SET coverage_override_reason = :reason,
                 coverage_override_by = :by,
-                coverage_override_at = now()
+                coverage_override_at = now(),
+                coverage_override_version = coverage_override_version + 1
             WHERE id = :aid AND tenant_id = :tid
-            RETURNING id
+              AND coverage_override_version = :cv
+            RETURNING id, coverage_override_version
             """
         ),
         {
@@ -592,13 +601,28 @@ async def override_coverage(
             "by": actor,
             "aid": str(analysis_id),
             "tid": str(tid),
+            "cv": int(body.client_version),
         },
     )
     if not result.first():
+        exists = (
+            await session.execute(
+                text(
+                    "SELECT 1 FROM analysis WHERE id = :aid AND tenant_id = :tid"
+                ),
+                {"aid": str(analysis_id), "tid": str(tid)},
+            )
+        ).first()
+        if exists is None:
+            raise ProblemDetailException(
+                ErrorSlug.NOT_FOUND,
+                status.HTTP_404_NOT_FOUND,
+                "Analysis not found.",
+            )
         raise ProblemDetailException(
-            ErrorSlug.NOT_FOUND,
-            status.HTTP_404_NOT_FOUND,
-            "Analysis not found.",
+            ErrorSlug.VALIDATION,
+            status.HTTP_409_CONFLICT,
+            "Stale coverage-override revision — refresh and retry.",
         )
     await session.commit()
     seq = await _emit_audit(
@@ -607,7 +631,7 @@ async def override_coverage(
         category="admin_override_coverage",
         tenant_id=tid,
         actor=actor,
-        entity_ref=f"Analysis/{analysis_id}",
+        entity_ref=f"Basic/analysis-{analysis_id}",
         extra={"reason_len": len(body.reason)},
     )
     _set_audit_header(response, seq)

@@ -21,30 +21,26 @@
  * Replaces the old `FindingsCard` inline view inside `ReportInlineView`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Popover, Stack } from '@mantine/core';
 import { IconClipboard } from '@tabler/icons-react';
 
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useAuth } from '../../services/auth';
 import { useReportSummary } from '../../hooks/useReportSummary';
+import { useAcrCopyAction } from '../../hooks/useAcrCopyAction';
 import {
   ANATOMICAL_SECTIONS,
-  buildReadoutSnapshot,
   type AnatomicalSection,
   type ReadoutSection,
-  type TFn,
 } from '../../services/report/acrAnatomicalMapping';
-import {
-  copyReadout,
-  drainPendingAuditQueue,
-} from '../../services/report/acrClipboardService';
+import { drainPendingAuditQueue } from '../../services/report/acrClipboardService';
 import {
   trackCopyTooltipDismissed,
   trackCopyTooltipSeen,
   trackReadoutViewed,
 } from '../../services/report/acrTelemetry';
-import { EMRAlert, EMRButton, EMRSkeleton, EMRToast } from '../common';
+import { EMRAlert, EMRButton, EMRSkeleton } from '../common';
 import { ACRSectionLiver } from './ACRSectionLiver';
 import { ACRSectionLesions } from './ACRSectionLesions';
 import { ACRSectionVessels } from './ACRSectionVessels';
@@ -54,30 +50,9 @@ import { ACRSectionFLR } from './ACRSectionFLR';
 import styles from './ACRStructuredReadout.module.css';
 
 const TOOLTIP_KEY_PREFIX = 'liverra.acr.copy-tooltip.seen:';
-const SUPPORTED_LOCALES: ReadonlyArray<'en' | 'ru' | 'ka' | 'de'> = [
-  'en',
-  'ru',
-  'ka',
-  'de',
-];
 
 export interface ACRStructuredReadoutProps {
   analysisId: string;
-}
-
-/**
- * Adapter so `buildReadoutSnapshot`'s `(key, fallback?) => string`
- * contract matches the project-wide `useTranslation().t` shape
- * `(key, params?) => string`. We use the fallback when the resolver
- * returns the raw key (which the TranslationContext does when a key
- * misses).
- */
-function makeTFn(t: (key: string, params?: Record<string, unknown>) => string): TFn {
-  return (key, fallback) => {
-    const resolved = t(key);
-    if (resolved === key && fallback !== undefined) return fallback;
-    return resolved;
-  };
 }
 
 function pickRenderer(section: ReadoutSection): JSX.Element | null {
@@ -102,22 +77,17 @@ export function ACRStructuredReadout({
 }: ACRStructuredReadoutProps): JSX.Element {
   const { t, locale: rawLocale } = useTranslation();
   const { user } = useAuth();
-  const { query, etag, data, isLoading, isError, refetch } =
+  const { query, data, isLoading, isError, refetch } =
     useReportSummary(analysisId);
 
-  const locale = useMemo(
-    () => (SUPPORTED_LOCALES.includes(rawLocale as 'en') ? (rawLocale as 'en' | 'ru' | 'ka' | 'de') : 'en'),
-    [rawLocale],
-  );
-  const tFn = useMemo<TFn>(() => makeTFn(t), [t]);
-
-  // Capture the panel-open ETag at first successful load. The clipboard
-  // service compares this against the current ETag at click-time to gate
-  // copies on a stale view.
-  const openEtagRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (etag && !openEtagRef.current) openEtagRef.current = etag;
-  }, [etag]);
+  // H-ACR-5: adopt the shared hook so the panel and the hero CTA run the
+  // SAME copy workflow (no inline duplication). The hook owns:
+  // - locale clamping (en/ru/ka/de)
+  // - the open-time ETag ref
+  // - snapshot memoisation
+  // - the copy + audit + toast handling
+  const copyAction = useAcrCopyAction(analysisId);
+  const snapshot = copyAction.snapshot;
 
   // Best-effort drain of audit events queued in a previous session.
   useEffect(() => {
@@ -131,23 +101,15 @@ export function ACRStructuredReadout({
     viewedRef.current = analysisId;
     trackReadoutViewed({
       analysisId,
-      locale,
+      locale: (snapshot?.locale ?? rawLocale ?? 'en') as
+        | 'en'
+        | 'ru'
+        | 'ka'
+        | 'de',
       status: data.status ?? 'unknown',
       lesionCount: data.lesions?.length ?? 0,
     });
-  }, [data, analysisId, locale]);
-
-  // Build the snapshot only when data is available — cheap memo dep on
-  // `data` reference + locale.
-  const snapshot = useMemo(() => {
-    if (!data) return null;
-    return buildReadoutSnapshot({
-      reportSummary: data,
-      locale,
-      ruoDisclaimer: tFn('reportAcr:ruoDisclaimer', '--- RESEARCH USE ONLY ---'),
-      t: tFn,
-    });
-  }, [data, locale, tFn]);
+  }, [data, analysisId, snapshot, rawLocale]);
 
   // First-time tooltip — keyed by user id so each clinician sees it once.
   const tooltipStorageKey = user?.id ? `${TOOLTIP_KEY_PREFIX}${user.id}` : null;
@@ -176,51 +138,11 @@ export function ACRStructuredReadout({
     trackCopyTooltipDismissed(analysisId);
   }, [tooltipStorageKey, analysisId]);
 
-  // Clipboard click handler.
-  const [copying, setCopying] = useState(false);
-  const handleCopy = useCallback(async (): Promise<void> => {
-    if (!snapshot) return;
-    setCopying(true);
-    try {
-      const actorRole =
-        ((user as unknown as { role?: string } | null)?.role) ??
-        'attending_radiologist';
-      const outcome = await copyReadout({
-        snapshot,
-        context: {
-          analysisId,
-          actorRole,
-          openTimeEtag: openEtagRef.current,
-          t: tFn,
-        },
-      });
-      if (outcome.kind === 'success') {
-        if (outcome.queuedAudit) {
-          EMRToast.warning(
-            tFn(
-              'reportAcr:copy.warningToastAuditPending',
-              'Readout copied; export audit will retry',
-            ),
-          );
-        } else {
-          EMRToast.success(
-            tFn('reportAcr:copy.successToast', 'Readout copied to clipboard'),
-          );
-        }
-      } else {
-        EMRToast.error(outcome.message);
-      }
-    } catch (err) {
-      EMRToast.error(
-        tFn(
-          'reportAcr:copy.errorToastUnknown',
-          'Could not copy readout — please retry',
-        ),
-      );
-    } finally {
-      setCopying(false);
-    }
-  }, [snapshot, analysisId, tFn, user]);
+  // Local alias for legacy callsites that still call tFn(key, fallback)
+  const tFn = (key: string, fallback?: string): string => {
+    const v = t(key);
+    return v === key && fallback !== undefined ? fallback : v;
+  };
 
   // ── Render ──
 
@@ -280,14 +202,8 @@ export function ACRStructuredReadout({
     );
   }
 
-  const copyButtonLabel = tFn(
-    'reportAcr:copy.buttonLabel',
-    'Copy to Clipboard',
-  );
-  const copyButtonAriaLabel = tFn(
-    'reportAcr:copy.buttonAriaLabel',
-    'Copy structured readout to clipboard',
-  );
+  const copyButtonLabel = copyAction.buttonLabel;
+  const copyButtonAriaLabel = copyAction.ariaLabel;
 
   return (
     <section
@@ -317,8 +233,9 @@ export function ACRStructuredReadout({
               <EMRButton
                 variant="primary"
                 icon={IconClipboard}
-                onClick={() => void handleCopy()}
-                loading={copying}
+                onClick={() => void copyAction.copy()}
+                loading={copyAction.copying}
+                disabled={!copyAction.ready}
                 data-testid="acr-copy-button"
                 aria-label={copyButtonAriaLabel}
               >

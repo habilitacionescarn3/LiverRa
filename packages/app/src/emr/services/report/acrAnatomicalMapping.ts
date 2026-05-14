@@ -164,12 +164,13 @@ function buildLiverRows(findings: FindingsPayload | undefined, t: TFn): ReadoutR
   if (!findings) return rows;
 
   // FindingsCard.tsx:142-151 — HU stats value format.
+  // H-ACR-1: 1-decimal precision matches Python `_build_liver_rows`.
   if (findings.hu_stats) {
     const hu = findings.hu_stats;
     rows.push({
       key: 'hu_mean',
       label: t('reportAcr:labels.huMean', 'Mean HU'),
-      value: `${hu.mean.toFixed(0)} (p10 ${hu.p10.toFixed(0)}, p90 ${hu.p90.toFixed(0)})`,
+      value: `${hu.mean.toFixed(1)} (p10 ${hu.p10.toFixed(1)}, p90 ${hu.p90.toFixed(1)})`,
     });
   }
 
@@ -280,7 +281,8 @@ function buildGallbladderRows(findings: FindingsPayload | undefined, t: TFn): Re
   rows.push({
     key: 'gb-volume',
     label: t('reportAcr:labels.volume', 'Volume'),
-    value: `${gb.volume_ml.toFixed(0)} mL`,
+    // H-ACR-1: 1-decimal precision matches Python.
+    value: `${gb.volume_ml.toFixed(1)} mL`,
   });
   rows.push({
     key: 'gb-wall',
@@ -313,7 +315,8 @@ function buildSpleenRows(findings: FindingsPayload | undefined, t: TFn): Readout
   rows.push({
     key: 'spleen-volume',
     label: t('reportAcr:labels.volume', 'Volume'),
-    value: `${sp.volume_ml.toFixed(0)} mL`,
+    // H-ACR-1: 1-decimal precision matches Python.
+    value: `${sp.volume_ml.toFixed(1)} mL`,
     warning: warningField ?? undefined,
     badge: sp.splenomegaly
       ? { label: t('reportAcr:labels.splenomegaly', 'Splenomegaly'), color: 'orange' }
@@ -354,7 +357,8 @@ function buildFlrRows(
           ? t('reportAcr:values.flrSafetyAdequate', 'ADEQUATE')
           : safety ?? '';
   const valueParts: string[] = [];
-  if (ml != null) valueParts.push(`${ml.toFixed(0)} mL`);
+  // H-ACR-1: 1-decimal precision matches Python.
+  if (ml != null) valueParts.push(`${ml.toFixed(1)} mL`);
   if (pct != null) valueParts.push(`(${pct.toFixed(1)}%)`);
   if (safetyLabel) valueParts.push(`— ${safetyLabel}`);
   rows.push({

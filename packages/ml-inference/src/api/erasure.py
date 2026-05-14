@@ -108,33 +108,24 @@ async def _emit_erasure_audit(
     writer = (
         getattr(request.app.state, "audit_chain_writer", None) or AuditChainWriter()
     )
-    entity: list[dict[str, Any]] = []
-    if study_id:
-        entity.append({"what": {"reference": f"Study/{study_id}"}})
-    if erasure_request_id:
-        entity.append(
-            {"what": {"reference": f"ErasureRequest/{erasure_request_id}"}}
-        )
 
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [
-            {
-                "who": {
-                    "reference": f"Practitioner/{user_id}" if user_id else None
-                }
-            }
-        ],
-        "entity": entity,
-    }
-    if denied:
-        event["outcome"] = "8"  # FHIR AuditEvent outcome "serious-failure"
-        event["extension"] = [
-            {"url": "liverra:rbac.denied", "valueBoolean": True}
-        ]
+    from ..services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    entity_refs: list[str] = []
+    if study_id:
+        entity_refs.append(fhir_ref("Study", study_id))
+    if erasure_request_id:
+        entity_refs.append(fhir_ref("ErasureRequest", erasure_request_id))
+
+    event = build_audit_event(
+        category=category,
+        actor=f"Practitioner/{user_id}" if user_id else None,
+        entity_refs=entity_refs,
+        outcome="8" if denied else "0",
+        extensions=(
+            [{"url": "liverra:rbac.denied", "valueBoolean": True}] if denied else None
+        ),
+    )
 
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no

@@ -185,22 +185,21 @@ async def _audit(writer: Any, session: Any, category: str, record: DeliveryRecor
         return
     from datetime import datetime, timezone
 
+    from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
     await writer.write(
-        {
-            "resourceType": "AuditEvent",
-            "id": str(uuid4()),
-            "category": category,
-            "recorded": datetime.now(timezone.utc).isoformat(),
-            "entity": [
-                {"what": {"reference": f"Report/{record.report_id}"}},
-                {"what": {"reference": f"ReportDelivery/{record.id}"}},
+        build_audit_event(
+            category=category,
+            entity_refs=[
+                fhir_ref("Report", record.report_id),
+                fhir_ref("ReportDelivery", record.id),
             ],
-            "extension": [
+            extensions=[
                 {"url": "liverra:ae_title", "valueString": record.destination_ae_title},
                 {"url": "liverra:artifact_type", "valueString": record.artifact_type},
                 {"url": "liverra:retry_count", "valueInteger": record.retry_count},
             ],
-        },
+        ),
         tenant_id,
         session,
     )

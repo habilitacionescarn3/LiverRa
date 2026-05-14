@@ -191,15 +191,24 @@ export function ReportInlineView({
               radius="sm"
               padding="sm"
               style={{
-                borderColor: f.level === 'warn' ? '#f59e0b' : '#3b82f6',
-                background: f.level === 'warn' ? '#fef3c7' : '#dbeafe',
+                // H-ACR-3: replaced forbidden Tailwind blues + raw
+                // warning hex with semantic theme tokens so light/dark
+                // both auto-resolve correctly.
+                borderColor:
+                  f.level === 'warn'
+                    ? 'var(--emr-warning)'
+                    : 'var(--emr-info)',
+                background:
+                  f.level === 'warn'
+                    ? 'var(--emr-warning-bg)'
+                    : 'var(--emr-info-bg)',
               }}
             >
               <Group gap="xs" wrap="nowrap">
                 {f.level === 'warn' ? (
-                  <IconAlertTriangle size={16} color="#b45309" />
+                  <IconAlertTriangle size={16} color="var(--emr-warning-text)" />
                 ) : (
-                  <IconInfoCircle size={16} color="#1e40af" />
+                  <IconInfoCircle size={16} color="var(--emr-info)" />
                 )}
                 <Text size="sm" style={{ flex: 1 }}>
                   {f.message}

@@ -140,13 +140,15 @@ def _build_liver_rows(findings: Mapping[str, Any], bundle: Mapping[str, Any]) ->
     rows: list[dict[str, Any]] = []
     hu = findings.get("hu_stats")
     if hu:
-        mean = int(round(float(hu.get("mean", 0))))
-        p10 = int(round(float(hu.get("p10", 0))))
-        p90 = int(round(float(hu.get("p90", 0))))
+        # H-ACR-1: standardize on .toFixed(1)-equivalent precision so the
+        # PDF + screen render the same numeric.
+        mean = round(float(hu.get("mean", 0)), 1)
+        p10 = round(float(hu.get("p10", 0)), 1)
+        p90 = round(float(hu.get("p90", 0)), 1)
         rows.append({
             "key": "hu_mean",
             "label": _get(bundle, "labels.huMean", "Mean HU"),
-            "value": f"{mean} (p10 {p10}, p90 {p90})",
+            "value": f"{mean:.1f} (p10 {p10:.1f}, p90 {p90:.1f})",
         })
 
     st = findings.get("steatosis")
@@ -237,11 +239,14 @@ def _build_gallbladder_rows(findings: Mapping[str, Any], bundle: Mapping[str, An
     gb = findings.get("gallbladder")
     if not gb:
         return rows
+    # H-ACR-1: standardize on 1-decimal precision.
     rows.append({
         "key": "gb-volume",
         "label": _get(bundle, "labels.volume", "Volume"),
-        "value": f"{int(round(float(gb.get('volume_ml', 0))))} mL",
+        "value": f"{float(gb.get('volume_ml', 0)):.1f} mL",
     })
+    # H-ACR-2: surface the wall-thickened warning in the PDF the same
+    # way the TS panel does — was previously TS-only.
     rows.append({
         "key": "gb-wall",
         "label": _get(bundle, "labels.wallThickness", "Wall thickness"),
@@ -249,6 +254,11 @@ def _build_gallbladder_rows(findings: Mapping[str, Any], bundle: Mapping[str, An
             f"{float(gb['wall_thickness_mm']):.1f} mm"
             if gb.get("wall_thickness_mm") is not None
             else _get(bundle, "status.notAvailable", "Not available")
+        ),
+        "warning": (
+            _get(bundle, "warnings.degraded", "Wall thickened")
+            if gb.get("wall_thickened")
+            else None
         ),
     })
     rows.append({
@@ -267,7 +277,8 @@ def _build_spleen_rows(findings: Mapping[str, Any], bundle: Mapping[str, Any]) -
     rows.append({
         "key": "spleen-volume",
         "label": _get(bundle, "labels.volume", "Volume"),
-        "value": f"{int(round(float(sp.get('volume_ml', 0))))} mL",
+        # H-ACR-1: standardize on 1-decimal precision.
+        "value": f"{float(sp.get('volume_ml', 0)):.1f} mL",
         "warning": sp.get("warning"),
     })
     rows.append({
@@ -303,7 +314,8 @@ def _build_flr_rows(flr: Mapping[str, Any] | None, bundle: Mapping[str, Any]) ->
     )
     parts: list[str] = []
     if ml is not None:
-        parts.append(f"{int(round(float(ml)))} mL")
+        # H-ACR-1: standardize on 1-decimal precision.
+        parts.append(f"{float(ml):.1f} mL")
     if pct is not None:
         parts.append(f"({float(pct):.1f}%)")
     if safety_label:
@@ -339,6 +351,64 @@ def _build_flr_rows(flr: Mapping[str, Any] | None, bundle: Mapping[str, Any]) ->
 
 
 # -----------------------------------------------------------------
+# B-ACR-1: stale-finding marker (FR-023c)
+# -----------------------------------------------------------------
+
+# Map a row's stable key to the finding key that produced it. Mirrors
+# `ROW_KEY_TO_FINDING_TYPE` in `services/report/acrAnatomicalMapping.ts`.
+_ROW_KEY_TO_FINDING_TYPE: dict[str, str] = {
+    "hu_mean": "hu_stats",
+    "steatosis": "steatosis",
+    "gb-volume": "gallbladder",
+    "gb-wall": "gallbladder",
+    "gb-stones": "gallbladder",
+    "spleen-volume": "spleen",
+    "spleen-splenomegaly": "spleen",
+    "calcified-summary": "calcified_lesions",
+    "cysts-summary": "simple_biliary_cysts",
+    "lr-m-summary": "indeterminate_malignant",
+}
+
+
+def _stamp_stale(
+    rows: list[dict[str, Any]],
+    findings: Mapping[str, Any],
+    latest_stage_at: str | None,
+) -> list[dict[str, Any]]:
+    """Attach a `stale` marker to every row whose source finding's
+    ``computed_at`` predates the latest completed cascade stage.
+
+    Pure-string ISO comparison is safe here because every timestamp is
+    UTC and serialised with the same canonicaliser.
+    """
+    if not latest_stage_at or not findings:
+        return rows
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        # Per-lesion rows have an `itemId`; skip — they aren't keyed off
+        # a single Phase 1 finding entry.
+        if row.get("itemId"):
+            out.append(row)
+            continue
+        ftype = _ROW_KEY_TO_FINDING_TYPE.get(row.get("key", ""))
+        if not ftype:
+            out.append(row)
+            continue
+        f = findings.get(ftype)
+        if isinstance(f, list) or not isinstance(f, Mapping):
+            out.append(row)
+            continue
+        computed_at = f.get("computed_at")
+        if not computed_at or str(computed_at) >= latest_stage_at:
+            out.append(row)
+            continue
+        stamped = dict(row)
+        stamped["stale"] = {"computed_at": str(computed_at)}
+        out.append(stamped)
+    return out
+
+
+# -----------------------------------------------------------------
 # Top-level builder
 # -----------------------------------------------------------------
 
@@ -348,6 +418,7 @@ def build_acr_sections(
     flr: Mapping[str, Any] | None = None,
     bundle: Mapping[str, Any] | None = None,
     status: str = "completed",
+    latest_stage_at: str | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Build a {section_value: [row, ...]} dict for the Jinja2 template.
 
@@ -358,13 +429,14 @@ def build_acr_sections(
     findings = findings_dict or {}
     lesions = lesions or []
     section_to_rows: dict[str, list[dict[str, Any]]] = {}
+    b = bundle or _DEFAULT_BUNDLE
     builders = {
-        AnatomicalSection.LIVER: lambda: _build_liver_rows(findings, bundle or _DEFAULT_BUNDLE),
-        AnatomicalSection.LESIONS: lambda: _build_lesions_rows(findings, lesions, bundle or _DEFAULT_BUNDLE),
-        AnatomicalSection.VESSELS: lambda: _build_vessels_rows(findings, bundle or _DEFAULT_BUNDLE),
-        AnatomicalSection.GALLBLADDER: lambda: _build_gallbladder_rows(findings, bundle or _DEFAULT_BUNDLE),
-        AnatomicalSection.SPLEEN: lambda: _build_spleen_rows(findings, bundle or _DEFAULT_BUNDLE),
-        AnatomicalSection.FLR_ASSESSMENT: lambda: _build_flr_rows(flr, bundle or _DEFAULT_BUNDLE),
+        AnatomicalSection.LIVER: lambda: _stamp_stale(_build_liver_rows(findings, b), findings, latest_stage_at),
+        AnatomicalSection.LESIONS: lambda: _stamp_stale(_build_lesions_rows(findings, lesions, b), findings, latest_stage_at),
+        AnatomicalSection.VESSELS: lambda: _build_vessels_rows(findings, b),
+        AnatomicalSection.GALLBLADDER: lambda: _stamp_stale(_build_gallbladder_rows(findings, b), findings, latest_stage_at),
+        AnatomicalSection.SPLEEN: lambda: _stamp_stale(_build_spleen_rows(findings, b), findings, latest_stage_at),
+        AnatomicalSection.FLR_ASSESSMENT: lambda: _build_flr_rows(flr, b),
     }
     for section in ANATOMICAL_SECTION_ORDER:
         section_to_rows[section.value] = builders[section]()
@@ -383,6 +455,7 @@ def build_readout_snapshot(
     status: str = "completed",
     etag: str | None = None,
     bundle: Mapping[str, Any] | None = None,
+    latest_stage_at: str | None = None,
 ) -> dict[str, Any]:
     """Build the full ReadoutSnapshot dict consumed by the plain-text renderer."""
     section_to_rows = build_acr_sections(
@@ -391,6 +464,7 @@ def build_readout_snapshot(
         flr=flr,
         bundle=bundle,
         status=status,
+        latest_stage_at=latest_stage_at,
     )
     is_computing = status in ("running", "queued")
     is_failed = status == "failed"

@@ -131,15 +131,15 @@ async def _emit(
     writer: AuditChainWriter = (
         getattr(request.app.state, "audit_chain_writer", None) or AuditChainWriter()
     )
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": f"User/{user_id}"} if user_id else None}],
-    }
-    if extra:
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+    from ..services.audit.audit_helpers import build_audit_event
+
+    event = build_audit_event(
+        category=category,
+        actor=f"Practitioner/{user_id}" if user_id else None,
+        extensions=(
+            [{"url": "liverra:extra", "valueString": str(extra)}] if extra else None
+        ),
+    )
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no
 

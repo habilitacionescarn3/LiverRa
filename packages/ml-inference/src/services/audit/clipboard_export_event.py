@@ -36,6 +36,10 @@ FailureCategory = Literal[
     "audit_chain_unavailable",
     "auth_denied",
     "tenant_violation",
+    # C-ACR-2: stale-data freshness probe (412 ETag mismatch / view drift).
+    # Distinct from "audit_chain_unavailable" — the audit chain is fine,
+    # the user's view is just out of date.
+    "stale_view",
 ]
 
 Outcome = Literal["success", "failure"]
@@ -99,9 +103,20 @@ def build_audit_event(
             {"url": AUDIT_FAILURE_CATEGORY, "valueCode": payload.failure_category}
         )
 
+    # C-FHIR-3 / H-ACR-6: drop the R5-only top-level ``category`` field.
+    # The legacy slug `readout_clipboard_export` is preserved in
+    # ``meta.tag[0].code`` (query-friendly) AND ``subtype[0].code`` (FHIR-valid).
     event: dict[str, Any] = {
         "resourceType": "AuditEvent",
         "id": str(event_id),
+        "meta": {
+            "tag": [
+                {
+                    "system": f"{AUDIT_SUBTYPE_SYSTEM.rsplit('/', 1)[0]}/audit-categories",
+                    "code": "readout_clipboard_export",
+                }
+            ]
+        },
         "type": {
             "system": "http://terminology.hl7.org/CodeSystem/audit-event-type",
             "code": "rest",
@@ -114,7 +129,6 @@ def build_audit_event(
                 "display": "Structured readout copied to clipboard",
             }
         ],
-        "category": "readout_clipboard_export",
         "action": "R",
         "recorded": payload.action_timestamp.astimezone(timezone.utc).isoformat(),
         "outcome": _outcome_code(payload),
@@ -157,7 +171,10 @@ def build_audit_event(
         },
         "entity": [
             {
-                "what": {"reference": f"Analysis/{analysis_id}"},
+                # H-FHIR-23..27: `Analysis/<id>` isn't a valid FHIR R4 resource
+                # type. Use the catch-all `Basic` with a typed prefix so the
+                # link survives strict validators.
+                "what": {"reference": f"Basic/analysis-{analysis_id}"},
                 "type": {
                     "system": "http://terminology.hl7.org/CodeSystem/audit-entity-type",
                     "code": "4",

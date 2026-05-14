@@ -1519,7 +1519,17 @@ async def clipboard_export_audit(
     """
     tenant_id: UUID = request.state.tenant_id
     user = getattr(request.state, "user", None)
-    actor_id: UUID = getattr(user, "id", uuid4()) if user else uuid4()
+    # M-ACR-1: fail-closed instead of forging a synthetic actor UUID —
+    # an unauthenticated user must never produce an AuditEvent with a
+    # random "anonymous" Practitioner reference.
+    raw_actor = getattr(user, "id", None) if user else None
+    if raw_actor is None:
+        raise ProblemDetailException(
+            ErrorSlug.UNAUTHENTICATED,
+            status.HTTP_401_UNAUTHORIZED,
+            "Missing authenticated user — clipboard-export audit cannot be recorded.",
+        )
+    actor_id: UUID = raw_actor if isinstance(raw_actor, UUID) else UUID(str(raw_actor))
 
     arow = await _load_analysis_row(session, analysis_id, tenant_id)
     if arow is None:

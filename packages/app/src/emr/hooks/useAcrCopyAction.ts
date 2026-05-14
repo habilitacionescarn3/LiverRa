@@ -24,6 +24,7 @@ import {
   type TFn,
 } from '../services/report/acrAnatomicalMapping';
 import { copyReadout } from '../services/report/acrClipboardService';
+import { trackCopyFailed } from '../services/report/acrTelemetry';
 import { EMRToast } from '../components/common';
 
 const SUPPORTED_LOCALES: ReadonlyArray<'en' | 'ru' | 'ka' | 'de'> = [
@@ -126,7 +127,18 @@ export function useAcrCopyAction(analysisId: string): UseAcrCopyActionResult {
       } else {
         EMRToast.error(outcome.message);
       }
-    } catch {
+    } catch (err) {
+      // M-ACR-3: don't swallow — surface to console + telemetry so the
+      // failure shows up in Sentry / PostHog even when the toast is
+      // missed by the user.
+      // eslint-disable-next-line no-console
+      console.error('[useAcrCopyAction] copy failed', err);
+      trackCopyFailed({
+        analysisId,
+        locale,
+        failureCategory: 'unknown',
+        durationMs: 0,
+      });
       EMRToast.error(
         tFn(
           'reportAcr:copy.errorToastUnknown',
@@ -136,7 +148,7 @@ export function useAcrCopyAction(analysisId: string): UseAcrCopyActionResult {
     } finally {
       setCopying(false);
     }
-  }, [snapshot, analysisId, tFn, user]);
+  }, [snapshot, analysisId, tFn, user, locale]);
 
   return {
     ready: snapshot !== null,

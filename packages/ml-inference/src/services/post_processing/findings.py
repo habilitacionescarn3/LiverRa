@@ -629,3 +629,147 @@ def compute_all_phase1(
     populated = [k for k, v in findings.items() if v not in (None, [], {})]
     logger.info("phase1: computed %d/7 findings (%s)", len(populated), ", ".join(populated))
     return findings
+
+
+# ---------------------------------------------------------------------------
+# FHIR projection (H-FHIR-31)
+# ---------------------------------------------------------------------------
+
+
+# LOINC + LiverRa-internal codes for each Phase 1 finding type.
+# The pairing is deliberate: Observation when the finding is a numeric
+# measurement; DetectedIssue when it's a safety flag.
+_FHIR_FINDING_MAP: dict[str, dict[str, Any]] = {
+    "hu_stats": {
+        "kind": "Observation",
+        "code_system": "http://loinc.org",
+        "code": "11572-5",       # "Liver Hounsfield unit X.attenuation"
+        "display": "Liver parenchymal HU",
+    },
+    "steatosis": {
+        "kind": "Observation",
+        "code_system": "http://snomed.info/sct",
+        "code": "442685003",     # "Hepatic steatosis"
+        "display": "Hepatic steatosis grade",
+    },
+    "spleen": {
+        "kind": "Observation",
+        "code_system": "http://loinc.org",
+        "code": "33793-1",       # "Spleen Volume"
+        "display": "Spleen volume",
+    },
+    "gallbladder": {
+        "kind": "Observation",
+        "code_system": "http://loinc.org",
+        "code": "63837-0",       # "Gallbladder wall thickness"
+        "display": "Gallbladder volumetry + wall thickness",
+    },
+    "calcified_lesions": {
+        "kind": "Observation",
+        "code_system": "http://snomed.info/sct",
+        "code": "30746006",      # "Calcification (morphologic abnormality)"
+        "display": "Calcified hepatic lesions",
+    },
+    "simple_biliary_cysts": {
+        "kind": "Observation",
+        "code_system": "http://snomed.info/sct",
+        "code": "27091003",      # "Cyst of liver"
+        "display": "Simple biliary cysts",
+    },
+    "indeterminate_malignant": {
+        "kind": "DetectedIssue",
+        "code_system": "http://liverra.ai/fhir/CodeSystem/lirads-categories",
+        "code": "LR-M",
+        "display": "LI-RADS Other Malignant",
+    },
+}
+
+
+def findings_to_fhir(
+    findings: dict[str, Any],
+    *,
+    analysis_id: str,
+    patient_ref: str | None = None,
+) -> list[dict[str, Any]]:
+    """Project Phase 1 findings to FHIR R4 Observation / DetectedIssue.
+
+    H-FHIR-31: every clinically-actionable AnalysisFinding row must have
+    a FHIR projection so a downstream consumer (PACS push, regulatory
+    submission, hospital EHR integration) can ingest the values without
+    parsing LiverRa-proprietary JSON.
+
+    The projection intentionally returns a minimal — but valid R4 —
+    shape. Heavy enrichment (effectiveDateTime sourced from
+    ``analysis.completed_at``, performer reference, reference ranges)
+    happens at the API boundary where those fields are in scope.
+    """
+    out: list[dict[str, Any]] = []
+    subject = {"reference": f"Basic/analysis-{analysis_id}"}
+    if patient_ref:
+        subject = {"reference": patient_ref}
+
+    for ftype, payload in (findings or {}).items():
+        if payload in (None, [], {}):
+            continue
+        meta = _FHIR_FINDING_MAP.get(ftype)
+        if not meta:
+            continue
+
+        coding = {
+            "system": meta["code_system"],
+            "code": meta["code"],
+            "display": meta["display"],
+        }
+        resource: dict[str, Any] = {
+            "resourceType": meta["kind"],
+            "status": "preliminary" if meta["kind"] == "Observation" else "preliminary",
+            "code": {"coding": [coding]},
+            "subject": subject,
+        }
+        if isinstance(payload, dict) and "computed_at" in payload:
+            ca = payload["computed_at"]
+            resource["effectiveDateTime"] = ca if isinstance(ca, str) else str(ca)
+
+        # Numeric quantity placement (best-effort) for the common shapes.
+        if meta["kind"] == "Observation" and isinstance(payload, dict):
+            if ftype == "hu_stats" and "mean" in payload:
+                resource["valueQuantity"] = {
+                    "value": float(payload["mean"]),
+                    "unit": "HU",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "[HU]",
+                }
+            elif ftype == "spleen" and "volume_ml" in payload:
+                resource["valueQuantity"] = {
+                    "value": float(payload["volume_ml"]),
+                    "unit": "mL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL",
+                }
+            elif ftype == "gallbladder" and "volume_ml" in payload:
+                resource["valueQuantity"] = {
+                    "value": float(payload["volume_ml"]),
+                    "unit": "mL",
+                    "system": "http://unitsofmeasure.org",
+                    "code": "mL",
+                }
+            elif ftype == "steatosis" and "grade" in payload:
+                resource["valueCodeableConcept"] = {
+                    "coding": [{
+                        "system": "http://liverra.ai/fhir/CodeSystem/steatosis-grade",
+                        "code": str(payload["grade"]),
+                        "display": str(payload["grade"]).capitalize(),
+                    }]
+                }
+        # DetectedIssue extra fields (severity).
+        if meta["kind"] == "DetectedIssue":
+            resource["severity"] = "high"
+            if isinstance(payload, dict) and payload.get("interpretation"):
+                resource["detail"] = str(payload["interpretation"])
+
+        out.append(resource)
+
+    return out
+
+
+__all__ = ["FINDING_TYPES", "compute_all_phase1", "findings_to_fhir"]

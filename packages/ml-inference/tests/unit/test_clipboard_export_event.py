@@ -84,7 +84,11 @@ def test_resource_shape_is_fhir_audit_event() -> None:
     )
 
     assert event["resourceType"] == "AuditEvent"
-    assert event["category"] == "readout_clipboard_export"
+    # C-FHIR-3 / H-ACR-6: top-level `category` is R5-only and was
+    # removed; the slug now lives in `meta.tag[0].code` and
+    # `subtype[0].code` instead.
+    assert "category" not in event
+    assert event["meta"]["tag"][0]["code"] == "readout_clipboard_export"
     assert event["action"] == "R"
 
 
@@ -135,7 +139,9 @@ def test_entity_what_reference_uses_analysis_prefix() -> None:
         analysis_id=analysis_id,
         tenant_id=uuid4(),
     )
-    assert event["entity"][0]["what"]["reference"] == f"Analysis/{analysis_id}"
+    # H-FHIR-23: `Analysis/` was rewritten to `Basic/analysis-` since
+    # Analysis is not a valid FHIR R4 resource type.
+    assert event["entity"][0]["what"]["reference"] == f"Basic/analysis-{analysis_id}"
 
 
 def test_locale_extension_present_with_payload_locale() -> None:

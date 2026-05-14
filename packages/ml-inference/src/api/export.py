@@ -171,24 +171,24 @@ async def _emit_export_audit(
     writer: "AuditChainWriter" = (
         getattr(request.app.state, "audit_chain_writer", None) or AuditChainWriter()
     )
-    entity: list[dict[str, Any]] = []
-    if report_id:
-        entity.append({"what": {"reference": f"Report/{report_id}"}})
-    if delivery_id:
-        entity.append({"what": {"reference": f"ReportDelivery/{delivery_id}"}})
 
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": user_id} if user_id else None}],
-        "entity": entity,
-    }
-    if outcome:
-        event["outcome"] = outcome
-    if extra:
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+    from ..services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    entity_refs: list[str] = []
+    if report_id:
+        entity_refs.append(fhir_ref("Report", report_id))
+    if delivery_id:
+        entity_refs.append(fhir_ref("ReportDelivery", delivery_id))
+
+    event = build_audit_event(
+        category=category,
+        actor=user_id if user_id else None,
+        entity_refs=entity_refs,
+        outcome=outcome or "0",
+        extensions=(
+            [{"url": "liverra:extra", "valueString": str(extra)}] if extra else None
+        ),
+    )
 
     row = await writer.write(event, tenant_id, session)
     return getattr(row, "sequence_no", None)

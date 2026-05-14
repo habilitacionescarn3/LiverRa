@@ -274,6 +274,10 @@
                         <span class="finding-label">{{ row.label }}</span>
                         <span class="finding-value">{{ row.value }}</span>
                       {% endif %}
+                      {# B-ACR-1: stale-finding marker — FR-023c #}
+                      {% if row.stale %}
+                        <span class="finding-stale">&#8635; last computed {{ row.stale.computed_at }}</span>
+                      {% endif %}
                     </div>
                     {% if row.warning %}
                       <div class="finding-warning">! {{ row.warning }}</div>

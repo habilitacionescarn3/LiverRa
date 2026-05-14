@@ -323,7 +323,10 @@ class LiveCascadeAuditHooks(CascadeAuditHooks):
             action_code=action_code,
             outcome=outcome,
             actor_reference=self._actor_reference,
-            entity_references=[f"Analysis/{analysis_id}"],
+            # H-FHIR-23: Analysis isn't a valid FHIR R4 resource type;
+            # rewrite via the catch-all Basic resource so strict
+            # validators accept the entity reference.
+            entity_references=[f"Basic/analysis-{analysis_id}"],
             model_version=model_version,
             extra_extensions=extra,
         )

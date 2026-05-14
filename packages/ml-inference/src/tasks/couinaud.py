@@ -691,13 +691,31 @@ async def _run(
             # 128³ resampled grid is isotropic — voxel_spacing is irrelevant
             # for the caudate-radius geometry here (no native mm units),
             # so pass (1, 1, 1).
-            heuristic_label_map = compute_couinaud(
-                liver=parenchyma_mask.astype(np.uint8),
-                ivc=None,
-                gallbladder=None,
-                vessels=vessels_128,
-                voxel_spacing=(1.0, 1.0, 1.0),
+            # B-CLIN-2: the canonical orchestrator implementation can
+            # raise ``CouinaudHeuristicError`` when fewer than 4 of 8
+            # segments are non-empty. The legacy services version simply
+            # returned an empty mask; here we catch and log so this
+            # dormant Triton fallback retains the same outer try/except
+            # contract.
+            from src.orchestrator.couinaud_heuristic import (
+                CouinaudHeuristicError,
             )
+            try:
+                heuristic_label_map = compute_couinaud(
+                    liver=parenchyma_mask.astype(np.uint8),
+                    ivc=None,
+                    gallbladder=None,
+                    vessels=vessels_128,
+                    voxel_spacing=(1.0, 1.0, 1.0),
+                )
+            except CouinaudHeuristicError as exc:
+                logger.warning(
+                    "couinaud orchestrator: %s — leaving Triton output in place",
+                    exc,
+                )
+                heuristic_label_map = np.zeros_like(
+                    parenchyma_mask, dtype=np.uint8
+                )
             heuristic_counts = _voxel_count_per_segment(heuristic_label_map)
             heuristic_total = sum(heuristic_counts.values())
             if heuristic_total == 0:

@@ -292,17 +292,14 @@ async def _run(tenant_id: str) -> dict[str, Any]:
                     "sample_count": len(logits_rows),
                 },
             )
+            from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
             await AuditChainWriter().write(
-                {
-                    "resourceType": "AuditEvent",
-                    "id": str(uuid4()),
-                    "category": "model_recalibrated",
-                    "action": "U",
-                    "recorded": datetime.now(timezone.utc).isoformat(),
-                    "entity": [
-                        {"what": {"reference": f"Tenant/{tenant_uuid}"}},
-                    ],
-                    "extension": [
+                build_audit_event(
+                    category="model_recalibrated",
+                    action="U",
+                    entity_refs=[fhir_ref("Tenant", tenant_uuid)],
+                    extensions=[
                         {"url": "liverra:model_name", "valueString": MODEL_NAME},
                         {"url": "liverra:model_version", "valueString": model_version},
                         {"url": "liverra:new_temperature", "valueDecimal": float(new_temperature)},
@@ -310,7 +307,7 @@ async def _run(tenant_id: str) -> dict[str, Any]:
                         {"url": "liverra:fit_window_min", "valueDecimal": TEMPERATURE_SEARCH_MIN},
                         {"url": "liverra:fit_window_max", "valueDecimal": TEMPERATURE_SEARCH_MAX},
                     ],
-                },
+                ),
                 tenant_uuid,
                 session,
             )

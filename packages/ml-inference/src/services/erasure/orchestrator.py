@@ -292,21 +292,16 @@ async def _emit_executed_audit(
         raise
 
     writer = AuditChainWriter()
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": "erasure_executed",
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "entity": [
-            {
-                "what": {"reference": f"Study/{study_id}"},
-                "detail": [
-                    {"type": "erasure_request_id", "valueString": str(erasure_request_id)},
-                    {"type": "tombstone_hash_hex", "valueString": tombstone_hash_hex},
-                ],
-            }
-        ],
-    }
+    from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    event = build_audit_event(
+        category="erasure_executed",
+        entity_refs=[fhir_ref("Study", study_id)],
+        detail={
+            "erasure_request_id": str(erasure_request_id),
+            "tombstone_hash_hex": tombstone_hash_hex,
+        },
+    )
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no
 

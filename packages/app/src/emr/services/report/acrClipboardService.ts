@@ -46,7 +46,10 @@ export type FailureCategory =
   | 'clipboard_blocked'
   | 'audit_chain_unavailable'
   | 'auth_denied'
-  | 'tenant_violation';
+  | 'tenant_violation'
+  // C-ACR-2: stale-view (ETag mismatch / view drift) is distinct from
+  // an audit-chain outage — it's the user's view that's out of date.
+  | 'stale_view';
 
 export interface ClipboardExportAuditPayload {
   client_action_id: string;
@@ -256,16 +259,31 @@ export async function copyReadout(args: CopyReadoutArgs): Promise<CopyOutcome> {
       currentEtag !== context.openTimeEtag
     ) {
       const durationMs = elapsedMs(start);
+      // C-ACR-2: stale-view is its own failure category — not
+      // `audit_chain_unavailable` (which implies a backend outage).
       const failure: ClipboardExportAuditPayload = {
         client_action_id: clientActionId,
         actor_role: context.actorRole,
         locale: snapshot.locale,
         action_timestamp: actionTimestamp,
         outcome: 'failure',
-        failure_category: 'audit_chain_unavailable',
+        failure_category: 'stale_view',
       };
-      // Best-effort: try to log the stale failure, queue if it fails.
-      void postAuditEnvelope(snapshot.analysisId, failure).catch(() => {});
+      // Same durable-enqueue contract as every other failure path:
+      // POST first, fall back to the IndexedDB queue on transport error
+      // so the audit row eventually lands.
+      try {
+        const r = await postAuditEnvelope(snapshot.analysisId, failure);
+        if (!r.ok && r.status !== 401 && r.status !== 403) {
+          await enqueue(snapshot.analysisId, failure, `HTTP ${r.status}`);
+        }
+      } catch (err) {
+        await enqueue(
+          snapshot.analysisId,
+          failure,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       trackCopyFailed({
         analysisId: snapshot.analysisId,
         locale: snapshot.locale,
@@ -274,7 +292,7 @@ export async function copyReadout(args: CopyReadoutArgs): Promise<CopyOutcome> {
       });
       return {
         kind: 'failure',
-        reason: 'audit_chain_unavailable',
+        reason: 'stale_view',
         clientActionId,
         durationMs,
         message: context.t(
