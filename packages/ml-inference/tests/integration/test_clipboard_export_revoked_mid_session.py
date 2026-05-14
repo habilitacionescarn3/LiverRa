@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     import httpx  # noqa: F401
@@ -57,15 +58,13 @@ def pg_container():
         yield pg
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def revoked_app_client(pg_container):
     """FastAPI client whose auth middleware strips ``analysis.view``."""
     if _SKIP:
         pytest.skip(SKIP_REASON)
 
-    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
+    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
     from pathlib import Path
 

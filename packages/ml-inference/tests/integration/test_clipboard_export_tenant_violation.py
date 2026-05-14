@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     import httpx  # noqa: F401
@@ -60,14 +61,12 @@ def pg_container():
         yield pg
 
 
-@pytest.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module")
 async def two_tenant_app(pg_container):
     if _SKIP:
         pytest.skip(SKIP_REASON)
 
-    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
+    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
     from pathlib import Path
 
@@ -173,7 +172,7 @@ async def test_cross_tenant_post_returns_404_or_403_and_no_audit_row(
                    AND canonical_json LIKE :pat
                 """
             ),
-            {"tid": str(tenant_a), "pat": f'%"valueUuid": "{client_action_id}"%'},
+            {"tid": str(tenant_a), "pat": f'%"valueUuid":"{client_action_id}"%'},
         )
     await engine.dispose()
     assert int(count_in_a.scalar_one()) == 0, (

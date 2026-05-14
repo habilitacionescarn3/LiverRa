@@ -22,6 +22,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     import httpx  # noqa: F401
@@ -58,14 +59,12 @@ def pg_container():
         yield pg
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def app_with_pdf(pg_container):
     if _SKIP:
         pytest.skip(SKIP_REASON)
 
-    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
+    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
     from pathlib import Path
 
@@ -159,7 +158,7 @@ async def test_pdf_generic_failure_emits_audit_with_correct_shape(
                 SELECT canonical_json
                   FROM audit_event_chain
                  WHERE tenant_id = :tid
-                   AND canonical_json LIKE '%"code": "readout-clipboard-export"%'
+                   AND canonical_json LIKE '%"code":"readout-clipboard-export"%'
                    AND canonical_json LIKE '%"outcome": "4"%'
                  ORDER BY sequence_no DESC
                  LIMIT 1

@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-not-found]
@@ -48,12 +49,10 @@ def pg_dsn() -> str:
     if _SKIP:
         pytest.skip("Testcontainers unavailable or skipped by env.")
     with PostgresContainer("postgres:16-alpine") as container:
-        yield container.get_connection_url().replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+        yield container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def session(pg_dsn: str):
     """Per-test async session against a fresh schema.
 
@@ -163,7 +162,7 @@ async def test_three_replays_return_same_audit_event_id_and_one_row(session) -> 
         ),
         {
             "tid": str(tenant_id),
-            "pat": f'%"valueUuid": "{client_action_id}"%',
+            "pat": f'%"valueUuid":"{client_action_id}"%',
         },
     )
     assert int(count.scalar_one()) == 1

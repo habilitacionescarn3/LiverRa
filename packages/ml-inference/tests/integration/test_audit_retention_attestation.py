@@ -28,6 +28,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-not-found]
@@ -47,12 +48,10 @@ def pg_dsn() -> str:
     if _SKIP:
         pytest.skip("Testcontainers unavailable or skipped by env.")
     with PostgresContainer("postgres:16-alpine") as container:
-        yield container.get_connection_url().replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+        yield container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def session_with_chain(pg_dsn: str):
     """Fresh schema + seeded rows for two tenants in 2025."""
     from sqlalchemy import text

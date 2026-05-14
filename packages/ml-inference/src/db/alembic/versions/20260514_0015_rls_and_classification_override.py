@@ -319,11 +319,14 @@ def upgrade() -> None:
             "(Patient/<uuid-like>); original DICOM PatientID never stored'"
         )
     )
+    # NOT VALID — applies to new rows only; legacy rows (pre-Patient/<id>
+    # convention) skipped without backfill. Tenant migration owns the
+    # backfill + revalidation step when ready.
     op.execute(
         text(
             "ALTER TABLE study "
             "ADD CONSTRAINT study_patient_ref_format "
-            "CHECK (patient_ref ~ '^Patient/[a-zA-Z0-9_.-]+$')"
+            "CHECK (patient_ref ~ '^Patient/[a-zA-Z0-9_.-]+$') NOT VALID"
         )
     )
 

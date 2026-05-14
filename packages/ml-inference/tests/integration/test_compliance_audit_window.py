@@ -30,6 +30,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-not-found]
@@ -55,13 +56,11 @@ def pg_dsn() -> str:
     if _SKIP:
         pytest.skip("Testcontainers unavailable or skipped by env.")
     with PostgresContainer("postgres:16-alpine") as container:
-        raw = container.get_connection_url().replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+        raw = container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
         yield raw
 
 
-@pytest.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module")
 async def seeded_session(pg_dsn: str):
     """Create the minimal schema + yield an async session."""
     from sqlalchemy import text

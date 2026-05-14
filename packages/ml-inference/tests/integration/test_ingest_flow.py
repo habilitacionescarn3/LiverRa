@@ -39,6 +39,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
 
 import pytest
+import pytest_asyncio
 
 # ---------------------------------------------------------------------------
 # Soft dependency imports — lets the module load even in environments where
@@ -110,15 +111,13 @@ def tenant_id() -> UUID:
     return UUID("00000000-0000-0000-0000-00000000c701")
 
 
-@pytest.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module")
 async def app_client(postgres_container, minio_container, tenant_id):
     """Build a FastAPI test client with DB + S3 pointed at the containers."""
     if _SKIP:
         pytest.skip(SKIP_REASON)
 
-    os.environ["DATABASE_URL"] = postgres_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
+    os.environ["DATABASE_URL"] = postgres_container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
     os.environ["S3_ENDPOINT_URL"] = minio_container.get_config()["endpoint"]
     os.environ["CELERY_BROKER_URL"] = "memory://"
     os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"

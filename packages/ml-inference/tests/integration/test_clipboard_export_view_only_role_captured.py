@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     import httpx  # noqa: F401
@@ -59,7 +60,7 @@ def pg_container():
         yield pg
 
 
-@pytest.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module")
 async def app_client(pg_container):
     """Build the FastAPI app pointed at the test Postgres.
 
@@ -70,9 +71,7 @@ async def app_client(pg_container):
     if _SKIP:
         pytest.skip(SKIP_REASON)
 
-    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace(
-        "postgresql://", "postgresql+asyncpg://"
-    )
+    os.environ["DATABASE_URL"] = pg_container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
     # Run alembic migrations so the analysis + audit_event_chain tables exist.
     from pathlib import Path
@@ -174,7 +173,7 @@ async def test_view_only_role_captured_in_audit_row(app_client) -> None:
             ),
             {
                 "tid": str(tenant_id),
-                "pat": f'%"valueUuid": "{client_action_id}"%',
+                "pat": f'%"valueUuid":"{client_action_id}"%',
             },
         )
         canonical = row.scalar_one()

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
+import pytest_asyncio
 
 try:
     from testcontainers.postgres import PostgresContainer  # type: ignore[import-not-found]
@@ -49,12 +50,10 @@ def pg_dsn() -> str:
     if _SKIP:
         pytest.skip("Testcontainers unavailable or skipped by env.")
     with PostgresContainer("postgres:16-alpine") as container:
-        yield container.get_connection_url().replace(
-            "postgresql://", "postgresql+asyncpg://"
-        )
+        yield container.get_connection_url().replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
 
 
-@pytest.fixture()
+@pytest_asyncio.fixture()
 async def session(pg_dsn: str):
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -202,4 +201,4 @@ async def test_canonical_json_is_stable_across_writers(session) -> None:
     )
     await session.commit()
     assert row is not None
-    assert '"code": "readout-clipboard-export"' in row.canonical_json
+    assert '"code":"readout-clipboard-export"' in row.canonical_json
