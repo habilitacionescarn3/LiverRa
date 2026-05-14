@@ -81,11 +81,17 @@ def _timeout_s() -> float:
 
 def _auth_headers() -> dict[str, str]:
     token = os.environ.get("LIVERRA_GPU_SHARED_TOKEN", "").strip()
+    env = os.environ.get("LIVERRA_ENV", "development").lower()
     if not token:
-        raise RuntimeError(
-            "LIVERRA_GPU_SHARED_TOKEN is not set. The GPU service requires "
-            "Bearer auth; refusing to send unauthenticated requests."
-        )
+        if env in {"staging", "production"}:
+            raise RuntimeError(
+                "LIVERRA_GPU_SHARED_TOKEN is not set. The GPU service requires "
+                "Bearer auth; refusing to send unauthenticated requests."
+            )
+        # Dev mode: tolerate missing token so local cascades run against
+        # a GPU service that hasn't enabled auth yet. Production env always
+        # fail-closes per Agent 2.4 audit fix.
+        return {}
     return {"Authorization": f"Bearer {token}"}
 
 

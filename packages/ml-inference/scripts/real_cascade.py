@@ -1264,18 +1264,30 @@ def run_real_cascade(
         )
 
         with psycopg.connect(DB_URL, autocommit=True) as conn:
+            # Migration 0015 added analysis_finding.tenant_id NOT NULL + RLS.
+            # Look up the tenant_id from analysis once; reuse for every finding.
+            tenant_row = conn.execute(
+                "SELECT tenant_id FROM analysis WHERE id = %s",
+                (analysis_id,),
+            ).fetchone()
+            if tenant_row is None or tenant_row[0] is None:
+                raise RuntimeError(
+                    f"analysis {analysis_id} has no tenant_id — refusing to "
+                    "insert findings (RLS would orphan them)."
+                )
+            tenant_id = tenant_row[0]
             populated = 0
             for finding_type, payload in findings.items():
                 if payload in (None, [], {}):
                     continue
                 conn.execute(
                     """
-                    INSERT INTO analysis_finding (analysis_id, finding_type, payload)
-                    VALUES (%s, %s, %s::jsonb)
+                    INSERT INTO analysis_finding (analysis_id, tenant_id, finding_type, payload)
+                    VALUES (%s, %s, %s, %s::jsonb)
                     ON CONFLICT (analysis_id, finding_type)
                     DO UPDATE SET payload = EXCLUDED.payload, computed_at = now()
                     """,
-                    (analysis_id, finding_type, json.dumps(payload)),
+                    (analysis_id, tenant_id, finding_type, json.dumps(payload)),
                 )
                 populated += 1
         print(f"      ✓ {populated}/{len(FINDING_TYPES)} findings persisted")
