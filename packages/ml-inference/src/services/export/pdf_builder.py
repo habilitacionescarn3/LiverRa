@@ -70,6 +70,7 @@ RUO_WATERMARKS: Mapping[str, str] = {
     "en": "RESEARCH USE ONLY — NOT FOR CLINICAL DECISIONS",
     "de": "NUR ZU FORSCHUNGSZWECKEN — NICHT FÜR KLINISCHE ENTSCHEIDUNGEN",
     "ka": "მხოლოდ კვლევითი გამოყენებისთვის — არ არის კლინიკური გადაწყვეტილებებისთვის",
+    "ru": "ТОЛЬКО ДЛЯ ИССЛЕДОВАТЕЛЬСКИХ ЦЕЛЕЙ — НЕ ДЛЯ КЛИНИЧЕСКИХ РЕШЕНИЙ",
 }
 
 

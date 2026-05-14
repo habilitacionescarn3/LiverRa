@@ -55,7 +55,10 @@ describe('useReviewSeat', () => {
 
     expect(result.current.hasSeat).toBe(true);
     expect(result.current.reviewId).toBe('r-1');
-    expect(post).toHaveBeenCalledWith('/api/v1/reviews', {
+    // ReviewSeatContext composes paths against ``VITE_LIVERRA_API_BASE_URL``
+    // inside the default client; the injected ``SeatHttpClient`` here
+    // receives the bare resource path (no ``/api/v1`` prefix).
+    expect(post).toHaveBeenCalledWith('/reviews', {
       analysis_id: 'a-1',
     });
   });
