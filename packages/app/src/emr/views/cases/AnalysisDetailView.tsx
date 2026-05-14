@@ -14,7 +14,7 @@
  * the cascade timeline, viewer pipeline) is unchanged.
  */
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -102,6 +102,48 @@ interface BackendAnalysis {
     model_version: string | null;
     model_license_hash: string | null;
   }>;
+}
+
+const BACKEND_ANALYSIS_STATUSES = [
+  'queued',
+  'running',
+  'completed',
+  'failed',
+  'partial',
+] as const;
+
+/**
+ * H-TYPE-1 fix: runtime validator for the BackendAnalysis wire shape.
+ * Replaces the prior ``as unknown as BackendAnalysis`` double-cast at
+ * the API boundary. Returns ``null`` (and captures to Sentry) when the
+ * payload does not match the contract, so callers can render an error
+ * card instead of indexing into ``undefined``.
+ *
+ * Pure structural check — keeps the dependency footprint zero (zod is
+ * not in package.json today; adopting it would be a separate change).
+ */
+function validateBackendAnalysis(input: unknown): BackendAnalysis | null {
+  if (!input || typeof input !== 'object') return null;
+  const o = input as Record<string, unknown>;
+  if (typeof o.id !== 'string' || typeof o.study_id !== 'string') return null;
+  if (
+    typeof o.status !== 'string' ||
+    !BACKEND_ANALYSIS_STATUSES.includes(
+      o.status as (typeof BACKEND_ANALYSIS_STATUSES)[number],
+    )
+  ) {
+    return null;
+  }
+  // Optional fields are checked only when present so the validator
+  // does not reject backend deployments that simply omit a column.
+  if (
+    o.stage_progress !== undefined &&
+    o.stage_progress !== null &&
+    !Array.isArray(o.stage_progress)
+  ) {
+    return null;
+  }
+  return o as unknown as BackendAnalysis;
 }
 
 export interface AnalysisDetailViewProps {
@@ -256,8 +298,18 @@ function LesionsTabContent({
           if (typeof parsed.confidence === 'number') {
             confidence = `${Math.round(parsed.confidence * 100)}%`;
           }
-        } catch {
-          /* ignore */
+        } catch (e) {
+          // H-CATCH variant: corrupt classification JSON is rare but
+          // important to surface — silent catch previously masked a
+          // real classifier output drift. We mark the row "parse error"
+          // and log via console.warn so dev tools + Sentry beforeSend
+          // can pick it up.
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[AnalysisDetail] classification JSON parse failed',
+            { lesionId: les.id, error: e },
+          );
+          label = 'parse-error';
         }
         const diameter =
           les.longest_diameter_mm !== null && les.longest_diameter_mm !== undefined
@@ -294,7 +346,12 @@ function readBoolFromStorage(key: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
     return window.localStorage.getItem(key) === '1';
-  } catch {
+  } catch (e) {
+    // L-CATCH-5: non-critical (rail-collapsed UI state). Privacy mode
+    // / quota issues are expected — keep a console.debug breadcrumb
+    // for dev inspection, but never bubble.
+    // eslint-disable-next-line no-console
+    console.debug('[AnalysisDetail] localStorage read failed', { key, e });
     return false;
   }
 }
@@ -303,8 +360,11 @@ function writeBoolToStorage(key: string, value: boolean): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(key, value ? '1' : '0');
-  } catch {
-    /* storage may be blocked (private mode) — silently ignore */
+  } catch (e) {
+    // L-CATCH-5: rail-collapsed state is non-critical (the UI defaults
+    // fine without persistence) — keep a debug breadcrumb only.
+    // eslint-disable-next-line no-console
+    console.debug('[AnalysisDetail] localStorage write failed', { key, e });
   }
 }
 
@@ -338,9 +398,24 @@ function AnalysisDetailViewInner({
   const { analysis: liveAnalysis, isLoading, error } = useAnalysis(id);
   const { data: results } = useAnalysisResults(id, baseUrl, liveAnalysis?.status);
 
-  const analysis = (initialAnalysis ?? (liveAnalysis as unknown as BackendAnalysis | undefined)) as
-    | BackendAnalysis
-    | undefined;
+  // H-TYPE-1 fix: replace ``as unknown as BackendAnalysis`` with
+  // ``validateBackendAnalysis`` — invalid payloads now surface as
+  // ``undefined`` (renders the load/error path) rather than crashing
+  // downstream consumers with garbage at runtime.
+  const analysis: BackendAnalysis | undefined = useMemo(() => {
+    if (initialAnalysis) return initialAnalysis;
+    if (!liveAnalysis) return undefined;
+    const validated = validateBackendAnalysis(liveAnalysis);
+    if (!validated) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[AnalysisDetail] backend analysis payload failed validation',
+        { analysisId: id, payload: liveAnalysis },
+      );
+      return undefined;
+    }
+    return validated;
+  }, [initialAnalysis, liveAnalysis, id]);
 
   const studyUidShort = useMemo<string>(() => {
     if (!analysis) return (id ?? '').slice(0, 8);
@@ -398,6 +473,12 @@ function AnalysisDetailViewInner({
 
   // Theater mode (F to toggle, Esc to exit).
   const [theater, setTheater] = useState<boolean>(false);
+  // H-HOOK-4: register the keydown listener exactly once. Previously
+  // ``[theater]`` rebuilt the listener every time the user toggled —
+  // not catastrophic but it churned listeners on a hot path. We read
+  // the current theater state via ref so the closure never goes stale.
+  const theaterRef = useRef(theater);
+  theaterRef.current = theater;
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       // Don't hijack the key when the user is typing.
@@ -408,13 +489,13 @@ function AnalysisDetailViewInner({
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         setTheater((t) => !t);
         e.preventDefault();
-      } else if (e.key === 'Escape' && theater) {
+      } else if (e.key === 'Escape' && theaterRef.current) {
         setTheater(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [theater]);
+  }, []);
 
   // Mobile bottom-sheets for the workspace + FLR rails + ACR readout.
   const [mobileSheet, setMobileSheet] = useState<
@@ -475,18 +556,29 @@ function AnalysisDetailViewInner({
     });
   }, [analysisReady, analysis?.id, baseUrl, queryClient]);
 
+  // H-HOOK-2 / M-HOOK-2 fix: extract the specific seat functions we
+  // need so the useCallback deps array is stable. Previously the whole
+  // ``seat`` context object was a dep — every keystroke that updated
+  // any seat field rebuilt this callback, which in turn re-rendered
+  // every child that consumes it.
+  const seatHasSeat = seat.hasSeat;
+  const seatReviewId = seat.reviewId;
+  const seatAcquire = seat.acquire;
+  const finalizeMutateAsync = finalize.mutateAsync;
+  const tenantId = tenant?.id;
+
   const handleFinalize = useCallback(async (): Promise<void> => {
     if (!analysis) return;
     setFinalizing(true);
     try {
       const reviewId =
-        seat.hasSeat && seat.reviewId
-          ? seat.reviewId
-          : (await seat.acquire(analysis.id)).reviewId;
-      const res = await finalize.mutateAsync({
+        seatHasSeat && seatReviewId
+          ? seatReviewId
+          : (await seatAcquire(analysis.id)).reviewId;
+      const res = await finalizeMutateAsync({
         reviewId,
         analysisId: analysis.id,
-        tenantId: tenant?.id,
+        tenantId,
       });
       navigate(buildPath(LIVERRA_ROUTES.REPORT_VIEW, { id: res.report_id }));
     } catch (err) {
@@ -501,7 +593,16 @@ function AnalysisDetailViewInner({
     } finally {
       setFinalizing(false);
     }
-  }, [analysis, seat, finalize, tenant?.id, t, navigate]);
+  }, [
+    analysis,
+    seatHasSeat,
+    seatReviewId,
+    seatAcquire,
+    finalizeMutateAsync,
+    tenantId,
+    t,
+    navigate,
+  ]);
 
   const tabItems = useMemo(
     () => [

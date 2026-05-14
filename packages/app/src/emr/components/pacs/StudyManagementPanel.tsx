@@ -20,7 +20,7 @@
 //   - `@medplum/fhirtypes` imports dropped in favour of loose local types.
 // ============================================================================
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Box,
   Center,
@@ -45,6 +45,8 @@ import { EMRButton } from '../common/EMRButton';
 import { EMRTextInput } from '../shared/EMRFormFields/EMRTextInput';
 import { EMRTextarea } from '../shared/EMRFormFields/EMRTextarea';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
+import type { Locale } from '../../services/localeService';
 import { useHasPermission } from '../../contexts/PermissionContext';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import type { FhirResourceLike } from '../../services/fhirClient';
@@ -145,9 +147,10 @@ function logStudyDelete(payload: {
 interface StudyInfoProps {
   study: ImagingStudyLike;
   t: (key: string) => string;
+  locale: Locale;
 }
 
-function StudyInfoCard({ study, t }: StudyInfoProps): React.ReactElement {
+function StudyInfoCard({ study, t, locale }: StudyInfoProps): React.ReactElement {
   const modalities =
     study.series
       ?.map((s) => s.modality?.code)
@@ -187,9 +190,7 @@ function StudyInfoCard({ study, t }: StudyInfoProps): React.ReactElement {
             {t('pacs.management.date')}
           </Text>
           <Text size="sm" fw={500}>
-            {study.started
-              ? new Date(study.started).toLocaleDateString()
-              : '—'}
+            {study.started ? toLocaleDateForPacs(study.started, locale) : '—'}
           </Text>
         </Box>
         <Box className={styles.metaItem}>
@@ -238,7 +239,7 @@ function ReassignModal({
   study,
   onSuccess,
 }: ReassignModalProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
 
   const [patientQuery, setPatientQuery] = useState('');
@@ -251,17 +252,41 @@ function ReassignModal({
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // M-HOOK-6: abort in-flight searches when the modal closes or the
+  // user kicks off another search. Today the FHIR client is a stub
+  // that does not honor ``signal``; once the real client lands the
+  // controller is plumbed through ready-to-go.
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const cancelledRef = useRef<boolean>(false);
+
   useEffect(() => {
     if (!opened) {
       setPatientQuery('');
       setPatientResults([]);
       setSelectedPatient(null);
       setReason('');
+      // Abort any in-flight search the modal initiated.
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
     }
   }, [opened]);
 
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+    };
+  }, []);
+
   const handlePatientSearch = useCallback(async () => {
     if (!patientQuery.trim()) return;
+    // Abort any prior search so a fast double-Enter does not race two
+    // setState calls into the React tree.
+    searchAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    searchAbortRef.current = ctrl;
     setSearching(true);
     try {
       const bundle = await fhir.search('Patient', {
@@ -269,6 +294,7 @@ function ReassignModal({
         _count: '15',
         _sort: '-_lastUpdated',
       });
+      if (ctrl.signal.aborted || cancelledRef.current) return;
       const patients = (bundle.entry ?? [])
         .map((e) => e.resource as PatientLike | undefined)
         .filter(
@@ -276,11 +302,14 @@ function ReassignModal({
         );
       setPatientResults(patients);
     } catch (err) {
+      if (ctrl.signal.aborted || cancelledRef.current) return;
       // eslint-disable-next-line no-console
       console.warn('[StudyManagementPanel] Patient search failed:', err);
       setPatientResults([]);
     } finally {
-      setSearching(false);
+      if (!ctrl.signal.aborted && !cancelledRef.current) {
+        setSearching(false);
+      }
     }
   }, [fhir, patientQuery]);
 
@@ -377,7 +406,7 @@ function ReassignModal({
       testId="reassign-study-modal"
     >
       <Stack gap="md">
-        <StudyInfoCard study={study} t={t} />
+        <StudyInfoCard study={study} t={t} locale={locale} />
 
         <Box>
           <Text size="sm" fw={600} mb={4}>
@@ -542,7 +571,7 @@ function DeleteModal({
   study,
   onSuccess,
 }: DeleteModalProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
 
   const [reports, setReports] = useState<DiagnosticReportLike[]>([]);
@@ -651,7 +680,7 @@ function DeleteModal({
       testId="delete-study-modal"
     >
       <Stack gap="md">
-        <StudyInfoCard study={study} t={t} />
+        <StudyInfoCard study={study} t={t} locale={locale} />
 
         {checkingRefs && (
           <Group gap="sm" justify="center" py="md">
@@ -752,7 +781,7 @@ function DeleteModal({
 // ============================================================================
 
 export function StudyManagementPanel(): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
   const hasPermission = useHasPermission('study.delete');
 
@@ -875,7 +904,7 @@ export function StudyManagementPanel(): React.ReactElement {
 
       {selectedStudy && (
         <Box>
-          <StudyInfoCard study={selectedStudy} t={t} />
+          <StudyInfoCard study={selectedStudy} t={t} locale={locale} />
           <Box className={styles.actions}>
             <EMRButton
               icon={IconArrowsExchange}

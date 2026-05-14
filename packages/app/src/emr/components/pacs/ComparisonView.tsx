@@ -33,13 +33,15 @@ import {
   Loader,
 } from '@mantine/core';
 import { IconArrowLeft, IconLink, IconLinkOff } from '@tabler/icons-react';
-import { Enums as csEnums } from '@cornerstonejs/core';
+import { Enums as csEnums, type Types as csTypes } from '@cornerstonejs/core';
 import {
   synchronizers as csSynchronizers,
   SynchronizerManager,
   Synchronizer,
 } from '@cornerstonejs/tools';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
+import type { Locale } from '../../services/localeService';
 import type { ImagingStudyListItem } from '../../types/pacs';
 import {
   initCornerstone,
@@ -91,13 +93,8 @@ const VOI_SYNC_ID = 'comparison-voi-sync';
 // Helpers
 // ============================================================================
 
-function formatStudyDate(dateStr?: string): string {
-  if (!dateStr) return '';
-  try {
-    return new Date(dateStr).toLocaleDateString();
-  } catch {
-    return dateStr;
-  }
+function formatStudyDate(dateStr: string | undefined, locale: Locale): string {
+  return toLocaleDateForPacs(dateStr, locale);
 }
 
 /**
@@ -163,7 +160,7 @@ export function ComparisonView({
   onBack,
   onComparisonChange,
 }: ComparisonViewProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const client = useDicomWebClient();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -344,8 +341,9 @@ export function ComparisonView({
         if (currentImageIds.length > 0) {
           const viewport = renderingEngine.getViewport(VIEWPORT_CURRENT);
           if (viewport && 'setStack' in viewport) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await (viewport as any).setStack(currentImageIds);
+            // L-DEP-1 fix: narrow to ``IStackViewport`` (which exposes
+            // ``setStack``) rather than the prior ``as any`` escape.
+            await (viewport as csTypes.IStackViewport).setStack(currentImageIds);
             viewport.resetCamera();
             viewport.render();
           }
@@ -361,8 +359,8 @@ export function ComparisonView({
           if (priorImageIds.length > 0) {
             const viewport = renderingEngine.getViewport(VIEWPORT_PRIOR);
             if (viewport && 'setStack' in viewport) {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              await (viewport as any).setStack(priorImageIds);
+              // L-DEP-1 fix: narrow to ``IStackViewport``.
+              await (viewport as csTypes.IStackViewport).setStack(priorImageIds);
               viewport.resetCamera();
               viewport.render();
             }
@@ -413,7 +411,7 @@ export function ComparisonView({
       .filter((s) => s.id !== currentStudy.id && !!s.orthancStudyId)
       .map((s) => ({
         value: s.id,
-        label: `${formatStudyDate(s.date)} — ${s.modalities.join(', ') || '?'} ${
+        label: `${formatStudyDate(s.date, locale)} — ${s.modalities.join(', ') || '?'} ${
           s.description || ''
         }`.trim(),
       }));
@@ -583,7 +581,7 @@ export function ComparisonView({
               {t('pacs.comparison.current')}
             </Text>
             <Text size="xs" style={{ color: 'var(--emr-text-secondary)' }}>
-              {formatStudyDate(currentStudy.date)}
+              {formatStudyDate(currentStudy.date, locale)}
               {currentStudy.description ? ` — ${currentStudy.description}` : ''}
             </Text>
           </div>
@@ -614,7 +612,7 @@ export function ComparisonView({
             </Text>
             {comparisonStudy ? (
               <Text size="xs" style={{ color: 'var(--emr-text-secondary)' }}>
-                {formatStudyDate(comparisonStudy.date)}
+                {formatStudyDate(comparisonStudy.date, locale)}
                 {comparisonStudy.description
                   ? ` — ${comparisonStudy.description}`
                   : ''}

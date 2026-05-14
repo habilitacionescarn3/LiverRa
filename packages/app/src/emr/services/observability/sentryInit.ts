@@ -43,6 +43,14 @@ export function isSentryInitialised(): boolean {
 }
 
 /**
+ * Sentry events are `Record<string, unknown>`-compatible — the PHI
+ * scrubber needs to walk arbitrary nested data, but the Sentry SDK
+ * itself returns a strongly-typed structure post-scrub. M-TYPE-2 fix:
+ * declare the boundary type explicitly so the cast no longer lies.
+ */
+type ScrubableSentryEvent = Sentry.ErrorEvent & Record<string, unknown>;
+
+/**
  * Wrap Sentry's `beforeSend` with PHI scrubbing.
  *
  * Returns the scrubbed event on success. Returns `null` on ANY
@@ -51,7 +59,14 @@ export function isSentryInitialised(): boolean {
 function makeBeforeSend(): NonNullable<Sentry.BrowserOptions['beforeSend']> {
   return (event, _hint) => {
     try {
-      return scrubObject(event as unknown as Record<string, unknown>) as typeof event;
+      // M-TYPE-2 fix: the scrubber operates on the event as a
+      // generic record (PHI keys can live anywhere in nested data),
+      // but Sentry expects the same shape back. Using a single
+      // intersection type (``ScrubableSentryEvent``) describes both
+      // requirements without an ``as unknown`` cast chain.
+      const scrubable = event as ScrubableSentryEvent;
+      const scrubbed = scrubObject(scrubable) as ScrubableSentryEvent;
+      return scrubbed;
     } catch (err) {
       if (err instanceof ScrubberFailure) {
         console.warn('[liverra] Sentry event dropped — PHI scrubber failed:', err.message);

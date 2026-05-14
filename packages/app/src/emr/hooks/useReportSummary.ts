@@ -22,7 +22,7 @@ import {
 } from '../services/report/reportSummary';
 
 export interface UseReportSummaryResult {
-  /** TanStack Query result for the body (typed as ReportSummary for back-compat with callers). */
+  /** TanStack Query result projected onto the report body. */
   query: UseQueryResult<ReportSummary, Error>;
   /** Latest ETag seen on a GET. `null` until first successful fetch. */
   etag: string | null;
@@ -48,27 +48,41 @@ export function useReportSummary(
   const staleTime = options.staleTime ?? 60_000;
   const enabled = options.enabled ?? !!analysisId;
 
-  const inner = useQuery<ReportSummaryWithMeta, Error>({
+  // M-TYPE-1 fix: previously this hook reshaped a UseQueryResult via
+  // ``as unknown as UseQueryResult<ReportSummary, Error>``, which
+  // violated TanStack's discriminated union (``status: 'success'``
+  // could co-exist with ``data: undefined`` because we'd swapped
+  // ``data`` for ``inner.data?.body``). The proper TanStack idiom is
+  // ``select``: it runs after caching and projects a typed body out
+  // of the wire envelope without violating the union.
+  //
+  // We also need the raw ``etag`` / ``lastModified`` headers for the
+  // clipboard concurrency gate, so we run TWO ``useQuery`` calls with
+  // the SAME query key — TanStack deduplicates the underlying fetch,
+  // so this is one network request and one cache entry. The first
+  // query exposes the envelope, the second projects the body.
+  const envelope = useQuery<ReportSummaryWithMeta, Error>({
     queryKey: ['report-summary', analysisId],
     queryFn: () => fetchReportSummaryWithMeta(analysisId),
     enabled,
     staleTime,
   });
 
-  // Adapter — surface body as `data` so callers can keep their old shape.
-  const data = inner.data?.body;
-  const query: UseQueryResult<ReportSummary, Error> = {
-    ...inner,
-    data,
-  } as unknown as UseQueryResult<ReportSummary, Error>;
+  const query = useQuery<ReportSummaryWithMeta, Error, ReportSummary>({
+    queryKey: ['report-summary', analysisId],
+    queryFn: () => fetchReportSummaryWithMeta(analysisId),
+    enabled,
+    staleTime,
+    select: (e) => e.body,
+  });
 
   return {
     query,
-    etag: inner.data?.etag ?? null,
-    lastModified: inner.data?.lastModified ?? null,
-    data,
-    isLoading: inner.isLoading,
-    isError: inner.isError,
+    etag: envelope.data?.etag ?? null,
+    lastModified: envelope.data?.lastModified ?? null,
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
     refetch: query.refetch,
   };
 }

@@ -142,6 +142,13 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
   const managerRef = useRef<UserManager | null>(null);
   const envRef = useRef<OidcEnv | null>(null);
 
+  // L-HOOK-4 / H-HOOK-3: capture ``testOverrides`` once at mount so the
+  // init effect (deps ``[]``) reads a stable value. Swapping overrides
+  // post-mount would change semantics in a test but never in prod, and
+  // the alternative — listing them in deps — re-runs the entire init
+  // including ``manager.events.addUserLoaded`` subscriptions.
+  const overridesRef = useRef(testOverrides);
+
   const [user, setUser] = useState<User | null>(testOverrides?.initialUser ?? null);
   const [authMe, setAuthMe] = useState<AuthMeResponse | null>(testOverrides?.authMe ?? null);
   const [isLoading, setIsLoading] = useState<boolean>(!testOverrides);
@@ -149,6 +156,7 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
   // One-time init: build UserManager, subscribe to its events, load initial user.
   useEffect(() => {
     let cancelled = false;
+    const testOverrides = overridesRef.current;
 
     if (testOverrides) {
       managerRef.current = testOverrides.manager ?? null;

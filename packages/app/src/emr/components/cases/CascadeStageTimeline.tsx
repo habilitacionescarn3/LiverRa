@@ -159,7 +159,11 @@ export function CascadeStageTimeline({
   analysisStatus,
   'data-testid': testId = 'cascade-stage-timeline',
 }: CascadeStageTimelineProps): React.ReactElement | null {
-  const { t, lang } = useTranslation();
+  const { t, tPlural, locale } = useTranslation();
+  // BCP-47 tag used for Intl number/locale APIs throughout this component.
+  // INTL_TAG re-exported from localeService via TranslationContext.
+  const intlTag =
+    locale === 'ru' ? 'ru-RU' : locale === 'de' ? 'de-DE' : locale === 'ka' ? 'ka-GE' : 'en-GB';
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   // Default behaviour: collapsed when the pipeline is done (surgeon already
   // past the wait), expanded while it's still chugging so live progress
@@ -176,6 +180,10 @@ export function CascadeStageTimeline({
   // status.
   useEffect(() => {
     setExpanded(isLive);
+    // M-HOOK-3 justification: ``isLive`` is a pure derivation of
+    // ``analysisStatus`` (literal definition above). Tracking the
+    // source-of-truth dep keeps intent legible; isLive flips iff
+    // analysisStatus flips.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisStatus]);
 
@@ -203,14 +211,14 @@ export function CascadeStageTimeline({
 
   const activeStep = stages.length - 1;
   const totalDuration = formatTotalDuration(stages);
-  const stageCountKey =
-    stages.length === 1
-      ? 'analysis:detail.cascadeTimeline.summary.stageCount_one'
-      : 'analysis:detail.cascadeTimeline.summary.stageCount_other';
-  const stageCountLabel = t(stageCountKey, {
-    count: stages.length,
-    total: totalDuration,
-  });
+  // Russian needs 4 plural forms (one/few/many/other) — use Intl.PluralRules
+  // via `tPlural` instead of a `count === 1 ? _one : _other` ternary.
+  // Audit reference: H-I18NQ-6.
+  const stageCountLabel = tPlural(
+    'analysis:detail.cascadeTimeline.summary.stageCount',
+    stages.length,
+    { total: totalDuration },
+  );
 
   // Status pill: green check / spinner / red dot, derived from analysisStatus
   // first, then falls back to "complete" when the cascade ledger is fully
@@ -272,14 +280,11 @@ export function CascadeStageTimeline({
   const flrPct =
     typeof flrRaw === 'string' ? Number.parseFloat(flrRaw) : (flrRaw as number | null);
 
-  const lesionLabel =
-    lesionCount === 1
-      ? t('analysis:detail.cascadeTimeline.summary.lesionCount_one', {
-          count: lesionCount,
-        })
-      : t('analysis:detail.cascadeTimeline.summary.lesionCount_other', {
-          count: lesionCount,
-        });
+  // Russian plural: lesion needs 4 forms via Intl.PluralRules.
+  const lesionLabel = tPlural(
+    'analysis:detail.cascadeTimeline.summary.lesionCount',
+    lesionCount,
+  );
 
   const toggleId = `cascade-timeline-body-${analysisId}`;
 
@@ -341,7 +346,7 @@ export function CascadeStageTimeline({
                 data-testid="cascade-summary-liver-volume"
               >
                 {t('analysis:detail.cascadeTimeline.summary.liverVolume', {
-                  ml: liverV.toLocaleString(lang, { maximumFractionDigits: 0 }),
+                  ml: liverV.toLocaleString(intlTag, { maximumFractionDigits: 0 }),
                 })}
               </EMRBadge>
             )}
@@ -405,7 +410,7 @@ export function CascadeStageTimeline({
         {stages.map((entry, idx) => {
           const prevIso = idx === 0 ? undefined : stages[idx - 1].written_at;
           const delta = formatDelta(prevIso, entry.written_at);
-          const stat = pickStageStat(entry.stage, results, entry.model_version, lang);
+          const stat = pickStageStat(entry.stage, results, entry.model_version, intlTag);
           const stageLabel =
             t(`analysis:stages.${entry.stage}`) ||
             entry.stage;

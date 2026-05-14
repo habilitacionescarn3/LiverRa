@@ -52,6 +52,7 @@ import {
 } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
+import refinementStyles from './RefinementView.module.css';
 import { RecordLockBanner } from '../../components/access-control';
 import {
   EMRAlert,
@@ -125,7 +126,12 @@ function RefinementViewInner(): ReactElement {
       return (
         new URLSearchParams(location.search).get('devMockMask') === '1'
       );
-    } catch {
+    } catch (e) {
+      // L-CATCH-6: malformed search string is dev-only territory; we
+      // want a console.debug trace so the symptom is visible but the
+      // user-facing UI must keep working.
+      // eslint-disable-next-line no-console
+      console.debug('[Refinement] URLSearchParams parse failed', { e });
       return false;
     }
   }, [location.search]);
@@ -143,7 +149,26 @@ function RefinementViewInner(): ReactElement {
   const isReadOnly = !seat.hasSeat || !hasPermission;
 
   // ----- Seat lifecycle: acquire on mount, release on unmount ----------------
+  //
+  // C-REFINE-5: only release on unmount when we actually acquired the
+  // seat. The previous version always called release() even when
+  // acquire() had failed with seat-taken, which then fired a spurious
+  // sendBeacon to /release for a review_id we don't own. We track
+  // ``acquiredRef`` so cleanup is a strict no-op until the await
+  // resolves successfully.
+  //
+  // M-REFINE-1: reset acquireAttemptedRef on .catch so a transient
+  // failure (network blip, 503) doesn't latch the user out for the
+  // lifetime of the view — the explicit "Retry" button clears the ref
+  // too, but autoload should self-heal.
+  //
+  // M-REFINE-2: ref-pin ``seat.release`` so the cleanup callback always
+  // reads the latest function reference rather than a stale closure.
   const acquireAttemptedRef = useRef<string | null>(null);
+  const acquiredRef = useRef<boolean>(false);
+  const releaseRef = useRef<typeof seat.release>(seat.release);
+  releaseRef.current = seat.release;
+
   useEffect(() => {
     if (!analysisId) return undefined;
     // Only fire acquire once per analysisId to avoid hammering the API.
@@ -153,21 +178,39 @@ function RefinementViewInner(): ReactElement {
       // return undefined instead of a Promise.
       if (!seat.hasSeat) {
         try {
-          const result = seat.acquire(analysisId);
-          if (result && typeof (result as Promise<void>).catch === 'function') {
-            (result as Promise<void>).catch(() => {
-              /* seat-taken / network — UI surfaces via status/holderDisplayName */
-            });
+          const result = seat.acquire(analysisId) as unknown;
+          if (
+            result &&
+            typeof (result as { then?: unknown }).then === 'function'
+          ) {
+            (result as Promise<unknown>)
+              .then(() => {
+                acquiredRef.current = true;
+              })
+              .catch(() => {
+                // M-REFINE-1: clear the latch so a subsequent auto-mount
+                // (e.g. tab refocus) can re-attempt without the user
+                // having to click "Retry".
+                acquireAttemptedRef.current = null;
+              });
+          } else {
+            // Synchronous mocks — assume happy path.
+            acquiredRef.current = true;
           }
         } catch {
           /* acquire threw synchronously — UI still renders */
+          acquireAttemptedRef.current = null;
         }
+      } else {
+        acquiredRef.current = true;
       }
     }
     return () => {
-      // Best-effort release on unmount.
+      // C-REFINE-5: best-effort release ONLY if we actually held the seat.
+      if (!acquiredRef.current) return;
+      acquiredRef.current = false;
       try {
-        const result = seat.release();
+        const result = releaseRef.current();
         if (result && typeof (result as Promise<void>).catch === 'function') {
           (result as Promise<void>).catch(() => {
             /* ignore */
@@ -178,7 +221,8 @@ function RefinementViewInner(): ReactElement {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps — we intentionally
-    // run this only when the analysis id changes, not on every seat state tick.
+    // run this only when the analysis id changes; ``seat.release`` is
+    // pinned via releaseRef so a stale closure cannot fire.
   }, [analysisId]);
 
   // ----- Dispatch wrapper: on success, flash overlay + clear redo ------------
@@ -219,6 +263,13 @@ function RefinementViewInner(): ReactElement {
   // Exposed on window for the LiverViewer3D sibling to hook into without
   // refactoring its Cornerstone event plumbing. Parent owns *when* a click
   // becomes a dispatch; viewer stays presentational.
+  //
+  // H-REFINE-3: every dispatch carries an ``inverse`` so the undo stack
+  // gets a poppable entry. The inverse of an ``add`` at voxel V is a
+  // ``subtract`` at the same voxel; vice versa. ``point`` clicks (used
+  // to seed lesion prompts, not directly mutate masks) are mapped to
+  // an inverse ``subtract`` placeholder — the undo will surface an
+  // empty/no-op delta the viewer can ignore.
   useEffect(() => {
     if (!analysisId) return undefined;
     const onViewerClick = (ev: Event): void => {
@@ -230,11 +281,20 @@ function RefinementViewInner(): ReactElement {
         }>
       ).detail;
       if (!detail || !detail.voxel) return;
+      const clickType =
+        detail.clickType ?? (activeTool === 'subtract' ? 'subtract' : 'add');
+      const inverseClickType: 'add' | 'subtract' | 'point' =
+        clickType === 'add'
+          ? 'subtract'
+          : clickType === 'subtract'
+            ? 'add'
+            : 'point';
       void runMaskDispatch({
         analysisId,
         segmentationId: detail.segmentationId ?? 'parenchyma',
-        clickType: detail.clickType ?? (activeTool === 'subtract' ? 'subtract' : 'add'),
+        clickType,
         voxel: detail.voxel,
+        inverse: { clickType: inverseClickType, voxel: detail.voxel },
       });
     };
     window.addEventListener(
@@ -284,14 +344,19 @@ function RefinementViewInner(): ReactElement {
       const key = ev.key.toLowerCase();
 
       // Undo: Ctrl/Cmd + Z (without Shift)
+      // C-REFINE-4: re-entrancy guard. Without this, mashing Ctrl-Z
+      // before the previous undo has completed double-pops the stack
+      // and double-enqueues inverses.
       if (mod && key === 'z' && !ev.shiftKey) {
         ev.preventDefault();
+        if (undo.isUndoing) return;
         void handleUndo();
         return;
       }
       // Redo: Ctrl+Y OR Ctrl+Shift+Z
       if ((mod && key === 'y') || (mod && ev.shiftKey && key === 'z')) {
         ev.preventDefault();
+        if (undo.isUndoing) return;
         handleRedo();
         return;
       }
@@ -316,7 +381,7 @@ function RefinementViewInner(): ReactElement {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleUndo, handleRedo, isReadOnly, navigate]);
+  }, [handleUndo, handleRedo, isReadOnly, navigate, undo.isUndoing]);
 
   // ----- Conflict modal wiring ----------------------------------------------
   // `ConflictResolutionModal` listens to LIVERRA_ERROR_EVENTS.ConflictResolution
@@ -510,7 +575,9 @@ function RefinementViewInner(): ReactElement {
         </Box>
       )}
 
-      {/* Two-pane body. Rail collapses to a top strip on narrow viewports. */}
+      {/* Two-pane body. Rail collapses to a top strip on narrow viewports.
+          L-REFINE-2: mobile-rail collapse rule lives in
+          ``RefinementView.module.css`` (``.body``) instead of inline. */}
       <Box
         style={{
           display: 'grid',
@@ -520,16 +587,9 @@ function RefinementViewInner(): ReactElement {
           flex: 1,
           minHeight: 0,
         }}
-        className="refinement-view-body"
+        className={refinementStyles.body}
         data-testid="refinement-view-body"
       >
-        <style>{`
-          @media (max-width: 767px) {
-            .refinement-view-body {
-              grid-template-columns: 1fr !important;
-            }
-          }
-        `}</style>
 
         {/* Left rail — tools + layers + undo HUD. */}
         <Stack
@@ -671,6 +731,7 @@ function RefinementViewInner(): ReactElement {
               aria-hidden
               data-testid="refinement-view-synthetic-overlay"
               data-flash-active={overlayFlash ? 'true' : 'false'}
+              className={refinementStyles.syntheticOverlay}
               style={{
                 position: 'absolute',
                 inset: 0,
@@ -681,13 +742,6 @@ function RefinementViewInner(): ReactElement {
               }}
             />
           )}
-          <style>{`
-            @media (prefers-reduced-motion: reduce) {
-              [data-testid='refinement-view-synthetic-overlay'] {
-                transition: none !important;
-              }
-            }
-          `}</style>
         </Box>
       </Box>
 

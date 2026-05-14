@@ -159,7 +159,12 @@ function loadCache(): Record<ClaimKey, ClaimRegistryEntry> | null {
     const raw = window.localStorage.getItem(CACHE_STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as Record<ClaimKey, ClaimRegistryEntry>;
-  } catch {
+  } catch (e) {
+    // L-CATCH-4: cache is best-effort warmup; corruption is rare and
+    // the registry falls back to defaults. Log to console.debug so
+    // dev tools can see it but production stays quiet.
+    // eslint-disable-next-line no-console
+    console.debug('[RUOClaimRegistry] cache load failed', { e });
     return null;
   }
 }
@@ -167,8 +172,11 @@ function loadCache(): Record<ClaimKey, ClaimRegistryEntry> | null {
 function saveCache(registry: Record<ClaimKey, ClaimRegistryEntry>): void {
   try {
     window.localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(registry));
-  } catch {
-    // non-fatal
+  } catch (e) {
+    // L-CATCH-4: privacy mode / quota — non-critical, the next
+    // refresh will repopulate from network if storage stays unavailable.
+    // eslint-disable-next-line no-console
+    console.debug('[RUOClaimRegistry] cache save failed', { e });
   }
 }
 
@@ -186,15 +194,23 @@ export function RUOClaimRegistryProvider({
   children,
   testOverrides,
 }: RUOClaimRegistryProviderProps): JSX.Element {
+  // L-HOOK-1: pin ``testOverrides`` so neither ``refresh`` nor the
+  // interval effect re-runs on a parent re-render that happens to
+  // re-create the prop. Tests pass a stable object once; prod never
+  // supplies one. Capturing the value into a ref makes the dep array
+  // ``[]``-equivalent without lying to the linter.
+  const testOverridesRef = useRef(testOverrides);
+  const hasTestOverrides = testOverridesRef.current !== undefined;
+
   const [registry, setRegistry] = useState<Record<ClaimKey, ClaimRegistryEntry>>(
-    () => testOverrides?.registry ?? loadCache() ?? defaultRegistry(),
+    () => testOverridesRef.current?.registry ?? loadCache() ?? defaultRegistry(),
   );
-  const [isLoading, setIsLoading] = useState<boolean>(!testOverrides);
+  const [isLoading, setIsLoading] = useState<boolean>(!hasTestOverrides);
   const [error, setError] = useState<Error | null>(null);
   const cancelledRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (testOverrides) return;
+    if (testOverridesRef.current) return;
     try {
       const baseUrl = readApiBaseUrl();
       const res = await fetch(`${baseUrl}/compliance/claim-registry`, {
@@ -219,10 +235,10 @@ export function RUOClaimRegistryProvider({
     } finally {
       if (!cancelledRef.current) setIsLoading(false);
     }
-  }, [testOverrides]);
+  }, []);
 
   useEffect(() => {
-    if (testOverrides) return;
+    if (testOverridesRef.current) return;
     cancelledRef.current = false;
     void refresh();
     const id = setInterval(() => void refresh(), REFRESH_INTERVAL_MS);
@@ -230,7 +246,7 @@ export function RUOClaimRegistryProvider({
       cancelledRef.current = true;
       clearInterval(id);
     };
-  }, [refresh, testOverrides]);
+  }, [refresh]);
 
   const value = useMemo<RUOClaimRegistryContextValue>(
     () => ({ registry, isLoading, error, refresh }),

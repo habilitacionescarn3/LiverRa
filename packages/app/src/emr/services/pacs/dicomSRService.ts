@@ -313,7 +313,12 @@ export async function exportAnnotationsToSR(
   try {
     const parsed = JSON.parse(annotationData);
     annotationCount = Array.isArray(parsed) ? parsed.length : 1;
-  } catch {
+  } catch (e) {
+    // L-CATCH-1: parse-failure means we cannot audit "N annotations"
+    // accurately — log to console.debug so a corrupt SR payload is
+    // visible during development without failing the export.
+    // eslint-disable-next-line no-console
+    console.debug('[dicomSRService] annotation JSON parse failed', { e });
     annotationCount = 0;
   }
 

@@ -197,6 +197,17 @@ export function ViewerStateProvider({
     [camera, activeLayers, scheduleFlush],
   );
 
+  // M-HOOK-1 / H-HOOK-1 fix: refs mirror live state so the unmount
+  // cleanup reads the LATEST values rather than the values captured at
+  // first render (the bug previously persisted defaults instead of the
+  // user's final pose).
+  const cameraRef = useRef<ViewerCamera>(camera);
+  cameraRef.current = camera;
+  const activeLayersRef = useRef<Set<ViewerLayer>>(activeLayers);
+  activeLayersRef.current = activeLayers;
+  const toolModeRef = useRef<ViewerToolMode>(toolMode);
+  toolModeRef.current = toolMode;
+
   // Flush on unmount so the last state is persisted even if the user
   // navigates away before the debounced timer fires.
   useEffect(() => {
@@ -204,13 +215,14 @@ export function ViewerStateProvider({
       if (!persist) return;
       if (flushRef.current) clearTimeout(flushRef.current);
       savePersisted(analysisId, {
-        camera,
-        activeLayers: Array.from(activeLayers),
-        toolMode,
+        camera: cameraRef.current,
+        activeLayers: Array.from(activeLayersRef.current),
+        toolMode: toolModeRef.current,
       });
     };
-    // Intentionally capture the latest snapshot on unmount only.
-  }, [analysisId]);
+    // Deps deliberately analysisId-only: we want the cleanup to fire on
+    // analysis change or unmount, and we read live state via refs above.
+  }, [analysisId, persist]);
 
   const value = useMemo<ViewerStateContextValue>(
     () => ({
