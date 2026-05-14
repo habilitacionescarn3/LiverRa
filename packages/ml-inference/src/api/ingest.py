@@ -202,6 +202,27 @@ async def _get_upload(session: Any, upload_id: uuid.UUID) -> Optional[dict[str, 
     return dict(record) if record else None
 
 
+async def _get_upload_for_update(
+    session: Any, upload_id: uuid.UUID
+) -> Optional[dict[str, Any]]:
+    """Read an upload_session row with ``FOR UPDATE`` row-lock.
+
+    Prevents concurrent PATCH chunks against the same upload_id from
+    colliding on ``upload_offset`` — without this lock two chunks racing
+    on the same offset can both pass the equality check and double-write.
+    Caller MUST be inside a transaction (FastAPI session dep already is).
+    """
+    if session is None:
+        return None
+    from sqlalchemy import text
+    row = await session.execute(
+        text("SELECT * FROM upload_session WHERE id = :id FOR UPDATE"),
+        {"id": str(upload_id)},
+    )
+    record = row.mappings().first()
+    return dict(record) if record else None
+
+
 async def _patch_upload(session: Any, upload_id: uuid.UUID, *, new_offset: int) -> None:
     if session is None:
         return
@@ -492,7 +513,11 @@ if router is not None:
         if content_type != "application/offset+octet-stream":
             raise HTTPException(status_code=415, detail="tus_content_type_required")
 
-        record = await _get_upload(session, upload_id)
+        # FOR UPDATE row-lock — without this, two concurrent PATCH chunks
+        # racing on the same offset both pass the equality check below and
+        # both write to S3 (overwriting each other), then both bump the
+        # offset by their own length → corrupted upload state.
+        record = await _get_upload_for_update(session, upload_id)
         if record is None:
             raise HTTPException(status_code=404, detail="upload_not_found")
 
@@ -504,27 +529,56 @@ if router is not None:
             # Tenant-isolation: FR-032a — return 404, not 403.
             raise HTTPException(status_code=404, detail="upload_not_found")
 
-        # Stream body in a loop so 5 GB uploads don't buffer in RAM.
-        body = b""
-        async for chunk in request.stream():
-            body += chunk
+        # ---- B-PACS-2 fix: stream chunk to a temp file then S3 ---------
+        # Earlier code concatenated every async chunk into one ``bytes``
+        # object — a 5 GB upload became a 5 GB RAM allocation and OOM-
+        # killed the worker. Streaming to a NamedTemporaryFile keeps the
+        # peak resident set bounded by the disk buffer (~64 MB at a
+        # time on a stock Linux page cache). The temp file is then handed
+        # to ``upload_fileobj`` which itself streams to S3 in multipart
+        # chunks under the hood.
+        import tempfile
 
-        new_offset = upload_offset + len(body)
-        if new_offset > record["upload_length"]:
-            raise HTTPException(status_code=413, detail="upload_overrun")
+        chunk_max = record["upload_length"] - upload_offset
+        bytes_written = 0
+        with tempfile.NamedTemporaryFile(
+            mode="w+b", prefix=f"liverra-chunk-{upload_id}-", delete=True
+        ) as tmpfp:
+            async for chunk in request.stream():
+                if not chunk:
+                    continue
+                bytes_written += len(chunk)
+                if bytes_written > chunk_max:
+                    # Don't keep the temp file lying around for an
+                    # overrunning client; auto-deletes on context exit.
+                    raise HTTPException(status_code=413, detail="upload_overrun")
+                tmpfp.write(chunk)
+            tmpfp.flush()
+            tmpfp.seek(0)
 
-        # Persist chunk to S3 multipart (infra wires part_number via
-        # upload_session.etags — omitted here for the API-layer spec).
-        try:
-            client = _s3_client()
-            client.put_object(
-                Bucket=S3_BUCKET,
-                Key=f"uploads/{upload_id}/part-{upload_offset:012d}.bin",
-                Body=body,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.error("s3 chunk put failed upload=%s: %s", upload_id, str(exc)[:120])
-            raise HTTPException(status_code=502, detail="s3_chunk_failed") from exc
+            new_offset = upload_offset + bytes_written
+            if new_offset > record["upload_length"]:
+                raise HTTPException(status_code=413, detail="upload_overrun")
+
+            # Persist chunk to S3 — ``upload_fileobj`` is the streaming
+            # variant that issues multipart PUTs internally (configurable
+            # via TransferConfig; defaults to 8 MB part_size). No 5 GB
+            # peak RAM allocation regardless of chunk size.
+            try:
+                client = _s3_client()
+                client.upload_fileobj(
+                    Fileobj=tmpfp,
+                    Bucket=S3_BUCKET,
+                    Key=f"uploads/{upload_id}/part-{upload_offset:012d}.bin",
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "s3 chunk upload failed upload=%s: %s",
+                    upload_id, str(exc)[:120],
+                )
+                raise HTTPException(
+                    status_code=502, detail="s3_chunk_failed"
+                ) from exc
 
         await _patch_upload(session, upload_id, new_offset=new_offset)
 

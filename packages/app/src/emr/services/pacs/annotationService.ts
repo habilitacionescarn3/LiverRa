@@ -307,6 +307,9 @@ export async function deleteAnnotations(
     return false;
   }
 
-  await client.deleteResource('Basic', resources[0].id);
+  // C-PACS-5: clinical annotations are part of the retained medical
+  // record — soft-delete (set status=entered-in-error + deleted-at
+  // extension) so the row stays auditable for the 10-year CE MDR window.
+  await client.softDeleteResource<FhirBasic>(resources[0]);
   return true;
 }

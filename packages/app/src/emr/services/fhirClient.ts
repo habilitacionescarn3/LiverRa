@@ -87,10 +87,48 @@ export class LiverRaFhirClient {
 
   /**
    * Delete a resource by type + id. STUB: no-op + log.
+   *
+   * AUDIT NOTE (C-PACS-5): for FHIR `Basic` resources that carry clinical
+   * content (annotations, key images, hanging protocols, macros), do NOT
+   * call this method — clinical retention rules require soft-delete.
+   * Use {@link softDeleteResource} instead.
    */
   async deleteResource(resourceType: string, id: string): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn(`[fhir-stub] deleteResource not wired: ${resourceType}/${id}`);
+  }
+
+  /**
+   * Soft-delete a clinical resource — mark it ``entered-in-error`` and
+   * stamp a ``deleted-at`` extension instead of physically removing the
+   * row. CE MDR + GDPR retention rules require the clinical record to
+   * remain auditable for at least 10 years.
+   *
+   * The caller is responsible for emitting an AuditEvent referencing
+   * the soft-delete (the auditService.logStudyDelete helper is the
+   * appropriate hook for annotations / key-images; macroService /
+   * hangingProtocolEngine may want category-specific events).
+   *
+   * STUB: round-trips through updateResource so the call is visible in
+   * the log stream Phase 4 wires to Supabase.
+   */
+  async softDeleteResource<T extends FhirResourceLike>(
+    resource: T,
+  ): Promise<T> {
+    const now = new Date().toISOString();
+    const extension = Array.isArray((resource as { extension?: unknown }).extension)
+      ? ((resource as { extension?: unknown[] }).extension as unknown[]).slice()
+      : [];
+    extension.push({
+      url: 'http://liverra.ai/fhir/StructureDefinition/deleted-at',
+      valueDateTime: now,
+    });
+    const next = {
+      ...resource,
+      status: 'entered-in-error',
+      extension,
+    } as T;
+    return this.updateResource(next);
   }
 
   /**

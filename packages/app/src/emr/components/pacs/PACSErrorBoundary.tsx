@@ -22,6 +22,7 @@ import {
   IconRefresh,
   IconWifiOff,
 } from '@tabler/icons-react';
+import { captureException } from '../../services/observability/sentryInit';
 
 // ============================================================================
 // Types
@@ -91,7 +92,25 @@ export class PACSErrorBoundary extends Component<PACSErrorBoundaryProps, PACSErr
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
-    console.error('[PACSErrorBoundary]:', error, errorInfo);
+    // M-PACS-4: route through Sentry's PHI-scrubbing pipeline rather
+    // than dumping the raw Error to the console. Cornerstone3D crashes
+    // routinely include the failing imageId — which itself includes the
+    // study/series/instance UID — in the stack trace. Sentry's
+    // captureException uses our beforeSend hook to strip those before
+    // shipping the event. We forward only the error CATEGORY (classify
+    // result) to console for dev triage.
+    const category = classifyError(error);
+    captureException(error, {
+      source: 'PACSErrorBoundary',
+      kind: category,
+      componentStack: typeof errorInfo.componentStack === 'string'
+        ? errorInfo.componentStack.slice(0, 500)
+        : undefined,
+    });
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('[PACSErrorBoundary] category=' + category);
+    }
   }
 
   handleRetry = (): void => {

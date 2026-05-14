@@ -72,10 +72,107 @@ const TAGS = {
 
 /**
  * Parse DICOM headers from a list of files.
- * Returns metadata for each file that could be successfully parsed.
- * Files that fail to parse (corrupt, not DICOM) are silently skipped.
+ *
+ * M-PACS-1: previous implementation looped on the main thread which froze
+ * the UI for ~2.5 s on a 500-file CT folder import (typical parse is
+ * ~5 ms × 500 files). We now dispatch each file to a bounded pool of
+ * Web Workers (default: 4) so the UI stays interactive while parsing
+ * runs in the background.
+ *
+ * Files that fail to parse (corrupt, not DICOM) are silently skipped —
+ * unchanged from the main-thread version, since the DICM-magic-number
+ * pre-check already filters obvious non-DICOM uploads.
+ *
+ * Falls back to synchronous main-thread parsing in test environments
+ * where Worker is unavailable (jsdom doesn't supply one).
  */
 export async function parseDicomFiles(files: File[]): Promise<DicomFileMetadata[]> {
+  if (typeof Worker === 'undefined' || files.length === 0) {
+    // Fallback path — tests and tiny batches. Same behaviour as before.
+    return parseDicomFilesSync(files);
+  }
+
+  // Tunable pool size. 4 covers most laptop/tablet CPUs without
+  // saturating the renderer; hospital reading-room workstations have
+  // more cores but parsing is dominated by allocation, not compute.
+  const POOL_SIZE = Math.min(4, files.length);
+
+  // Dynamic import so production bundles only include the worker when
+  // this path actually runs. The ?worker query is Vite-specific and is
+  // tree-shaken out at build time in non-Vite test environments.
+  let WorkerCtor: { new (): Worker };
+  try {
+    const mod = (await import(
+      /* @vite-ignore */ './dicomParser.worker?worker'
+    )) as { default: { new (): Worker } };
+    WorkerCtor = mod.default;
+  } catch {
+    return parseDicomFilesSync(files);
+  }
+
+  interface WorkerResp {
+    jobId: number;
+    ok: boolean;
+    data?: Omit<DicomFileMetadata, 'file'>;
+  }
+
+  // Each worker handles one in-flight job at a time. Build the pool of
+  // ready workers and a queue of jobs; round-robin doesn't matter
+  // because workers post back via jobId.
+  const workers: Worker[] = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    workers.push(new WorkerCtor());
+  }
+
+  const results: DicomFileMetadata[] = new Array(files.length);
+  const free: number[] = Array.from({ length: POOL_SIZE }, (_, i) => i);
+  let nextJob = 0;
+
+  return new Promise<DicomFileMetadata[]>((resolve) => {
+    let completed = 0;
+
+    const tryDispatch = (): void => {
+      while (free.length > 0 && nextJob < files.length) {
+        const workerIdx = free.shift()!;
+        const jobId = nextJob++;
+        const worker = workers[workerIdx];
+        const file = files[jobId];
+        const handler = (ev: MessageEvent<WorkerResp>): void => {
+          if (ev.data.jobId !== jobId) return;
+          worker.removeEventListener('message', handler);
+          if (ev.data.ok && ev.data.data) {
+            results[jobId] = { file, ...ev.data.data };
+          }
+          completed += 1;
+          free.push(workerIdx);
+          if (completed === files.length) {
+            for (const w of workers) w.terminate();
+            // Drop holes left by unparseable files.
+            resolve(results.filter((r): r is DicomFileMetadata => r != null));
+          } else {
+            tryDispatch();
+          }
+        };
+        worker.addEventListener('message', handler);
+        // Transfer the ArrayBuffer ownership to avoid a structured-clone
+        // copy of multi-MB DICOM blobs.
+        void file.arrayBuffer().then((buf) => {
+          worker.postMessage(
+            { jobId, buffer: buf, fileName: file.name },
+            [buf],
+          );
+        });
+      }
+    };
+    tryDispatch();
+  });
+}
+
+/**
+ * Synchronous main-thread fallback. Used in tests and when Worker is
+ * unavailable. NOT used in production app paths.
+ */
+async function parseDicomFilesSync(files: File[]): Promise<DicomFileMetadata[]> {
   const results: DicomFileMetadata[] = [];
 
   for (const file of files) {

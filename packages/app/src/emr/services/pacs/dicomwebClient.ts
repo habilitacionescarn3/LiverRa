@@ -346,6 +346,18 @@ export class DicomWebClient {
    * Upload DICOM files to the PACS server via STOW-RS (multipart/related POST).
    * Like putting a stack of X-ray films into a filing cabinet — each file is
    * wrapped in its own envelope and sent in one big package.
+   *
+   * H-PACS-7: previous implementation issued one STOW-RS request per file
+   * sequentially. For a 500-file CT study over a 100 ms RTT link that's
+   * 50 seconds of pure round-trip latency before any disk write. We now
+   * fan out with a bounded concurrency pool (default 4 in-flight).
+   *
+   * M-PACS-2: when an individual file fails with a 401, we no longer
+   * abort the entire batch (which leaves an unknown number of files
+   * "in limbo"). The auth error is surfaced as part of the per-file
+   * failure list AND counted against the batch, but the remaining files
+   * continue. Caller can still detect "batch was 401-throttled" by
+   * inspecting the failures array.
    */
   async stowInstances(files: File[], signal?: AbortSignal): Promise<StowResult> {
     if (files.length === 0) {
@@ -353,23 +365,58 @@ export class DicomWebClient {
     }
 
     const result: StowResult = { successCount: 0, failedCount: 0, failures: [] };
+    const concurrency = 4; // tuned for typical hospital LAN; tune via env if needed.
 
-    for (const file of files) {
-      try {
-        const singleResult = await this.storeSingleInstance(file, signal);
-        result.successCount += singleResult.successCount;
-        result.failedCount += singleResult.failedCount;
-        result.failures.push(...singleResult.failures);
-      } catch (err) {
-        if (err instanceof DicomWebAuthError) throw err;
-        if (signal?.aborted) throw err;
-        result.failedCount++;
-        result.failures.push(
-          `${file.name}: ${err instanceof Error ? err.message : String(err)}`
-        );
+    let nextIndex = 0;
+    let authErrorCount = 0;
+    const workers: Promise<void>[] = [];
+
+    const takeOne = async (): Promise<void> => {
+      while (true) {
+        if (signal?.aborted) return;
+        const idx = nextIndex++;
+        if (idx >= files.length) return;
+        const file = files[idx];
+        try {
+          const singleResult = await this.storeSingleInstance(file, signal);
+          result.successCount += singleResult.successCount;
+          result.failedCount += singleResult.failedCount;
+          result.failures.push(...singleResult.failures);
+        } catch (err) {
+          if (signal?.aborted) return;
+          if (err instanceof DicomWebAuthError) {
+            // Auth errors deserve a category code rather than a bald
+            // throw — otherwise a transient JWT expiry mid-batch
+            // poisons every remaining file even if a silent refresh
+            // could have recovered. We surface the file name as a
+            // category-only label (already free of DICOM tag data).
+            authErrorCount += 1;
+            result.failedCount += 1;
+            result.failures.push('auth_expired');
+            continue;
+          }
+          result.failedCount += 1;
+          // C-PACS-1: never embed filenames in the user-visible failure
+          // list (filenames frequently contain patient identifiers like
+          // "Smith_John_CT.dcm"). Surface the error message only, which
+          // mapStowFailureReason has already categorized.
+          result.failures.push(
+            err instanceof Error ? err.message : 'upload_failed',
+          );
+        }
       }
-    }
+    };
 
+    for (let w = 0; w < Math.min(concurrency, files.length); w++) {
+      workers.push(takeOne());
+    }
+    await Promise.all(workers);
+
+    if (authErrorCount > 0 && authErrorCount === files.length) {
+      // Whole batch was auth-rejected — caller probably wants to surface
+      // a re-login prompt rather than "500 of 500 failed (auth_expired)".
+      throw new DicomWebAuthError(`${this.baseUrl}/studies`);
+    }
     return result;
   }
 

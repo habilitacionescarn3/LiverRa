@@ -222,6 +222,18 @@ export async function deleteMacro(
   medplum: LiverRaFhirClient,
   macroId: string,
 ): Promise<void> {
+  // C-PACS-5: report macros may carry clinical phrasing that becomes
+  // part of the diagnostic record when invoked; soft-delete preserves
+  // the audit trail. If the resource is no longer readable we fall back
+  // to hard-delete so the UI doesn't get stuck pointing at a row that
+  // refuses to update.
+  const existing = (await medplum.readResource('Basic', macroId)) as
+    | (Basic & { id?: string })
+    | null;
+  if (existing && existing.resourceType === 'Basic') {
+    await medplum.softDeleteResource(existing);
+    return;
+  }
   await medplum.deleteResource('Basic', macroId);
 }
 

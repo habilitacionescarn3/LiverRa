@@ -488,6 +488,19 @@ export async function deleteUserProtocol(
   fhir: LiverRaFhirClient,
   protocolId: string
 ): Promise<void> {
+  // C-PACS-5: hanging protocols are part of the clinical reading
+  // workflow; per CE MDR retention rules we soft-delete (mark
+  // entered-in-error + stamp deleted-at) rather than physically remove.
+  // Best-effort: if the read fails or returns null, fall through to
+  // hard-delete so the protocolId disappears from the UI (the dev stub
+  // returns null today for everything).
+  const existing = (await fhir.readResource('Basic', protocolId)) as
+    | (Basic & { id?: string })
+    | null;
+  if (existing && existing.resourceType === 'Basic') {
+    await fhir.softDeleteResource(existing);
+    return;
+  }
   await fhir.deleteResource('Basic', protocolId);
 }
 

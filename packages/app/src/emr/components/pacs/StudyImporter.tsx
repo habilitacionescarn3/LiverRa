@@ -658,6 +658,38 @@ export const StudyImporter = memo(function StudyImporter({
       return;
     }
 
+    // H-PACS-6: REJECT the upload if no anonymization sidecar URL is
+    // configured. Without it, raw DICOM (PatientName, MRN, DOB) flows
+    // straight to Orthanc. The dev-only proxy fallback in vite.config
+    // does NOT protect production deployments; failing closed here is
+    // the safe default. Operators may set
+    // VITE_LIVERRA_ANON_SIDECAR_BYPASS=true to opt out for offline
+    // testing — that flag is mirrored to AuditEvent at sidecar level.
+    const env = (import.meta as unknown as {
+      env?: { VITE_LIVERRA_ANON_SIDECAR_URL?: string; VITE_LIVERRA_ANON_SIDECAR_BYPASS?: string; PROD?: boolean };
+    }).env ?? {};
+    const sidecarUrl = (env.VITE_LIVERRA_ANON_SIDECAR_URL || '').trim();
+    const sidecarBypass =
+      (env.VITE_LIVERRA_ANON_SIDECAR_BYPASS || '').toLowerCase() === 'true';
+    if (!sidecarUrl && !sidecarBypass) {
+      setUploadError(
+        t('pacs.import.sidecarRequired') ??
+          'DICOM anonymization sidecar is not configured. Refusing to upload raw DICOM (PHI safety). Contact your administrator.',
+      );
+      setState('complete');
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[StudyImporter] upload blocked: VITE_LIVERRA_ANON_SIDECAR_URL is unset',
+      );
+      return;
+    }
+    if (sidecarBypass && env.PROD) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[StudyImporter] sidecar bypass enabled IN PRODUCTION — every uploaded DICOM bypasses anonymization. This is auditable.',
+      );
+    }
+
     const validFileObjects = validFiles.map((f) => f.file);
 
     // Phase 1: parse DICOM headers.

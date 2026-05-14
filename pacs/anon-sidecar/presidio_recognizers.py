@@ -39,8 +39,10 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 # Shared per-entity minimum score. Lower => false positives from partial
-# matches; too high => misses on OCR glitches. 0.6 is a compromise.
-DEFAULT_SCORE = 0.85
+# matches; too high => misses on OCR glitches. 0.6 is the intended threshold
+# per the docstring above (was 0.85, which silently let OCR-noised names
+# through — e.g. "MUI LER" instead of "MÜLLER"; audit H-PACS-5).
+DEFAULT_SCORE = 0.6
 
 
 # ---------------------------------------------------------------------------
@@ -80,17 +82,54 @@ def _tokenize_name(raw: str) -> list[str]:
     return pieces
 
 
+def _fuzzy_chars(token: str) -> str:
+    """Build a regex body that tolerates common OCR mistakes inside a token.
+
+    OCR engines routinely:
+      * inject a space inside a long token ("MÜLLER" → "MUI LER")
+      * confuse adjacent glyphs (I↔L, O↔0, S↔5, B↔8)
+      * drop combining marks (the caller already accent-strips)
+
+    We allow at most one optional whitespace between each pair of letters
+    so the regex can still anchor on the first/last character but doesn't
+    miss a single OCR break. We do NOT enable substitution sets (i.e.
+    I→[IL1]) — too noisy on radiology images that print "ID" or "L1" in
+    overlays. Per-character optional whitespace is the conservative win.
+    """
+    escaped_chars = [re.escape(c) for c in token]
+    # Join with optional single whitespace between every adjacent pair.
+    # Cap at 1 to avoid catastrophic backtracking on long tokens.
+    return r"\s?".join(escaped_chars)
+
+
 def _regex_for_token(token: str) -> str:
-    """Build a case+accent insensitive regex that matches the token verbatim
-    OR its accent-stripped form. The caller wraps with ``(?i)`` for case.
+    """Build a case+accent+OCR-fuzzy insensitive regex.
+
+    Matches:
+      1. The token verbatim
+      2. The accent-stripped form ("Muller" for "Müller")
+      3. A fuzzy variant that tolerates a single inserted whitespace
+         between any adjacent character pair (OCR glitch — see
+         H-PACS-5).
+
+    The caller wraps the result with ``(?i)`` for case-insensitivity.
     """
     escaped = re.escape(token)
     stripped = _strip_accents(token)
+    alternatives = [escaped]
     if stripped != token:
-        escaped = f"(?:{escaped}|{re.escape(stripped)})"
+        alternatives.append(re.escape(stripped))
+    # Fuzzy variant — only meaningful on tokens ≥ 3 chars (shorter tokens
+    # would explode false-positive rate). Apply both to the original and
+    # to the accent-stripped form for completeness.
+    if len(token) >= 3:
+        alternatives.append(_fuzzy_chars(token))
+        if stripped != token and len(stripped) >= 3:
+            alternatives.append(_fuzzy_chars(stripped))
+    body = "(?:" + "|".join(alternatives) + ")"
     # \b works for Latin/Cyrillic; for Georgian Mkhedruli \b may under-match,
     # so we accept a preceding/following non-word OR string boundary.
-    return rf"(?:\b|(?<=\W)|^){escaped}(?:\b|(?=\W)|$)"
+    return rf"(?:\b|(?<=\W)|^){body}(?:\b|(?=\W)|$)"
 
 
 # ---------------------------------------------------------------------------

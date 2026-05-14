@@ -8,8 +8,15 @@
 // patient/study metadata in the four corners — like a heads-up display (HUD)
 // in a video game or flight simulator.
 //
+// PHI safety (H-PACS-3): by default the PatientName field renders as
+// initials only (e.g., "Müller, Hans" → "M. H."). A "Reveal" gesture
+// emits a break-glass AuditEvent and shows the full name for the
+// remainder of the session. This means screen-shares, screenshots,
+// and over-the-shoulder readouts never expose pre-anonymized identity
+// without an explicit, audit-logged action.
+//
 // Layout:
-//   TL = Patient name, study date
+//   TL = Patient name (initials by default), study date
 //   TR = Modality, series description
 //   BL = Image index (e.g., "3 / 120"), Window/Level values
 //   BR = Zoom level, rotation (if non-zero)
@@ -18,20 +25,43 @@
 //   - White text with dark shadow for readability on any image background
 //   - Monospace font for numeric values (W/L, zoom, image index) so they
 //     don't "jump" as digits change
-//   - pointer-events: none so clicks pass through to the viewport beneath
+//   - pointer-events: none everywhere EXCEPT the Reveal button so clicks
+//     pass through to the viewport for tools
 //   - No background color — fully transparent
 // ============================================================================
 
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { logBreakGlass } from '../../services/pacs/auditService';
 import './ViewportOverlay.css';
+
+/**
+ * Compress a DICOM Person Name (Family^Given^...) or display form ("Müller,
+ * Hans") to initials with periods. Examples:
+ *   "Müller, Hans"           → "M. H."
+ *   "Smith^John^Q"           → "S. J. Q."
+ *   "Mononym"                → "M."
+ *   ""                       → ""
+ *
+ * Kept pure / synchronous so the overlay re-renders are cheap.
+ */
+function toInitials(name: string): string {
+  if (!name) return '';
+  // Normalize DICOM PN separator ^ to a comma so we can split uniformly.
+  const tokens = name
+    .replace(/\^/g, ', ')
+    .split(/[\s,]+/)
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return '';
+  return tokens.map((t) => `${t[0].toUpperCase()}.`).join(' ');
+}
 
 // ============================================================================
 // Props
 // ============================================================================
 
 export interface ViewportOverlayProps {
-  /** Patient display name (TL corner) */
+  /** Patient display name (TL corner) — rendered initials-only by default. */
   patientName?: string;
   /** Study date in displayable format (TL corner) */
   studyDate?: string;
@@ -51,6 +81,12 @@ export interface ViewportOverlayProps {
   zoom?: number;
   /** Current rotation in degrees (only displayed when non-zero) */
   rotation?: number;
+  /**
+   * Optional study ID. When present, clicking "Reveal" emits a break-
+   * glass AuditEvent referencing this study so the access is durable.
+   * Omit to disable the Reveal action entirely (initials remain forever).
+   */
+  studyId?: string;
 }
 
 // ============================================================================
@@ -68,15 +104,71 @@ export const ViewportOverlay = memo(function ViewportOverlay({
   windowCenter,
   zoom,
   rotation,
+  studyId,
 }: ViewportOverlayProps) {
   const { t } = useTranslation();
+  const [revealed, setRevealed] = useState(false);
+
+  const canReveal = Boolean(patientName) && Boolean(studyId);
+  const displayedName = patientName
+    ? revealed
+      ? patientName
+      : toInitials(patientName)
+    : '';
+
+  const handleReveal = useCallback(() => {
+    if (!studyId || !patientName) return;
+    // Prompt for a break-glass reason. We deliberately use the native
+    // browser prompt (a) so the gesture is impossible to fake by
+    // accidental click and (b) because Mantine modals from a third-party
+    // overlay would steal focus from the underlying Cornerstone canvas.
+    const reason = window.prompt(
+      t('pacs.overlay.breakGlassPrompt') ??
+        'Reveal patient name. Enter break-glass reason (required):',
+    );
+    if (!reason || reason.trim().length < 3) {
+      return;
+    }
+    logBreakGlass({
+      studyId,
+      description: `pacs_viewer_reveal: ${reason.trim().slice(0, 200)}`,
+    });
+    setRevealed(true);
+  }, [studyId, patientName, t]);
 
   return (
-    <div className="viewport-overlay" data-testid="viewport-overlay" aria-hidden="true">
-      {/* ---- Top-Left: Patient name + study date ---- */}
+    <div className="viewport-overlay" data-testid="viewport-overlay">
+      {/* ---- Top-Left: Patient name (initials) + study date ---- */}
       <div className="viewport-overlay-tl" data-testid="overlay-tl">
-        {patientName && (
-          <div className="viewport-overlay-text">{patientName}</div>
+        {displayedName && (
+          <div
+            className="viewport-overlay-text"
+            data-phi={revealed ? 'true' : 'false'}
+          >
+            {displayedName}
+          </div>
+        )}
+        {canReveal && !revealed && (
+          <button
+            type="button"
+            onClick={handleReveal}
+            className="viewport-overlay-reveal-btn"
+            data-testid="viewport-overlay-reveal"
+            style={{
+              pointerEvents: 'auto',
+              fontSize: 'var(--emr-font-xs)',
+              padding: '2px 6px',
+              marginTop: 4,
+              background: 'var(--emr-bg-hover, rgba(0,0,0,0.4))',
+              color: 'white',
+              border: '1px solid rgba(255,255,255,0.4)',
+              borderRadius: 4,
+              cursor: 'pointer',
+            }}
+            aria-label={t('pacs.overlay.revealPatientName') ?? 'Reveal patient name (break-glass)'}
+          >
+            {t('pacs.overlay.reveal') ?? 'Reveal'}
+          </button>
         )}
         {studyDate && (
           <div className="viewport-overlay-text">{studyDate}</div>

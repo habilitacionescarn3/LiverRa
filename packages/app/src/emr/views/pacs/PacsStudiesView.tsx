@@ -196,8 +196,23 @@ function PacsStudiesViewBody(): ReactElement {
     onUploaded: (result) => {
       setUploadError(null);
       if (result.stow.failedCount > 0) {
+        // C-PACS-1 — never render raw STOW failure strings to the user.
+        // The strings often contain DICOM tag fragments + filenames
+        // (e.g., "Patient_Smith_CT.dcm"), which can include patient
+        // identifiers. Instead we show a count + the distinct DICOM
+        // failure-reason categories that the mapStowFailureReason
+        // catalog has already turned into safe codes upstream.
+        const categories = Array.from(
+          new Set(
+            result.stow.failures
+              .map((f) => f.split(' — ')[0].trim())
+              .filter((c) => c.length > 0),
+          ),
+        );
+        const summary =
+          categories.length > 0 ? ` (${categories.slice(0, 3).join('; ')})` : '';
         setUploadError(
-          `${result.stow.failedCount} file(s) rejected by Orthanc: ${result.stow.failures.join('; ')}`,
+          `${result.stow.failedCount} file(s) rejected by Orthanc${summary}`,
         );
         // Partial success still navigates to the study so the user sees what landed.
       }
