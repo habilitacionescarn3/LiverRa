@@ -395,7 +395,13 @@ def _revoke_cascade(analysis_id: UUID) -> None:
 
         revoke_cascade(str(analysis_id))
     except Exception:
-        logger.info("cascade revoke skipped for analysis=%s", analysis_id)
+        # L-CATCH-2: revoke is best-effort cleanup (Celery may not be
+        # reachable or the task may already be terminal). Drop to debug
+        # so production logs stay clean while dev tooling still sees the
+        # trace via DEBUG-level logging.
+        logger.debug(
+            "cascade revoke skipped for analysis=%s", analysis_id, exc_info=True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1688,6 +1694,17 @@ async def render_lesion_endpoint(
             if isinstance(coords, list) and len(coords) == 6:
                 bbox_3d = [int(c) for c in coords]
         except Exception:  # noqa: BLE001
+            # L-CATCH-3: bbox_3d is an optional thumbnail-centring hint.
+            # If the column has a malformed payload we render the
+            # thumbnail without recentring — surface to debug so the
+            # data-quality team can investigate, but don't fail the
+            # render.
+            logger.debug(
+                "lesion bbox_3d parse failed analysis=%s lesion=%s",
+                analysis_id,
+                lesion_id,
+                exc_info=True,
+            )
             bbox_3d = None
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()

@@ -247,6 +247,21 @@
       "borderline": "Borderline (30–40%)",
       "low": "Low (< 30%)"
     },
+    "thresholdsHeader": "__TODO_TRANSLATE__:Adequacy thresholds ({{context}})",
+    "thresholdRanges": {
+      "low": {
+        "label": "__TODO_TRANSLATE__:Low",
+        "range": "__TODO_TRANSLATE__:< {{fail}}%"
+      },
+      "borderline": {
+        "label": "__TODO_TRANSLATE__:Borderline",
+        "range": "__TODO_TRANSLATE__:{{fail}}–{{warn}}%"
+      },
+      "adequate": {
+        "label": "__TODO_TRANSLATE__:Adequate",
+        "range": "__TODO_TRANSLATE__:≥ {{warn}}%"
+      }
+    },
     "recompute": "Recompute",
     "ariaLive": "FLR measurement updates",
     "totalMl": "__TODO_TRANSLATE__:{{ml}} mL total"

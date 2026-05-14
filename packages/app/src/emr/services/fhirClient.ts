@@ -2,6 +2,8 @@
 // ============================================================================
 // LiverRa FHIR Client — Medplum facade shim
 // ============================================================================
+
+import { phaseStubLog } from './pacs/phaseStubLog';
 // Medplum → LiverRa FHIR facade. Currently stubbed; Phase 4 wires the real
 // Supabase-backed FHIR persistence. Every call is logged so we can see
 // exactly what MediMind-ported code expects the FHIR store to do — that log
@@ -44,8 +46,7 @@ export class LiverRaFhirClient {
    * STUB: returns `null` and logs the call. Phase 4 will proxy to Supabase.
    */
   async readResource(resourceType: string, id: string): Promise<FhirResourceLike | null> {
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] readResource not wired: ${resourceType}/${id}`);
+    phaseStubLog('fhir-stub', 'readResource', { resourceType, id });
     return null;
   }
 
@@ -57,9 +58,7 @@ export class LiverRaFhirClient {
     resourceType: string,
     params?: Record<string, unknown>,
   ): Promise<FhirSearchBundle> {
-    const paramSummary = params ? JSON.stringify(params) : '(none)';
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] search not wired: ${resourceType} params=${paramSummary}`);
+    phaseStubLog('fhir-stub', 'search', { resourceType, params: params ?? {} });
     return { entry: [], total: 0 };
   }
 
@@ -68,8 +67,7 @@ export class LiverRaFhirClient {
    * Phase 4 will issue a real POST /<resourceType>.
    */
   async createResource<T extends FhirResourceLike>(resource: T): Promise<T> {
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] createResource not wired: ${resource.resourceType}`);
+    phaseStubLog('fhir-stub', 'createResource', { resourceType: resource.resourceType });
     return resource;
   }
 
@@ -89,12 +87,11 @@ export class LiverRaFhirClient {
     options?: { ifMatch?: string },
   ): Promise<T> {
     const ifMatch = options?.ifMatch;
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[fhir-stub] updateResource not wired: ${resource.resourceType}/${
-        resource.id ?? '(no-id)'
-      } ifMatch=${ifMatch ?? '(none)'}`,
-    );
+    phaseStubLog('fhir-stub', 'updateResource', {
+      resourceType: resource.resourceType,
+      id: resource.id ?? '(no-id)',
+      ifMatch: ifMatch ?? '(none)',
+    });
     return resource;
   }
 
@@ -115,12 +112,11 @@ export class LiverRaFhirClient {
     options?: { ifMatch?: string },
   ): Promise<void> {
     const ifMatch = options?.ifMatch;
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[fhir-stub] deleteResource not wired: ${resourceType}/${id} ifMatch=${
-        ifMatch ?? '(none)'
-      }`,
-    );
+    phaseStubLog('fhir-stub', 'deleteResource', {
+      resourceType,
+      id,
+      ifMatch: ifMatch ?? '(none)',
+    });
   }
 
   /**

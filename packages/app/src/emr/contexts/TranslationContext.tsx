@@ -327,6 +327,21 @@ export function TranslationProvider({
   const [, forceRender] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const mountedRef = useRef(true);
+  // L-I18N-3: collect missing-namespace loads in a Set then flush once
+  // per microtask via ``queueMicrotask``. The previous code called
+  // ``forceRender`` per bundle resolution, so first paint of a view
+  // referencing N missing namespaces caused N renders. The set
+  // deduplicates and the microtask flushes a single render no matter
+  // how many namespaces resolve in the same frame.
+  const pendingFlushRef = useRef(false);
+  const scheduleFlush = useCallback(() => {
+    if (pendingFlushRef.current) return;
+    pendingFlushRef.current = true;
+    queueMicrotask(() => {
+      pendingFlushRef.current = false;
+      if (mountedRef.current) forceRender((n) => n + 1);
+    });
+  }, []);
 
   // Preload common + errors (plus any caller-supplied bundles) at mount
   // and re-run whenever the locale changes.
@@ -371,15 +386,11 @@ export function TranslationProvider({
 
       // Kick off load for requested locale (non-blocking).
       if (!bundleCache[locale][ns]) {
-        void loadBundle(locale, ns).then(() => {
-          if (mountedRef.current) forceRender((n) => n + 1);
-        });
+        void loadBundle(locale, ns).then(scheduleFlush);
       }
       // Kick off English fallback load.
       if (locale !== 'en' && !bundleCache.en[ns]) {
-        void loadBundle('en', ns).then(() => {
-          if (mountedRef.current) forceRender((n) => n + 1);
-        });
+        void loadBundle('en', ns).then(scheduleFlush);
       }
 
       // Primary resolution. Treat `__TODO_TRANSLATE__:` markers as missing so
@@ -407,7 +418,7 @@ export function TranslationProvider({
       if (value === undefined) return key;
       return interpolate(value, params);
     },
-    [locale],
+    [locale, scheduleFlush],
   );
 
   // Memoize a per-locale PluralRules instance — Intl.PluralRules constructors

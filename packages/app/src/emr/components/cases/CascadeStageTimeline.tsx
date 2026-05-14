@@ -28,7 +28,7 @@
  * meant for "you are here in a wizard"; this is a vertical audit log.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
   Box,
@@ -110,7 +110,7 @@ function formatDelta(prevIso: string | undefined, currIso: string): string {
 function pickStageStat(
   stage: string,
   results: ResultsBundle | undefined,
-  modelVersion: string | null,
+  _modelVersion: string | null,
   locale: string,
 ): string | null {
   if (!results) return null;
@@ -139,8 +139,11 @@ function pickStageStat(
     return null;
   }
 
-  // For all other stages the model version is the most informative thing.
-  return modelVersion ?? null;
+  // M-CASE-3: previously fell back to `modelVersion` for unknown stages
+  // which leaked internal model identifiers like `bamf-liver-tumor-ct-1.0`
+  // into the user-facing badge. Surface model version in the expanded row
+  // only — the collapsed badge stays clean.
+  return null;
 }
 
 /**
@@ -174,16 +177,22 @@ export function CascadeStageTimeline({
     analysisStatus === 'partial' ||
     analysisStatus === 'failed';
   const [expanded, setExpanded] = useState<boolean>(isLive);
-  // If the live status flips (e.g. "running" → "completed" mid-session), nudge
-  // the panel back to its sensible default. We compare against a ref-like
-  // memoised default to avoid clobbering an explicit user toggle on the same
-  // status.
+  // M-CASE-7 / M-HOOK-3: when the pipeline transitions running → completed
+  // mid-session, auto-collapse the panel — UNLESS the user has already
+  // expressed an explicit preference this session. A ref tracks whether
+  // the toggle has been touched manually; once it has, we honor that
+  // preference for the rest of the session and stop auto-resetting.
+  const userToggledRef = useRef<boolean>(false);
+  const handleToggleExpanded = useCallback(() => {
+    userToggledRef.current = true;
+    setExpanded((prev) => !prev);
+  }, []);
   useEffect(() => {
+    if (userToggledRef.current) return;
     setExpanded(isLive);
-    // M-HOOK-3 justification: ``isLive`` is a pure derivation of
-    // ``analysisStatus`` (literal definition above). Tracking the
-    // source-of-truth dep keeps intent legible; isLive flips iff
-    // analysisStatus flips.
+    // ``isLive`` is a pure derivation of ``analysisStatus`` (literal
+    // definition above). Tracking the source-of-truth dep keeps intent
+    // legible; isLive flips iff analysisStatus flips.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisStatus]);
 
@@ -304,11 +313,11 @@ export function CascadeStageTimeline({
       <Box
         component="button"
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={handleToggleExpanded}
         onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setExpanded((v) => !v);
+            handleToggleExpanded();
           }
         }}
         aria-expanded={expanded}

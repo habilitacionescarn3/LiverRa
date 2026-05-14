@@ -10,6 +10,7 @@ download initiated by a user click fails (FR-020c).
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
@@ -236,7 +237,6 @@ async def emit_clipboard_export(
     )
     prior = existing.first()
     if prior is not None:
-        import json
         body = json.loads(prior[0])
         return (UUID(body["id"]), None)
 

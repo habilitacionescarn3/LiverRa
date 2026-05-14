@@ -219,7 +219,7 @@ function GroupCard({
   preferences,
   savingEventType,
   onToggle,
-}: GroupCardProps): React.ReactElement {
+}: GroupCardProps): React.ReactElement | null {
   const { t } = useTranslation();
   const Icon = group.icon;
 
@@ -229,7 +229,7 @@ function GroupCard({
     .map((eventType) => preferences.find((p) => p.event_type === eventType))
     .filter((p): p is NotificationPreference => Boolean(p));
 
-  if (ordered.length === 0) return <></>;
+  if (ordered.length === 0) return null;
 
   return (
     <Box

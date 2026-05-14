@@ -67,9 +67,27 @@ def upgrade() -> None:
             f"accept {_NEW_CATEGORY!r} before re-running this migration."
         )
 
+    # M-ACR-6: make the "unconstrained text by design" contract visible
+    # to anyone reading psql \d+ output. The canonical enum lives in
+    # ``packages/core/src/types/audit.ts`` (TS) +
+    # ``packages/ml-inference/src/services/audit/audit_categories.py``
+    # (Python). New members must be added there first; this column
+    # is intentionally not gated by a CHECK so the migration to add
+    # one is its own deliberate event.
+    op.execute(
+        text(
+            "COMMENT ON COLUMN audit_event.category IS "
+            "'Audit category slug. Intentionally unconstrained text — "
+            "canonical enum is application-side (packages/core/src/types/audit.ts). "
+            "Adding a CHECK constraint requires reviewing every emitter and "
+            "every chain reader; see migration 0014 for precondition guard.'"
+        )
+    )
+
 
 def downgrade() -> None:
-    # No DDL change to revert. Downgrade is a no-op so older revisions
-    # of the application continue to function — the new category simply
-    # stops being emitted.
-    pass
+    # Reverse the column comment so the schema returns to its prior state.
+    op.execute(text("COMMENT ON COLUMN audit_event.category IS NULL"))
+    # No other DDL change to revert. Downgrade is otherwise a no-op so
+    # older revisions of the application continue to function — the new
+    # category simply stops being emitted.

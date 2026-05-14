@@ -50,6 +50,11 @@ async def ping(
     them — the call always went out cleartext (audit C-PACS-4).
     """
     try:
+        # L-PACS-2: probe imports to surface ImportError before we hand
+        # off to the thread. The actual usage lives inside
+        # ``_pynetdicom_echo``; these two lines exist solely so the
+        # ``except ImportError`` branch fires on dev hosts that don't
+        # ship pynetdicom (and we degrade to the TCP probe).
         from pynetdicom import AE  # type: ignore  # noqa: F401
         from pynetdicom.sop_class import Verification  # type: ignore  # noqa: F401
 
@@ -135,6 +140,10 @@ def _pynetdicom_echo(
     use_tls: bool = False,
     cert_fingerprint: Optional[str] = None,
 ) -> CEchoResult:
+    # L-PACS-2: import inline — pynetdicom is an optional runtime dep
+    # gated by the ImportError probe in the caller (lines 53-54). Keeping
+    # the import local to the function preserves the lazy-load contract
+    # for test envs that don't install pynetdicom.
     from pynetdicom import AE  # type: ignore
     from pynetdicom.sop_class import Verification  # type: ignore
 

@@ -50,6 +50,7 @@ import type { Locale } from '../../services/localeService';
 import { useHasPermission } from '../../contexts/PermissionContext';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import type { FhirResourceLike } from '../../services/fhirClient';
+import { phaseStubLog } from '../../services/pacs/phaseStubLog';
 import {
   getById,
   getByAccessionNumber,
@@ -127,8 +128,7 @@ function logStudyModify(payload: {
   patientId?: string;
   description: string;
 }): void {
-  // eslint-disable-next-line no-console
-  console.info('[audit-stub] logStudyModify', payload);
+  phaseStubLog('audit-stub', 'logStudyModify', payload as Record<string, unknown>);
 }
 
 function logStudyDelete(payload: {
@@ -136,8 +136,7 @@ function logStudyDelete(payload: {
   patientId?: string;
   description: string;
 }): void {
-  // eslint-disable-next-line no-console
-  console.info('[audit-stub] logStudyDelete', payload);
+  phaseStubLog('audit-stub', 'logStudyDelete', payload as Record<string, unknown>);
 }
 
 // ============================================================================

@@ -43,6 +43,7 @@ import {
   EMRTableSkeleton as Skeleton,
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { useHasPermission } from '../../contexts/PermissionContext';
 import { getCurrentAccessToken } from '../../services/auth';
 
 /** Analysis status values mirror the backend enum (T133).
@@ -382,6 +383,11 @@ function CasesListViewInner({
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
+  // M-CASE-1: defense-in-depth — route already gates on `analysis.view`,
+  // but if a misconfigured route or stale RBAC payload slips through,
+  // we don't want the stub fetch hook below to leak case rows.
+  const canViewAnalysis = useHasPermission('analysis.view');
+
   const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
 
   // Document title for the browser tab.
@@ -419,6 +425,16 @@ function CasesListViewInner({
     { label: t('analysis:status.done'), value: 'done' },
     { label: t('analysis:status.failed'), value: 'failed' },
   ];
+
+  if (!canViewAnalysis) {
+    return (
+      <Stack gap="lg" p={{ base: 'sm', md: 'lg' } as unknown as string}>
+        <Alert variant="error" title={t('common:permissionDenied.title')}>
+          {t('common:permissionDenied.body')}
+        </Alert>
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="lg" p={{ base: 'sm', md: 'lg' } as unknown as string}>

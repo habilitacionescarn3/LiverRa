@@ -301,7 +301,9 @@ export function FLRPanel({
             letterSpacing: '0.08em',
           }}
         >
-          Adequacy thresholds ({liverHealthContext.replace('-', ' ')})
+          {t('analysis:flr.thresholdsHeader', {
+            context: liverHealthContext.replace('-', ' '),
+          })}
         </Text>
         {/* Three-segment bar — proportions reflect the active thresholds.
             Failing zone = [0, fail], borderline = [fail, warn], adequate = [warn, 100]. */}
@@ -344,14 +346,16 @@ export function FLRPanel({
               c="var(--emr-error)"
               style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
             >
-              Low
+              {t('analysis:flr.thresholdRanges.low.label')}
             </Text>
             <Text
               fz="var(--emr-font-3xs)"
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              &lt; {thresholds.fail}%
+              {t('analysis:flr.thresholdRanges.low.range', {
+                fail: thresholds.fail,
+              })}
             </Text>
           </Stack>
           <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'center' }}>
@@ -361,14 +365,17 @@ export function FLRPanel({
               c="var(--emr-warning)"
               style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
             >
-              Borderline
+              {t('analysis:flr.thresholdRanges.borderline.label')}
             </Text>
             <Text
               fz="var(--emr-font-3xs)"
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              {thresholds.fail}–{thresholds.warn}%
+              {t('analysis:flr.thresholdRanges.borderline.range', {
+                fail: thresholds.fail,
+                warn: thresholds.warn,
+              })}
             </Text>
           </Stack>
           <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'flex-end' }}>
@@ -378,14 +385,16 @@ export function FLRPanel({
               c="var(--emr-success)"
               style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
             >
-              Adequate
+              {t('analysis:flr.thresholdRanges.adequate.label')}
             </Text>
             <Text
               fz="var(--emr-font-3xs)"
               c="var(--emr-text-tertiary)"
               style={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              ≥ {thresholds.warn}%
+              {t('analysis:flr.thresholdRanges.adequate.range', {
+                warn: thresholds.warn,
+              })}
             </Text>
           </Stack>
         </Group>

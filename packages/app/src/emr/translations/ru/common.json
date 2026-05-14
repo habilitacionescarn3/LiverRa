@@ -52,6 +52,10 @@
   "permission": {
     "accessDenied": "У вас нет прав для выполнения этого действия."
   },
+  "permissionDenied": {
+    "title": "__TODO_TRANSLATE__:Access denied",
+    "body": "__TODO_TRANSLATE__:You don't have permission to view this page. Contact your administrator if you believe this is an error."
+  },
   "recordLock": {
     "locked": "__TODO_TRANSLATE__:This record is locked by another user.",
     "lockedWithOverride": "__TODO_TRANSLATE__:This record is locked by another user. You may request an override.",

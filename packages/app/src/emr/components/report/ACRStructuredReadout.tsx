@@ -21,7 +21,6 @@
  * Replaces the old `FindingsCard` inline view inside `ReportInlineView`.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Popover, Stack } from '@mantine/core';
 import { IconClipboard } from '@tabler/icons-react';
 
@@ -29,17 +28,12 @@ import { useTranslation } from '../../contexts/TranslationContext';
 import { useAuth } from '../../services/auth';
 import { useReportSummary } from '../../hooks/useReportSummary';
 import { useAcrCopyAction } from '../../hooks/useAcrCopyAction';
+import { useAcrPanelLifecycle } from '../../hooks/useAcrPanelLifecycle';
 import {
   ANATOMICAL_SECTIONS,
   type AnatomicalSection,
   type ReadoutSection,
 } from '../../services/report/acrAnatomicalMapping';
-import { drainPendingAuditQueue } from '../../services/report/acrClipboardService';
-import {
-  trackCopyTooltipDismissed,
-  trackCopyTooltipSeen,
-  trackReadoutViewed,
-} from '../../services/report/acrTelemetry';
 import { EMRAlert, EMRButton, EMRSkeleton } from '../common';
 import { ACRSectionLiver } from './ACRSectionLiver';
 import { ACRSectionLesions } from './ACRSectionLesions';
@@ -48,8 +42,6 @@ import { ACRSectionGallbladder } from './ACRSectionGallbladder';
 import { ACRSectionSpleen } from './ACRSectionSpleen';
 import { ACRSectionFLR } from './ACRSectionFLR';
 import styles from './ACRStructuredReadout.module.css';
-
-const TOOLTIP_KEY_PREFIX = 'liverra.acr.copy-tooltip.seen:';
 
 export interface ACRStructuredReadoutProps {
   analysisId: string;
@@ -89,54 +81,16 @@ export function ACRStructuredReadout({
   const copyAction = useAcrCopyAction(analysisId);
   const snapshot = copyAction.snapshot;
 
-  // Best-effort drain of audit events queued in a previous session.
-  useEffect(() => {
-    void drainPendingAuditQueue();
-  }, []);
-
-  // Fire `acr_readout_viewed` exactly once per (analysisId × successful-load).
-  const viewedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!data || viewedRef.current === analysisId) return;
-    viewedRef.current = analysisId;
-    trackReadoutViewed({
-      analysisId,
-      locale: (snapshot?.locale ?? rawLocale ?? 'en') as
-        | 'en'
-        | 'ru'
-        | 'ka'
-        | 'de',
-      status: data.status ?? 'unknown',
-      lesionCount: data.lesions?.length ?? 0,
-    });
-  }, [data, analysisId, snapshot, rawLocale]);
-
-  // First-time tooltip — keyed by user id so each clinician sees it once.
-  const tooltipStorageKey = user?.id ? `${TOOLTIP_KEY_PREFIX}${user.id}` : null;
-  const [tooltipOpen, setTooltipOpen] = useState(false);
-  useEffect(() => {
-    if (!snapshot || !tooltipStorageKey) return;
-    try {
-      if (localStorage.getItem(tooltipStorageKey) !== '1') {
-        setTooltipOpen(true);
-        trackCopyTooltipSeen(analysisId);
-      }
-    } catch {
-      // localStorage unavailable — never show the tooltip rather than crash.
-    }
-  }, [snapshot, tooltipStorageKey, analysisId]);
-
-  const dismissTooltip = useCallback((): void => {
-    if (tooltipStorageKey) {
-      try {
-        localStorage.setItem(tooltipStorageKey, '1');
-      } catch {
-        // ignore
-      }
-    }
-    setTooltipOpen(false);
-    trackCopyTooltipDismissed(analysisId);
-  }, [tooltipStorageKey, analysisId]);
+  // M-ACR-5: panel-open side effects (audit queue drain, readout-viewed
+  // telemetry, first-time tooltip) live in `useAcrPanelLifecycle` so this
+  // render component stays focused on layout + composition.
+  const { tooltipOpen, setTooltipOpen, dismissTooltip } = useAcrPanelLifecycle({
+    analysisId,
+    userId: user?.id,
+    snapshot,
+    reportData: data,
+    locale: rawLocale,
+  });
 
   // Local alias for legacy callsites that still call tFn(key, fallback)
   const tFn = (key: string, fallback?: string): string => {

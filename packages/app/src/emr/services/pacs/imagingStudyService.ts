@@ -21,45 +21,19 @@ import type {
   ImagingPriority,
   StatusTimelineEntry,
 } from '../../types/pacs';
-import { captureException } from '../observability/sentryInit';
 
 // ============================================================================
-// Stub logging (H-PACS-2 / M-PACS-6) — centralized
+// Stub logging (H-PACS-2 / M-PACS-6) — centralized via shared phaseStubLog
 // ============================================================================
 // Each ported MediMind call site below expects a real persistence layer. We
 // don't have one yet, so every function below returns a benign empty/null.
-// To stop "always-empty" UIs from masquerading as "working", every stub call
-// emits both a console warning (dev) AND a Sentry breadcrumb so we can see
-// which queries the running UI actually issues. When persistence lands,
-// each function is wired to the orchestrator endpoint and the helper drops
-// out.
+// The shared `phaseStubLog` helper handles dedupe + Sentry breadcrumb +
+// LIVERRA_STUB_LOGGING toggle.
 
-const STUB_LOGGED = new Set<string>();
+import { phaseStubLog as sharedPhaseStubLog } from './phaseStubLog';
 
 function phaseStubLog(fnName: string, args: Record<string, unknown>): void {
-  // Suppress noisy duplicates in a single tab session — once per fn+args
-  // combination is enough to see the pattern.
-  const key = `${fnName}|${JSON.stringify(args)}`;
-  if (STUB_LOGGED.has(key)) return;
-  STUB_LOGGED.add(key);
-
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] ${fnName} not wired:`, args);
-
-  // Surface as a Sentry breadcrumb so production telemetry shows which UI
-  // surfaces still depend on stubbed endpoints. captureException is the
-  // safest call we have today (the dedicated breadcrumb API isn't exposed
-  // by our Sentry wrapper); we use a synthetic Error so the stack frame
-  // points to phaseStubLog rather than into Sentry internals.
-  try {
-    captureException(new Error(`stubbed_imaging_call: ${fnName}`), {
-      source: 'imagingStudyService.phaseStubLog',
-      fnName,
-      ...args,
-    });
-  } catch {
-    // Sentry not initialized — fine.
-  }
+  sharedPhaseStubLog('imaging-stub', fnName, args);
 }
 
 // ============================================================================

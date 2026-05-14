@@ -47,6 +47,7 @@ import {
 } from '../../components/common';
 import type { EMRBadgeVariant } from '../../components/common';
 import { PermissionButton } from '../../components/access-control/PermissionButton';
+import { useHasPermission } from '../../contexts/PermissionContext';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { ColdStartIndicator } from '../../components/liver/ColdStartIndicator';
 import { RUODisclaimer } from '../../components/ruo/RUODisclaimer';
@@ -395,6 +396,12 @@ function AnalysisDetailViewInner({
   const isTablet = useMediaQuery('(max-width: 1199px)');
   const baseUrl = readApiBaseUrl(apiBaseUrl ?? '/api/v1');
 
+  // M-CASE-1: defense-in-depth — route boundary already gates, but the
+  // data-fetching hooks below issue raw fetches without permission checks.
+  // A client-side gate here means a misconfigured route or stale RBAC
+  // payload cannot leak analysis data through the network panel.
+  const canViewAnalysis = useHasPermission('analysis.view');
+
   const { analysis: liveAnalysis, isLoading, error } = useAnalysis(id);
   const { data: results } = useAnalysisResults(id, baseUrl, liveAnalysis?.status);
 
@@ -641,6 +648,20 @@ function AnalysisDetailViewInner({
     ],
     [segmentsCount, lesionsCount, t],
   );
+
+  if (!canViewAnalysis) {
+    return (
+      <div style={{ padding: 20 }}>
+        <EMRAlert
+          variant="error"
+          title={t('common:permissionDenied.title')}
+          withCloseButton={false}
+        >
+          {t('common:permissionDenied.body')}
+        </EMRAlert>
+      </div>
+    );
+  }
 
   if (error) {
     return (

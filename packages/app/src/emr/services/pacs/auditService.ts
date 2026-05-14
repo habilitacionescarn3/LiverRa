@@ -38,6 +38,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { LiverRaFhirClient, FhirResourceLike } from '../fhirClient';
 import { FHIR_BASE_URL } from '../../constants/fhir-systems';
 import { scrubObject } from '../observability/phiScrubber';
+import { phaseStubLog } from './phaseStubLog';
 
 // ============================================================================
 // Singleton — hold a reference to the FHIR client so callers don't need to pass it
@@ -821,8 +822,9 @@ export async function queryAuditEvents(
 ): Promise<AuditEventResource[]> {
   // C-AUDIT-4 fix: scrub before logging — query params can contain patient
   // ids / MRNs that surface as PHI in the console history.
-  const summary = params ? JSON.stringify(_scrubForLog(params)) : '(none)';
-  // eslint-disable-next-line no-console
-  console.warn(`[fhir-stub] queryAuditEvents not wired: params=${summary}`);
+  // M-PACS-6: route through shared phaseStubLog so dedupe + Sentry +
+  // LIVERRA_STUB_LOGGING toggle apply uniformly with every other stub.
+  const scrubbedParams = params ? _scrubForLog(params) : {};
+  phaseStubLog('fhir-stub', 'queryAuditEvents', { params: scrubbedParams });
   return [];
 }

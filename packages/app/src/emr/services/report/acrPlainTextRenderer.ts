@@ -29,7 +29,20 @@ import type { ReadoutSection, ReadoutSnapshot } from './acrAnatomicalMapping';
  */
 export function renderReadoutPlainText(snapshot: ReadoutSnapshot): string {
   const lines: string[] = [];
-  const ruoBanner = `--- ${snapshot.ruoDisclaimer.replace(/^---\s*|\s*---$/g, '')} ---`;
+  // L-ACR-1: parity with the Python renderer (acr_plaintext_renderer.py)
+  // which strips any number of leading/trailing `---` prefixes via a
+  // while-loop. A single regex pass only removes one occurrence and
+  // produces a different banner for already-doubled input like
+  // `--- --- RUO ---`. Mirror the Python while-loop so the snapshot
+  // fixture corpus stays byte-identical between renderers.
+  let stripped = snapshot.ruoDisclaimer.trim();
+  while (stripped.startsWith('---')) {
+    stripped = stripped.slice(3).replace(/^\s+/, '');
+  }
+  while (stripped.endsWith('---')) {
+    stripped = stripped.slice(0, -3).replace(/\s+$/, '');
+  }
+  const ruoBanner = `--- ${stripped} ---`;
   lines.push(ruoBanner);
   lines.push('');
 

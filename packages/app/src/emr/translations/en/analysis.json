@@ -248,6 +248,21 @@
       "borderline": "Borderline (30–40%)",
       "low": "Low (< 30%)"
     },
+    "thresholdsHeader": "Adequacy thresholds ({{context}})",
+    "thresholdRanges": {
+      "low": {
+        "label": "Low",
+        "range": "< {{fail}}%"
+      },
+      "borderline": {
+        "label": "Borderline",
+        "range": "{{fail}}–{{warn}}%"
+      },
+      "adequate": {
+        "label": "Adequate",
+        "range": "≥ {{warn}}%"
+      }
+    },
     "recompute": "Recompute",
     "ariaLive": "FLR measurement updates"
   },

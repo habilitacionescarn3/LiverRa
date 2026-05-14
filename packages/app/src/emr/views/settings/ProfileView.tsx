@@ -87,6 +87,25 @@ interface RuoAcceptResponse {
 
 type BadgeTone = 'primary' | 'success' | 'warning' | 'error' | 'secondary';
 
+/**
+ * L-AUTH-1: typed role → i18n-key mapping. Replaces the previous
+ * `t(\`profile:role.${user.role}\`)` pattern which (a) could not be
+ * statically verified and (b) leaked the raw key onto the page when the
+ * role enum drifted ahead of the translation bundle (e.g. ``ops`` vs.
+ * ``operations``). Roles not in this map fall back to
+ * ``profile:header.roleUnassigned`` rather than printing the raw key.
+ */
+const ROLE_TRANSLATION_KEYS: Record<string, string> = {
+  hpb_surgeon: 'profile:role.hpb_surgeon',
+  radiologist: 'profile:role.radiologist',
+  fellow: 'profile:role.fellow',
+  admin: 'profile:role.admin',
+  ops: 'profile:role.operations',
+  operations: 'profile:role.operations',
+  compliance: 'profile:role.compliance',
+  dpo: 'profile:role.dpo',
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -353,7 +372,8 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
 
   // -------- Render -------------------------------------------------------
 
-  const roleLabel = user.role ? t(`profile:role.${user.role}`) : t('profile:header.roleUnassigned');
+  const roleKey = user.role ? ROLE_TRANSLATION_KEYS[user.role] : undefined;
+  const roleLabel = roleKey ? t(roleKey) : t('profile:header.roleUnassigned');
   const fullName = (user.display_name ?? '').trim() || (user.email ?? '').split('@')[0] || '—';
   const initials = deriveInitials(user.display_name, user.email);
 
