@@ -141,8 +141,29 @@ class AuditChainWriter:
 
         tid_str = str(tenant_id)
 
+        # 0. Per-tenant advisory lock — closes the first-row race where
+        #    two writers see an empty chain, both compute ``sequence_no=1``,
+        #    and one wins the unique PK while the other 500s. ``FOR UPDATE``
+        #    on step 1 only locks an *existing* row; it cannot lock the
+        #    "no row" condition, so we need a lock keyed on the tenant
+        #    itself. ``pg_advisory_xact_lock`` auto-releases at COMMIT /
+        #    ROLLBACK, so we stay atomic with the caller's transaction.
+        #
+        #    hashtext() folds the UUID string into the 32-bit lock-key
+        #    space Postgres expects. Per-tenant collisions are theoretically
+        #    possible but harmless — at worst two unrelated tenants serialise
+        #    their writes briefly.
+        #
+        #    Fixes audit findings B-AUDIT-5 and B-SCHEMA-2.
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:tid))"),
+            {"tid": tid_str},
+        )
+
         # 1. Lock the previous row + read the previous leaf hash.
-        #    ``FOR UPDATE`` serializes concurrent writers per tenant.
+        #    ``FOR UPDATE`` serializes concurrent writers per tenant
+        #    *once at least one row exists*; the advisory lock above
+        #    handles the empty-chain case.
         prev_row = await session.execute(
             text(
                 """
