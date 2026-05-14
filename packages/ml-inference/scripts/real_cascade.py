@@ -363,30 +363,11 @@ def _write_chain_stage_complete_sync(
 
 
 # ---------------------------------------------------------------------------
-# FLR heuristic — replicates src/tasks/flr_default.py:_compute_default_plane
+# (B-CLIN-4: the axial-midpoint heuristic that used to live here was
+# removed — it had no clinical basis. The cascade now uses the
+# segment-aware FLR via ``compute_segment_aware_flr`` below, fed by the
+# orchestrator Couinaud heuristic + the vessel mask from stage 5.)
 # ---------------------------------------------------------------------------
-
-
-def axial_midpoint_flr(mask_zyx: np.ndarray) -> tuple[dict, int, int]:
-    """Return (plane_pose, flr_voxels, total_voxels)."""
-    coords = np.argwhere(mask_zyx > 0)
-    if coords.size == 0:
-        return ({"axis": "axial", "z_index": 0, "heuristic": "parenchyma_empty"}, 0, 0)
-    z_min = int(coords[:, 0].min())
-    z_max = int(coords[:, 0].max())
-    z_plane = (z_min + z_max) // 2
-    flr_mask = mask_zyx.copy()
-    flr_mask[z_plane:, :, :] = 0
-    return (
-        {
-            "axis": "axial",
-            "z_index": z_plane,
-            "bbox_z": [z_min, z_max],
-            "heuristic": "axial_midpoint",
-        },
-        int(flr_mask.sum()),
-        int(mask_zyx.sum()),
-    )
 
 
 # ---------------------------------------------------------------------------
