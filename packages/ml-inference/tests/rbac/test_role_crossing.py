@@ -260,7 +260,13 @@ def test_named_role_crossing_action(
 
     method = action["method"].lower()
     client_method = getattr(api_client, method)
-    resp = client_method(path, headers=headers, json={} if method in {"post", "patch", "put"} else None)
+    # Only body-bearing verbs accept `json=`; httpx (and FastAPI's TestClient)
+    # reject the kwarg on GET/DELETE. Earlier version passed `json=None` to
+    # GET — TypeError'd before reaching the server.
+    if method in {"post", "patch", "put"}:
+        resp = client_method(path, headers=headers, json={})
+    else:
+        resp = client_method(path, headers=headers)
 
     assert resp.status_code == action["expected_status"], (
         f"{action['id']}: expected {action['expected_status']}, got {resp.status_code}"

@@ -33,7 +33,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Optional
 
-from fastapi import HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
@@ -90,18 +90,12 @@ def _unauthenticated() -> PermissionProblem:
     )
 
 
-def _forbidden(perm: str) -> PermissionProblem:
-    return PermissionProblem(
-        403,
-        slug="forbidden",
-        title="Permission denied",
-        detail=f"Missing required permission: {perm}.",
-        extra={"required_permission": perm},
-    )
-
-
 def _not_found() -> PermissionProblem:
-    # Per FR-032a: cross-tenant access returns 404, never 403.
+    # Per FR-032a: missing-permission AND cross-tenant access both return
+    # 404 (never 403). A 403 would leak the existence of cross-tenant or
+    # higher-privilege resources to an unauthorized caller. The audit
+    # event still carries the actual permission + outcome reason so
+    # operators can tell denials from genuine misses.
     return PermissionProblem(
         404,
         slug="not-found",
@@ -195,7 +189,7 @@ def _resource_tenant(request: Request) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def _emit_audit_event(
+async def _emit_audit_event(
     request: Request,
     perm: str,
     outcome: str,
@@ -207,6 +201,11 @@ def _emit_audit_event(
     The audit writer module may not exist during very early bootstrap; in that
     case we log the intent and continue. Once the audit writer ships, remove
     the ImportError fallback and treat a write failure as fail-closed.
+
+    NB: ``write_permission_check`` is async because the underlying chain
+    writer touches the DB. Awaiting here keeps the call site honest — the
+    previous non-await form generated a "coroutine never awaited" warning
+    on every denial.
     """
     try:
         # Local import so the middleware stays importable before the audit
@@ -215,7 +214,7 @@ def _emit_audit_event(
 
         writer = AuditChainWriter.from_request(request)
         user = _get_user(request)
-        writer.write_permission_check(
+        coro = writer.write_permission_check(
             actor=getattr(user, "id", None) if user else None,
             tenant=_tenant_id(request),
             permission=perm,
@@ -224,6 +223,10 @@ def _emit_audit_event(
             path=str(request.url.path),
             method=request.method,
         )
+        # The wrapper returns a coroutine; await it so chain writes commit
+        # rather than landing in a "coroutine never awaited" warning.
+        if hasattr(coro, "__await__"):
+            await coro
     except ImportError:
         logger.debug(
             "AuditChainWriter unavailable; skipping permission_check audit",
@@ -267,7 +270,7 @@ def require_permission(
             # --- 1. Authenticated? -------------------------------------
             user = _get_user(request)
             if user is None:
-                _emit_audit_event(request, perm, "unauthenticated")
+                await _emit_audit_event(request, perm, "unauthenticated")
                 raise _unauthenticated()
 
             # --- 2. Tenant isolation (FR-032a) -------------------------
@@ -281,7 +284,7 @@ def require_permission(
                 and resource_tid is not None
                 and request_tid != resource_tid
             ):
-                _emit_audit_event(
+                await _emit_audit_event(
                     request,
                     perm,
                     "cross-tenant",
@@ -290,25 +293,30 @@ def require_permission(
                 raise _not_found()
 
             # --- 3. Permission present? --------------------------------
+            # Per FR-032a: a missing permission MUST surface as 404, not
+            # 403 — disclosing 403 would leak the existence of the route /
+            # resource to an unauthorized caller. The audit event below
+            # records the real outcome (`denied` + permission name) so the
+            # red-team test matrix can verify the deny actually happened.
             user_perms = _get_user_permissions(user)
             if perm not in user_perms:
-                _emit_audit_event(
+                await _emit_audit_event(
                     request, perm, "denied", reason="permission not granted"
                 )
-                raise _forbidden(perm)
+                raise _not_found()
 
             # --- 4. Step-up freshness ----------------------------------
             if step_up:
                 auth_time = _get_auth_time(request)
                 now = datetime.now(tz=timezone.utc)
                 if auth_time is None or (now - auth_time) > STEP_UP_WINDOW:
-                    _emit_audit_event(
+                    await _emit_audit_event(
                         request, perm, "step-up-required",
                         reason="auth_time stale or missing",
                     )
                     raise _step_up_required(perm)
 
-            _emit_audit_event(request, perm, "allowed")
+            await _emit_audit_event(request, perm, "allowed")
             return await handler(*args, **kwargs)
 
         # Expose metadata for documentation / OpenAPI extensions.
@@ -319,8 +327,42 @@ def require_permission(
     return decorator
 
 
+# ---------------------------------------------------------------------------
+# Exception handler registration
+# ---------------------------------------------------------------------------
+
+
+async def _permission_problem_handler(_request: Request, exc: Exception) -> JSONResponse:
+    """Render ``PermissionProblem`` as ``application/problem+json``.
+
+    Without this handler, FastAPI's default ``HTTPException`` handler wraps
+    the body dict under ``{"detail": ...}`` — which mangles the problem+json
+    contract (``type``, ``slug``, ``status`` would all become unreachable
+    inside ``detail``). Registering this handler in ``create_app`` (T049)
+    AND in unit-test apps that exercise ``@require_permission`` produces a
+    spec-compliant body.
+    """
+    if isinstance(exc, PermissionProblem):
+        return exc.to_response()
+    # Shouldn't happen — FastAPI only routes registered exception types here.
+    return JSONResponse(
+        status_code=500,
+        content={"type": "https://liverra.ai/errors/internal", "status": 500},
+        media_type=PROBLEM_JSON,
+    )
+
+
+def install_permission_problem_handler(app: FastAPI) -> None:
+    """Register the problem+json renderer on a FastAPI app.
+
+    Safe to call multiple times (FastAPI deduplicates by exception class).
+    """
+    app.add_exception_handler(PermissionProblem, _permission_problem_handler)
+
+
 __all__ = [
     "PermissionProblem",
     "STEP_UP_WINDOW",
+    "install_permission_problem_handler",
     "require_permission",
 ]

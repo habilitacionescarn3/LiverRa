@@ -121,6 +121,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         # Dev bypass skips validator construction (Cognito env not required).
         bypass_active = os.environ.get("LIVERRA_AUTH_BYPASS", "").lower() in {"1", "true", "yes"}
+        # CC-2 / B-AUTH-3: refuse to start when bypass is on in non-dev envs.
+        # The frontend has the same guard in vite.config.ts; the backend was
+        # the missing half. Symmetric refusal here means no path through the
+        # stack can serve a real production request without real auth.
+        env = os.environ.get("LIVERRA_ENV", "development").lower()
+        if bypass_active and env in {"staging", "production"}:
+            raise RuntimeError(
+                f"PRODUCTION SAFETY: LIVERRA_AUTH_BYPASS forbidden when "
+                f"LIVERRA_ENV={env}. Unset the flag or change the environment."
+            )
         if validator is not None:
             self._validator = validator
         elif bypass_active:
@@ -128,6 +138,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
         else:
             self._validator = _build_validator_from_env()
         self._excluded_prefixes = tuple(excluded_prefixes)
+        # H-AUTH-4: pre-warm JWKS so the kid-miss rate-limit (which only
+        # fires when keys_by_kid is non-empty) actually protects us from
+        # day-1 unknown-kid floods. Best-effort: a failure here logs and
+        # the first real request retries the fetch.
+        if self._validator is not None and hasattr(self._validator, "prewarm"):
+            try:
+                self._validator.prewarm()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("JWKS pre-warm via middleware init failed: %s", exc)
 
     # ------------------------------------------------------------------
     # Entry point
@@ -195,17 +214,28 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 auth_time = None
 
         # --- 4. Load domain permissions (tenant-scoped) ----------------
-        permissions: list[str] = []
+        # H-SEC-4 / C-AUTH-2: fail CLOSED if the permission_grant fetch
+        # blows up. The previous behaviour was an empty list — which
+        # silently downgraded an authenticated request to "no permissions"
+        # and let any route that only inspects `request.state.user`
+        # existence (rather than a specific @require_permission) through.
+        # Surfacing 503 forces the caller to retry and gives ops a clear
+        # alert signal in logs.
         try:
             permissions = await _load_permissions(
                 tenant_id=tenant_id, cognito_sub=str(cognito_sub or "")
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
+            logger.exception(
                 "auth middleware: permission load failed for sub=%s tenant=%s: %s",
                 cognito_sub, tenant_id, exc,
             )
-            permissions = []
+            return _problem_response(
+                status_code=503,
+                slug="permission-load-unavailable",
+                title="Authorization service unavailable",
+                detail="Could not load user permissions. Retry shortly.",
+            )
 
         request.state.tenant_id = tenant_id
         request.state.auth_time = auth_time
@@ -225,20 +255,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
 # Helpers
 # ---------------------------------------------------------------------------
 
-# All permissions defined under @require_permission() across src/api/*.
-# Used by the dev-bypass path to grant a superuser.
-_DEV_BYPASS_PERMISSIONS: tuple[str, ...] = (
-    "admin.approve_deletion", "admin.cecho_pacs", "admin.configure_pacs",
-    "admin.coverage_override", "admin.invite_user", "admin.suspend_user",
-    "admin.view_audit", "analysis.cancel", "analysis.retry", "analysis.view",
-    "compliance.generate_audit_summary", "compliance.spot_check_ruo",
-    "compliance.toggle_claim_registry", "compliance.view_mbom",
-    "erasure.execute", "ops.case_unstick", "ops.queue_view",
-    "report.finalize", "report.pacs_push", "report.pacs_retry",
-    "report.retract", "report.view", "review.acquire_seat",
-    "review.override_classification", "review.refine_mask",
-    "review.reprompt_lesion", "study.upload", "study.view",
-)
+# Dev-bypass superuser permission set, derived from the canonical Permission
+# enum so the matrix stays the single source of truth. Earlier this was a
+# hand-rolled tuple of 28 strings that drifted from matrix.yaml — papering
+# over B-AUTH-2 (RBAC matrix drift) in dev while production 404'd.
+def _dev_bypass_permission_set() -> tuple[str, ...]:
+    try:
+        from ..services.auth.rbac.permissions_registry import Permission
+    except Exception:  # noqa: BLE001 — generator not yet emitted at very early bootstrap
+        return ()
+    return tuple(sorted(p.value for p in Permission))
+
+
+_DEV_BYPASS_PERMISSIONS: tuple[str, ...] = _dev_bypass_permission_set()
 
 # Fixed dev-tenant + dev-user UUIDs so the seed script and the middleware
 # agree without IPC. Both rows are upserted by tools/seed-dev-tenant.py.

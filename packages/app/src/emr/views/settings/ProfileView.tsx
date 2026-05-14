@@ -51,7 +51,7 @@ import {
 } from '../../components/common';
 import { EMRSelect, EMRTextInput } from '../../components/shared/EMRFormFields';
 import { useTranslation } from '../../contexts/TranslationContext';
-import { useAuth } from '../../services/auth';
+import { useAuth, getCurrentAccessToken } from '../../services/auth';
 import { formatRelativeTime, type Locale } from '../../services/localeService';
 import { useProfileUpdate } from '../../hooks/useProfileUpdate';
 import { LIVERRA_ERROR_EVENTS } from '../../services/errorClient';
@@ -246,22 +246,53 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
     | { phase: 'error'; message: string }
   >({ phase: 'idle' });
 
+  /**
+   * H-AUTH-3: clamp `admin_contact` to a known-safe shape (email or phone)
+   * before rendering. A tenant-admin who controlled the API response could
+   * otherwise inject a free-text "Call 555-PHISH at this URL" string into
+   * the success banner.
+   */
+  const sanitizeAdminContact = (raw: unknown): string => {
+    if (typeof raw !== 'string') return 'your tenant administrator';
+    const trimmed = raw.trim();
+    // Permit one email-address-shaped value OR one E.164-ish phone. Anything
+    // else falls back to the neutral label so phishing strings cannot reach
+    // the rendered banner.
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+    const isPhone = /^\+?[0-9 ()\-]{6,20}$/.test(trimmed);
+    if ((isEmail || isPhone) && trimmed.length <= 80) {
+      return trimmed;
+    }
+    return 'your tenant administrator';
+  };
+
   const requestMfaReset = useCallback(async (): Promise<void> => {
     setMfaState({ phase: 'sending' });
     try {
+      // C-AUTH-4: do NOT include cookies — rely on bearer token for auth.
+      // This eliminates the CSRF surface for the state-changing POST.
+      const accessToken = getCurrentAccessToken();
       const res = await fetch(`${readApiBase()}/auth/me/mfa-reset-request`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
       });
       if (!res.ok) throw new Error(`MFA reset failed: ${res.status}`);
       const body = (await res.json()) as MfaResetResponse;
-      setMfaState({ phase: 'sent', adminContact: body.admin_contact });
+      setMfaState({ phase: 'sent', adminContact: sanitizeAdminContact(body.admin_contact) });
     } catch (e) {
-      setMfaState({
-        phase: 'error',
-        message: e instanceof Error ? e.message : String(e),
-      });
+      // H-AUTH-5: surface failure via event bus + structured log so ops gets
+      // a signal. Previously the catch silently set local state.
+      const message = e instanceof Error ? e.message : String(e);
+      console.error('[ProfileView] mfa-reset-request failed:', e);
+      window.dispatchEvent(
+        new CustomEvent(LIVERRA_ERROR_EVENTS.OperationFailed, {
+          detail: { operation: 'mfa-reset-request', message },
+        }),
+      );
+      setMfaState({ phase: 'error', message });
     }
   }, []);
 
@@ -277,10 +308,14 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
   const performRuoAccept = useCallback(async (): Promise<void> => {
     setRuoState({ phase: 'sending' });
     try {
+      // C-AUTH-4: bearer-token auth, no cookies. Eliminates CSRF surface.
+      const accessToken = getCurrentAccessToken();
       const res = await fetch(`${readApiBase()}/auth/me/ruo-accept`, {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
       });
       if (res.status === 401 || res.status === 403) {
         window.dispatchEvent(
@@ -295,10 +330,15 @@ function ProfileViewLoaded({ user, save, saving, saveError, t }: LoadedProps): R
       const body = (await res.json()) as RuoAcceptResponse;
       setRuoState({ phase: 'accepted', acceptedAt: body.accepted_at });
     } catch (e) {
-      setRuoState({
-        phase: 'error',
-        message: e instanceof Error ? e.message : String(e),
-      });
+      // H-AUTH-5: structured telemetry + event-bus dispatch.
+      const message = e instanceof Error ? e.message : String(e);
+      console.error('[ProfileView] ruo-accept failed:', e);
+      window.dispatchEvent(
+        new CustomEvent(LIVERRA_ERROR_EVENTS.OperationFailed, {
+          detail: { operation: 'ruo-accept', message },
+        }),
+      );
+      setRuoState({ phase: 'error', message });
     }
   }, [t]);
 

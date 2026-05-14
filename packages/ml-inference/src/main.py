@@ -112,10 +112,54 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session_factory = _get_session_factory()
         _singletons["audit_writer"] = AuditChainWriter(session_factory)
         _singletons["phi_scrubber"] = PHIScrubber()
+        _singletons["session_factory"] = session_factory
         app.state.audit_chain_writer = _singletons["audit_writer"]
         app.state.phi_scrubber = _singletons["phi_scrubber"]
     except Exception as exc:  # pragma: no cover — degrade for local dev
         _strict_boot("Audit/PHI singletons", exc)
+
+    # ---- AuditEventEmitter (B-AUDIT-4) + LiveCascadeAuditHooks
+    # (B-CASCADE-1, B-CASCADE-2) ----------------------------------------------
+    # Before this block, AuditEventEmitter was never instantiated → every
+    # ``AuditChainWriter.write(...)`` caller bypassed PHI scrubbing and the
+    # Medplum mirror, and the cascade's CascadeAuditHooks base class
+    # produced ZERO chain rows because set_audit_hooks() was never called.
+    try:
+        from src.observability.phi_scrubber import PHIScrubber as _PHIS  # noqa: F401
+        from src.orchestrator.cascade import (
+            LiveCascadeAuditHooks,
+            set_audit_hooks,
+        )
+        from src.services.fhir.audit_event_emitter import AuditEventEmitter
+
+        # Medplum client is wired in a later phase — for now we accept any
+        # object implementing ``create_resource(...)``. When unwired, the
+        # emitter raises (per FR-029b fail-closed), and the hook catches +
+        # logs without taking down the cascade.
+        medplum_client = _singletons.get("medplum_client")
+        if medplum_client is not None and _singletons.get("audit_writer"):
+            emitter = AuditEventEmitter(
+                medplum_client=medplum_client,
+                chain_writer=_singletons["audit_writer"],
+                phi_scrubber=_singletons["phi_scrubber"],
+            )
+            _singletons["audit_event_emitter"] = emitter
+            app.state.audit_event_emitter = emitter
+
+            hooks = LiveCascadeAuditHooks(
+                emitter=emitter,
+                session_factory=_singletons.get("session_factory"),
+            )
+            set_audit_hooks(hooks)
+            app.state.cascade_audit_hooks = hooks
+            logger.info("AuditEventEmitter + LiveCascadeAuditHooks wired.")
+        else:
+            logger.warning(
+                "AuditEventEmitter not wired (medplum_client missing) — "
+                "cascade audit hooks remain no-ops until medplum is configured."
+            )
+    except Exception as exc:  # pragma: no cover — defensive
+        _strict_boot("AuditEventEmitter + cascade hooks", exc)
 
     # T414 — MBoM reader singleton (mtime-invalidated).
     try:
@@ -223,6 +267,17 @@ def create_app() -> FastAPI:
         register_exception_handler(app)
     except Exception as exc:
         _strict_boot("problem+json exception handler", exc)
+
+    # B-AUTH-1 / C-UT-3: render PermissionProblem (raised by
+    # @require_permission) as application/problem+json with `type`, `slug`,
+    # `status` at the body root. Without this, FastAPI wraps the body in
+    # `{"detail": ...}` and the RBAC red-team matrix fails.
+    try:
+        from src.middleware.require_permission import install_permission_problem_handler
+
+        install_permission_problem_handler(app)
+    except Exception as exc:
+        _strict_boot("PermissionProblem exception handler", exc)
 
     # --- Routers -----------------------------------------------------------
     try:

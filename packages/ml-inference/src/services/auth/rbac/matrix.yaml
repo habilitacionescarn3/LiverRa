@@ -7,6 +7,25 @@
 #
 # Changes to this file require second-reviewer approval (Constitution Code Review gate).
 # See: specs/001-zero-training-mvp/research.md §X.3
+#
+# H-AUTH-1 (audit 2026-05-14): the following matrix-only permissions
+# currently have NO @require_permission decorator binding them to a
+# server route. They are intentionally retained because the frontend
+# permission constants + access policies depend on them; when the
+# corresponding endpoints land they must add the decorator at point of
+# definition. DO NOT remove without first removing the frontend
+# `permissions.gen.ts` references.
+#   - study.delete            (endpoint: POST /api/v1/admin/studies/{id}/delete-request
+#                              currently gated by admin.approve_deletion)
+#   - audit.view              (planned: GET /api/v1/audit/{id})
+#   - audit.export            (planned: GET /api/v1/audit/export)
+#   - audit.verify_chain      (planned: POST /api/v1/audit/verify-chain)
+#   - report.download         (planned: GET /api/v1/reports/{id}/download)
+#   - review.flr_adjust       (planned: PATCH /api/v1/reviews/{id}/flr)
+#   - review.seat_takeover    (planned: POST /api/v1/reviews/{id}/takeover)
+# B-AUTH-2 (audit 2026-05-14): 12 permissions enforced by code did NOT
+# previously exist in this matrix. They are now defined below; see the
+# inline notes under their respective sections.
 
 permissions:
   # --- Study lifecycle ------------------------------------------------------
@@ -126,6 +145,41 @@ permissions:
     description: Modify tenant-level configuration (retention, coverage override, etc.)
     step_up: false
     tenant_scoped: true
+  # Admin API surface — these are the exact strings referenced by the
+  # @require_permission decorators in src/api/admin.py. Reconciled with the
+  # matrix in B-AUTH-2 (audit 2026-05-14). Some overlap with the older
+  # admin.* / pacs.* / audit.* keys above; we keep both because the older
+  # keys remain in role grants for backward compatibility, while these
+  # new keys exactly match the decorator strings. admin.user_create maps to
+  # admin.invite_user; admin.tenant_config maps to admin.coverage_override.
+  - key: admin.invite_user
+    description: Tenant-admin invites a new user (aliased to admin.user_create)
+    step_up: false
+    tenant_scoped: true
+  - key: admin.suspend_user
+    description: Suspend a user account within the tenant
+    step_up: true
+    tenant_scoped: true
+  - key: admin.configure_pacs
+    description: Configure the tenant's PACS push destination (aliased to pacs.config_write)
+    step_up: false
+    tenant_scoped: true
+  - key: admin.cecho_pacs
+    description: Run a C-ECHO against the tenant's PACS (aliased to pacs.c_echo)
+    step_up: false
+    tenant_scoped: true
+  - key: admin.approve_deletion
+    description: Approve a study deletion request (second-pair-of-eyes gate)
+    step_up: true
+    tenant_scoped: true
+  - key: admin.view_audit
+    description: View the tenant audit log (aliased to audit.view)
+    step_up: false
+    tenant_scoped: true
+  - key: admin.coverage_override
+    description: Override insurance coverage for a study (step-up required)
+    step_up: true
+    tenant_scoped: true
 
   # --- Model Bill of Materials ---------------------------------------------
   - key: mbom.view
@@ -184,6 +238,34 @@ permissions:
     description: Sign-off on a periodic compliance review (MBoM, claim registry, audit summary)
     step_up: true
     tenant_scoped: false
+  # Compliance API surface — strings referenced by @require_permission in
+  # src/api/compliance.py. Aliases for the older mbom.* / claim_registry.*
+  # keys above. Reconciled in B-AUTH-2 (audit 2026-05-14).
+  - key: compliance.view_mbom
+    description: View the Model Bill of Materials (aliased to mbom.view)
+    step_up: false
+    tenant_scoped: false
+  - key: compliance.generate_audit_summary
+    description: Generate the periodic audit summary (Merkle root, retention attestation)
+    step_up: false
+    tenant_scoped: false
+  - key: compliance.spot_check_ruo
+    description: Spot-check the RUO disclaimer surfacing for a tenant's outputs
+    step_up: false
+    tenant_scoped: false
+  - key: compliance.toggle_claim_registry
+    description: Toggle a claim's regulatory status (aliased to claim_registry.activate)
+    step_up: true
+    tenant_scoped: false
+
+  # --- Review API surface ---------------------------------------------------
+  # String referenced by @require_permission in src/api/review.py.
+  # Distinct from review.seat_takeover (the destructive op): acquire_seat
+  # is the cooperative request to lock a review session.
+  - key: review.acquire_seat
+    description: Acquire a review seat (cooperative lock; non-destructive)
+    step_up: false
+    tenant_scoped: true
 
 # ---------------------------------------------------------------------------
 # Roles
@@ -202,6 +284,7 @@ roles:
       - review.reprompt_lesion
       - review.override_classification
       - review.flr_adjust
+      - review.acquire_seat
       - report.finalize
       - report.view
       - report.download
@@ -215,6 +298,7 @@ roles:
       - review.reprompt_lesion
       - review.override_classification
       - review.seat_takeover
+      - review.acquire_seat
       - review.flr_adjust
       - report.view
       - report.download
@@ -246,6 +330,14 @@ roles:
       - erasure.approve
       - audit.view
       - audit.export
+      # B-AUTH-2: admin API surface (aliases of the keys above + new ops)
+      - admin.invite_user
+      - admin.suspend_user
+      - admin.configure_pacs
+      - admin.cecho_pacs
+      - admin.approve_deletion
+      - admin.view_audit
+      - admin.coverage_override
 
   ops:
     description: Operations / on-call engineer — cross-tenant queue + GPU telemetry; never PHI.
@@ -273,6 +365,11 @@ roles:
       - claim_registry.activate
       - report.view  # read-only, cross-tenant, summary-only projection
       - erasure.request
+      # B-AUTH-2: compliance API surface (aliases + new ops)
+      - compliance.view_mbom
+      - compliance.generate_audit_summary
+      - compliance.spot_check_ruo
+      - compliance.toggle_claim_registry
 
   dpo:
     description: Data Protection Officer — GDPR erasure executor + audit viewer.

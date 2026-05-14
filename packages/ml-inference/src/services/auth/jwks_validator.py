@@ -101,6 +101,14 @@ class JwksValidator:
     # (prevents DoS via unknown-kid replay).
     MIN_REFRESH_INTERVAL_SECONDS = 60
 
+    # H-SEC-3: bounded in-memory JTI replay cache. We cap entries so a
+    # forged-JTI flood can't OOM the validator. The cap of 10k is sized for
+    # a single FastAPI worker processing 2k auth'd requests/min over a
+    # 5-minute window — far more than expected steady-state. Eviction is
+    # by insertion order (FIFO via OrderedDict), which is fine because
+    # token TTLs already bound how long a JTI matters.
+    JTI_CACHE_MAX = 10_000
+
     def __init__(
         self,
         issuer_url: str,
@@ -117,6 +125,31 @@ class JwksValidator:
         self._http = http_client or httpx.Client(timeout=5.0)
         self._cache = _JWKSCache()
         self._lock = threading.Lock()
+        # JTI replay cache — (jti -> exp_unix). Module-level lock guards
+        # mutations because validate() may run from any worker thread.
+        from collections import OrderedDict
+
+        self._jti_seen: "OrderedDict[str, float]" = OrderedDict()
+        self._jti_lock = threading.Lock()
+
+    # ------------------------------------------------------------------
+    # Pre-warm (H-AUTH-4)
+    # ------------------------------------------------------------------
+
+    def prewarm(self) -> None:
+        """Synchronously populate the JWKS cache.
+
+        Call from the FastAPI lifespan startup so the first authenticated
+        request doesn't pay the JWKS-fetch latency AND so the
+        ``MIN_REFRESH_INTERVAL_SECONDS`` rate-limit on kid-miss refreshes is
+        effective from request #1. Without pre-warm, the rate limit only
+        kicks in once a key is cached — a cold-start flood of unknown-kid
+        requests would each force a JWKS refresh.
+        """
+        try:
+            self._refresh_jwks(force=True)
+        except Exception as exc:  # noqa: BLE001 — pre-warm is best-effort
+            logger.warning("JWKS pre-warm failed (will retry on first request): %s", exc)
 
     # ------------------------------------------------------------------
     # JWKS fetch + cache
@@ -273,9 +306,46 @@ class JwksValidator:
                     "id-token aud does not match configured audience",
                 )
 
-        # 8. Return — callers access `custom:tenant_id`, `cognito:groups`,
+        # 8. JTI replay check (H-SEC-3) — only when the token carries a jti.
+        #    Cognito access tokens DO include jti; some older clients may
+        #    not, so we treat missing jti as "no replay protection" rather
+        #    than a hard reject (preserves backward compat with manually
+        #    minted demo tokens issued by src/api/auth.py).
+        jti = claims.get("jti")
+        if isinstance(jti, str) and jti:
+            self._check_and_record_jti(jti, float(exp))
+
+        # 9. Return — callers access `custom:tenant_id`, `cognito:groups`,
         #    and `auth_time` directly on the claims dict.
         return claims
+
+    # ------------------------------------------------------------------
+    # JTI replay cache (H-SEC-3)
+    # ------------------------------------------------------------------
+
+    def _check_and_record_jti(self, jti: str, exp_unix: float) -> None:
+        """Reject a JTI we've already observed within its TTL window.
+
+        Simple in-process FIFO cache: if you're operating multiple FastAPI
+        workers, replay protection is per-worker (a determined attacker
+        with sticky-sessions disabled could replay across workers). For
+        full cross-worker protection, swap this for a Redis SETNX with the
+        same TTL semantics — the interface stays identical.
+        """
+        now = time.time()
+        with self._jti_lock:
+            # Evict expired entries before checking.
+            stale = [k for k, e in self._jti_seen.items() if e <= now]
+            for k in stale:
+                self._jti_seen.pop(k, None)
+
+            if jti in self._jti_seen:
+                raise InvalidToken("jti-replay", f"JTI already seen: {jti}")
+
+            # Enforce hard cap (defence against forged-JTI flood).
+            while len(self._jti_seen) >= self.JTI_CACHE_MAX:
+                self._jti_seen.popitem(last=False)
+            self._jti_seen[jti] = exp_unix
 
 
 # ---------------------------------------------------------------------------

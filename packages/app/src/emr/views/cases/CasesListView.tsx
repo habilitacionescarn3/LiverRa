@@ -43,6 +43,7 @@ import {
   EMRTableSkeleton as Skeleton,
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { getCurrentAccessToken } from '../../services/auth';
 
 /** Analysis status values mirror the backend enum (T133).
  *
@@ -207,9 +208,17 @@ function useCasesListStub(
     setLoading(true);
     setError(null);
     const query = new URLSearchParams(filtersToQuery(filters));
+    // H-SEC-5: real access token from AuthContext (was hardcoded
+    // 'dev-access-token' which forced operators to keep LIVERRA_AUTH_BYPASS=true
+    // on the backend; that in turn enabled B-AUTH-3). When unauthenticated,
+    // omit the header entirely and let the backend's 401 path reply.
+    const accessToken = getCurrentAccessToken();
+    const authHeaders: Record<string, string> = accessToken
+      ? { Authorization: `Bearer ${accessToken}` }
+      : {};
     fetch(`${apiBaseUrl}/analyses?${query.toString()}`, {
       credentials: 'include',
-      headers: { Authorization: 'Bearer dev-access-token' },
+      headers: authHeaders,
     })
       .then((r) => {
         if (!r.ok) throw new Error(`GET /analyses failed: ${r.status}`);

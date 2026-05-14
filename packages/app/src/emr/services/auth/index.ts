@@ -107,6 +107,23 @@ function subscribeAuthStub(listener: () => void): () => void {
   return () => authStub.listeners.delete(listener);
 }
 
+/**
+ * Return the current Cognito JWT access token, or null if the user is
+ * signed out. Synchronous + safe to call from non-React code (e.g., the
+ * DICOMweb client's request-time auth callback).
+ *
+ * IMPORTANT: in production builds this MUST return a non-null token for
+ * any PACS / API call. The DICOMweb client adds a runtime guard that
+ * throws if this returns null while ``import.meta.env.PROD`` is true —
+ * earlier code hardcoded the callback to ``() => null``, which silently
+ * sent every QIDO/WADO/STOW request with no Authorization header (audit
+ * B-PACS-3).
+ */
+export function getCurrentAccessToken(): string | null {
+  const token = authStub.user?.access_token;
+  return typeof token === 'string' && token.length > 0 ? token : null;
+}
+
 // ---------------------------------------------------------------------------
 // Hook implementation
 // ---------------------------------------------------------------------------
