@@ -17,7 +17,9 @@ Used by:
     - ``src/tasks/parenchyma.py``
     - ``src/tasks/couinaud.py``
     - ``src/tasks/vessels.py``
-    - (formerly ``src/tasks/flr_default.py`` — being removed by Agent 3.1)
+    - (formerly ``src/tasks/flr_default.py`` — B-CLIN-3 fix rewrote that
+      task to read voxel spacing from the actual NIfTI via nibabel
+      ``header.get_zooms()``, so it no longer needs this fallback.)
 """
 from __future__ import annotations
 
