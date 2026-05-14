@@ -45,7 +45,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.orchestrator import checkpoint
 from src.orchestrator.sanity import SanityFailure
 from src.services.audit.chain_of_hashes import AuditChainWriter
-from src.services.triton.client import TritonClient
+
+# Triton path is dormant per CLAUDE.md "Current Dev Setup" — see the
+# matching comment in ``src/tasks/couinaud.py`` and audit finding
+# H-INFER-4. Module-level import only when the env flag is set.
+import os as _os  # noqa: E402
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.services.triton.client import TritonClient  # noqa: F401
+elif _os.environ.get("LIVERRA_TRITON_PATH_ACTIVE", "").lower() == "true":
+    from src.services.triton.client import TritonClient  # noqa: F401
+else:
+    TritonClient = None  # type: ignore[assignment,misc]
 
 from src.tasks.couinaud import TRITON_MODEL_NAME
 
@@ -506,6 +518,14 @@ async def _run(
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     """Self-contained vessels pipeline (Celery-task entry-point flavour)."""
+    # H-INFER-4 — Triton path is dormant; the live cascade uses
+    # TotalSegmentator ``task=liver_vessels`` via the GPU microservice.
+    if os.environ.get("LIVERRA_TRITON_PATH_ACTIVE", "").lower() != "true":
+        raise RuntimeError(
+            "Triton vessels task is dormant (CLAUDE.md). Set "
+            "LIVERRA_TRITON_PATH_ACTIVE=true to enable it, or call "
+            "the live cascade in scripts/real_cascade.py instead."
+        )
     from src.services.triton.client import TritonClient as _TritonClient
     from src.orchestrator import checkpoint as _checkpoint
 

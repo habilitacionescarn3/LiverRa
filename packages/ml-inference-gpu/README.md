@@ -6,25 +6,44 @@ the entire API surface. No DB, no S3, no LiverRa knowledge.
 
 ## Endpoints
 
+All `/infer/*` endpoints require `Authorization: Bearer <LIVERRA_GPU_SHARED_TOKEN>`.
+Successful responses carry `X-LiverRa-Model-Version` and
+`X-LiverRa-Model-Weights-SHA` headers — the laptop client persists
+these onto `Analysis.model_versions` for regulatory provenance.
+
 - `POST /infer/total` — multipart `ct_nifti` → `application/zip` containing
   `liver.nii.gz`, `inferior_vena_cava.nii.gz`, `gallbladder.nii.gz`,
-  `spleen.nii.gz`.
+  `spleen.nii.gz`. Apache-2.0 / no commercial license required.
 - `POST /infer/liver_vessels` — multipart `ct_nifti` → `application/zip`
   containing `liver_vessels.nii.gz` and `liver_tumor.nii.gz`.
-- `GET /health` — JSON liveness + CUDA visibility check.
+  ⚠ Requires `LIVERRA_TS_COMMERCIAL_LICENSED=true` (paid TS commercial
+  license); otherwise returns HTTP 451.
+- `POST /infer/total_and_vessels` — combined call (kept for backward
+  compatibility, but the cascade no longer uses it because the two-call
+  pattern is ~2 minutes faster on Tailscale links). Same commercial-
+  license gate as `liver_vessels`.
+- `GET /health` — JSON liveness + CUDA + provenance info. Returns
+  HTTP 503 when CUDA is unavailable so K8s liveness probes correctly
+  mark the pod unhealthy.
 
 ## Run on Irakli's box — REQUIRES `--network host` on this WSL2 setup
 
 ```bash
 cd packages/ml-inference-gpu
-docker build -t liverra/gpu-inference:1.0.1 .
+docker build -t liverra/gpu-inference:1.0.3 .
+
+# Generate a strong shared token (paste the SAME value on the laptop's
+# .env as LIVERRA_GPU_SHARED_TOKEN — both ends must match):
+TOKEN=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
 
 docker run -d --gpus all \
   --network host \
   -e PORT=9101 \
+  -e LIVERRA_GPU_SHARED_TOKEN="$TOKEN" \
+  -e LIVERRA_TS_COMMERCIAL_LICENSED=false \
   --restart unless-stopped \
   --name liverra-gpu \
-  liverra/gpu-inference:1.0.1
+  liverra/gpu-inference:1.0.3
 
 # Register with tailscale serve (one-time; persists in /var/lib/tailscale)
 tailscale serve --bg --tcp 9101 tcp://localhost:9101
@@ -58,7 +77,11 @@ output mask count, ZIP MB.
 git pull
 docker build -t liverra/gpu-inference:NEW_TAG .
 docker stop liverra-gpu && docker rm liverra-gpu
-docker run -d --gpus all --network host -e PORT=9101 --restart unless-stopped \
+docker run -d --gpus all --network host \
+  -e PORT=9101 \
+  -e LIVERRA_GPU_SHARED_TOKEN="$TOKEN" \
+  -e LIVERRA_TS_COMMERCIAL_LICENSED=false \
+  --restart unless-stopped \
   --name liverra-gpu liverra/gpu-inference:NEW_TAG
 ```
 

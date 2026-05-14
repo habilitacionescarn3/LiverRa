@@ -38,8 +38,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # …/ml-inference
 # files written into the same dest dir.
 from src.services.inference_client import (
     infer_liver_vessels,
+    infer_liver_vessels_with_provenance,
     infer_total,
     infer_total_and_vessels,
+    infer_total_with_provenance,
 )
 from src.orchestrator.couinaud_heuristic import compute_couinaud
 from src.orchestrator.flr_segment_aware import (
@@ -255,16 +257,24 @@ def run_real_cascade(
     download_phase(study_id, "portal_venous", ct_path)
     print(f"      {ct_path.name}  ({ct_path.stat().st_size/1e6:.1f} MB)  +{time.perf_counter()-t0:.2f}s")
 
-    # ONE combined GPU call upfront — runs BOTH task=total AND
-    # task=liver_vessels on the same uploaded CT. Saves a full upload
-    # (~3-5 min on Tailscale) vs. two separate calls. The downstream
-    # stage 5 just reads files from vessels_dir below; it doesn't issue
-    # a second HTTP call.
-    print(f"\n[3/7] GPU inference: combined total + liver_vessels → Irakli's box")
+    # Two-call pattern: run task=total upfront, then liver_vessels in
+    # stage 5. CLAUDE.md "Open decision" — empirically ~2 minutes faster
+    # than the combined endpoint on Tailscale links (12m08s vs 13m51s),
+    # and avoids paying the commercial-license tier for analyses that
+    # only need the base task. Combined endpoint stays available on the
+    # GPU service for backward compatibility — see
+    # ``infer_total_and_vessels`` in ``inference_client.py``.
+    print(f"\n[3/7] GPU inference: task=total → Irakli's box")
     seg_dir = workdir / "ts_total"
     vessels_dir = workdir / "ts_vessels"
     t_seg = time.perf_counter()
-    infer_total_and_vessels(ct_path, total_dir=seg_dir, vessels_dir=vessels_dir)
+    _total_paths, total_provenance = infer_total_with_provenance(
+        ct_path, dest_dir=seg_dir
+    )
+    print(
+        f"      model_version={total_provenance.get('model_version', 'unknown')} "
+        f"weights_sha={total_provenance.get('weights_sha', 'unknown')[:24]}..."
+    )
     liver_path = seg_dir / "liver.nii.gz"
     if not liver_path.exists():
         print(f"      !! expected {liver_path} not found", file=sys.stderr)
@@ -333,16 +343,21 @@ def run_real_cascade(
     # ----------------------------------------------------------------------
     # Stage 3 + 5 — vessels + lesion detection (TotalSegmentator task=liver_vessels)
     # ----------------------------------------------------------------------
-    print(f"\n[5/7] Read liver_vessels masks from upfront combined call (no GPU roundtrip)")
-    # vessels_dir was populated by the combined call at stage 2; this stage
-    # just consumes those files. No HTTP roundtrip here.
+    print(f"\n[5/7] GPU inference: task=liver_vessels → Irakli's box")
+    # Two-call pattern: a second CT upload here (vs the combined endpoint
+    # that bundled this with stage 3). Empirically ~2 minutes faster on
+    # Tailscale because TS-on-GPU finishes a single task much faster than
+    # the kernel-launch / weight-swap cost of two tasks back-to-back.
     t_lv = time.perf_counter()
     vessels_done = False
     portal_native = hepatic_native = tumor_native = None
+    vessels_provenance: dict[str, str] = {"model_version": "unknown", "weights_sha": "unknown"}
     try:
-        # Sanity: ensure the upfront call actually produced these files.
+        _vessel_paths, vessels_provenance = infer_liver_vessels_with_provenance(
+            ct_path, dest_dir=vessels_dir
+        )
         if not any(vessels_dir.glob("*.nii.gz")):
-            raise RuntimeError("vessels_dir empty — upfront combined GPU call must have failed")
+            raise RuntimeError("vessels_dir empty after infer_liver_vessels call")
         # task=liver_vessels emits per-label NIfTIs:
         #   liver_vessels.nii.gz   (combined hepatic + portal vessel tree)
         #   liver_tumor.nii.gz     (tumor candidates)
@@ -359,6 +374,10 @@ def run_real_cascade(
         if (vessels_dir / "liver_tumor.nii.gz").exists():
             tumor_native = sitk.ReadImage(str(vessels_dir / "liver_tumor.nii.gz"))
         vessels_done = portal_native is not None or hepatic_native is not None
+        print(
+            f"      model_version={vessels_provenance.get('model_version', 'unknown')} "
+            f"weights_sha={vessels_provenance.get('weights_sha', 'unknown')[:24]}..."
+        )
         print(f"      ✓ +{time.perf_counter()-t_lv:.1f}s")
     except Exception as exc:
         print(f"      ! liver_vessels task failed: {exc}")

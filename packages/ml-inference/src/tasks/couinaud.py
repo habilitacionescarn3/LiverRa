@@ -59,7 +59,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.orchestrator import checkpoint, sanity
 from src.services.audit.chain_of_hashes import AuditChainWriter
-from src.services.triton.client import TritonClient
+
+# Triton path is dormant per CLAUDE.md "Current Dev Setup" — the live
+# cascade uses TotalSegmentator via the GPU microservice
+# (``src/services/inference_client.py``). The TritonClient import is
+# only resolved at module import time when ``LIVERRA_TRITON_PATH_ACTIVE=true``;
+# otherwise we leave it as a TYPE_CHECKING-only alias so dormant deploys
+# don't require triton-client to be installed (H-INFER-4).
+import os as _os  # noqa: E402 — local alias to avoid shadowing later os imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.services.triton.client import TritonClient  # noqa: F401
+elif _os.environ.get("LIVERRA_TRITON_PATH_ACTIVE", "").lower() == "true":
+    from src.services.triton.client import TritonClient  # noqa: F401
+else:
+    TritonClient = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -541,6 +556,16 @@ async def _run(
     the canonical stage-start / stage-complete / stage-failed audit
     events through its installed hooks.
     """
+    # H-INFER-4 — refuse to run the Triton-Couinaud path unless explicitly
+    # opted in. The live cascade uses the heuristic Couinaud algorithm in
+    # ``src/services/couinaud_heuristic.py`` invoked from ``real_cascade.py``;
+    # this Celery task is only useful in legacy / experimental flows.
+    if os.environ.get("LIVERRA_TRITON_PATH_ACTIVE", "").lower() != "true":
+        raise RuntimeError(
+            "Triton Couinaud task is dormant (CLAUDE.md). Set "
+            "LIVERRA_TRITON_PATH_ACTIVE=true to enable it, or call "
+            "the live cascade in scripts/real_cascade.py instead."
+        )
     from src.services.triton.client import TritonClient as _TritonClient
     from src.orchestrator import checkpoint as _checkpoint
 
