@@ -56,13 +56,19 @@ interface HealthPayload {
 
 const POLL_INTERVAL_MS = 3000;
 
+// Pick up the Netlify-built env var (staging → Fly.io URL); fall back to the
+// relative path that Vite's dev proxy handles locally.
+const DEFAULT_API_BASE_URL =
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+    ?.VITE_LIVERRA_API_BASE_URL ?? '/api/v1';
+
 /**
  * Cold-start banner.
  */
 export function ColdStartIndicator({
   analysisId: _analysisId,
   status,
-  apiBaseUrl = '/api/v1',
+  apiBaseUrl = DEFAULT_API_BASE_URL,
   'data-testid': testId = 'cold-start-indicator',
 }: ColdStartIndicatorProps): React.ReactElement | null {
   const { t } = useTranslation();

@@ -374,9 +374,19 @@ function CaseCard({
 /**
  * CasesListView — list + filter + pagination of analyses.
  */
+// Resolve the API base URL once: prefer the build-time env var (set by
+// Netlify for staging → https://liverra-api.fly.dev/api/v1), fall back to the
+// relative path /api/v1 (works locally because Vite's dev proxy forwards
+// /api/* to 127.0.0.1:8090). The earlier hardcoded /api/v1 default broke the
+// cloud staging build because Netlify has no /api proxy → SPA fallback
+// returned the index.html → "Unexpected token '<'" on the JSON parse.
+const DEFAULT_API_BASE_URL =
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+    ?.VITE_LIVERRA_API_BASE_URL ?? '/api/v1';
+
 function CasesListViewInner({
   initialData,
-  apiBaseUrl = '/api/v1',
+  apiBaseUrl = DEFAULT_API_BASE_URL,
 }: CasesListViewProps): React.ReactElement {
   const { t, locale } = useTranslation();
   const navigate = useNavigate();
