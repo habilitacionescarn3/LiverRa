@@ -13,7 +13,7 @@
  * `useTranslation()`. Both already exist; this component is just the UI.
  */
 
-import { Avatar, Box, Group, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Avatar, Box, Group, Loader, Menu, Skeleton, Stack, Text, UnstyledButton } from '@mantine/core';
 import {
   IconBell,
   IconCheck,
@@ -22,12 +22,17 @@ import {
   IconLogout,
   IconUser,
 } from '@tabler/icons-react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { LIVERRA_ROUTES } from '../../constants/routes';
 import { SUPPORTED_LOCALES, useTranslation, type Locale } from '../../contexts/TranslationContext';
-import { useAuth } from '../../services/auth';
+// Pull signOut from the React context (not the stub-backed services/auth hook).
+// The context's signOut clears all three auth stores + localStorage flag and
+// hard-navigates to /signin?signedOut=1. The stub-backed signOut delegates to
+// the OIDC UserManager which doesn't exist on the staging deploy, so calling
+// it leaves the staging-auth flag in place and causes auto-re-signin on refresh.
+import { useAuthContext } from '../../contexts/AuthContext';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
@@ -52,21 +57,26 @@ function computeInitials(name: string | null, email: string | null): string {
 export const UserMenuButton = memo(function UserMenuButton() {
   const navigate = useNavigate();
   const { t, locale, setLocale } = useTranslation();
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useAuthContext();
 
   const initials = useMemo(
     () => computeInitials(user?.name ?? null, user?.email ?? null),
     [user?.name, user?.email],
   );
 
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const handleSignOut = useCallback(async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
     try {
       await signOut();
+      // signOut hard-navigates to /signin?signedOut=1 (or OIDC redirect),
+      // so we don't unset the flag — the page is about to unmount anyway.
     } catch {
-      // Stub auth in dev mode rejects with a TODO error — swallow so the
-      // dropdown still closes; production OIDC flow handles redirect.
+      // If the redirect ever fails, let the user retry.
+      setIsSigningOut(false);
     }
-  }, [signOut]);
+  }, [signOut, isSigningOut]);
 
   if (!user) {
     return <Skeleton circle width={32} height={32} />;
@@ -197,11 +207,15 @@ export const UserMenuButton = memo(function UserMenuButton() {
         <Menu.Divider />
         <Menu.Item
           color="red"
-          leftSection={<IconLogout size={16} />}
+          leftSection={
+            isSigningOut ? <Loader size={14} color="red" /> : <IconLogout size={16} />
+          }
           onClick={handleSignOut}
+          disabled={isSigningOut}
+          closeMenuOnClick={false}
           data-testid="user-menu-signout"
         >
-          {t('nav:user_menu_signout')}
+          {isSigningOut ? t('nav:user_menu_signing_out') : t('nav:user_menu_signout')}
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>

@@ -131,6 +131,13 @@ export const appRouter = createBrowserRouter([
     path: LIVERRA_ROUTES.AUTH_CALLBACK,
     element: <AuthCallbackView />,
   },
+  // Cognito's default `post_logout_redirect_uri` lands here after the
+  // hosted-UI signout. Forward to /signin?signedOut=1 so the inline
+  // success banner shows and the email pre-fill kicks in.
+  {
+    path: '/auth/logout',
+    element: <Navigate to="/signin?signedOut=1" replace />,
+  },
 
   // Authenticated shell (gate decides before EMRPage mounts)
   {

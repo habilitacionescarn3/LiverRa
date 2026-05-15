@@ -317,12 +317,42 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
   const permissions = authMe?.permissions ?? [];
   const authTime = extractAuthTime(user);
 
-  // ------------------ Actions (delegate to the stub-backed hook) ------------------
-  // We intentionally call the existing hook's functions rather than re-implementing
-  // them — keeps both surfaces (context + hook) in sync.
+  // ------------------ Actions ------------------
+  // signIn / refresh / challengeStepUp delegate to the stub-backed hook (it owns
+  // the UserManager). signOut is a real implementation because the staging-tier
+  // deploy has no UserManager, and the stub's signOut would throw + leave
+  // AuthProvider's local React state stale — producing a /signin↔/cases redirect
+  // loop. We clear all three auth stores (stub, React state, localStorage flag)
+  // in lockstep before navigating, mirroring the staging-gate prime flow.
   const stubHook = useAuthHook();
   const signIn = useCallback(() => stubHook.signIn(), [stubHook]);
-  const signOut = useCallback(() => stubHook.signOut(), [stubHook]);
+  const signOut = useCallback(async (): Promise<void> => {
+    // 1. Clear the staging-gate flag FIRST so a refresh during the redirect
+    //    can't re-prime the user from AuthProvider's init useEffect.
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('liverra:staging-auth');
+    }
+    // 2. Clear the module stub (ProtectedRoute, UserMenuButton, etc. see this).
+    __setAuthStub({ user: null, permissions: [] });
+    // 3. Clear AuthProvider's local React state (AuthRootGate sees this).
+    setUser(null);
+    setAuthMe(null);
+    setIsLoading(false);
+    // 4. OIDC path (production Cognito): follow the signout-redirect flow.
+    if (managerRef.current) {
+      try {
+        await managerRef.current.signoutRedirect();
+        return;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[AuthContext] signoutRedirect failed; falling back to /signin', err);
+      }
+    }
+    // 5. Staging / no-OIDC path: hard-navigate so AuthProvider remounts fresh.
+    if (typeof window !== 'undefined') {
+      window.location.assign('/signin?signedOut=1');
+    }
+  }, []);
   const refresh = useCallback(() => stubHook.refresh(), [stubHook]);
   const challengeStepUp = useCallback(
     (permission: string) => stubHook.challengeStepUp(permission),

@@ -20,11 +20,12 @@
  *     gate, AuthContext auto-primes a fake user; we redirect to `returnTo`.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Center, Group, Stack, Text, Tooltip } from '@mantine/core';
 import {
   IconAlertTriangle,
   IconArrowLeft,
+  IconCircleCheck,
   IconLock,
   IconMail,
   IconShieldCheck,
@@ -119,9 +120,28 @@ export default function SigninView(): JSX.Element {
   const devBypassActive =
     !stagingGateActive && isDev && meta.VITE_LIVERRA_DEV_BYPASS === 'true';
 
-  const [email, setEmail] = useState('');
+  // Pre-fill last-used email from localStorage (set on successful signin).
+  // Speeds up re-signin during staging testing; password field stays blank.
+  const lastEmail =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem('liverra:last-email') ?? ''
+      : '';
+  const [email, setEmail] = useState(lastEmail);
   const [password, setPassword] = useState('');
   const [credError, setCredError] = useState<string | null>(null);
+  const justSignedOut = params.get('signedOut') === '1';
+
+  // Refs for autofocus — focus password if email is pre-filled, else email.
+  const emailRef = useRef<HTMLInputElement | null>(null);
+  const passwordRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!stagingGateActive) return;
+    const target = lastEmail ? passwordRef.current : emailRef.current;
+    target?.focus();
+    // Run once on mount; lastEmail + stagingGateActive don't change post-mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSignIn = (): void => {
     signIn().catch((err) => {
@@ -138,6 +158,8 @@ export default function SigninView(): JSX.Element {
       return;
     }
     window.localStorage.setItem('liverra:staging-auth', 'ok');
+    // Remember the email for the next signin (e.g., after a future signout).
+    window.localStorage.setItem('liverra:last-email', email.trim());
     // AuthContext re-reads this on next mount; full reload primes the
     // dev-bypass user without any oidc-client side effects.
     window.location.assign(returnTo);
@@ -304,6 +326,18 @@ export default function SigninView(): JSX.Element {
             />
 
             <Stack gap="lg" style={{ position: 'relative' }}>
+              {/* Post-signout success banner — only shows when arriving with
+                  ?signedOut=1, which AuthContext.signOut() appends. */}
+              {justSignedOut && (
+                <EMRAlert
+                  variant="success"
+                  icon={IconCircleCheck}
+                  data-testid="signin-signedout-banner"
+                >
+                  {t('auth:signin.signedOutBanner')}
+                </EMRAlert>
+              )}
+
               {/* Welcome heading */}
               <Stack gap={4}>
                 <Text
@@ -328,7 +362,10 @@ export default function SigninView(): JSX.Element {
                 </Text>
               </Stack>
 
-              {devBypassActive && (
+              {/* Dev-only: shown when DEV_BYPASS=true AND staging gate is OFF.
+                  Wrapped in import.meta.env.DEV so Vite tree-shakes it from
+                  the production bundle entirely. */}
+              {import.meta.env.DEV && devBypassActive && (
                 <EMRAlert variant="info" data-testid="signin-dev-bypass">
                   {t('auth:signin.devBypassActive')}
                 </EMRAlert>
@@ -336,6 +373,7 @@ export default function SigninView(): JSX.Element {
 
               <Stack gap="md">
                 <EMRTextInput
+                  ref={emailRef}
                   label={t('auth:signin.emailLabel')}
                   placeholder={t('auth:signin.emailPlaceholder')}
                   type="email"
@@ -351,6 +389,7 @@ export default function SigninView(): JSX.Element {
                 />
 
                 <EMRTextInput
+                  ref={passwordRef}
                   label={t('auth:signin.passwordLabel')}
                   placeholder={t('auth:signin.passwordPlaceholder')}
                   type="password"
@@ -406,7 +445,7 @@ export default function SigninView(): JSX.Element {
                 </Box>
               </Tooltip>
 
-              {isDev && !oidcConfigured && !devBypassActive && !stagingGateActive && (
+              {import.meta.env.DEV && isDev && !oidcConfigured && !devBypassActive && !stagingGateActive && (
                 <EMRAlert
                   variant="warning"
                   icon={IconAlertTriangle}
