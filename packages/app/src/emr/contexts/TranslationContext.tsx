@@ -4,16 +4,20 @@
 /**
  * TranslationContext — LiverRa i18n (T076).
  *
- * Port of MediMind's TranslationContext, rewritten for LiverRa's
- * `{en, de, ka}` locale set (Russian dropped) and **domain-bundle lazy
- * loading** from `translations/${locale}/${namespace}.json`.
+ * Active triad per CLAUDE.md: en (primary), ru (Georgia/CIS market), ka
+ * (Georgian). de retained as DACH fallback. The canonical `Locale` /
+ * `SUPPORTED_LOCALES` / `DEFAULT_LOCALE` / `INTL_TAG` declarations live in
+ * `../services/localeService.ts`; this file re-exports them so a single
+ * source of truth survives drift.
  *
  * Behaviour:
  *   - Domain bundles load on demand. Every `t('nav:upload')` lookup that
  *     touches a namespace not yet cached triggers an `import()` and
  *     returns the key itself until the bundle resolves.
- *   - Fallback chain: `de → en`, `ka → en`. A translator may leave a de/ka
- *     bundle partial; missing keys fall back to the en bundle.
+ *   - Fallback chain: `de → en`, `ka → en`, `ru → en`. A translator may
+ *     leave a de/ka/ru bundle partial; missing keys fall back to the en
+ *     bundle. `__TODO_TRANSLATE__:` markers (used while CODEOWNERS medical
+ *     terminology review is pending) are treated as missing.
  *   - React-Suspense compatible: consumers can wrap lazy regions in
  *     `<Suspense fallback={...}>` — we throw the in-flight promise from
  *     `t()` on first touch of a loading namespace (opt-in via the
@@ -32,20 +36,19 @@ import {
 } from 'react';
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — re-exported from the canonical localeService
 // ---------------------------------------------------------------------------
 
-/**
- * Supported UI locales.
- *
- * Triad: en (primary), ru (Georgia market), ka (Georgian). de is retained for
- * the DACH commercial push but new features target en/ru/ka — ru and ka fall
- * back to en until CODEOWNERS medical-terminology review lands.
- */
-export type Locale = 'en' | 'de' | 'ka' | 'ru';
+import {
+  type Locale,
+  SUPPORTED_LOCALES,
+  DEFAULT_LOCALE,
+  INTL_TAG,
+  detectPreferredLocale,
+  setLocalePreference,
+} from '../services/localeService';
 
-export const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'de', 'ka', 'ru'] as const;
-export const DEFAULT_LOCALE: Locale = 'en';
+export { type Locale, SUPPORTED_LOCALES, DEFAULT_LOCALE, INTL_TAG };
 
 /** Namespaces correspond to one JSON file per `translations/<locale>/<ns>.json`. */
 export type TranslationNamespace =
@@ -77,7 +80,8 @@ export type TranslationNamespace =
   | 'navigation'
   | 'review'
   | 'session'
-  | 'takeover';
+  | 'takeover'
+  | 'reportAcr';
 
 export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'common',
@@ -109,6 +113,7 @@ export const TRANSLATION_NAMESPACES: readonly TranslationNamespace[] = [
   'review',
   'session',
   'takeover',
+  'reportAcr',
 ] as const;
 
 /** Recursive type for nested JSON translation values. */
@@ -120,6 +125,20 @@ export interface TranslationContextValue {
   locale: Locale;
   setLocale: (next: Locale) => void;
   t: (key: string, params?: Record<string, unknown>) => string;
+  /**
+   * Resolve a pluralized translation using `Intl.PluralRules` for the active
+   * locale. Russian needs 4 forms (one/few/many/other); the previous
+   * `count===1 ? _one : _other` ternary in CascadeStageTimeline was wrong for
+   * ru (audit H-I18NQ-6 / CC-4).
+   *
+   * Usage:
+   *   tPlural('analysis:detail.cascadeTimeline.summary.stageCount', count, { count, total })
+   *
+   * Looks up `<baseKey>_<category>` where category is one of `one|few|many|other`.
+   * Falls back to `<baseKey>_other` if the specific category bundle key is
+   * missing, then to the unsuffixed `<baseKey>`.
+   */
+  tPlural: (baseKey: string, count: number, params?: Record<string, unknown>) => string;
   isLoading: boolean;
 }
 
@@ -143,6 +162,22 @@ const inFlight: Record<Locale, Partial<Record<TranslationNamespace, Promise<Tran
   ru: {},
 };
 
+/**
+ * Track failed loads so we don't poison the bundle cache with `{}` on a
+ * transient import error (which would block fallback chain forever for the
+ * rest of the session — see M-I18N-4 in the 2026-05-14 audit). A bundle that
+ * legitimately doesn't exist (e.g. `ru/reportAcr.json` pre-shell) still falls
+ * back to en via the `t()` fallback chain.
+ */
+const failedLoads: Record<Locale, Partial<Record<TranslationNamespace, number>>> = {
+  en: {},
+  de: {},
+  ka: {},
+  ru: {},
+};
+
+const MAX_RETRY = 3;
+
 async function loadBundle(locale: Locale, ns: TranslationNamespace): Promise<TranslationBundle> {
   const cached = bundleCache[locale][ns];
   if (cached) return cached;
@@ -150,17 +185,29 @@ async function loadBundle(locale: Locale, ns: TranslationNamespace): Promise<Tra
   const pending = inFlight[locale][ns];
   if (pending) return pending;
 
+  // If we've retried 3 times already, give up but DON'T cache `{}` — the
+  // fallback chain in `t()` already covers this case via the en bundle.
+  if ((failedLoads[locale][ns] ?? 0) >= MAX_RETRY) {
+    return {};
+  }
+
   const p = (async () => {
     try {
       const mod = await import(`../translations/${locale}/${ns}.json`);
       const data = (mod.default ?? mod) as TranslationBundle;
       bundleCache[locale][ns] = data;
+      delete failedLoads[locale][ns];
       return data;
     } catch (err) {
-      console.warn(`[i18n] Failed to load ${locale}/${ns}.json:`, err);
-      const empty: TranslationBundle = {};
-      bundleCache[locale][ns] = empty;
-      return empty;
+      const attempt = (failedLoads[locale][ns] ?? 0) + 1;
+      failedLoads[locale][ns] = attempt;
+      console.warn(
+        `[i18n] Failed to load ${locale}/${ns}.json (attempt ${attempt}/${MAX_RETRY}):`,
+        err,
+      );
+      // Do NOT cache `{}` — let the next request retry. The `t()` fallback
+      // chain will surface en values in the interim.
+      return {};
     } finally {
       delete inFlight[locale][ns];
     }
@@ -239,12 +286,6 @@ function splitKey(key: string): [TranslationNamespace, string] {
 }
 
 // ---------------------------------------------------------------------------
-// Locale detection
-// ---------------------------------------------------------------------------
-
-import { detectPreferredLocale, setLocalePreference } from '../services/localeService';
-
-// ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
@@ -273,6 +314,11 @@ const DEFAULT_PRELOAD_NAMESPACES: readonly TranslationNamespace[] = [
   // raw key on first render and never recover (the `t` callback identity is
   // stable across bundle loads).
   'ruo',
+  // Preload `help` because LandingView is the landing route (`/`) and reads
+  // a dozen `help.landing.*` keys via `useMemo`. Without eager load, the
+  // first paint shows raw keys and the memo locks them in until manual
+  // refresh — same failure mode as `ruo`.
+  'help',
 ];
 
 export function TranslationProvider({
@@ -283,9 +329,29 @@ export function TranslationProvider({
   const [locale, setLocaleState] = useState<Locale>(
     () => initialLocale ?? detectPreferredLocale(),
   );
-  const [, forceRender] = useState(0);
+  // `bundleVersion` increments every time a lazy bundle resolves. It is wired
+  // into the `t` callback's dependency array so consumers re-render with the
+  // freshly-loaded translations. Without this, switching locales would paint
+  // English (the loaded fallback) and stay there forever because the context
+  // value memo never rebuilt when the target-locale bundle arrived.
+  const [bundleVersion, setBundleVersion] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const mountedRef = useRef(true);
+  // L-I18N-3: collect missing-namespace loads in a Set then flush once
+  // per microtask via ``queueMicrotask``. The previous code called
+  // ``forceRender`` per bundle resolution, so first paint of a view
+  // referencing N missing namespaces caused N renders. The set
+  // deduplicates and the microtask flushes a single render no matter
+  // how many namespaces resolve in the same frame.
+  const pendingFlushRef = useRef(false);
+  const scheduleFlush = useCallback(() => {
+    if (pendingFlushRef.current) return;
+    pendingFlushRef.current = true;
+    queueMicrotask(() => {
+      pendingFlushRef.current = false;
+      if (mountedRef.current) setBundleVersion((n) => n + 1);
+    });
+  }, []);
 
   // Preload common + errors (plus any caller-supplied bundles) at mount
   // and re-run whenever the locale changes.
@@ -305,7 +371,7 @@ export function TranslationProvider({
     void Promise.all(bundles).then(() => {
       if (mountedRef.current) {
         setIsLoading(false);
-        forceRender((n) => n + 1);
+        setBundleVersion((n) => n + 1);
       }
     });
 
@@ -330,15 +396,11 @@ export function TranslationProvider({
 
       // Kick off load for requested locale (non-blocking).
       if (!bundleCache[locale][ns]) {
-        void loadBundle(locale, ns).then(() => {
-          if (mountedRef.current) forceRender((n) => n + 1);
-        });
+        void loadBundle(locale, ns).then(scheduleFlush);
       }
       // Kick off English fallback load.
       if (locale !== 'en' && !bundleCache.en[ns]) {
-        void loadBundle('en', ns).then(() => {
-          if (mountedRef.current) forceRender((n) => n + 1);
-        });
+        void loadBundle('en', ns).then(scheduleFlush);
       }
 
       // Primary resolution. Treat `__TODO_TRANSLATE__:` markers as missing so
@@ -366,7 +428,41 @@ export function TranslationProvider({
       if (value === undefined) return key;
       return interpolate(value, params);
     },
-    [locale],
+    // `bundleVersion` is intentionally part of the dep array: when a lazy
+    // bundle finishes loading, this counter ticks, `t` gets a new identity,
+    // the context value memo rebuilds, and consumers re-render to pick up
+    // the newly-resolved translations (e.g. the German `help` bundle after
+    // the user switches from EN → DE).
+    [locale, scheduleFlush, bundleVersion],
+  );
+
+  // Memoize a per-locale PluralRules instance — Intl.PluralRules constructors
+  // are not cheap (browser caches vary) and we call this on every render of any
+  // component using `tPlural`.
+  const pluralRules = useMemo(() => {
+    try {
+      return new Intl.PluralRules(INTL_TAG[locale] ?? 'en-GB');
+    } catch {
+      return new Intl.PluralRules('en-GB');
+    }
+  }, [locale]);
+
+  const tPlural = useCallback(
+    (baseKey: string, count: number, params?: Record<string, unknown>): string => {
+      const category = pluralRules.select(count); // 'zero'|'one'|'two'|'few'|'many'|'other'
+      const mergedParams = { count, ...(params ?? {}) };
+      // Try the specific category first (e.g. `stageCount_many` for ru).
+      const specific = t(`${baseKey}_${category}`, mergedParams);
+      // `t()` returns the key as a literal when nothing resolved — detect by
+      // comparing against the input key.
+      if (specific !== `${baseKey}_${category}`) return specific;
+      // Fall back to the canonical `_other` form (always present in en).
+      const other = t(`${baseKey}_other`, mergedParams);
+      if (other !== `${baseKey}_other`) return other;
+      // Last resort: try the unsuffixed key.
+      return t(baseKey, mergedParams);
+    },
+    [pluralRules, t],
   );
 
   // Keep `<html lang="...">` in sync on first mount as well.
@@ -377,8 +473,8 @@ export function TranslationProvider({
   }, [locale]);
 
   const value = useMemo<TranslationContextValue>(
-    () => ({ locale, setLocale, t, isLoading }),
-    [locale, setLocale, t, isLoading],
+    () => ({ locale, setLocale, t, tPlural, isLoading }),
+    [locale, setLocale, t, tPlural, isLoading],
   );
 
   return (
@@ -396,6 +492,7 @@ const defaultTranslationContext: TranslationContextValue = {
     /* no-op */
   },
   t: (key: string) => key,
+  tPlural: (baseKey: string) => baseKey,
   isLoading: false,
 };
 

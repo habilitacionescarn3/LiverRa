@@ -1,0 +1,17 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "defaultTitle": "__TODO_TRANSLATE__:Drop files here or click to upload",
+  "defaultDescription": "__TODO_TRANSLATE__:Attach files by drag and drop or by selecting them from your device.",
+  "chooseFile": "Выбрать файл",
+  "takePhoto": "__TODO_TRANSLATE__:Take photo",
+  "removeFile": "__TODO_TRANSLATE__:Remove file",
+  "upTo": "__TODO_TRANSLATE__:Up to {{size}}",
+  "error": {
+    "invalidType": "__TODO_TRANSLATE__:Unsupported file type.",
+    "tooLarge": "__TODO_TRANSLATE__:File is too large."
+  }
+}

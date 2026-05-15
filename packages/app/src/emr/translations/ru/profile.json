@@ -10,19 +10,30 @@
     "roleUnassigned": "__TODO_TRANSLATE__:No role assigned"
   },
   "sections": {
-    "account":     "__TODO_TRANSLATE__:Account",
+    "account": "__TODO_TRANSLATE__:Account",
     "preferences": "__TODO_TRANSLATE__:Preferences",
-    "security":    "__TODO_TRANSLATE__:Security",
-    "compliance":  "__TODO_TRANSLATE__:Compliance"
+    "security": "__TODO_TRANSLATE__:Security",
+    "compliance": "__TODO_TRANSLATE__:Compliance"
   },
   "actions": {
-    "save":   "__TODO_TRANSLATE__:Save changes",
-    "cancel": "__TODO_TRANSLATE__:Cancel"
+    "save": "__TODO_TRANSLATE__:Save changes",
+    "cancel": "__TODO_TRANSLATE__:Cancel",
+    "saving": "Сохранение…"
   },
   "fields": {
     "lastActiveNever": "__TODO_TRANSLATE__:Never",
     "lastActiveFirstSession": "__TODO_TRANSLATE__:Welcome! This is your first session.",
-    "displayNameHelper": "__TODO_TRANSLATE__:Visible to your team on cases, audit events, and reports."
+    "displayNameHelper": "__TODO_TRANSLATE__:Visible to your team on cases, audit events, and reports.",
+    "email": "Email",
+    "emailReadonly": "__TODO_TRANSLATE__:Contact an admin to change your email.",
+    "displayName": "__TODO_TRANSLATE__:Display name",
+    "displayNamePlaceholder": "__TODO_TRANSLATE__:How your name appears in audit logs and reports",
+    "role": "__TODO_TRANSLATE__:Role",
+    "locale": "Язык",
+    "theme": "Тема",
+    "mfaStatus": "__TODO_TRANSLATE__:Multi-factor authentication",
+    "ruoAccepted": "__TODO_TRANSLATE__:RUO terms accepted",
+    "lastActive": "__TODO_TRANSLATE__:Last active"
   },
   "password": {
     "title": "__TODO_TRANSLATE__:Password",
@@ -34,6 +45,50 @@
   },
   "comingSoon": "__TODO_TRANSLATE__:Coming soon",
   "ruo": {
-    "footerPill": "__TODO_TRANSLATE__:Research Use Only — outputs are not for clinical decision-making."
+    "footerPill": "__TODO_TRANSLATE__:Research Use Only — outputs are not for clinical decision-making.",
+    "acceptedAt": "__TODO_TRANSLATE__:Accepted on {{date}}",
+    "neverAccepted": "__TODO_TRANSLATE__:Not yet accepted — complete onboarding to accept.",
+    "reAccept": "__TODO_TRANSLATE__:Re-accept RUO terms",
+    "reAcceptBody": "__TODO_TRANSLATE__:If your organisation requires periodic re-acceptance, you can record a fresh signature here. This action requires step-up MFA.",
+    "reAcceptCta": "__TODO_TRANSLATE__:Re-accept now",
+    "reAccepted": "__TODO_TRANSLATE__:RUO terms re-accepted."
+  },
+  "locale": {
+    "en": "__TODO_TRANSLATE__:English",
+    "de": "__TODO_TRANSLATE__:Deutsch",
+    "ka": "__TODO_TRANSLATE__:ქართული",
+    "ru": "__TODO_TRANSLATE__:Русский"
+  },
+  "theme": {
+    "light": "__TODO_TRANSLATE__:Light",
+    "dark": "__TODO_TRANSLATE__:Dark",
+    "system": "__TODO_TRANSLATE__:System"
+  },
+  "role": {
+    "hpb_surgeon": "__TODO_TRANSLATE__:HPB surgeon",
+    "radiologist": "__TODO_TRANSLATE__:Radiologist",
+    "fellow": "__TODO_TRANSLATE__:Fellow",
+    "admin": "__TODO_TRANSLATE__:Administrator",
+    "operations": "__TODO_TRANSLATE__:Operations",
+    "compliance": "__TODO_TRANSLATE__:Compliance reviewer",
+    "dpo": "__TODO_TRANSLATE__:Data protection officer"
+  },
+  "mfa": {
+    "enrolled": "__TODO_TRANSLATE__:Enrolled",
+    "notEnrolled": "__TODO_TRANSLATE__:Not enrolled",
+    "enrolledAt": "__TODO_TRANSLATE__:Enrolled on {{date}}",
+    "reset": "__TODO_TRANSLATE__:Reset MFA",
+    "resetBody": "__TODO_TRANSLATE__:For security, MFA reset is performed by an administrator. Click below to send a reset request; an admin will contact you within one business day.",
+    "resetCta": "__TODO_TRANSLATE__:Request MFA reset",
+    "resetSent": "__TODO_TRANSLATE__:Reset request sent. An admin will contact you.",
+    "resetAdmin": "__TODO_TRANSLATE__:Admin contact: {{admin}}"
+  },
+  "toast": {
+    "saved": "__TODO_TRANSLATE__:Profile updated.",
+    "saveError": "__TODO_TRANSLATE__:Could not save — please retry."
+  },
+  "errors": {
+    "displayNameRequired": "__TODO_TRANSLATE__:Display name is required.",
+    "displayNameTooLong": "__TODO_TRANSLATE__:Display name must be 80 characters or fewer."
   }
 }

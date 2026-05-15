@@ -52,10 +52,11 @@ logger = logging.getLogger(__name__)
 TRITON_URL = os.environ.get("TRITON_URL", "triton:8001")
 MODEL_NAME = "liverra-stunet-parenchyma"
 TARGET_SHAPE = (128, 128, 128)  # D, H, W per config.pbtxt
-# Voxel volume in mL for the resampled 128³ volume assuming ~300 mm
-# abdominal FOV — this is a rough per-voxel weight just for sanity;
-# the high-resolution volume written back to S3 uses the original grid.
-_DEFAULT_VOXEL_VOLUME_ML = (2.3 ** 3) / 1000.0  # ~0.012 mL / voxel
+# Voxel volume in mL for the resampled 128³ volume — single source of truth
+# in ``src/orchestrator/constants.py``. Stages that have the *native*
+# SimpleITK image use ``np.prod(image.GetSpacing()) / 1000`` and bypass this
+# fallback (L-CASCADE-1).
+from src.orchestrator.constants import _DEFAULT_VOXEL_VOLUME_ML  # noqa: E402
 
 
 def _download_phase_volumes(

@@ -1,0 +1,285 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "status": {
+    "all": "__TODO_TRANSLATE__:All",
+    "uploading": "__TODO_TRANSLATE__:Uploading",
+    "anonymizing": "__TODO_TRANSLATE__:Anonymizing",
+    "queued": "В очереди",
+    "running": "Выполняется",
+    "done": "Готово",
+    "completed": "Завершено",
+    "failed": "Ошибка",
+    "cancelled": "__TODO_TRANSLATE__:Cancelled"
+  },
+  "cases": {
+    "title": "__TODO_TRANSLATE__:Analyses",
+    "subtitle": "__TODO_TRANSLATE__:Tenant-scoped liver imaging cases",
+    "newUpload": "__TODO_TRANSLATE__:New upload",
+    "open": "Открыть",
+    "tableAria": "__TODO_TRANSLATE__:Liver analyses",
+    "col": {
+      "thumb": "__TODO_TRANSLATE__:Thumbnail",
+      "studyUid": "__TODO_TRANSLATE__:Study UID",
+      "patient": "__TODO_TRANSLATE__:Patient",
+      "uploadedAt": "__TODO_TRANSLATE__:Uploaded",
+      "status": "Статус",
+      "flr": "__TODO_TRANSLATE__:FLR %",
+      "actions": "__TODO_TRANSLATE__:Actions"
+    },
+    "filters": {
+      "status": "Статус",
+      "dateFrom": "__TODO_TRANSLATE__:From",
+      "dateTo": "__TODO_TRANSLATE__:To",
+      "phase": "__TODO_TRANSLATE__:Phase",
+      "reset": "Сбросить"
+    },
+    "empty": {
+      "title": "__TODO_TRANSLATE__:No analyses yet",
+      "description": "__TODO_TRANSLATE__:Open the PACS studies list and run AI on a study to kick off your first automated segmentation + FLR analysis.",
+      "upload": "__TODO_TRANSLATE__:Upload a study",
+      "fromPacs": "__TODO_TRANSLATE__:Browse PACS studies"
+    },
+    "error": {
+      "title": "__TODO_TRANSLATE__:Could not load cases",
+      "retry": "Повторить"
+    },
+    "pagination": {
+      "summary": "__TODO_TRANSLATE__:Showing {{from}}–{{to}} of {{total}}",
+      "prev": "__TODO_TRANSLATE__:Previous",
+      "next": "Далее",
+      "pageOf": "__TODO_TRANSLATE__:Page {{page}} of {{total}}"
+    }
+  },
+  "detail": {
+    "title": "__TODO_TRANSLATE__:Analysis • {{studyUid}}",
+    "back": "__TODO_TRANSLATE__:Back to cases",
+    "downloadReport": "__TODO_TRANSLATE__:Download report",
+    "openFinalize": "__TODO_TRANSLATE__:Finalize & generate report",
+    "drawerAria": "__TODO_TRANSLATE__:Case details drawer",
+    "resizeAria": "__TODO_TRANSLATE__:Resize drawer",
+    "mprAria": "__TODO_TRANSLATE__:Multi-planar preview strip",
+    "mprPlaceholder": "__TODO_TRANSLATE__:Multi-planar views (axial / sagittal / coronal) will appear here once ready.",
+    "error": {
+      "title": "__TODO_TRANSLATE__:Could not load analysis"
+    },
+    "viewer": {
+      "loading": "__TODO_TRANSLATE__:Preparing the 3D viewer…"
+    },
+    "tabs": {
+      "segments": "__TODO_TRANSLATE__:Segments",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "measurements": "__TODO_TRANSLATE__:Measurements",
+      "notes": "Заметки"
+    },
+    "drawer": {
+      "segmentsPlaceholder": "__TODO_TRANSLATE__:Couinaud segments I–VIII and per-segment volumes will appear here.",
+      "lesionsPlaceholder": "__TODO_TRANSLATE__:Detected lesions and LiLNet classifications will appear here.",
+      "measurementsPlaceholder": "__TODO_TRANSLATE__:Linear + volumetric measurements will appear here.",
+      "notesPlaceholder": "__TODO_TRANSLATE__:Surgeon notes attached to this case will appear here.",
+      "loading": "Загрузка…",
+      "openRefinement": "__TODO_TRANSLATE__:Open Refinement",
+      "segmentsEmpty": {
+        "title": "__TODO_TRANSLATE__:No segments yet",
+        "description": "__TODO_TRANSLATE__:Couinaud segments and vessel masks will appear here once the cascade finishes."
+      },
+      "measurementsEmpty": {
+        "title": "__TODO_TRANSLATE__:No measurements yet",
+        "description": "__TODO_TRANSLATE__:Linear and volumetric measurements added in Refinement will appear here."
+      },
+      "notesEmpty": {
+        "title": "__TODO_TRANSLATE__:No notes yet",
+        "description": "__TODO_TRANSLATE__:Surgeon notes attached during Refinement will appear here."
+      }
+    },
+    "cascadeTimeline": {
+      "title": "__TODO_TRANSLATE__:Pipeline activity",
+      "modelVersion": "__TODO_TRANSLATE__:Model",
+      "outputUri": "__TODO_TRANSLATE__:Output",
+      "licenseHash": "__TODO_TRANSLATE__:License hash",
+      "summary": {
+        "complete": "__TODO_TRANSLATE__:Pipeline complete",
+        "runningStage": "__TODO_TRANSLATE__:Running stage {{current}} of {{total}}",
+        "failed": "__TODO_TRANSLATE__:Pipeline failed",
+        "queued": "В очереди",
+        "stageCount_one": "{{count}} этап · всего {{total}}",
+        "stageCount_few": "{{count}} этапа · всего {{total}}",
+        "stageCount_many": "{{count}} этапов · всего {{total}}",
+        "stageCount_other": "{{count}} этапа · всего {{total}}",
+        "expand": "Показать детали конвейера",
+        "collapse": "Скрыть детали конвейера",
+        "liverVolume": "Печень {{ml}} мл",
+        "lesionCount_one": "{{count}} образование",
+        "lesionCount_few": "{{count}} образования",
+        "lesionCount_many": "{{count}} образований",
+        "lesionCount_other": "{{count}} образования",
+        "flr": "__TODO_TRANSLATE__:FLR {{pct}}%"
+      }
+    },
+    "workspace": {
+      "title": "__TODO_TRANSLATE__:Case workspace",
+      "subtitle": "__TODO_TRANSLATE__:Browse segments, lesions and notes"
+    },
+    "viewerCard": {
+      "lastUpdated": "__TODO_TRANSLATE__:Last updated · {{when}}",
+      "studyLabel": "__TODO_TRANSLATE__:Study {{uid}}"
+    },
+    "flr": {
+      "subtitle": "__TODO_TRANSLATE__:Primary surgical decision input"
+    },
+    "ruoBadge": "__TODO_TRANSLATE__:RUO — Not for clinical use",
+    "metrics": {
+      "liverVolume": "__TODO_TRANSLATE__:Liver",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "lesionsCount_one": "__TODO_TRANSLATE__:{{count}} lesion",
+      "lesionsCount_other": "__TODO_TRANSLATE__:{{count}} lesions",
+      "flr": "__TODO_TRANSLATE__:FLR",
+      "flrUnit": "__TODO_TRANSLATE__:%",
+      "volumeUnit": "__TODO_TRANSLATE__:ml"
+    },
+    "theater": {
+      "enter": "__TODO_TRANSLATE__:Focus viewer",
+      "exit": "__TODO_TRANSLATE__:Exit focus mode",
+      "shortcutHint": "__TODO_TRANSLATE__:Press F"
+    },
+    "rails": {
+      "collapseLeft": "__TODO_TRANSLATE__:Collapse workspace panel",
+      "expandLeft": "__TODO_TRANSLATE__:Expand workspace panel",
+      "collapseRight": "__TODO_TRANSLATE__:Collapse FLR panel",
+      "expandRight": "__TODO_TRANSLATE__:Expand FLR panel"
+    },
+    "crumbs": {
+      "cases": "Случаи"
+    }
+  },
+  "stages": {
+    "ingest": "__TODO_TRANSLATE__:DICOM ingest",
+    "anonymization": "__TODO_TRANSLATE__:Anonymisation",
+    "parenchyma": "__TODO_TRANSLATE__:Parenchyma segmentation",
+    "vessels": "__TODO_TRANSLATE__:Vessel segmentation",
+    "couinaud": "__TODO_TRANSLATE__:Couinaud segmentation",
+    "lesion_detection": "__TODO_TRANSLATE__:Lesion detection",
+    "classification": "__TODO_TRANSLATE__:Lesion classification",
+    "flr_init": "__TODO_TRANSLATE__:FLR calculation"
+  },
+  "anatomy": {
+    "liver": "__TODO_TRANSLATE__:Liver (parenchyma)",
+    "portal_vein": "__TODO_TRANSLATE__:Portal vein",
+    "hepatic_vein": "__TODO_TRANSLATE__:Hepatic vein",
+    "couinaud": {
+      "I": "__TODO_TRANSLATE__:Couinaud I",
+      "II": "__TODO_TRANSLATE__:Couinaud II",
+      "III": "__TODO_TRANSLATE__:Couinaud III",
+      "IV": "__TODO_TRANSLATE__:Couinaud IV",
+      "V": "__TODO_TRANSLATE__:Couinaud V",
+      "VI": "__TODO_TRANSLATE__:Couinaud VI",
+      "VII": "__TODO_TRANSLATE__:Couinaud VII",
+      "VIII": "__TODO_TRANSLATE__:Couinaud VIII"
+    }
+  },
+  "viewer": {
+    "ariaLabel": "__TODO_TRANSLATE__:LiverRa 3D viewer",
+    "loading": "__TODO_TRANSLATE__:Loading viewer…",
+    "loadingSeries": "__TODO_TRANSLATE__:Loading series…",
+    "statusReady": "__TODO_TRANSLATE__:Ready",
+    "statusLoading": "__TODO_TRANSLATE__:Loading volume…",
+    "statusNotReady": "__TODO_TRANSLATE__:Analysis not ready",
+    "keyboardHelpTitle": "__TODO_TRANSLATE__:Keyboard shortcuts",
+    "keyboard": {
+      "layers": "__TODO_TRANSLATE__:Toggle layers",
+      "plane": "__TODO_TRANSLATE__:Resection plane tool",
+      "zoom": "__TODO_TRANSLATE__:Zoom in / out",
+      "reset": "__TODO_TRANSLATE__:Reset view"
+    },
+    "webgpuMissing": "__TODO_TRANSLATE__:WebGPU is unavailable. Falling back to CPU voxel counting — interactions may be slower.",
+    "parenchymaLabel": "__TODO_TRANSLATE__:Parenchyma overlay",
+    "noStudy": "__TODO_TRANSLATE__:No DICOM study attached to this analysis.",
+    "loadFailed": "__TODO_TRANSLATE__:Could not load DICOM series.",
+    "maskLoadFailed": "__TODO_TRANSLATE__:Mask overlay could not be loaded.",
+    "sliceCounter": "__TODO_TRANSLATE__:Slice {{current}} / {{total}}",
+    "layers": {
+      "title": "__TODO_TRANSLATE__:Layers",
+      "ariaLabel": "__TODO_TRANSLATE__:Layer visibility toggles",
+      "parenchyma": "__TODO_TRANSLATE__:Parenchyma",
+      "couinaud": {
+        "master": "__TODO_TRANSLATE__:Couinaud (8 segments)",
+        "expandAria": "__TODO_TRANSLATE__:Expand Couinaud sub-segments",
+        "i": "__TODO_TRANSLATE__:Segment I (caudate)",
+        "ii": "__TODO_TRANSLATE__:Segment II",
+        "iii": "__TODO_TRANSLATE__:Segment III",
+        "iv": "__TODO_TRANSLATE__:Segment IV",
+        "v": "__TODO_TRANSLATE__:Segment V",
+        "vi": "__TODO_TRANSLATE__:Segment VI",
+        "vii": "__TODO_TRANSLATE__:Segment VII",
+        "viii": "__TODO_TRANSLATE__:Segment VIII"
+      },
+      "vessels": "__TODO_TRANSLATE__:Vessels",
+      "portalVein": "__TODO_TRANSLATE__:Portal vein",
+      "hepaticVein": "__TODO_TRANSLATE__:Hepatic vein",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "flrPlane": "__TODO_TRANSLATE__:FLR cutting plane",
+      "notReady": "__TODO_TRANSLATE__:Mask not yet available.",
+      "couinaudDeferred": "__TODO_TRANSLATE__:Couinaud overlay rendering ships in a later release.",
+      "vesselsDeferred": "__TODO_TRANSLATE__:Vessel overlay rendering ships in a later release.",
+      "noLesions": "__TODO_TRANSLATE__:No lesions detected on this study.",
+      "noFlrPlane": "__TODO_TRANSLATE__:FLR cutting plane not available for this analysis."
+    },
+    "viewMode": {
+      "title": "Просмотр",
+      "ariaLabel": "__TODO_TRANSLATE__:View mode",
+      "axial": "__TODO_TRANSLATE__:Axial",
+      "mpr": "__TODO_TRANSLATE__:MPR (3-up)",
+      "switchToAxial": "__TODO_TRANSLATE__:Show axial only",
+      "switchToMpr": "__TODO_TRANSLATE__:Show 3-up MPR (axial / sagittal / coronal)",
+      "panelTitle": {
+        "axial": "__TODO_TRANSLATE__:Axial",
+        "sagittal": "__TODO_TRANSLATE__:Sagittal",
+        "coronal": "__TODO_TRANSLATE__:Coronal"
+      },
+      "mprUnavailable": "__TODO_TRANSLATE__:MPR view unavailable on this device.",
+      "mobileForcedAxial": "__TODO_TRANSLATE__:MPR is disabled on small screens for legibility."
+    }
+  },
+  "flr": {
+    "title": "__TODO_TRANSLATE__:Future Liver Remnant",
+    "valueMl": "__TODO_TRANSLATE__:{{ml}} mL",
+    "valuePct": "__TODO_TRANSLATE__:{{pct}}% of total",
+    "adequacy": {
+      "adequate": "__TODO_TRANSLATE__:Adequate (advisory ≥ 40%)",
+      "borderline": "__TODO_TRANSLATE__:Borderline (30–40%)",
+      "low": "__TODO_TRANSLATE__:Low (< 30%)"
+    },
+    "thresholdsHeader": "__TODO_TRANSLATE__:Adequacy thresholds ({{context}})",
+    "thresholdRanges": {
+      "low": {
+        "label": "__TODO_TRANSLATE__:Low",
+        "range": "__TODO_TRANSLATE__:< {{fail}}%"
+      },
+      "borderline": {
+        "label": "__TODO_TRANSLATE__:Borderline",
+        "range": "__TODO_TRANSLATE__:{{fail}}–{{warn}}%"
+      },
+      "adequate": {
+        "label": "__TODO_TRANSLATE__:Adequate",
+        "range": "__TODO_TRANSLATE__:≥ {{warn}}%"
+      }
+    },
+    "recompute": "__TODO_TRANSLATE__:Recompute",
+    "ariaLive": "__TODO_TRANSLATE__:FLR measurement updates",
+    "totalMl": "__TODO_TRANSLATE__:{{ml}} mL total"
+  },
+  "plane": {
+    "ariaLabel": "__TODO_TRANSLATE__:Resection plane offset",
+    "cpuFallback": "__TODO_TRANSLATE__:CPU fallback engaged — WebGPU unavailable.",
+    "translate": "__TODO_TRANSLATE__:Plane offset",
+    "rotate": "__TODO_TRANSLATE__:Plane rotation",
+    "reset": "__TODO_TRANSLATE__:Reset plane"
+  },
+  "coldStart": {
+    "warming": "__TODO_TRANSLATE__:Models warming up",
+    "timeRemaining": "__TODO_TRANSLATE__:~{{seconds}}s remaining. Your analysis will start automatically."
+  }
+}

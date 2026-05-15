@@ -1,0 +1,142 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "nav": {
+    "users": "Пользователи",
+    "pacs": "__TODO_TRANSLATE__:PACS destination",
+    "audit": "__TODO_TRANSLATE__:Audit log"
+  },
+  "users": {
+    "title": "__TODO_TRANSLATE__:User management",
+    "subtitle": "__TODO_TRANSLATE__:Invite, suspend, and manage clinicians for your tenant.",
+    "invite": "__TODO_TRANSLATE__:Invite user",
+    "suspend": "__TODO_TRANSLATE__:Suspend",
+    "resetMfa": "__TODO_TRANSLATE__:Reset MFA",
+    "error": "__TODO_TRANSLATE__:Failed to load users",
+    "empty": {
+      "title": "__TODO_TRANSLATE__:No users yet",
+      "description": "__TODO_TRANSLATE__:Invite your first clinician to bring them onto your tenant.",
+      "cta": "__TODO_TRANSLATE__:Invite your first user"
+    },
+    "status": {
+      "active": "__TODO_TRANSLATE__:Active",
+      "suspended": "__TODO_TRANSLATE__:Suspended"
+    },
+    "col": {
+      "name": "Имя",
+      "email": "Email",
+      "role": "__TODO_TRANSLATE__:Role",
+      "status": "Статус",
+      "lastActive": "__TODO_TRANSLATE__:Last active",
+      "actions": "__TODO_TRANSLATE__:Actions"
+    },
+    "lastActive": {
+      "never": "__TODO_TRANSLATE__:Never",
+      "justNow": "__TODO_TRANSLATE__:Just now",
+      "minutesAgo": "__TODO_TRANSLATE__:{{n}} min ago",
+      "hoursAgo": "__TODO_TRANSLATE__:{{n}} h ago",
+      "daysAgo": "__TODO_TRANSLATE__:{{n}} d ago"
+    }
+  },
+  "invite": {
+    "title": "__TODO_TRANSLATE__:Invite user",
+    "submit": "__TODO_TRANSLATE__:Send invite",
+    "error": "__TODO_TRANSLATE__:Invite failed",
+    "email": "Email",
+    "displayName": "__TODO_TRANSLATE__:Display name",
+    "role": "__TODO_TRANSLATE__:Role",
+    "locale": "__TODO_TRANSLATE__:Locale"
+  },
+  "role": {
+    "hpb_surgeon": "__TODO_TRANSLATE__:HPB surgeon",
+    "radiologist": "__TODO_TRANSLATE__:Radiologist",
+    "fellow": "__TODO_TRANSLATE__:Fellow",
+    "ops": "__TODO_TRANSLATE__:Ops",
+    "compliance": "Комплаенс",
+    "dpo": "__TODO_TRANSLATE__:DPO"
+  },
+  "pacs": {
+    "title": "__TODO_TRANSLATE__:PACS destination",
+    "subtitle": "__TODO_TRANSLATE__:Configure where finalized studies are pushed back to your hospital PACS.",
+    "section": {
+      "endpoint": "__TODO_TRANSLATE__:DICOM endpoint",
+      "endpointHelp": "__TODO_TRANSLATE__:The AE title, host, and port your PACS listens on for C-STORE.",
+      "security": "__TODO_TRANSLATE__:Transport security",
+      "securityHelp": "__TODO_TRANSLATE__:Pin a certificate fingerprint to detect MITM tampering."
+    },
+    "aeTitle": "__TODO_TRANSLATE__:AE title",
+    "aeTitleHelp": "__TODO_TRANSLATE__:Up to 16 chars, letters/digits/dash only.",
+    "host": "__TODO_TRANSLATE__:Host / IP",
+    "hostHelp": "__TODO_TRANSLATE__:Reachable hostname or IPv4 address from the LiverRa edge appliance.",
+    "port": "__TODO_TRANSLATE__:Port",
+    "portHelp": "__TODO_TRANSLATE__:Default DICOM port is 104; DICOM-TLS commonly uses 2762.",
+    "useTls": "__TODO_TRANSLATE__:Use DICOM-TLS",
+    "certFingerprint": "__TODO_TRANSLATE__:Certificate SHA-256 fingerprint",
+    "testEcho": "__TODO_TRANSLATE__:Test with C-ECHO",
+    "echoOk": "__TODO_TRANSLATE__:C-ECHO succeeded",
+    "echoFail": "__TODO_TRANSLATE__:C-ECHO failed",
+    "echoIdle": "__TODO_TRANSLATE__:Run a C-ECHO before saving to verify the destination is reachable.",
+    "roundTrip": "__TODO_TRANSLATE__:Round-trip",
+    "saved": "__TODO_TRANSLATE__:PACS destination saved."
+  },
+  "audit": {
+    "title": "__TODO_TRANSLATE__:Audit browser",
+    "subtitle": "__TODO_TRANSLATE__:PHI-free chain-of-hashes audit events for this tenant.",
+    "filters": {
+      "title": "__TODO_TRANSLATE__:Filter events",
+      "from": "__TODO_TRANSLATE__:From",
+      "to": "__TODO_TRANSLATE__:To",
+      "category": "__TODO_TRANSLATE__:Category",
+      "all": "__TODO_TRANSLATE__:All categories",
+      "clear": "__TODO_TRANSLATE__:Clear filters",
+      "showing": "__TODO_TRANSLATE__:Showing {{n}} events"
+    },
+    "empty": {
+      "title": "__TODO_TRANSLATE__:No events",
+      "description": "__TODO_TRANSLATE__:No audit events match the current filters."
+    },
+    "col": {
+      "seq": "__TODO_TRANSLATE__:#",
+      "recorded": "__TODO_TRANSLATE__:Recorded",
+      "category": "__TODO_TRANSLATE__:Category",
+      "actor": "__TODO_TRANSLATE__:Actor",
+      "outcome": "__TODO_TRANSLATE__:Outcome",
+      "summary": "__TODO_TRANSLATE__:Summary"
+    },
+    "outcome": {
+      "success": "Успешно",
+      "denied": "__TODO_TRANSLATE__:Denied",
+      "error": "Ошибка"
+    },
+    "drawer": {
+      "title": "__TODO_TRANSLATE__:Audit event detail",
+      "subtitle": "__TODO_TRANSLATE__:Sequence #{{seq}}",
+      "json": "__TODO_TRANSLATE__:Raw event JSON",
+      "copyJson": "__TODO_TRANSLATE__:Copy JSON",
+      "copied": "__TODO_TRANSLATE__:Copied to clipboard",
+      "open": "__TODO_TRANSLATE__:View detail"
+    }
+  },
+  "deleteRequest": {
+    "title": "__TODO_TRANSLATE__:Case deletion request",
+    "studyId": "__TODO_TRANSLATE__:Study ID",
+    "requestedBy": "__TODO_TRANSLATE__:Requested by",
+    "approve": "__TODO_TRANSLATE__:Approve (soft delete)",
+    "reject": "__TODO_TRANSLATE__:Reject"
+  },
+  "coverageOverride": {
+    "title": "__TODO_TRANSLATE__:Coverage override (FR-006a)",
+    "noPermission": "__TODO_TRANSLATE__:Insufficient permission",
+    "noPermissionBody": "__TODO_TRANSLATE__:You do not have the admin.coverage_override permission.",
+    "warning": "__TODO_TRANSLATE__:Overrides weaken phase-coverage safety checks. Every override is audited and stamped on downstream FHIR events.",
+    "tenantFlag": "__TODO_TRANSLATE__:Allow partial-coverage override (tenant-wide)",
+    "perCase": "__TODO_TRANSLATE__:Per-analysis override",
+    "reason": "__TODO_TRANSLATE__:Reason (min 10 chars)",
+    "submit": "__TODO_TRANSLATE__:Override with step-up MFA",
+    "flagSaved": "__TODO_TRANSLATE__:Tenant flag updated.",
+    "analysisSaved": "__TODO_TRANSLATE__:Analysis override applied."
+  }
+}

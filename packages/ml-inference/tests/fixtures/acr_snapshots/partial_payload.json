@@ -1,0 +1,13 @@
+{
+  "analysis_id": "44444444-4444-4444-4444-444444444444",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "locale": "en",
+  "captured_at": "2026-05-13T14:23:00Z",
+  "status": "completed",
+  "findings": {
+    "hu_stats": { "mean": 52.0, "median": 52.0, "p10": 46.0, "p90": 58.0, "std": 5.0, "voxel_count": 11500 },
+    "gallbladder": { "volume_ml": 50.0, "wall_thickness_mm": null, "wall_thickened": false, "stones_detected": true, "stone_voxel_count": 12 }
+  },
+  "lesions": [],
+  "flr": null
+}

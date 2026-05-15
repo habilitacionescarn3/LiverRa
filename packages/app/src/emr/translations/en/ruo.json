@@ -1,9 +1,11 @@
 {
   "watermark": "RESEARCH USE ONLY — Not for clinical use",
+  "badge": "Research Use Only",
   "disclaimer": {
     "short": "Research Use Only — Not for clinical use",
     "long": "AI-generated outputs on this page are advisory and have not been cleared for clinical decision-making.",
     "ceShort": "Approved for surgical planning",
-    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently."
+    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently.",
+    "ceClassIib": "Approved for surgical planning. Not a substitute for clinical judgment."
   }
 }

@@ -35,7 +35,8 @@
     "empty": {
       "title": "No analyses yet",
       "description": "Upload your first liver CT/MRI study to kick off an automated segmentation + FLR analysis.",
-      "upload": "Upload a study"
+      "upload": "Upload a study",
+      "fromPacs": "__TODO_TRANSLATE__:Browse PACS studies"
     },
     "error": {
       "title": "Could not load cases",
@@ -101,11 +102,15 @@
         "queued": "__TODO_TRANSLATE__:Queued",
         "stageCount_one": "__TODO_TRANSLATE__:{{count}} stage · {{total}} total",
         "stageCount_other": "__TODO_TRANSLATE__:{{count}} stages · {{total}} total",
+        "stageCount_few": "__TODO_TRANSLATE__:{{count}} stages · {{total}} total",
+        "stageCount_many": "__TODO_TRANSLATE__:{{count}} stages · {{total}} total",
         "expand": "__TODO_TRANSLATE__:Show pipeline details",
         "collapse": "__TODO_TRANSLATE__:Hide pipeline details",
         "liverVolume": "__TODO_TRANSLATE__:Liver {{ml}} ml",
         "lesionCount_one": "__TODO_TRANSLATE__:{{count}} lesion",
         "lesionCount_other": "__TODO_TRANSLATE__:{{count}} lesions",
+        "lesionCount_few": "__TODO_TRANSLATE__:{{count}} lesions",
+        "lesionCount_many": "__TODO_TRANSLATE__:{{count}} lesions",
         "flr": "__TODO_TRANSLATE__:FLR {{pct}}%"
       }
     },
@@ -123,6 +128,26 @@
     "ruoBadge": "__TODO_TRANSLATE__:RUO — Not for clinical use",
     "crumbs": {
       "cases": "Cases"
+    },
+    "metrics": {
+      "liverVolume": "__TODO_TRANSLATE__:Liver",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "lesionsCount_one": "__TODO_TRANSLATE__:{{count}} lesion",
+      "lesionsCount_other": "__TODO_TRANSLATE__:{{count}} lesions",
+      "flr": "__TODO_TRANSLATE__:FLR",
+      "flrUnit": "__TODO_TRANSLATE__:%",
+      "volumeUnit": "__TODO_TRANSLATE__:ml"
+    },
+    "theater": {
+      "enter": "__TODO_TRANSLATE__:Focus viewer",
+      "exit": "__TODO_TRANSLATE__:Exit focus mode",
+      "shortcutHint": "__TODO_TRANSLATE__:Press F"
+    },
+    "rails": {
+      "collapseLeft": "__TODO_TRANSLATE__:Collapse workspace panel",
+      "expandLeft": "__TODO_TRANSLATE__:Expand workspace panel",
+      "collapseRight": "__TODO_TRANSLATE__:Collapse FLR panel",
+      "expandRight": "__TODO_TRANSLATE__:Expand FLR panel"
     }
   },
   "stages": {
@@ -222,8 +247,24 @@
       "borderline": "Borderline (30–40%)",
       "low": "Low (< 30%)"
     },
+    "thresholdsHeader": "__TODO_TRANSLATE__:Adequacy thresholds ({{context}})",
+    "thresholdRanges": {
+      "low": {
+        "label": "__TODO_TRANSLATE__:Low",
+        "range": "__TODO_TRANSLATE__:< {{fail}}%"
+      },
+      "borderline": {
+        "label": "__TODO_TRANSLATE__:Borderline",
+        "range": "__TODO_TRANSLATE__:{{fail}}–{{warn}}%"
+      },
+      "adequate": {
+        "label": "__TODO_TRANSLATE__:Adequate",
+        "range": "__TODO_TRANSLATE__:≥ {{warn}}%"
+      }
+    },
     "recompute": "Recompute",
-    "ariaLive": "FLR measurement updates"
+    "ariaLive": "FLR measurement updates",
+    "totalMl": "__TODO_TRANSLATE__:{{ml}} mL total"
   },
   "plane": {
     "ariaLabel": "Resection plane offset",

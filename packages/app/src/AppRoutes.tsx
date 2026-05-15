@@ -33,6 +33,7 @@ import ProtectedRoute from './emr/components/ProtectedRoute/ProtectedRoute';
 import type { LiverraPermission } from './emr/constants/permissions.gen';
 import { LIVERRA_ROUTES } from './emr/constants/routes';
 import { EMRPage } from './emr/EMRPage';
+import { useAuth } from './emr/services/auth';
 
 // --- Eager routes (in initial bundle) ----------------------------------------
 import LandingView from './emr/views/LandingView';
@@ -97,6 +98,20 @@ function Guarded({
   return <ProtectedRoute requires={requires}>{children}</ProtectedRoute>;
 }
 
+/**
+ * Landing index gate. LiverRa is hospital-only — there's no public marketing
+ * audience, so logged-out users at `/` get punted to `/signin` rather than
+ * seeing the feature pitch. Doesn't render `<ProtectedRoute>` because that
+ * shows a skeleton during auth-hydrate; for a landing we'd rather render
+ * nothing for the half-second of loading.
+ */
+function LandingGate(): JSX.Element | null {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return <Navigate to={LIVERRA_ROUTES.SIGNIN} replace />;
+  return <LandingView />;
+}
+
 // -----------------------------------------------------------------------------
 // Router
 // -----------------------------------------------------------------------------
@@ -118,7 +133,7 @@ export const appRouter = createBrowserRouter([
     path: '/',
     element: <EMRPage />,
     children: [
-      { index: true, element: <LandingView /> },
+      { index: true, element: <LandingGate /> },
 
       // Onboarding -----------------------------------------------------------
       {

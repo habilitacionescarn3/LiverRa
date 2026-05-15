@@ -219,7 +219,7 @@ function GroupCard({
   preferences,
   savingEventType,
   onToggle,
-}: GroupCardProps): React.ReactElement {
+}: GroupCardProps): React.ReactElement | null {
   const { t } = useTranslation();
   const Icon = group.icon;
 
@@ -229,7 +229,7 @@ function GroupCard({
     .map((eventType) => preferences.find((p) => p.event_type === eventType))
     .filter((p): p is NotificationPreference => Boolean(p));
 
-  if (ordered.length === 0) return <></>;
+  if (ordered.length === 0) return null;
 
   return (
     <Box
@@ -421,6 +421,12 @@ function NotificationPreferencesInner(): React.ReactElement {
         ))}
       </Stack>
     );
+    // M-HOOK-5 justification: ``handleToggle`` and ``refetch`` are
+    // referenced inside the closure but are stable across renders
+    // (handleToggle is recreated each render but only invokes via
+    // local setState + the stable ``toggle`` API). Adding them would
+    // rebuild the rendered list on every parent render; the deps
+    // listed are the data inputs the rendered tree actually reacts to.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, error, preferences, savingEventType, t]);
 

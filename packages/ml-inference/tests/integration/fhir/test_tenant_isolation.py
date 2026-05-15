@@ -72,6 +72,9 @@ def fhir_client(medplum_base_url: str):  # type: ignore[no-untyped-def]
 # ---------------------------------------------------------------------------
 
 
+# L-FHIR-1: test-only identifier system. Not promoted to FHIR_SYSTEMS
+# because the per-tenant tag is an internal isolation marker generated
+# by the test harness — never written by production code paths.
 TENANT_TAG_SYSTEM = "http://liverra.ai/fhir/tag/tenant"
 
 

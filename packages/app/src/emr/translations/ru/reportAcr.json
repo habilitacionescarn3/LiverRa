@@ -1,0 +1,91 @@
+{
+  "_note": "C-ACR-1: UI chrome translated; clinical terms (anatomical labels, grading scales, LR-M, LI-RADS recommendations) retain __TODO_TRANSLATE__ markers pending CODEOWNERS medical-terminology review per CLAUDE.md i18n discipline.",
+  "panelHeading": "Структурированный радиологический отчёт",
+  "openPanel": "Открыть структурированный отчёт",
+  "ruoDisclaimer": "--- ТОЛЬКО ДЛЯ ИССЛЕДОВАТЕЛЬСКИХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---",
+  "sections": {
+    "liver": { "title": "__TODO_TRANSLATE__:LIVER", "empty": "Не оценивалось" },
+    "lesions": { "title": "__TODO_TRANSLATE__:LESIONS", "empty": "Образования не обнаружены" },
+    "vessels": { "title": "__TODO_TRANSLATE__:VESSELS", "empty": "Не оценивалось" },
+    "gallbladder": { "title": "__TODO_TRANSLATE__:GALLBLADDER", "empty": "Не оценивалось" },
+    "spleen": { "title": "__TODO_TRANSLATE__:SPLEEN", "empty": "Не оценивалось" },
+    "flrAssessment": { "title": "__TODO_TRANSLATE__:FLR ASSESSMENT", "empty": "Расчёт FLR не запрошен" }
+  },
+  "status": {
+    "computing": "Вычисление — результаты появятся после завершения каскада",
+    "awaitingAnalysis": "Ожидание анализа",
+    "computationFailed": "Вычисление недоступно",
+    "notAvailable": "Недоступно",
+    "noFindings": "Нет находок"
+  },
+  "labels": {
+    "volume": "Объём",
+    "wallThickness": "__TODO_TRANSLATE__:Wall thickness",
+    "attenuation": "__TODO_TRANSLATE__:Attenuation",
+    "huMean": "__TODO_TRANSLATE__:Mean HU",
+    "huRange": "__TODO_TRANSLATE__:HU range",
+    "stones": "__TODO_TRANSLATE__:Stones detected",
+    "splenomegaly": "__TODO_TRANSLATE__:Splenomegaly",
+    "steatosisGrade": "__TODO_TRANSLATE__:Steatosis grade",
+    "flrPercent": "__TODO_TRANSLATE__:FLR %",
+    "flrSafety": "__TODO_TRANSLATE__:Safety classification",
+    "flrPlan": "План",
+    "flrRecommendation": "Рекомендация",
+    "primaryLesionSize": "__TODO_TRANSLATE__:Primary lesion size",
+    "primaryLesionClass": "__TODO_TRANSLATE__:Primary lesion class",
+    "lesionSegment": "Сегмент",
+    "lesionConfidence": "Достоверность",
+    "lesionInterpretation": "Интерпретация",
+    "liverSpleenDelta": "__TODO_TRANSLATE__:Δ liver–spleen",
+    "lrM": "LR-M",
+    "yes": "Да",
+    "no": "Нет"
+  },
+  "values": {
+    "splenomegalyPresent": "__TODO_TRANSLATE__:Present",
+    "splenomegalyAbsent": "__TODO_TRANSLATE__:Within reference",
+    "steatosisNone": "__TODO_TRANSLATE__:None",
+    "steatosisMild": "__TODO_TRANSLATE__:Mild",
+    "steatosisModerate": "__TODO_TRANSLATE__:Moderate",
+    "steatosisSevere": "__TODO_TRANSLATE__:Severe",
+    "flrSafetyLow": "__TODO_TRANSLATE__:LOW",
+    "flrSafetyBorderline": "__TODO_TRANSLATE__:BORDERLINE",
+    "flrSafetyAdequate": "__TODO_TRANSLATE__:ADEQUATE"
+  },
+  "copy": {
+    "buttonLabel": "Копировать в буфер",
+    "buttonAriaLabel": "Скопировать структурированный отчёт в буфер обмена",
+    "successToast": "Отчёт скопирован в буфер обмена",
+    "warningToastAuditPending": "Отчёт скопирован; аудит экспорта будет повторён",
+    "errorToastBlocked": "Браузер заблокировал доступ к буферу — попробуйте ещё раз",
+    "errorToastStale": "Анализ обновлён другим рецензентом — обновите страницу для копирования",
+    "errorToastAuthDenied": "Ваш доступ к этому анализу отозван — обновите страницу",
+    "errorToastUnknown": "Не удалось скопировать отчёт — попробуйте ещё раз",
+    "tooltipFirstTime": "Скопируйте отчёт как обычный текст для диктовки в PACS. На каждый клик записывается одна строка аудита.",
+    "tooltipDismiss": "Понятно"
+  },
+  "staleness": {
+    "lastComputed": "Последнее вычисление {{time}}",
+    "stale": "устарело"
+  },
+  "warnings": {
+    "degraded": "Качество снижено"
+  },
+  "lesions": {
+    "interpretationIcc": "__TODO_TRANSLATE__:ICC pattern",
+    "interpretationHcc": "__TODO_TRANSLATE__:HCC pattern",
+    "interpretationSimpleCyst": "__TODO_TRANSLATE__:Simple biliary cyst",
+    "interpretationCalcified": "__TODO_TRANSLATE__:Calcified lesion",
+    "interpretationIndeterminate": "__TODO_TRANSLATE__:LR-M (indeterminate)",
+    "noFurther": "Дополнительных образований не обнаружено.",
+    "primary": "Первичное",
+    "size": "Размер",
+    "count": "Количество образований"
+  },
+  "recommendations": {
+    "considerPveAlpps": "__TODO_TRANSLATE__:consider PVE or ALPPS",
+    "noteAdequateRemnant": "__TODO_TRANSLATE__:remnant volume meets institutional threshold",
+    "borderlineDiscussMdt": "__TODO_TRANSLATE__:borderline remnant — discuss at MDT"
+  },
+  "panelDescription": "Структурированный анатомический отчёт в стиле ACR с эвристическими находками каскада."
+}

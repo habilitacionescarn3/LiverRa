@@ -23,11 +23,13 @@
 
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { Stack } from '@mantine/core';
 
 import type { LiverraPermission } from '../../constants/permissions.gen';
 import { LIVERRA_ROUTES } from '../../constants/routes';
 import { usePermissions, usePermissionsLoading } from '../../contexts/PermissionContext';
 import { useAuth } from '../../services/auth';
+import { EMRSkeleton } from '../common/EMRSkeleton';
 
 export interface ProtectedRouteProps {
   /**
@@ -38,17 +40,26 @@ export interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-export function ProtectedRoute({ requires, children }: ProtectedRouteProps): JSX.Element | null {
+export function ProtectedRoute({ requires, children }: ProtectedRouteProps): JSX.Element {
   const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const permissions = usePermissions();
   const permsLoading = usePermissionsLoading();
 
-  // While either auth or permissions are still hydrating, render nothing
-  // rather than bouncing the user away. The root `<Suspense fallback>` in
-  // the router handles the visual placeholder.
+  // H-AUTH-2: render an inline skeleton while auth/permissions hydrate.
+  // Returning `null` here caused a flash of empty content AND a race with
+  // the Navigate path: if `permsLoading` flipped from true→false in the
+  // same microtask as `authLoading`, the guard could redirect before the
+  // permission check actually ran. A real visual placeholder also
+  // communicates "loading" to the user instead of "broken".
   if (authLoading || permsLoading) {
-    return null;
+    return (
+      <Stack gap="md" data-testid="protected-route-loading" aria-busy="true">
+        <EMRSkeleton height={32} width="40%" />
+        <EMRSkeleton height={160} />
+        <EMRSkeleton height={120} />
+      </Stack>
+    );
   }
 
   // Not signed in → /signin?returnTo=<current URL>. Preserving the query +

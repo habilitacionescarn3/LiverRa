@@ -1,11 +1,16 @@
 ---
 doc: brand-tokens
 owner: Design Lead + Founder
-status: pending
+status: reverted-to-canonical-blue
 founder_sign_off: "<pending — Dr. Levan Gogichaishvili> <YYYY-MM-DD>"
 design_lead_sign_off: "<pending — TBD> <YYYY-MM-DD>"
-last_updated: 2026-04-19
+last_updated: 2026-05-15
 release_blocking: true
+# 2026-05-15: Warm-gray ramp experiment (T464) was never signed off but
+# leaked into theme.css + theme-colors.ts. Reverted to the canonical
+# LiverRa blue palette (navy #1a365d / medium #2b6cb0 / light #3182ce /
+# pale #bee3f8). The T464 experiment can be re-attempted in a feature
+# branch and merged only after founder + design lead sign off.
 gates:
   - release-gate.yml (T398) fails when status != approved
   - T464 theme.css ramp rewrite gated on status = approved

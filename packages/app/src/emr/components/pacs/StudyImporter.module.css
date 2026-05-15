@@ -395,7 +395,7 @@
 
 .fileStatusChip {
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--emr-font-2xs);
   font-weight: var(--emr-font-semibold);
   letter-spacing: 0.5px;
   text-transform: uppercase;

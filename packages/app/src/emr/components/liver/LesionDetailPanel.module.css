@@ -199,7 +199,7 @@
   font-size: var(--emr-font-xs);
   font-weight: var(--emr-font-semibold);
   color: var(--liverra-overlay-text);
-  text-shadow: 0 1px 2px var(--emr-shadow-overlay, rgba(0, 0, 0, 0.5));
+  text-shadow: 0 1px 2px var(--emr-shadow-overlay);
 }
 
 .watermark {
@@ -216,9 +216,9 @@
   text-transform: uppercase;
   background: linear-gradient(
     135deg,
-    var(--emr-shadow-overlay, rgba(0, 0, 0, 0.35)) 0%,
-    var(--emr-shadow-overlay-soft, rgba(0, 0, 0, 0.15)) 50%,
-    var(--emr-shadow-overlay, rgba(0, 0, 0, 0.35)) 100%
+    var(--emr-shadow-overlay) 0%,
+    var(--emr-shadow-overlay-soft) 50%,
+    var(--emr-shadow-overlay) 100%
   );
   opacity: 0.6;
   transform: rotate(-18deg);

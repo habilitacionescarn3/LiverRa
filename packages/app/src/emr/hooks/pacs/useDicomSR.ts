@@ -119,9 +119,17 @@ export interface UseDicomSRReturn {
 // Constants
 // ============================================================================
 
-/** Color palette for distinguishing different authors' annotations */
+import { THEME_COLORS } from '../../constants/theme-colors';
+
+/**
+ * Color palette for distinguishing different authors' annotations.
+ *
+ * First slot uses the brand-aware THEME_COLORS.secondary so the palette
+ * tracks the brand-ramp swap (T464). Remaining slots are domain-specific
+ * categorical colors that don't need to swap (chart palette).
+ */
 export const AUTHOR_COLORS = [
-  '#2b6cb0', // blue (theme secondary)
+  THEME_COLORS.secondary, // brand secondary (tracks T464)
   '#ef4444', // red
   '#22c55e', // green
   '#a855f7', // purple
@@ -131,8 +139,8 @@ export const AUTHOR_COLORS = [
   '#14b8a6', // teal
 ];
 
-/** Default color for annotations with no author info */
-const UNKNOWN_AUTHOR_COLOR = '#9ca3af'; // gray
+/** Default color for annotations with no author info — uses neutral text-secondary token. */
+const UNKNOWN_AUTHOR_COLOR = THEME_COLORS.textSecondary;
 
 // TODO(phase-4): replace with real authenticated Practitioner id from the
 // session. Using a fixed stub keeps the shim deterministic during Phase 2.

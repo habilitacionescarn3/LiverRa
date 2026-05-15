@@ -51,6 +51,7 @@ import {
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
 import { useStowUpload, NoDicomFilesError } from '../../hooks/useStowUpload';
 import { useTriggerAnalysis } from '../../hooks/useTriggerAnalysis';
+import { useTranslation } from '../../contexts/TranslationContext';
 import type {
   DicomJsonObject,
   DicomWebClientHandle,
@@ -181,6 +182,7 @@ function useStudies(client: DicomWebClientHandle) {
 function PacsStudiesViewBody(): ReactElement {
   const navigate = useNavigate();
   const client = useDicomWebClient();
+  const { t } = useTranslation();
   const { data, isPending, isError, error, refetch, isFetching } = useStudies(client);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -196,8 +198,23 @@ function PacsStudiesViewBody(): ReactElement {
     onUploaded: (result) => {
       setUploadError(null);
       if (result.stow.failedCount > 0) {
+        // C-PACS-1 — never render raw STOW failure strings to the user.
+        // The strings often contain DICOM tag fragments + filenames
+        // (e.g., "Patient_Smith_CT.dcm"), which can include patient
+        // identifiers. Instead we show a count + the distinct DICOM
+        // failure-reason categories that the mapStowFailureReason
+        // catalog has already turned into safe codes upstream.
+        const categories = Array.from(
+          new Set(
+            result.stow.failures
+              .map((f) => f.split(' — ')[0].trim())
+              .filter((c) => c.length > 0),
+          ),
+        );
+        const summary =
+          categories.length > 0 ? ` (${categories.slice(0, 3).join('; ')})` : '';
         setUploadError(
-          `${result.stow.failedCount} file(s) rejected by Orthanc: ${result.stow.failures.join('; ')}`,
+          `${result.stow.failedCount} file(s) rejected by Orthanc${summary}`,
         );
         // Partial success still navigates to the study so the user sees what landed.
       }
@@ -274,7 +291,7 @@ function PacsStudiesViewBody(): ReactElement {
               disabled={upload.isPending}
               data-testid="pacs-select-folder"
             >
-              Select folder
+              {t('pacs:studies.selectFolder')}
             </EMRButton>
             <EMRButton
               variant="ghost"
@@ -282,7 +299,7 @@ function PacsStudiesViewBody(): ReactElement {
               onClick={() => refetch()}
               loading={isFetching}
             >
-              Refresh
+              {t('pacs:studies.refresh')}
             </EMRButton>
           </Group>
         }
@@ -353,11 +370,10 @@ function PacsStudiesViewBody(): ReactElement {
             </Dropzone.Idle>
             <Box style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
               <Text fz="var(--emr-font-lg)" fw={600} c="var(--emr-text-primary)">
-                Drag DICOM files or a folder here
+                {t('pacs:studies.dropzoneTitle')}
               </Text>
               <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
-                Single .dcm, multiple files, or a whole series folder. Uploads go
-                directly to Orthanc via STOW-RS (max 2 GB).
+                {t('pacs:studies.dropzoneSubtitle')}
               </Text>
             </Box>
           </Group>
@@ -368,7 +384,7 @@ function PacsStudiesViewBody(): ReactElement {
         <EMRAlert
           variant="error"
           icon={IconAlertTriangle}
-          title="Upload issue"
+          title={t('pacs:studies.uploadIssue')}
           withCloseButton
           onClose={() => setUploadError(null)}
         >
@@ -380,14 +396,14 @@ function PacsStudiesViewBody(): ReactElement {
         <EMRAlert
           variant="error"
           icon={IconAlertTriangle}
-          title="Cannot reach Orthanc"
+          title={t('pacs:studies.cannotReachOrthanc')}
         >
           <Stack gap="xs">
             <Text size="sm">
-              {(error as Error)?.message ?? 'DICOMweb request failed.'}
+              {(error as Error)?.message ?? t('pacs:studies.dicomwebFailed')}
             </Text>
             <Text size="xs" c="var(--emr-text-secondary)">
-              Check that Orthanc is running:{' '}
+              {t('pacs:studies.checkOrthancRunning')}{' '}
               <code style={{ fontFamily: 'var(--emr-font-mono, monospace)' }}>
                 docker compose -f deploy/local/docker-compose.yml ps
               </code>
@@ -399,7 +415,7 @@ function PacsStudiesViewBody(): ReactElement {
                 icon={IconRefresh}
                 onClick={() => refetch()}
               >
-                Retry
+                {t('pacs:studies.retry')}
               </EMRButton>
             </Box>
           </Stack>
@@ -411,10 +427,10 @@ function PacsStudiesViewBody(): ReactElement {
       {!isPending && !isError && rows.length === 0 && (
         <EMREmptyState
           icon={IconDatabase}
-          title="No studies yet"
-          description="Drop a DICOM file or folder above to upload your first study, then run AI on it."
+          title={t('pacs:studies.emptyTitle')}
+          description={t('pacs:studies.emptyDescription')}
           action={{
-            label: 'Select folder',
+            label: t('pacs:studies.selectFolder'),
             onClick: () => folderInputRef.current?.click(),
             icon: IconFolderOpen,
           }}
@@ -439,13 +455,13 @@ function PacsStudiesViewBody(): ReactElement {
           >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>Patient ID</Table.Th>
-                <Table.Th>Patient name</Table.Th>
-                <Table.Th>Study date</Table.Th>
-                <Table.Th>Description</Table.Th>
-                <Table.Th>Modality</Table.Th>
-                <Table.Th ta="right">Instances</Table.Th>
-                <Table.Th ta="right">Actions</Table.Th>
+                <Table.Th>{t('pacs:studies.column.patientId')}</Table.Th>
+                <Table.Th>{t('pacs:studies.column.patientName')}</Table.Th>
+                <Table.Th>{t('pacs:studies.column.studyDate')}</Table.Th>
+                <Table.Th>{t('pacs:studies.column.description')}</Table.Th>
+                <Table.Th>{t('pacs:studies.column.modality')}</Table.Th>
+                <Table.Th ta="right">{t('pacs:studies.column.instances')}</Table.Th>
+                <Table.Th ta="right">{t('pacs:studies.column.actions')}</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>

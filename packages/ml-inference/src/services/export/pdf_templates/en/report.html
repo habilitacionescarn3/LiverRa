@@ -245,8 +245,54 @@
       {% endif %}
     </section>
 
-    {# =================== STAGE 7b — Phase 1 findings =================== #}
-    {% if findings_rows %}
+    {# =================== STAGE 7b — ACR Structured Readout =================== #}
+    {# Feature 002-acr-structured-readout — six-section ACR/RSNA anatomical readout. #}
+    {% if acr_sections %}
+      <section class="stage-section acr-readout">
+        <h2><span class="stage-tag">STAGE 7b</span>Heuristic Findings — ACR Structured Readout</h2>
+        <p class="section-lead">Six-section anatomical readout (Liver, Lesions, Vessels, Gallbladder, Spleen, FLR Assessment). Heuristic — not a substitute for radiologist interpretation.</p>
+        {% set section_titles = {
+          'liver': 'LIVER',
+          'lesions': 'LESIONS',
+          'vessels': 'VESSELS',
+          'gallbladder': 'GALLBLADDER',
+          'spleen': 'SPLEEN',
+          'flrAssessment': 'FLR ASSESSMENT'
+        } %}
+        {% for section_name, rows in acr_sections.items() %}
+          <div class="acr-section">
+            <h3 class="acr-section-title">{{ section_titles.get(section_name, section_name|upper) }}</h3>
+            {% if rows %}
+              <div class="findings-list">
+                {% for row in rows %}
+                  <div class="finding-row">
+                    <div class="finding-head">
+                      {% if row.itemId %}
+                        <span class="finding-label">{{ row.itemId }}{% if row.segment %} (segment {{ row.segment }}){% endif %}:</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% else %}
+                        <span class="finding-label">{{ row.label }}</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% endif %}
+                      {# B-ACR-1: stale-finding marker — FR-023c #}
+                      {% if row.stale %}
+                        <span class="finding-stale">&#8635; last computed {{ row.stale.computed_at }}</span>
+                      {% endif %}
+                    </div>
+                    {% if row.warning %}
+                      <div class="finding-warning">! {{ row.warning }}</div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="acr-empty">No findings to report.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <p class="acr-ruo-footer">--- RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---</p>
+      </section>
+    {% elif findings_rows %}
       <section class="stage-section">
         <h2><span class="stage-tag">STAGE 7b</span>Heuristic Findings</h2>
         <p class="section-lead">Phase 1 screening from CT attenuation + organ masks (spleen, gallbladder, lesion HU). Heuristic — not a substitute for radiologist interpretation.</p>

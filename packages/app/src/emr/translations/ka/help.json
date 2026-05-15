@@ -1,51 +1,195 @@
 {
   "landing": {
-    "tagline": "AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
+    "tagline": "ხელოვნური ინტელექტით უზრუნველყოფილი ღვიძლის დიაგნოსტიკა და ქირურგიული დაგეგმვა ჰეპატობილიარული ქირურგებისა და მუცლის რადიოლოგებისთვის.",
     "sections": {
       "v1": {
-        "title": "What v1 does",
-        "kicker": "Zero-training cascaded pipeline · Apache 2.0 model stack"
+        "title": "რას აკეთებს v1",
+        "kicker": "უწვრთნელი კასკადური მილსადენი · Apache 2.0 მოდელის სტეკი"
       },
       "admin": {
-        "title": "Admin & operator surfaces",
-        "kicker": "Internal tools for staff roles"
+        "title": "ადმინისტრატორისა და ოპერატორის ინტერფეისები",
+        "kicker": "შიდა ხელსაწყოები პერსონალის როლებისთვის"
       }
     },
     "features": {
       "upload": {
-        "title": "Upload → 3D + FLR",
-        "body": "4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+        "title": "ატვირთვა → 3D + FLR",
+        "body": "4-ფაზიანი კონტრასტული CT შემავალი, ინტერაქტიული Couinaud-ის სეგმენტაცია + სამომავლო ღვიძლის ნაშთის გამოთვლა გამოსავალი. სამიზნე: 5 წუთი ბოლომდე."
       },
       "lesionDetection": {
-        "title": "Lesion detection",
-        "body": "6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+        "title": "ფოკუსების ამოცნობა",
+        "body": "6-კლასიანი სიმსივნის კლასიფიკატორი (HCC, ICC, MET, FNH, HEM, CYST) კალიბრირებული თავშეკავებით."
       },
       "refinement": {
-        "title": "Interactive refinement",
-        "body": "VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+        "title": "ინტერაქტიული დახვეწა",
+        "body": "VISTA3D ერთი დაჭერით ნიღბის კორექცია + MedSAM-2 ფოკუსის ხელახალი მონიშვნა. ოფლაინ-მდგრადი რედაქტირება."
       },
       "finalize": {
-        "title": "Finalize & PACS",
-        "body": "DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+        "title": "დასრულება და PACS",
+        "body": "DICOM-SEG + SR + PDF ჩაბეჭდილი RUO წყლის ნიშნით. ტრანზაქციული PACS-ის გადაცემა გამეორებით."
       },
       "compliance": {
-        "title": "Compliance & audit",
-        "body": "Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+        "title": "შესაბამისობა და აუდიტი",
+        "body": "თითო მოიჯარის ჰეშების ჯაჭვის აუდიტ-ჟურნალი, ყოველდღიური Merkle ღუზები S3 Object Lock-ში, MBoM თვალყური."
       },
       "erasure": {
-        "title": "GDPR Art. 17 erasure",
-        "body": "Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+        "title": "GDPR მუხ. 17 წაშლა",
+        "body": "თითო შემთხვევაზე KMS გასაღები < 60 წმ კრიპტო-ნაცარით. 404-გამჟღავნებისას შენარჩუნებული."
       }
     },
     "footer": {
-      "preview": "Design-partner preview build",
-      "ce": "CE MDR Class IIb track · 24–30 months",
-      "gdpr": "GDPR · eu-central-1 residency",
-      "ruo": "Research use only",
+      "preview": "დიზაინ-პარტნიორის წინასწარი ნაშენი",
+      "ce": "CE MDR კლასი IIb · 24–30 თვე",
+      "gdpr": "GDPR · eu-central-1 რეზიდენტობა",
+      "ruo": "მხოლოდ კვლევითი მიზნებისთვის",
       "brand": "liverra.ai"
     }
   },
   "hub": {
-    "tutorials": { "comingSoon": "__TODO_TRANSLATE__:Coming soon" }
+    "tutorials": {
+      "comingSoon": "მალე დაემატება"
+    },
+    "title": "დახმარება და რესურსები",
+    "subtitle": "სახელმძღვანელოები, კლავიატურის მალსახმობები და მასალები ყოველდღიური გამოყენებისთვის.",
+    "tiles": {
+      "sampleCase": {
+        "title": "სადემონსტრაციო ქეისის გაშვება",
+        "body": "მზა სადემონსტრაციო მონაცემები, რომელიც გადის სრულ ციკლს: ატვირთვა → 3D → დაზიანებები → დასრულება.",
+        "cta": "დემო ქეისის გახსნა"
+      },
+      "glossary": {
+        "title": "კლინიკური ლექსიკონი",
+        "body": "Couinaud-ის სეგმენტები, სისხლძარღვები, დაზიანებების კლასები, კონტრასტული ფაზები, აბრევიატურები.",
+        "cta": "ლექსიკონის გახსნა"
+      },
+      "keyboard": {
+        "title": "კლავიატურის მალსახმობები",
+        "body": "დააჩქარეთ რედაქტირება V (VISTA3D დამატება), B (გამოკლება), L (დაზიანების მონიშვნა), Ctrl-Z / Ctrl-Y ღილაკებით.",
+        "cta": "მალსახმობების ჩვენება"
+      },
+      "ruoPolicy": {
+        "title": "RUO პოლიტიკა",
+        "body": "რას ნიშნავს \"მხოლოდ კვლევითი გამოყენება\" თქვენი შედეგებისთვის და როგორ იცვლება მასშტაბი შესაბამისობის დადასტურებისას.",
+        "cta": "პოლიტიკის წაკითხვა"
+      },
+      "tutorials": {
+        "title": "ვიდეო გაკვეთილები",
+        "body": "მოკლე ინსტრუქციები: კვლევის ატვირთვა, ქეისის განხილვა, ანგარიშის ხელმოწერა.",
+        "cta": "ყურება"
+      },
+      "support": {
+        "title": "მხარდაჭერასთან დაკავშირება",
+        "body": "დაუკავშირდით ინჟინერიისა და შესაბამისობის გუნდებს მხარდაჭერის ელფოსტით.",
+        "cta": "წერილის გაგზავნა"
+      }
+    },
+    "role": {
+      "label": "თქვენი როლისთვის",
+      "surgeon": [
+        "finalize",
+        "refinement"
+      ],
+      "radiologist": [
+        "refinement",
+        "lesionDetection"
+      ],
+      "admin": [
+        "support",
+        "ruoPolicy"
+      ],
+      "operations": [
+        "support"
+      ],
+      "compliance": [
+        "ruoPolicy"
+      ],
+      "dpo": [
+        "ruoPolicy",
+        "support"
+      ],
+      "fellow": [
+        "sampleCase",
+        "glossary"
+      ]
+    },
+    "modals": {
+      "keyboard": {
+        "title": "კლავიატურის მალსახმობები",
+        "close": "დახურვა",
+        "sections": {
+          "global": "გლობალური",
+          "viewer": "3D მნახველი",
+          "refine": "რედაქტირება"
+        },
+        "rows": {
+          "searchCases": {
+            "keys": "/",
+            "label": "ქეისების ძებნაზე ფოკუსირება"
+          },
+          "nextCase": {
+            "keys": "J",
+            "label": "შემდეგი ქეისი"
+          },
+          "prevCase": {
+            "keys": "K",
+            "label": "წინა ქეისი"
+          },
+          "pan": {
+            "keys": "Space",
+            "label": "მნახველის გადაადგილება"
+          },
+          "zoomIn": {
+            "keys": "+",
+            "label": "გადიდება"
+          },
+          "zoomOut": {
+            "keys": "-",
+            "label": "დაპატარავება"
+          },
+          "sliceUp": {
+            "keys": "↑",
+            "label": "შემდეგი შრე"
+          },
+          "sliceDown": {
+            "keys": "↓",
+            "label": "წინა შრე"
+          },
+          "vistaAdd": {
+            "keys": "V",
+            "label": "VISTA3D დამატება"
+          },
+          "vistaSubtract": {
+            "keys": "B",
+            "label": "VISTA3D გამოკლება"
+          },
+          "lesionPrompt": {
+            "keys": "L",
+            "label": "MedSAM-2 ფოკუსის მონიშვნა"
+          },
+          "undo": {
+            "keys": "Ctrl+Z",
+            "label": "ბოლო ცვლილების გაუქმება"
+          },
+          "redo": {
+            "keys": "Ctrl+Y",
+            "label": "გაუქმებულის დაბრუნება"
+          }
+        }
+      },
+      "ruo": {
+        "title": "მხოლოდ კვლევითი გამოყენება — რას ნიშნავს ეს",
+        "close": "დახურვა",
+        "intro": "LiverRa v1-ის ყველა შედეგი მონიშნულია როგორც \"მხოლოდ კვლევითი გამოყენებისთვის\" (RUO). ეს ნიშნავს, რომ შედეგებს აქვს საინფორმაციო ხასიათი და არ ანაცვლებს კლინიკურ გადაწყვეტილებას.",
+        "whatItMeans": "რას ნიშნავს \"RUO\"",
+        "whatItMeansBody": "მოცულობები, დაზიანებების კლასები, FLR პროცენტული მაჩვენებლები და სეგმენტაციები ნაჩვენებია საკვლევი და საგეგმარებო კონტექსტისთვის. მკურნალობის გადაწყვეტილებებზე პასუხისმგებლობა რჩება კვალიფიციურ ექიმზე.",
+        "narrowing": "როგორ იცვლება მასშტაბი",
+        "narrowingBody": "როდესაც ინდივიდუალური განცხადებები (პარენქიმის მოცულობა, FLR, სეგმენტაცია, სისხლძარღვები, დაზიანებების ამოცნობა + კლასიფიკაცია, ქირურგიული დაგეგმვა) გაივლის შესაბამისობის შეფასებას, პასუხისმგებლობის უარყოფის (disclaimer) ტექსტი ავტომატურად შემცირდება ამ კონკრეტული განცხადებისთვის. იხილეთ განცხადებების რეესტრი.",
+        "close2": "გასაგებია"
+      }
+    },
+    "footer": {
+      "version": "ვერსია {{version}}",
+      "support": "support@liverra.ai"
+    }
   }
 }

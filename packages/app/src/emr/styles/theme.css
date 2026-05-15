@@ -37,17 +37,23 @@
    * Tracking: T464 (deferred-work contract delivered; ramp swap awaits
    * sign-off).
    */
-  /* LiverRa primary ramp (50…900) — source of truth for brand color */
-  --liverra-primary-50:  #f7f5f3;
-  --liverra-primary-100: #eae5e0;
-  --liverra-primary-200: #d8d0c8;
-  --liverra-primary-300: #b8aa9d;
-  --liverra-primary-400: #8a7a6c;
-  --liverra-primary-500: #6b5c4f;
-  --liverra-primary-600: #4d4236;
-  --liverra-primary-700: #352d24;
-  --liverra-primary-800: #231e18;
-  --liverra-primary-900: #15110d;
+  /* LiverRa primary ramp (50…900) — source of truth for brand color.
+     Reverted from the warm-gray "T464 pending" experiment back to the
+     canonical LiverRa blue palette (status: pending was never signed off
+     by design lead, so the warm-gray drift is treated as audit C-DS-1
+     and reverted). Ramp values verified against original brand spec:
+     navy #1a365d (700), medium #2b6cb0 (500), light #3182ce (400),
+     pale #bee3f8 (100). */
+  --liverra-primary-50:  #ebf8ff;
+  --liverra-primary-100: #bee3f8;
+  --liverra-primary-200: #90cdf4;
+  --liverra-primary-300: #4299e1;
+  --liverra-primary-400: #3182ce;
+  --liverra-primary-500: #2b6cb0;
+  --liverra-primary-600: #234e7f;
+  --liverra-primary-700: #1a365d;
+  --liverra-primary-800: #0f2440;
+  --liverra-primary-900: #091a2e;
 
   /* Primary warm-gray palette - used for main navigation and primary actions */
   /* Mapped from MediMind blue ramp (#1a365d / #2b6cb0 / #3182ce / #bee3f8) */
@@ -140,12 +146,12 @@
   --emr-blue-alpha-40: rgba(49, 130, 206, 0.4);
 
   /* Dark mode indicator gradient (blue tones) */
-  --emr-gradient-dark-indicator: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-gradient-dark-indicator: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 50%, var(--liverra-primary-400) 100%);
 
   /* Light blue palette - used for sub-menu tabs (changed from turquoise) */
-  --emr-turquoise: #3182ce; /* Now using accent blue */
+  --emr-turquoise: var(--liverra-primary-400); /* Now using accent blue */
   --emr-turquoise-light: #e8f0f8; /* Now using light accent blue */
-  --emr-turquoise-dark: #3182ce; /* Now using medium blue */
+  --emr-turquoise-dark: var(--liverra-primary-400); /* Now using medium blue */
 
   /* Neutral colors */
   --emr-gray-50: #f9fafb;
@@ -193,7 +199,7 @@
   --emr-card-border: #e5e7eb;
   --emr-stat-card-bg: #edf2f9; /* Light bluish tint for stat cards */
   --emr-primary-light: rgba(43, 108, 176, 0.1);
-  --emr-primary-dark: #1a365d;
+  --emr-primary-dark: var(--liverra-primary-700);
   --emr-glass-white-90: rgba(255, 255, 255, 0.9);
   --emr-glass-white-95: rgba(255, 255, 255, 0.95);
 
@@ -250,8 +256,8 @@
   --emr-error-alpha-50: rgba(229, 62, 62, 0.50);
   --emr-error-alpha-60: rgba(229, 62, 62, 0.60);
   --emr-error-alpha-00: rgba(229, 62, 62, 0);
-  --emr-info: #3182ce;
-  --emr-info-light: #3182ce;
+  --emr-info: var(--liverra-primary-400);
+  --emr-info-light: var(--liverra-primary-400);
   --emr-info-alpha-10: rgba(49, 130, 206, 0.1);
   --emr-info-alpha-15: rgba(49, 130, 206, 0.15);
 
@@ -500,14 +506,14 @@
   /* ==================== COLLAPSIBLE SECTION COLORS ==================== */
   /* Color-coded accents for collapsible sections - using blue theme palette */
   --emr-section-personal: var(--emr-secondary); /* Blue accent for personal information sections */
-  --emr-section-contact: #3182ce; /* Medium blue accent for contact information sections */
+  --emr-section-contact: var(--liverra-primary-400); /* Medium blue accent for contact information sections */
   --emr-section-additional: var(--emr-accent); /* Light blue accent for additional details sections */
   --emr-section-hover-bg: rgba(49, 130, 206, 0.05); /* Light blue hover background */
   --emr-section-active-bg: rgba(49, 130, 206, 0.08); /* Light blue active background */
   --emr-section-employee: var(--emr-primary); /* Dark blue accent for employee types section */
 
   /* Collapsible Section Header - Softer blue (easier on the eye) */
-  --emr-gradient-section-header: linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%); /* Lighter than primary: drops the deepest navy, uses secondary -> accent */
+  --emr-gradient-section-header: linear-gradient(135deg, var(--liverra-primary-500) 0%, var(--liverra-primary-400) 100%); /* Lighter than primary: drops the deepest navy, uses secondary -> accent */
   --emr-shadow-section-header: 0 2px 6px rgba(49, 130, 206, 0.22); /* Softer shadow to match lighter header */
   --emr-shadow-section-header-hover: 0 4px 10px rgba(49, 130, 206, 0.30); /* Hover shadow */
 
@@ -519,21 +525,21 @@
   /* ==================== NAVIGATION BACKGROUNDS ==================== */
   --emr-topnav-bg: #e9ecef;
   --emr-mainmenu-bg: #ffffff;
-  --emr-submenu-bg: #3182ce; /* Light blue instead of turquoise */
+  --emr-submenu-bg: var(--liverra-primary-400); /* Light blue instead of turquoise */
 
   /* ==================== GRADIENTS ==================== */
   /* Primary blue gradient - used for active main menu items and action buttons */
-  --emr-gradient-primary: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-gradient-primary: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 50%, var(--liverra-primary-400) 100%);
 
   /* Secondary gradient - lighter blue for hover states */
-  --emr-gradient-secondary: linear-gradient(135deg, #2b6cb0 0%, #3182ce 50%, #3182ce 100%);
+  --emr-gradient-secondary: linear-gradient(135deg, var(--liverra-primary-500) 0%, var(--liverra-primary-400) 50%, var(--liverra-primary-400) 100%);
 
   /* Ambulatory badge gradient - teal/green for outpatient visits */
   --emr-gradient-ambulatory: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
   --emr-ambulatory-shadow: rgba(13, 148, 136, 0.35);
 
   /* Light blue gradient - used for sub-menu horizontal tabs (changed from turquoise) */
-  --emr-gradient-submenu: linear-gradient(90deg, #2b6cb0 0%, #3182ce 50%, #3182ce 100%);
+  --emr-gradient-submenu: linear-gradient(90deg, var(--liverra-primary-500) 0%, var(--liverra-primary-400) 50%, var(--liverra-primary-400) 100%);
 
   /* Subtle gradient variants for modal sections */
   --emr-gradient-subtle-primary: linear-gradient(135deg, #dfe7f2 0%, #ebf0f7 100%);
@@ -570,7 +576,7 @@
   /* Assignment Card Gradients - Used in shift roster and schedules */
   --emr-gradient-card-light-blue: linear-gradient(135deg, #e8f4fc 0%, #d4e9f7 50%, #c5dff2 100%);
   --emr-gradient-card-error: linear-gradient(135deg, #fde8e8 0%, #fcd4d4 50%, #fac0c0 100%);
-  --emr-gradient-card-dark-blue: linear-gradient(135deg, #1e3a5f 0%, #2a4a6f 50%, #1a365d 100%);
+  --emr-gradient-card-dark-blue: linear-gradient(135deg, #1e3a5f 0%, #2a4a6f 50%, var(--liverra-primary-700) 100%);
   --emr-gradient-card-dark-error: linear-gradient(135deg, #5c2323 0%, #742a2a 50%, #5c2323 100%);
   --emr-gradient-shine: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
   --emr-gradient-shine-dark: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.15) 50%, transparent 100%);
@@ -588,7 +594,7 @@
 
   /* Diagnosis card gradient - blue (unified theme) */
   --emr-gradient-diagnosis: var(--emr-gradient-primary);
-  --emr-gradient-diagnosis-badge: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  --emr-gradient-diagnosis-badge: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 100%);
   --emr-shadow-diagnosis: 0 4px 12px rgba(43, 108, 176, 0.3);
   --emr-shadow-diagnosis-hover: 0 8px 24px rgba(43, 108, 176, 0.4), 0 0 20px rgba(49, 130, 206, 0.3);
 
@@ -740,6 +746,16 @@
   --emr-shadow-add-button: var(--emr-shadow-button);
   --emr-shadow-add-button-hover: var(--emr-shadow-button-hover);
 
+  /* Switch track (unchecked) — light-mode value. Used by EMRSwitch + form
+   * fields. Dark-mode value is set in the :root[data-mantine-color-scheme="dark"]
+   * block below; consumers reference --emr-switch-track and auto-pick the
+   * right value per Rule #5 (no module-level overrides). */
+  --emr-switch-track: var(--emr-gray-300);
+
+  /* Form-section title color — light mode uses the section accent; dark
+   * mode falls back to primary text for readability. */
+  --emr-form-section-title-color: var(--emr-section-personal);
+
   /* Secondary button - subtle blue tint */
   --emr-btn-secondary-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.08) 0%, rgba(49, 130, 206, 0.04) 100%);
   --emr-btn-secondary-border: rgba(43, 108, 176, 0.25);
@@ -772,12 +788,12 @@
 
   /* ==================== SPARKLINE COLORS ==================== */
   /* Sparkline stroke colors per variant - resolved hex values for SVG */
-  --emr-sparkline-stroke-primary: #2b6cb0;
+  --emr-sparkline-stroke-primary: var(--liverra-primary-500);
   --emr-sparkline-stroke-secondary: #4a5568;
   --emr-sparkline-stroke-success: #38a169;
   --emr-sparkline-stroke-warning: #dd6b20;
   --emr-sparkline-stroke-error: #e53e3e;
-  --emr-sparkline-stroke-info: #3182ce;
+  --emr-sparkline-stroke-info: var(--liverra-primary-400);
 
   /* Sparkline fill colors per variant (with opacity) */
   --emr-sparkline-fill-primary: rgba(43, 108, 176, 0.15);
@@ -796,9 +812,9 @@
   --emr-stat-danger: var(--emr-primary);      /* Dark blue */
 
   /* Dashboard stat card gradients - using primary blue palette only */
-  --emr-stat-gradient-total: linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%);
-  --emr-stat-gradient-active: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
-  --emr-stat-gradient-pending: linear-gradient(135deg, #3182ce 0%, #3182ce 100%);
+  --emr-stat-gradient-total: linear-gradient(135deg, var(--liverra-primary-500) 0%, var(--liverra-primary-400) 100%);
+  --emr-stat-gradient-active: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 100%);
+  --emr-stat-gradient-pending: linear-gradient(135deg, var(--liverra-primary-400) 0%, var(--liverra-primary-400) 100%);
   --emr-stat-gradient-inactive: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
 
   /* ==================== CARD SHADOWS ==================== */
@@ -851,9 +867,9 @@
   --emr-financial-amber-alpha-25: rgba(245, 158, 11, 0.25);
 
   /* Favorites/Star colors (theme light blue) */
-  --emr-star-amber: #3182ce;
-  --emr-star-amber-dark: #2b6cb0;
-  --emr-star-amber-hover: #2b6cb0;
+  --emr-star-amber: var(--liverra-primary-400);
+  --emr-star-amber-dark: var(--liverra-primary-500);
+  --emr-star-amber-hover: var(--liverra-primary-500);
   --emr-star-amber-light: #bee3f8;
   --emr-star-amber-alpha-15: rgba(49, 130, 206, 0.15);
   --emr-star-amber-alpha-20: rgba(49, 130, 206, 0.2);
@@ -871,8 +887,8 @@
   --emr-financial-red-alpha-40: rgba(239, 68, 68, 0.4);
 
   /* Blue shades - Info/Pending states */
-  --emr-financial-blue-100: #2b6cb0;          /* Secondary - primary info */
-  --emr-financial-blue-200: #3182ce;          /* Accent - lighter info */
+  --emr-financial-blue-100: var(--liverra-primary-500);          /* Secondary - primary info */
+  --emr-financial-blue-200: var(--liverra-primary-400);          /* Accent - lighter info */
   --emr-financial-blue-alpha-08: rgba(43, 108, 176, 0.08);
   --emr-financial-blue-alpha-15: rgba(43, 108, 176, 0.15);
   --emr-financial-blue-alpha-20: rgba(43, 108, 176, 0.2);
@@ -940,7 +956,7 @@
   --emr-border-radius-2xl: 16px;
   --emr-border-color: #e5e7eb;
   --emr-border-default: #e5e7eb;
-  --emr-border-focus: #3182ce;
+  --emr-border-focus: var(--liverra-primary-400);
   --emr-border-error: #e53e3e;
   --emr-border-subtle: rgba(49, 130, 206, 0.15);
   --emr-border-dashed: rgba(43, 108, 176, 0.15);
@@ -1012,12 +1028,12 @@
   --emr-gradient-soft: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --emr-gradient-canvas: linear-gradient(180deg, #fafbfc 0%, #f4f6f8 100%);
   --emr-gradient-card: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  --emr-gradient-header-modern: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-gradient-header-modern: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 50%, var(--liverra-primary-400) 100%);
   --emr-gradient-accent-glow: linear-gradient(135deg, rgba(49, 130, 206, 0.1) 0%, rgba(43, 108, 176, 0.05) 100%);
 
   /* Modern selection states */
   --emr-selected-bg: rgba(43, 108, 176, 0.08);
-  --emr-selected-border: #2b6cb0;
+  --emr-selected-border: var(--liverra-primary-500);
   --emr-hover-bg: rgba(43, 108, 176, 0.04);
   --emr-focus-ring: 0 0 0 3px rgba(43, 108, 176, 0.15);
 
@@ -1045,7 +1061,7 @@
   /* ==================== EMR TABLE TOKENS ==================== */
   /* Light mode - clean, professional table design */
   --emr-table-header-bg: #eef2f7;
-  --emr-table-header-text: #1a365d;
+  --emr-table-header-text: var(--liverra-primary-700);
   --emr-table-header-border: #d1dce8;
   --emr-table-header-font-weight: 700;
   --emr-table-row-bg: #ffffff;
@@ -1058,11 +1074,11 @@
   --emr-table-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   --emr-table-cell-padding: 12px 16px;
   --emr-table-cell-padding-compact: 8px 12px;
-  --emr-table-selected-border: #2b6cb0;
-  --emr-table-sort-icon-active: #2b6cb0;
+  --emr-table-selected-border: var(--liverra-primary-500);
+  --emr-table-sort-icon-active: var(--liverra-primary-500);
   --emr-table-sort-icon-inactive: #9ca3af;
   --emr-table-action-hover: rgba(43, 108, 176, 0.1);
-  --emr-table-checkbox-color: #2b6cb0;
+  --emr-table-checkbox-color: var(--liverra-primary-500);
 
   /* ==================== RESPONSIVE BREAKPOINTS ==================== */
   --emr-mobile-breakpoint: 768px;
@@ -1130,7 +1146,7 @@
 
   /* Building - Primary Blue */
   --emr-building: var(--emr-primary);
-  --emr-building-light: #3182ce;
+  --emr-building-light: var(--liverra-primary-400);
   --emr-gradient-building: var(--emr-gradient-primary);
   --emr-building-focus: var(--emr-secondary);
   --emr-building-shadow: rgba(43, 108, 176, 0.1);
@@ -1139,7 +1155,7 @@
 
   /* Floor - Secondary Blue */
   --emr-floor: var(--emr-secondary);
-  --emr-floor-light: #3182ce;
+  --emr-floor-light: var(--liverra-primary-400);
   --emr-gradient-floor: var(--emr-gradient-secondary);
   --emr-floor-focus: var(--emr-secondary);
   --emr-floor-shadow: rgba(43, 108, 176, 0.1);
@@ -1247,8 +1263,8 @@
   --emr-input-bg-disabled: #f3f4f6;
   --emr-input-bg-focus: #ffffff;
   --emr-input-border: #c7d2e0;
-  --emr-input-border-hover: #3182ce;
-  --emr-input-border-focus: #2b6cb0;
+  --emr-input-border-hover: var(--liverra-primary-400);
+  --emr-input-border-focus: var(--liverra-primary-500);
   --emr-input-text: #1a202c;
   --emr-input-text-disabled: #a0aec0;
   --emr-input-placeholder: #a0aec0;
@@ -1301,14 +1317,14 @@
   /* Input Icons */
   --emr-input-icon-size: 18px;
   --emr-input-icon-color: #718096;
-  --emr-input-icon-color-focus: #2b6cb0;
+  --emr-input-icon-color-focus: var(--liverra-primary-500);
 
   /* Input Transitions - Smooth animations */
   --emr-input-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Input Accent Colors - For left border accent */
   --emr-input-accent-default: transparent;
-  --emr-input-accent-focus: #3182ce;
+  --emr-input-accent-focus: var(--liverra-primary-400);
   --emr-input-accent-filled: #38a169;
 
   /* ==================== CLINICAL STATUS COLORS ==================== */
@@ -1328,7 +1344,7 @@
   --emr-patient-discharged-badge-text: #374151;
 
   /* Encounter Status - Row left-border accents and backgrounds */
-  --emr-encounter-active: #2b6cb0;
+  --emr-encounter-active: var(--liverra-primary-500);
   --emr-encounter-active-bg: rgba(43, 108, 176, 0.04);
   --emr-encounter-finished: #38a169;
   --emr-encounter-finished-bg: rgba(56, 161, 105, 0.05);
@@ -1342,7 +1358,7 @@
   /* Visit Type badges */
   --emr-visit-ambulatory: #0891b2;
   --emr-visit-ambulatory-bg: rgba(8, 145, 178, 0.1);
-  --emr-visit-stationary: #2b6cb0;
+  --emr-visit-stationary: var(--liverra-primary-500);
   --emr-visit-stationary-bg: rgba(43, 108, 176, 0.1);
   --emr-visit-emergency: #e53e3e;
   --emr-visit-emergency-bg: rgba(229, 62, 62, 0.1);
@@ -1507,17 +1523,19 @@
 /* Dark theme overrides - activated via Mantine's color scheme attribute */
 /* Uses Tailwind Slate color family for blue-tinted dark surfaces */
 :root[data-mantine-color-scheme="dark"] {
-  /* LiverRa primary ramp (dark mode) — inverted warm-gray */
-  --liverra-primary-50:  #15110d;
-  --liverra-primary-100: #231e18;
-  --liverra-primary-200: #352d24;
-  --liverra-primary-300: #4d4236;
-  --liverra-primary-400: #6b5c4f;
-  --liverra-primary-500: #8a7a6c;
-  --liverra-primary-600: #b8aa9d;
-  --liverra-primary-700: #d8d0c8;
-  --liverra-primary-800: #eae5e0;
-  --liverra-primary-900: #f7f5f3;
+  /* LiverRa primary ramp (dark mode) — inverted blue palette to remain
+     readable on dark backgrounds. Lightens as the index increases, the
+     opposite of light mode. */
+  --liverra-primary-50:  #091a2e;
+  --liverra-primary-100: #0f2440;
+  --liverra-primary-200: #1a365d;
+  --liverra-primary-300: #234e7f;
+  --liverra-primary-400: #2b6cb0;
+  --liverra-primary-500: #3182ce;
+  --liverra-primary-600: #4299e1;
+  --liverra-primary-700: #63b3ed;
+  --liverra-primary-800: #90cdf4;
+  --liverra-primary-900: #bee3f8;
 
   /* Core Colors - warm-gray accents for dark mode (mapped from brand ramp) */
   --emr-primary: var(--liverra-primary-400);
@@ -1526,9 +1544,9 @@
   --emr-light-accent: var(--liverra-primary-200);
 
   /* Turquoise palette - Using blue family */
-  --emr-turquoise: #3182ce;
-  --emr-turquoise-light: #1a365d;
-  --emr-turquoise-dark: #3182ce;
+  --emr-turquoise: var(--liverra-primary-400);
+  --emr-turquoise-light: var(--liverra-primary-700);
+  --emr-turquoise-dark: var(--liverra-primary-400);
 
   /* Neutral colors - Slate family (blue-tinted) */
   --emr-gray-50: #0f172a;
@@ -1572,7 +1590,7 @@
   --emr-card-border: #334155;
   --emr-stat-card-bg: #243447; /* Slightly lighter than card-bg for stat cards */
   --emr-primary-light: rgba(49, 130, 206, 0.15);
-  --emr-primary-dark: #3182ce;
+  --emr-primary-dark: var(--liverra-primary-400);
   --emr-glass-white-90: rgba(30, 41, 59, 0.9);
   --emr-glass-white-95: rgba(30, 41, 59, 0.95);
 
@@ -1583,8 +1601,8 @@
   --emr-warning-light: #fbbf24;
   --emr-error: #ef4444;
   --emr-error-light: #f87171;
-  --emr-info: #2b6cb0;
-  --emr-info-light: #3182ce;
+  --emr-info: var(--liverra-primary-500);
+  --emr-info-light: var(--liverra-primary-400);
 
   /* Purple accent for research badges */
   --emr-accent-purple: #a78bfa;
@@ -1774,7 +1792,7 @@
   /* Border colors - Slate family */
   --emr-border-color: #334155;
   --emr-border-default: #334155;
-  --emr-border-focus: #3182ce;
+  --emr-border-focus: var(--liverra-primary-400);
   --emr-border-error: #ef4444;
 
   /* Gradients for dark mode - Slate family with subtle blue tint */
@@ -1794,9 +1812,17 @@
   --emr-document-text: #f1f5f9;
 
   /* Add button - same gradient as light mode for consistency */
-  --emr-gradient-add-button: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
+  --emr-gradient-add-button: var(--emr-gradient-primary);
   --emr-shadow-add-button: 0 2px 4px rgba(43, 108, 176, 0.3), 0 4px 12px rgba(43, 108, 176, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   --emr-shadow-add-button-hover: 0 4px 8px rgba(43, 108, 176, 0.35), 0 8px 16px rgba(43, 108, 176, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
+  /* Switch track (unchecked) — dark-mode value. Brighter than light mode so
+   * the unchecked state remains visible on dark backgrounds. */
+  --emr-switch-track: var(--emr-text-secondary);
+
+  /* Form-section title color — dark mode uses primary text for readability
+   * (instead of the muted section accent). */
+  --emr-form-section-title-color: var(--emr-text-primary);
 
   /* ==================== MEDISCRIBE GRADIENTS (DARK MODE) ==================== */
   /* Template card - same gradient for visual consistency */
@@ -1807,7 +1833,7 @@
 
   /* Diagnosis card - blue gradient (unified theme) */
   --emr-gradient-diagnosis: var(--emr-gradient-primary);
-  --emr-gradient-diagnosis-badge: linear-gradient(135deg, #1a365d 0%, #2b6cb0 100%);
+  --emr-gradient-diagnosis-badge: linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 100%);
   --emr-shadow-diagnosis: 0 4px 12px rgba(43, 108, 176, 0.5);
   --emr-shadow-diagnosis-hover: 0 8px 24px rgba(43, 108, 176, 0.6), 0 0 20px rgba(49, 130, 206, 0.4);
 
@@ -1845,7 +1871,7 @@
   /* Secondary button - blue tint for dark mode */
   --emr-btn-secondary-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.2) 0%, rgba(49, 130, 206, 0.12) 100%);
   --emr-btn-secondary-border: rgba(49, 130, 206, 0.35);
-  --emr-btn-secondary-text: #3182ce;
+  --emr-btn-secondary-text: var(--liverra-primary-400);
   --emr-btn-secondary-hover-bg: linear-gradient(135deg, rgba(43, 108, 176, 0.3) 0%, rgba(49, 130, 206, 0.2) 100%);
   --emr-btn-secondary-hover-border: rgba(49, 130, 206, 0.5);
 
@@ -1901,8 +1927,8 @@
   --emr-input-placeholder: rgba(255, 255, 255, 0.75);
   --emr-input-label-color: #e2e8f0;
   --emr-input-help-color: #94a3b8;
-  --emr-input-icon-color: #3182ce;
-  --emr-input-icon-color-focus: #3182ce;
+  --emr-input-icon-color: var(--liverra-primary-400);
+  --emr-input-icon-color-focus: var(--liverra-primary-400);
 
   /* Input validation state backgrounds for dark mode */
   --emr-input-error-bg: rgba(229, 62, 62, 0.15);
@@ -2009,7 +2035,7 @@
 
   /* Selection states for dark mode - Blue family */
   --emr-selected-bg: rgba(49, 130, 206, 0.15);
-  --emr-selected-border: #3182ce;
+  --emr-selected-border: var(--liverra-primary-400);
   --emr-hover-bg: rgba(49, 130, 206, 0.1);
   --emr-focus-ring: 0 0 0 3px rgba(49, 130, 206, 0.3);
 
@@ -2068,11 +2094,11 @@
   --emr-shadow-glow-blue: 0 0 20px rgba(49, 130, 206, 0.15), 0 0 40px rgba(49, 130, 206, 0.05);
 
   /* Accent line gradients for dark mode - Vibrant colors */
-  --emr-accent-line-blue: linear-gradient(180deg, #3182ce 0%, #2b6cb0 50%, rgba(43, 108, 176, 0.3) 100%);
+  --emr-accent-line-blue: linear-gradient(180deg, var(--liverra-primary-400) 0%, var(--liverra-primary-500) 50%, rgba(43, 108, 176, 0.3) 100%);
   --emr-accent-line-success: linear-gradient(180deg, #22c55e 0%, #16a34a 50%, rgba(22, 163, 74, 0.3) 100%);
   --emr-accent-line-warning: linear-gradient(180deg, #f59e0b 0%, #d97706 50%, rgba(217, 119, 6, 0.3) 100%);
   --emr-accent-line-error: linear-gradient(180deg, #ef4444 0%, #dc2626 50%, rgba(220, 38, 38, 0.3) 100%);
-  --emr-accent-line-info: linear-gradient(180deg, #2b6cb0 0%, #1a365d 50%, rgba(26, 54, 93, 0.3) 100%);
+  --emr-accent-line-info: linear-gradient(180deg, var(--liverra-primary-500) 0%, var(--liverra-primary-700) 50%, rgba(26, 54, 93, 0.3) 100%);
 
   /* Icon container backgrounds for dark mode - Vibrant colors */
   --emr-icon-bg-blue: linear-gradient(135deg, rgba(49, 130, 206, 0.2) 0%, rgba(43, 108, 176, 0.1) 100%);
@@ -2650,13 +2676,13 @@ h4, h5, h6 {
 }
 
 .emr-field-item:hover {
-  border-color: #3182ce;
+  border-color: var(--liverra-primary-400);
   transform: translateX(2px);
   box-shadow: var(--emr-shadow-soft);
 }
 
 .emr-field-item.selected {
-  border-color: #2b6cb0;
+  border-color: var(--liverra-primary-500);
   border-width: 2px;
   background: var(--emr-selected-bg);
   box-shadow: var(--emr-shadow-glow);
@@ -2672,7 +2698,7 @@ h4, h5, h6 {
 }
 
 .emr-drop-zone.active {
-  border-color: #2b6cb0;
+  border-color: var(--liverra-primary-500);
   background: linear-gradient(135deg, rgba(43, 108, 176, 0.05) 0%, rgba(43, 108, 176, 0.1) 100%);
   animation: dropPulse 1s ease-in-out infinite;
 }
@@ -2796,9 +2822,9 @@ h4, h5, h6 {
   :root[data-mantine-color-scheme="dark"],
   :root[data-mantine-color-scheme="light"] {
     /* Core Colors - Light mode values for print */
-    --emr-primary: #1a365d;
-    --emr-secondary: #2b6cb0;
-    --emr-accent: #3182ce;
+    --emr-primary: var(--liverra-primary-700);
+    --emr-secondary: var(--liverra-primary-500);
+    --emr-accent: var(--liverra-primary-400);
     --emr-light-accent: #bee3f8;
 
     /* Neutral colors - Light mode */
@@ -2829,12 +2855,12 @@ h4, h5, h6 {
     --emr-success: #38a169;
     --emr-warning: #dd6b20;
     --emr-error: #e53e3e;
-    --emr-info: #3182ce;
+    --emr-info: var(--liverra-primary-400);
 
     /* Border colors */
     --emr-border-color: #d1d5db;
     --emr-border-default: #d1d5db;
-    --emr-border-focus: #3182ce;
+    --emr-border-focus: var(--liverra-primary-400);
     --emr-border-error: #e53e3e;
 
     /* Remove gradients and shadows to save ink */
@@ -4036,9 +4062,9 @@ h4, h5, h6 {
  * Light Mode Audit:
  *   - --emr-text-primary (#1f2937) on --emr-bg-card (#ffffff): ~14.7:1 (PASS)
  *   - --emr-text-secondary (#6b7280) on --emr-bg-card (#ffffff): ~5.0:1 (PASS)
- *   - --emr-text-inverse (#ffffff) on --emr-primary (#1a365d): ~10.5:1 (PASS)
- *   - --emr-primary (#1a365d) on --emr-bg-card (#ffffff): ~10.5:1 (PASS)
- *   - --emr-secondary (#2b6cb0) on --emr-bg-card (#ffffff): ~5.3:1 (PASS)
+ *   - --emr-text-inverse (#ffffff) on --emr-primary (var(--liverra-primary-700)): ~10.5:1 (PASS)
+ *   - --emr-primary (var(--liverra-primary-700)) on --emr-bg-card (#ffffff): ~10.5:1 (PASS)
+ *   - --emr-secondary (var(--liverra-primary-500)) on --emr-bg-card (#ffffff): ~5.3:1 (PASS)
  *   - --emr-error (#e53e3e) on --emr-bg-card (#ffffff): ~4.0:1 (PASS for large text only)
  *   - --emr-success (#38a169) on --emr-bg-card (#ffffff): ~3.5:1 (PASS for large text only)
  *
@@ -4089,6 +4115,17 @@ h4, h5, h6 {
   /* Major vessels */
   --liverra-vessel-portal:     #4F94CD;   /* portal-vein blue */
   --liverra-vessel-hepatic:    #CD5C5C;   /* hepatic-vein red */
+
+  /*
+   * Semantic auto-switching aliases for lesion badges. Light-mode values
+   * mirror --liverra-lesion-* above; dark-mode values are overridden in
+   * the :root[data-mantine-color-scheme="dark"] block below. Consumers
+   * (LesionBadge.module.css) reference these aliases so they don't need
+   * module-level dark-mode overrides (Rule #5 / H-DS-4 / M-DS-8 fix).
+   */
+  --liverra-lesion-marker-current:   var(--liverra-lesion-marker);
+  --liverra-lesion-benign-current:   var(--liverra-lesion-benign);
+  --liverra-lesion-abstain-current:  var(--liverra-lesion-abstain);
 }
 
 /*
@@ -4113,4 +4150,9 @@ h4, h5, h6 {
 
   --liverra-vessel-portal-dark:     #3A6B94;
   --liverra-vessel-hepatic-dark:    #A04848;
+
+  /* Dark-mode lesion aliases — see explanation in :root block above. */
+  --liverra-lesion-marker-current:   var(--liverra-lesion-marker-dark);
+  --liverra-lesion-benign-current:   var(--liverra-lesion-benign-dark);
+  --liverra-lesion-abstain-current:  var(--liverra-lesion-abstain-dark);
 }

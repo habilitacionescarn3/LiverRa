@@ -22,5 +22,10 @@ torch==2.8.0
 torchvision==0.23.0
 monai==1.5.2
 
+# Direct deps of main.py beyond TS — kept explicit so warm-cache + provenance
+# bootstrap don't quietly break if a future TS release drops them.
+numpy>=1.26
+nibabel>=5.2
+
 # The model itself
 TotalSegmentator>=2.4

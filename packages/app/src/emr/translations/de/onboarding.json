@@ -57,6 +57,21 @@
     "subtitle": "Erkunden Sie die gesamte Pipeline mit synthetischen Daten. Jederzeit erneut über das Hilfe-Menü aufrufbar.",
     "body": "Der Demo-Fall enthält keine echten Patientendaten. PACS-Push ist deaktiviert; Ausgaben tragen das Wasserzeichen \"Musterdaten\".",
     "open": "Demo-Fall öffnen",
-    "navLabel": "Demo-Fall"
+    "navLabel": "Demo-Fall",
+    "heroTitle": "__TODO_TRANSLATE__:See LiverRa end to end in 30 seconds",
+    "feature": {
+      "segmentation": {
+        "title": "__TODO_TRANSLATE__:AI segmentation",
+        "body": "__TODO_TRANSLATE__:Liver parenchyma, 8 Couinaud segments, vessels, and lesions — all auto-segmented."
+      },
+      "flr": {
+        "title": "__TODO_TRANSLATE__:FLR & volumetry",
+        "body": "__TODO_TRANSLATE__:Future Liver Remnant calculation with surgical-grade volumetric outputs."
+      },
+      "ruo": {
+        "title": "Только для исследовательских целей",
+        "body": "__TODO_TRANSLATE__:Synthetic data, watermarked exports, PACS push disabled — safe to explore."
+      }
+    }
   }
 }

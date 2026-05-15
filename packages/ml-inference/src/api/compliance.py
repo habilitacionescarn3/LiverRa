@@ -76,12 +76,18 @@ class ClaimRegistryUpdateRequest(BaseModel):
     """Body for ``PUT /claim-registry`` — one-at-a-time toggle.
 
     Matches ``ClaimRegistryEntry`` in the OpenAPI spec.
+
+    H-LOCK-5: ``client_version`` is the row version the caller last
+    observed; the server CAS-checks it against
+    ``regulatory_claim_registry.client_version`` and returns 409 on
+    stale.
     """
 
     claim_key: str
     status: str
     effective_from: Optional[str] = None
     regulatory_reference: Optional[str] = None
+    client_version: int = 1
 
 
 # ---------------------------------------------------------------------------
@@ -242,9 +248,18 @@ async def put_claim_registry(
             status=body.status,
             regulatory_reference=body.regulatory_reference,
             audit_writer=_resolve_audit_writer(request),
+            client_version=body.client_version,
         )
     except ValueError as exc:
         raise _bad_request(str(exc)) from exc
+    except claim_registry.StaleClaimVersion as exc:
+        # H-LOCK-5: optimistic-concurrency mismatch — surface 409.
+        raise ProblemDetailException(
+            ErrorSlug.VALIDATION,
+            status.HTTP_409_CONFLICT,
+            str(exc),
+            instance=str(uuid4()),
+        ) from exc
 
     return updated.to_api_dict()
 

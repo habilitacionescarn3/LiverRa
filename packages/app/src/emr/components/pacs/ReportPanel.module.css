@@ -478,8 +478,8 @@
   padding: 9px 20px;
   border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
-  color: #fff;
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
   font-size: var(--emr-font-sm);
   font-weight: var(--emr-font-bold);
   cursor: pointer;

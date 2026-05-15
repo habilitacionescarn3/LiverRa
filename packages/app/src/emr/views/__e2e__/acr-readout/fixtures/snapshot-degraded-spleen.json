@@ -1,0 +1,59 @@
+{
+  "analysis_id": "analysis-acr-degraded-spleen-001",
+  "study_id": "study-acr-003",
+  "patient_ref": null,
+  "status": "completed",
+  "started_at": "2026-05-13T13:00:00Z",
+  "completed_at": "2026-05-13T13:15:00Z",
+  "updated_at": "2026-05-13T13:15:00Z",
+  "etag": "etag-degraded-spleen-001",
+  "tenant_id": "tenant-acr-e2e",
+  "pipeline_version": "v1.0.0",
+  "stages": [],
+  "flr": {
+    "total_ml": 1820,
+    "flr_ml": 720,
+    "flr_pct": 39.6,
+    "plane_pose": null,
+    "plan_pattern": "right_hepatectomy",
+    "safety_class": "borderline",
+    "computed_at": "2026-05-13T13:15:00Z"
+  },
+  "segmentations": [],
+  "lesions": [
+    {
+      "id": "L1",
+      "bbox3d": null,
+      "longest_diameter_mm": 32.4,
+      "size_mm": 32.4,
+      "volume_ml": 18.0,
+      "segment": "VII",
+      "classification": { "label": "hcc", "confidence": 0.81 }
+    }
+  ],
+  "qc_flags": [],
+  "findings": {
+    "hu_stats": {
+      "mean": 52,
+      "median": 52,
+      "p10": 46,
+      "p90": 58,
+      "std": 4,
+      "voxel_count": 1400000
+    },
+    "spleen": {
+      "volume_ml": 12,
+      "splenomegaly": false,
+      "threshold_ml": 314,
+      "reference": "Cunliffe 2014",
+      "warning": "Spleen mask <500 voxels — volume estimate degraded"
+    },
+    "gallbladder": {
+      "volume_ml": 21,
+      "wall_thickness_mm": 2.2,
+      "wall_thickened": false,
+      "stones_detected": false,
+      "stone_voxel_count": 0
+    }
+  }
+}

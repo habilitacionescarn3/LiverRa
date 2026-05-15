@@ -14,7 +14,7 @@
     "error": "Something went wrong"
   },
   "ruo": {
-    "notice": "Research Use Only — not for clinical use"
+    "notice": "Nur für Forschungszwecke — nicht für klinische Anwendung"
   },
   "placeholder": "TODO: translation pending",
   "back": "Back",
@@ -44,6 +44,10 @@
   "permission": {
     "accessDenied": "You don't have permission to do this."
   },
+  "permissionDenied": {
+    "title": "__TODO_TRANSLATE__:Access denied",
+    "body": "__TODO_TRANSLATE__:You don't have permission to view this page. Contact your administrator if you believe this is an error."
+  },
   "recordLock": {
     "locked": "This record is locked by another user.",
     "lockedWithOverride": "This record is locked by another user. You may request an override.",
@@ -65,5 +69,9 @@
     "explanation": "This action requires a fresh authentication to protect sensitive data.",
     "reauthenticate": "Re-authenticate",
     "title": "Confirm it's you"
-  }
+  },
+  "somethingWentWrong": "Что-то пошло не так.",
+  "insert": "Вставить",
+  "print": "Печать",
+  "goHome": "Zur Startseite"
 }

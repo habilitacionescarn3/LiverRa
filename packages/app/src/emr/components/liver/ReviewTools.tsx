@@ -28,7 +28,7 @@ import {
 import { useReviewSeatContext } from '../../contexts/ReviewSeatContext';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { ClassificationOverride, type LesionClass } from './ClassificationOverride';
-import { RefineTools, type RefineToolId } from './RefineTools';
+import { type RefineToolId } from './RefineTools';
 
 export interface ReviewToolsProps {
   analysisId: string;
@@ -53,18 +53,17 @@ export function ReviewTools({
 }: ReviewToolsProps): ReactElement {
   const { t } = useTranslation();
   const seat = useReviewSeatContext();
-  const [tool, setTool] = useState<RefineToolId | null>(null);
   const [overrideOpen, setOverrideOpen] = useState<boolean>(false);
 
   const disabled = !seat.hasSeat;
 
-  const handleTool = useCallback(
-    (next: RefineToolId | null): void => {
-      setTool(next);
-      onToolChange?.(next);
-    },
-    [onToolChange],
-  );
+  // Note: the RefineTools palette is rendered by the PARENT view
+  // (RefinementView already wraps it with the permission-denied tooltip).
+  // Embedding RefineTools here too produced the doubled tool-palette bug
+  // observed in production. ReviewTools is now strictly the override +
+  // lesion-CTA layer. `onToolChange` is preserved for callers that still
+  // bind a setter — but ReviewTools no longer drives it internally.
+  void onToolChange;
 
   const handleOverrideSubmit = useCallback(
     async (args: {
@@ -85,11 +84,6 @@ export function ReviewTools({
           {t('review.readOnlyNotice')}
         </Text>
       )}
-      <RefineTools
-        activeTool={tool}
-        onToolChange={handleTool}
-        disabled={disabled}
-      />
       {selectedLesionId && (
         <button
           type="button"

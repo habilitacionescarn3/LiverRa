@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // ============================================================================
-// LiverraPacsTable — minimal EMRTable stand-in for Phase-3 ports
+// LiverraPacsTable — PACS-specific table primitive
 // ============================================================================
-// MediMind's PACS components (StudyList, UnmatchedStudiesQueue, ReadingWorklist)
-// render via `@medplum-style` `EMRTable` — a 961-LOC component LiverRa has NOT
-// ported yet (tracked as follow-up in `components/shared/EMRTable`).
+// PACS-specific table used by StudyList, UnmatchedStudiesQueue,
+// ReadingWorklist. Carries features not yet in `common/EMRTable`:
+//   - hideOnMobile / hideOnTablet column flags
+//   - rowLeftBorder (per-row 3px left accent)
+//   - rowClick keyboard navigation
 //
-// This file is a tiny drop-in that covers just the props those three ports
-// reach for (columns with render fn, `onRowClick`, `rowLeftBorder`, striping,
-// sticky header, mobile-responsive `hideOnMobile`/`hideOnTablet`, compact mode,
-// empty state). Keyboard navigation + virtualisation are deliberately NOT
-// implemented here — they'll land together with the full EMRTable port.
+// Status (C-UI-2): `common/EMRTable` is now the canonical wrapper for
+// generic admin / list tables. Migrating the PACS consumers requires adding
+// `hideOnMobile` + `rowLeftBorder` support to common/EMRTable first; tracked
+// as PACS-table feature parity follow-up. Until then, these 3 PACS consumers
+// remain on LiverraPacsTable. New table consumers (admin / settings / audit
+// log) MUST use `common/EMRTable`.
 //
-// Interface shape matches MediMind's `EMRTableColumn` so a future full port
-// is a single-line import swap.
+// The local `EMRTable` export below is RENAMED to `LiverraPacsTable` to avoid
+// the symbol collision with the canonical `common/EMRTable`. Re-exporting
+// `EMRTable` as an alias for backward compat with the 3 PACS callers.
 // ============================================================================
 
 import React, { useCallback, type ReactNode } from 'react';

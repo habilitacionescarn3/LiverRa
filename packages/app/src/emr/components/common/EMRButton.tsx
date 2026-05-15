@@ -56,12 +56,27 @@ export interface EMRButtonProps {
   color?: string;
 }
 
-/** Height values for each size */
+/**
+ * Visual heights for each size. Note: WCAG 2.5.5 AAA requires a 44×44 hit zone;
+ * for xs/sm the VISUAL height is smaller, but the hit zone is expanded to 44px
+ * via vertical padding applied in the styles (see `minTouchAreaPadY` below).
+ */
 const heights: Record<EMRButtonSize, number> = {
   xs: 32,
   sm: 38,
   md: 44,
   lg: 50,
+};
+
+/**
+ * Extra vertical hit-area padding so xs/sm hit zone reaches 44px.
+ * Computed = (44 - visualHeight) / 2.
+ */
+const minTouchAreaPadY: Record<EMRButtonSize, number> = {
+  xs: 6,  // 32 + 6*2 = 44
+  sm: 3,  // 38 + 3*2 = 44
+  md: 0,
+  lg: 0,
 };
 
 /** Icon sizes for each button size */
@@ -162,6 +177,7 @@ export const EMRButton = memo(function EMRButton({
 }: EMRButtonProps): React.ReactElement {
   const height = heights[size];
   const iconSize = iconSizes[size];
+  const touchPadY = minTouchAreaPadY[size];
   const variantClass = getVariantClass(variant);
 
   const iconElement = loading ? (
@@ -193,6 +209,10 @@ export const EMRButton = memo(function EMRButton({
       styles={{
         root: {
           height,
+          /* WCAG 2.5.5 AAA: enforce 44×44 minimum hit zone for xs/sm via
+           * extra padding-block. Visual height stays compact for dense UIs. */
+          minHeight: 44,
+          paddingBlock: touchPadY > 0 ? `${touchPadY}px` : undefined,
           borderRadius: 'var(--emr-border-radius)',
           fontWeight: 'var(--emr-font-semibold)',
           fontSize: 'var(--emr-font-base)',

@@ -190,26 +190,83 @@ if app is not None:
             import logging as _logging
             _log = _logging.getLogger(__name__)
 
-            # Stub-detection guard: when the cascade is configured to
-            # route through Triton (i.e., real-mode is OFF), warn loudly
-            # if any local model.pt still matches the known stub SHAs.
-            # Real-mode bypasses Triton entirely so stubs there are
-            # harmless — only the Triton path produces garbage from stubs.
-            real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
-            stubs = _detect_stub_models()
-            if stubs and not real_mode:
-                _log.error(
-                    "STUB MODELS DETECTED — cascade will produce garbage masks. "
-                    "Replace these model.pt files with real exports before "
-                    "running cascades through Triton: %s",
-                    ", ".join(stubs),
+            # L-CASCADE-2: gate the stub-SHA detection block behind the
+            # explicit Triton-path opt-in. The detection probes
+            # ``triton-models/{name}/1/model.pt`` paths that don't exist
+            # on the current Option-B layout — every worker boot was
+            # spending CPU + log noise on a dormant code path. Stays
+            # available for future Triton re-enablement (matches the
+            # gate Agent 2.4 added in tasks/couinaud.py + tasks/vessels.py).
+            triton_active = os.environ.get(
+                "LIVERRA_TRITON_PATH_ACTIVE", ""
+            ).lower() in {"1", "true", "yes"}
+            if triton_active:
+                real_mode = os.environ.get("LIVERRA_CASCADE_REAL_MODE", "true").lower() in {"1", "true", "yes"}
+                stubs = _detect_stub_models()
+                if stubs and not real_mode:
+                    _log.error(
+                        "STUB MODELS DETECTED — cascade will produce garbage masks. "
+                        "Replace these model.pt files with real exports before "
+                        "running cascades through Triton: %s",
+                        ", ".join(stubs),
+                    )
+                elif stubs:
+                    _log.info(
+                        "Stub models detected (%s) but LIVERRA_CASCADE_REAL_MODE=true "
+                        "bypasses Triton — safe to ignore.",
+                        ", ".join(stubs),
+                    )
+
+            # B-CASCADE-2 + B-AUDIT-4: install live audit hooks in the
+            # Celery worker process. Without this, every cascade stage
+            # boundary in a worker silently called the no-op base hook
+            # → zero chain rows for every cascade run.
+            try:
+                from src.observability.phi_scrubber import PHIScrubber
+                from src.orchestrator.cascade import (
+                    LiveCascadeAuditHooks,
+                    set_audit_hooks,
                 )
-            elif stubs:
-                _log.info(
-                    "Stub models detected (%s) but LIVERRA_CASCADE_REAL_MODE=true "
-                    "bypasses Triton — safe to ignore.",
-                    ", ".join(stubs),
-                )
+                from src.services.audit.chain_of_hashes import AuditChainWriter
+                from src.services.fhir.audit_event_emitter import AuditEventEmitter
+
+                try:
+                    from src.db.session import get_sessionmaker  # type: ignore[import-not-found]
+
+                    session_factory = get_sessionmaker()
+                except Exception:
+                    session_factory = None
+
+                # MedplumClient is wired in a later phase. For now we
+                # only install the hooks when a client is registered in
+                # the env (e.g., via a sibling module setting
+                # ``os.environ["LIVERRA_MEDPLUM_BASE_URL"]``) — otherwise
+                # leave the no-op base hook in place. This preserves the
+                # fail-closed contract (no chain row → no business commit)
+                # while still letting dev environments boot.
+                medplum_client = None  # FUTURE: resolve real client here
+                if medplum_client is not None:
+                    chain_writer = AuditChainWriter(session_factory)
+                    emitter = AuditEventEmitter(
+                        medplum_client=medplum_client,
+                        chain_writer=chain_writer,
+                        phi_scrubber=PHIScrubber(),
+                    )
+                    set_audit_hooks(
+                        LiveCascadeAuditHooks(
+                            emitter=emitter,
+                            session_factory=session_factory,
+                        )
+                    )
+                    _log.info("Celery worker: LiveCascadeAuditHooks installed.")
+                else:
+                    _log.warning(
+                        "Celery worker: no Medplum client wired — cascade "
+                        "audit hooks remain no-ops. Set up the Medplum client "
+                        "binding to enable chain-of-hashes emission."
+                    )
+            except Exception:  # noqa: BLE001
+                _log.exception("Celery worker: failed to install audit hooks")
 
             if os.environ.get("LIVERRA_TRITON_WARMUP", "").lower() not in {"1", "true", "yes"}:
                 return

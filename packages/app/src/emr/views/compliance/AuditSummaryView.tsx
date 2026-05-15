@@ -91,6 +91,10 @@ export default function AuditSummaryView(): ReactElement {
   const [tenantId, setTenantId] = useState<string | null>(tenant?.id ?? null);
   const [fromDate, setFromDate] = useState<Date | null>(sevenDaysAgo);
   const [toDate, setToDate] = useState<Date | null>(today);
+  // Category filter (002-acr-structured-readout FR-019). Sentinel `__all__`
+  // means "no filter"; otherwise restrict to one AuditCategory value
+  // (e.g., `readout_clipboard_export`).
+  const [categoryFilter, setCategoryFilter] = useState<string>('__all__');
   const [committed, setCommitted] = useState<{
     tenantId: string | null;
     from: string | null;
@@ -99,6 +103,19 @@ export default function AuditSummaryView(): ReactElement {
 
   // Only kick off the query when the user clicks "verify chain".
   const { summary, isLoading, isError, error } = useAuditSummary(committed);
+
+  // Categories present in the current result set; drives the filter dropdown.
+  const categoryOptions = useMemo(() => {
+    const seen = new Set<string>(summary?.events.map((e) => e.category) ?? []);
+    const opts = Array.from(seen).sort().map((c) => ({ value: c, label: c }));
+    return [{ value: '__all__', label: t('compliance:audit.categoryAll') ?? 'All categories' }, ...opts];
+  }, [summary, t]);
+
+  const filteredEvents = useMemo(() => {
+    if (!summary) return [];
+    if (categoryFilter === '__all__') return summary.events;
+    return summary.events.filter((e) => e.category === categoryFilter);
+  }, [summary, categoryFilter]);
 
   const canSubmit = Boolean(tenantId && fromDate && toDate);
 
@@ -160,6 +177,15 @@ export default function AuditSummaryView(): ReactElement {
                 data-testid="audit-summary-to"
               />
             </Box>
+            <Box style={{ minWidth: 220 }}>
+              <EMRSelect
+                data-testid="audit-summary-category-filter"
+                label={t('compliance:audit.categoryLabel') ?? 'Category'}
+                value={categoryFilter}
+                onChange={(v) => setCategoryFilter(v ?? '__all__')}
+                data={categoryOptions}
+              />
+            </Box>
             <Group gap="sm">
               <EMRButton
                 onClick={handleVerify}
@@ -196,7 +222,7 @@ export default function AuditSummaryView(): ReactElement {
             >
               {error?.message ?? t('common:genericError')}
             </Alert>
-          ) : !summary || summary.events.length === 0 ? (
+          ) : !summary || filteredEvents.length === 0 ? (
             <EmptyState
               title={t('compliance:audit.emptyTitle')}
               description={t('compliance:audit.emptyDescription')}
@@ -220,7 +246,7 @@ export default function AuditSummaryView(): ReactElement {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {summary.events.map((ev) => {
+                  {filteredEvents.map((ev) => {
                     const tampered =
                       !summary.chain_valid &&
                       summary.chain_first_invalid_sequence_no === ev.chain_sequence_no;

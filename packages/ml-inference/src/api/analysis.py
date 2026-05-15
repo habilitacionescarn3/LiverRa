@@ -285,16 +285,16 @@ async def _emit_analysis_audit(
         getattr(request.app.state, "audit_chain_writer", None)
         or AuditChainWriter()
     )
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": user_id} if user_id else None}],
-        "entity": [{"what": {"reference": f"Analysis/{analysis_id}"}}],
-    }
-    if extra:
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+    from ..services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    event = build_audit_event(
+        category=category,
+        actor=user_id if user_id else None,
+        entity_refs=[fhir_ref("Analysis", analysis_id)],
+        extensions=(
+            [{"url": "liverra:extra", "valueString": str(extra)}] if extra else None
+        ),
+    )
 
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no
@@ -395,7 +395,13 @@ def _revoke_cascade(analysis_id: UUID) -> None:
 
         revoke_cascade(str(analysis_id))
     except Exception:
-        logger.info("cascade revoke skipped for analysis=%s", analysis_id)
+        # L-CATCH-2: revoke is best-effort cleanup (Celery may not be
+        # reachable or the task may already be terminal). Drop to debug
+        # so production logs stay clean while dev tooling still sees the
+        # trace via DEBUG-level logging.
+        logger.debug(
+            "cascade revoke skipped for analysis=%s", analysis_id, exc_info=True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -488,6 +494,13 @@ async def create_analysis(
     created = insert_row.mappings().one()
 
     # 4. Hand off to the cascade Celery task (best-effort dispatch).
+    # C-CASES-1: commit BEFORE dispatch. The cascade tasks open fresh sync
+    # connections (psycopg in a Celery worker) and must see this row.
+    # Without an explicit commit the INSERT lives in an uncommitted async
+    # transaction and the sync lookups in ``_dispatch_cascade`` return None
+    # → "analysis not found" silently kills the dispatch. The canonical
+    # pattern is in ``create_analysis_from_orthanc`` (commit → dispatch).
+    await session.commit()
     _dispatch_cascade(created["id"])
 
     return AnalysisQueuedResponse(
@@ -764,22 +777,75 @@ async def get_analysis_results(
             )
         ).mappings()
     ]
-    lesions = [
-        dict(r)
-        for r in (
-            await session.execute(
-                text(
-                    """
-                    SELECT id, bbox3d, couinaud_location, longest_diameter_mm, volume_ml,
-                           discovery_source, classification
-                    FROM lesion
-                    WHERE analysis_id = :id
-                    """
-                ),
-                {"id": str(analysis_id)},
+    # H-REFINE-4: surface the active classification override (if any) so
+    # the UI can render the reviewer's correction without fabricating
+    # a placeholder reviewer/timestamp. The LEFT JOIN against
+    # ``lesion_classification_override`` is filtered to the single
+    # active row per (analysis, lesion) by the partial UNIQUE index
+    # created in migration 0015.
+    lesions = []
+    # NOTE: do NOT bind the loop variable to `row` — `row` above already
+    # holds the analysis row used by ``_to_detail(row, ...)`` below.
+    # Reusing it here would shadow the analysis row and make ``_to_detail``
+    # fail with NoSuchColumnError for ``study_id`` on every cascade.
+    for lesion_row in (
+        await session.execute(
+            text(
+                """
+                SELECT l.id,
+                       l.bbox3d,
+                       l.couinaud_location,
+                       l.longest_diameter_mm,
+                       l.volume_ml,
+                       l.discovery_source,
+                       l.classification,
+                       l.client_version,
+                       o.override_class         AS override_class,
+                       o.reviewer_role          AS override_reviewer_role,
+                       o.reviewer_user_id       AS override_reviewer_user_id,
+                       o.created_at             AS override_created_at
+                  FROM lesion l
+                  LEFT JOIN lesion_classification_override o
+                    ON o.lesion_id = l.id
+                   AND o.is_active = TRUE
+                 WHERE l.analysis_id = :id
+                """
+            ),
+            {"id": str(analysis_id)},
+        )
+    ).mappings():
+        d = dict(lesion_row)
+        # If classification is a JSON dict, hoist override fields into it
+        # so the UI's `cls.reviewer_override_class` /
+        # `cls.override_reviewer_role` reads land where they belong. If
+        # it's a plain text class (legacy), wrap it.
+        raw_cls = d.get("classification")
+        cls = dict(raw_cls) if isinstance(raw_cls, dict) else (
+            {"suggested_class": raw_cls} if raw_cls else {}
+        )
+        if d.get("override_class") is not None:
+            cls["reviewer_override_class"] = d["override_class"]
+            cls["override_reviewer_role"] = d.get("override_reviewer_role")
+            cls["override_reviewer_user_id"] = (
+                str(d["override_reviewer_user_id"])
+                if d.get("override_reviewer_user_id") is not None
+                else None
             )
-        ).mappings()
-    ]
+            cls["override_created_at"] = (
+                d["override_created_at"].isoformat()
+                if d.get("override_created_at") is not None
+                else None
+            )
+        d["classification"] = cls
+        # Strip the JOIN-only columns from the wire response.
+        for k in (
+            "override_class",
+            "override_reviewer_role",
+            "override_reviewer_user_id",
+            "override_created_at",
+        ):
+            d.pop(k, None)
+        lesions.append(d)
     flr_default_row = (
         await session.execute(
             text(
@@ -917,6 +983,11 @@ async def retry_analysis(
     )
     created = new_row.mappings().one()
 
+    # C-CASES-1: commit BEFORE dispatch so the Celery worker's sync
+    # connection sees the new Analysis row. Without this, the dispatcher's
+    # ``SELECT study_id FROM analysis WHERE id = ...`` returns None and
+    # the cascade silently never starts.
+    await session.commit()
     _dispatch_cascade(created["id"], start_stage=start_stage)
 
     seq_no = await _emit_analysis_audit(
@@ -1161,6 +1232,71 @@ async def get_report_pdf(
 # guard) won't match common PDF-blocking filter patterns.
 
 
+def _report_summary_freshness(
+    arow: dict[str, Any], findings: dict[str, Any] | None
+) -> tuple[str | None, str]:
+    """Compute (updated_at_iso, etag) for the report-summary response.
+
+    Used by both the GET handler (T018) and the HEAD freshness probe (T019).
+    The ETag is a strong, opaque token derived from the latest state
+    timestamp + finding count, so any backend mutation forces a refresh.
+    """
+    candidates = [
+        arow.get("completed_at"),
+        arow.get("started_at"),
+        arow.get("queued_at"),
+    ]
+    latest = max([c for c in candidates if c is not None], default=None)
+    updated_at_iso = latest.isoformat() if latest is not None else None
+    finding_count = len(findings or {})
+    import hashlib
+    payload = f"{updated_at_iso or 'none'}|{finding_count}".encode("utf-8")
+    etag = '"' + hashlib.sha256(payload).hexdigest()[:32] + '"'
+    return updated_at_iso, etag
+
+
+@router.head(
+    "/{analysis_id}/report/summary",
+    summary="ETag / Last-Modified probe for the report summary",
+)
+@require_permission("analysis.view")
+async def head_report_summary(
+    analysis_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> FastAPIResponse:
+    """HEAD twin of GET /report/summary — headers only, no body.
+
+    Used by the ACR clipboard service immediately before a write to
+    detect server-side mutation since panel-open (FR-023a /
+    contracts/readout-api.md §2).
+    """
+    tenant_id: UUID = request.state.tenant_id
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    # Cheap finding-count query (no payload fetch).
+    finding_count_row = (
+        await session.execute(
+            text(
+                "SELECT count(*) AS n FROM analysis_finding "
+                "WHERE analysis_id = :aid"
+            ),
+            {"aid": str(analysis_id)},
+        )
+    ).mappings().first()
+    pseudo_findings = {str(i): None for i in range(int(finding_count_row["n"] or 0))} if finding_count_row else {}
+    updated_at_iso, etag = _report_summary_freshness(arow, pseudo_findings)
+    headers: dict[str, str] = {
+        "ETag": etag,
+        "Cache-Control": "no-store, must-revalidate",
+    }
+    if updated_at_iso:
+        headers["Last-Modified"] = updated_at_iso
+    return FastAPIResponse(status_code=200, headers=headers)
+
+
 @router.get(
     "/{analysis_id}/report/summary",
     summary="Structured report data (cover stats, model versions, QC flags)",
@@ -1170,7 +1306,7 @@ async def get_report_summary(
     analysis_id: UUID,
     request: Request,
     session: AsyncSession = Depends(get_db),
-) -> dict:
+) -> FastAPIResponse:
     """Return JSON the ReportInlineView component renders as cards."""
     tenant_id: UUID = request.state.tenant_id
     arow = await _load_analysis_row(session, analysis_id, tenant_id)
@@ -1245,21 +1381,35 @@ async def get_report_summary(
         finding_rows = (
             await session.execute(
                 text(
-                    "SELECT finding_type, payload "
+                    "SELECT finding_type, payload, computed_at "
                     "FROM analysis_finding WHERE analysis_id = :aid"
                 ),
                 {"aid": str(analysis_id)},
             )
         ).mappings().all()
-        findings = {r["finding_type"]: r["payload"] for r in finding_rows}
+        # Attach `computed_at` per-finding so the frontend can derive the
+        # FR-023c stale marker against the latest completed stage. Kept
+        # as an extra key in the payload to avoid breaking the existing
+        # `findings[type] = payload` consumer shape.
+        findings = {}
+        for r in finding_rows:
+            payload = dict(r["payload"]) if r["payload"] is not None else {}
+            ca = r["computed_at"]
+            if ca is not None and "computed_at" not in payload:
+                payload["computed_at"] = ca.isoformat() if hasattr(ca, "isoformat") else str(ca)
+            findings[r["finding_type"]] = payload
     except Exception as exc:  # noqa: BLE001
         logger.info("findings skipped: %s", exc)
 
-    return {
+    updated_at_iso, etag = _report_summary_freshness(arow, findings)
+    body = {
         "analysis_id": str(analysis_id),
         "study_id": str(arow["study_id"]),
         "patient_ref": arow.get("patient_ref"),
+        "tenant_id": str(arow.get("tenant_id")) if arow.get("tenant_id") else None,
         "status": arow["status"],
+        "updated_at": updated_at_iso,
+        "etag": etag,
         "started_at": arow.get("started_at"),
         "completed_at": arow.get("completed_at"),
         "pipeline_version": arow.get("pipeline_version"),
@@ -1304,6 +1454,115 @@ async def get_report_summary(
         "qc_flags": qc_flags,
         "findings": findings,
     }
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "no-store, must-revalidate",
+    }
+    if updated_at_iso:
+        headers["Last-Modified"] = updated_at_iso
+    return FastAPIResponse(
+        content=_json_dumps(body),
+        media_type="application/json",
+        headers=headers,
+    )
+
+
+def _json_dumps(obj: Any) -> str:
+    """JSON serializer that handles datetimes/UUIDs (analogous to FastAPI default)."""
+    import json
+    from datetime import datetime, date
+
+    def default(o: Any) -> Any:
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        if isinstance(o, UUID):
+            return str(o)
+        if hasattr(o, "decode"):
+            try:
+                return o.decode("utf-8")
+            except Exception:
+                return None
+        raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+    return json.dumps(obj, default=default)
+
+
+# ---------------------------------------------------------------------------
+# ACR-readout clipboard-export audit endpoint (002-acr-structured-readout T029)
+# ---------------------------------------------------------------------------
+#
+# Domain action with audit-chain side effect — same pattern as
+# cancel/retry above. The clipboard-export AuditEvent is appended to
+# the per-tenant audit_event_chain through AuditChainWriter.
+#
+# Idempotency: client_action_id is the dedup key — same UUID returns
+# the original audit_event_id without appending a duplicate chain row,
+# making the durable-retry path safe.
+
+from ..services.audit.clipboard_export_event import (
+    ClipboardExportAuditPayload as _ClipboardExportAuditPayload,
+    ClipboardExportResponse as _ClipboardExportResponse,
+    emit_clipboard_export as _emit_clipboard_export,
+)
+
+
+@router.post(
+    "/{analysis_id}/report/clipboard-export",
+    status_code=status.HTTP_200_OK,
+    response_model=_ClipboardExportResponse,
+    summary="Record an ACR-readout clipboard-export AuditEvent",
+)
+@require_permission("analysis.view")
+async def clipboard_export_audit(
+    analysis_id: UUID,
+    payload: _ClipboardExportAuditPayload,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> _ClipboardExportResponse:
+    """Persist one FHIR R4 AuditEvent for a Copy-to-Clipboard action.
+
+    Authorization inherits ``analysis.view`` — tenant boundary is
+    therefore enforced by the same RLS + tenant_id filter used by
+    ``_load_analysis_row``. Cross-tenant requests return 404 (RLS
+    hides the row); the calling client treats 404/403 as a terminal
+    auth failure.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    user = getattr(request.state, "user", None)
+    # M-ACR-1: fail-closed instead of forging a synthetic actor UUID —
+    # an unauthenticated user must never produce an AuditEvent with a
+    # random "anonymous" Practitioner reference.
+    raw_actor = getattr(user, "id", None) if user else None
+    if raw_actor is None:
+        raise ProblemDetailException(
+            ErrorSlug.UNAUTHENTICATED,
+            status.HTTP_401_UNAUTHORIZED,
+            "Missing authenticated user — clipboard-export audit cannot be recorded.",
+        )
+    actor_id: UUID = raw_actor if isinstance(raw_actor, UUID) else UUID(str(raw_actor))
+
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    audit_event_id, row = await _emit_clipboard_export(
+        payload,
+        actor_id=actor_id,
+        analysis_id=analysis_id,
+        tenant_id=tenant_id,
+        session=session,
+    )
+
+    persisted_at = (
+        row.written_at if row is not None else datetime.now(timezone.utc)
+    )
+    sequence_no = row.sequence_no if row is not None else 0
+    return _ClipboardExportResponse(
+        audit_event_id=audit_event_id,
+        sequence_no=sequence_no,
+        outcome=payload.outcome,
+        persisted_at=persisted_at,
+    )
 
 
 def _render_response(png_bytes: bytes | None) -> FastAPIResponse:
@@ -1439,6 +1698,17 @@ async def render_lesion_endpoint(
             if isinstance(coords, list) and len(coords) == 6:
                 bbox_3d = [int(c) for c in coords]
         except Exception:  # noqa: BLE001
+            # L-CATCH-3: bbox_3d is an optional thumbnail-centring hint.
+            # If the column has a malformed payload we render the
+            # thumbnail without recentring — surface to debug so the
+            # data-quality team can investigate, but don't fail the
+            # render.
+            logger.debug(
+                "lesion bbox_3d parse failed analysis=%s lesion=%s",
+                analysis_id,
+                lesion_id,
+                exc_info=True,
+            )
             bbox_3d = None
     from ..services import stage_render
     s3 = _build_s3_client_for_reports()

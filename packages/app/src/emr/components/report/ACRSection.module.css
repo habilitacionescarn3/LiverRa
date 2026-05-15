@@ -1,0 +1,125 @@
+/*
+ * ACRSection.module.css — shared styles for the six anatomical section
+ * cards rendered by `ACRStructuredReadout` (002-acr-structured-readout).
+ *
+ * Mobile-first authorship: base styles target <768px (single column, full
+ * width); the `@media (min-width: 768px)` block enhances the layout for
+ * tablet and desktop. NO hex literals — every color is `var(--emr-*)` so
+ * theme.css owns light/dark mode.
+ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--emr-spacing-sm);
+  width: 100%;
+  padding: var(--emr-spacing-md) var(--emr-spacing-md) var(--emr-spacing-md) calc(var(--emr-spacing-md) + 4px);
+  border-radius: var(--emr-border-radius-lg);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  position: relative;
+  transition: var(--emr-transition-smooth);
+}
+
+.section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--emr-secondary);
+  opacity: 0.55;
+}
+
+.sectionHeader {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-text-primary);
+  margin: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sectionRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--emr-spacing-xs);
+  width: 100%;
+}
+
+.row {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: var(--emr-border-radius-sm);
+  transition: background var(--emr-transition-base);
+}
+
+.row:hover {
+  background: var(--emr-secondary-alpha-04);
+}
+
+.rowLabel {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+}
+
+.rowValue {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+
+.warning {
+  display: inline-block;
+  background: var(--emr-warning-bg);
+  color: var(--emr-warning-text);
+  padding: 8px;
+  border-radius: 4px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  margin-top: var(--emr-spacing-xs);
+}
+
+.stale {
+  font-style: italic;
+  color: var(--emr-text-secondary);
+  opacity: 0.7;
+}
+
+.emptyMessage {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+  font-style: italic;
+}
+
+.lesionImage {
+  width: 100%;
+  background: var(--emr-bg-hover);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-border-radius);
+  margin-top: var(--emr-spacing-sm);
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .sectionRows {
+    gap: var(--emr-spacing-sm);
+  }
+  .sectionHeader {
+    font-size: var(--emr-font-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section {
+    transition: none;
+  }
+}

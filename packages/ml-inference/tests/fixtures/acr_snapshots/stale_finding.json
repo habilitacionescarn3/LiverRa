@@ -1,0 +1,14 @@
+{
+  "analysis_id": "33333333-3333-3333-3333-333333333333",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "locale": "en",
+  "captured_at": "2026-05-13T14:23:00Z",
+  "status": "completed",
+  "findings": {
+    "hu_stats": { "mean": 50.0, "median": 50.0, "p10": 44.0, "p90": 56.0, "std": 5.0, "voxel_count": 11000, "computed_at": "2026-05-12T18:04:00Z" },
+    "spleen": { "volume_ml": 200.0, "splenomegaly": false, "voxels": 70000, "threshold_ml": 314.0, "reference": "linguraru2010" },
+    "gallbladder": { "volume_ml": 65.0, "wall_thickness_mm": 0.5, "wall_thickened": false, "stones_detected": false, "stone_voxel_count": 0 }
+  },
+  "lesions": [],
+  "flr": { "plan_pattern": "extended_right_hepatectomy", "flr_pct": 32.0, "flr_ml": 580.0, "safety_class": "borderline", "computed_at": "2026-05-13T14:18:00Z", "plane_pose": null, "total_ml": 1812.0 }
+}

@@ -61,7 +61,7 @@ _DEFAULT_TEMPLATE_ROOT: Path = Path(
     )
 ).resolve()
 
-SUPPORTED_LOCALES: tuple[str, ...] = ("en", "de", "ka")
+SUPPORTED_LOCALES: tuple[str, ...] = ("en", "de", "ka", "ru")
 
 # Watermark strings per locale — embedded by the CSS ``@page`` rule AND
 # asserted by the OCR test. Keeping them here (not JSON) so the PDF
@@ -70,6 +70,7 @@ RUO_WATERMARKS: Mapping[str, str] = {
     "en": "RESEARCH USE ONLY — NOT FOR CLINICAL DECISIONS",
     "de": "NUR ZU FORSCHUNGSZWECKEN — NICHT FÜR KLINISCHE ENTSCHEIDUNGEN",
     "ka": "მხოლოდ კვლევითი გამოყენებისთვის — არ არის კლინიკური გადაწყვეტილებებისთვის",
+    "ru": "ТОЛЬКО ДЛЯ ИССЛЕДОВАТЕЛЬСКИХ ЦЕЛЕЙ — НЕ ДЛЯ КЛИНИЧЕСКИХ РЕШЕНИЙ",
 }
 
 
@@ -184,6 +185,13 @@ class PDFBuildInput:
     # mirroring the FindingsCard.tsx schema (label / value / badge /
     # detail / alert per finding). Empty list hides the panel.
     findings_rows: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
+
+    # ACR structured readout sections (002-acr-structured-readout T066).
+    # Mapping[section_name -> list[row]] produced by
+    # ``services.export.acr_section_builder.build_acr_sections``.
+    # Keys preserve insertion order: liver, lesions, vessels,
+    # gallbladder, spleen, flrAssessment.
+    acr_sections: Mapping[str, Sequence[Mapping[str, Any]]] = field(default_factory=dict)
 
     # Lobe split — left = II+III+IV, right = V+VIII when Couinaud is
     # populated; falls back to a Cantlie-line 50/50 of parenchyma_volume_ml
@@ -658,6 +666,22 @@ def _base_css(locale: str) -> str:
       font-size: 7.5pt;
       margin-top: 1mm;
     }}
+    /* B-ACR-1: stale-finding badge — FR-023c. */
+    .finding-row .finding-stale {{
+      color: #6b7280;
+      font-size: 7.5pt;
+      font-style: italic;
+      margin-left: 6pt;
+    }}
+    .finding-row .finding-warning {{
+      color: #b45309;
+      background: #fef3c7;
+      font-size: 7.5pt;
+      padding: 1mm 2mm;
+      border-radius: 1mm;
+      margin-top: 1mm;
+      display: inline-block;
+    }}
 
     /* --- Lesion reasoning bullets -------------------------------------- */
     .lesion-reasoning {{
@@ -758,6 +782,7 @@ def build_pdf(
         ct_renders_unavailable=inp.ct_renders_unavailable,
         mask_warnings=list(inp.mask_warnings or ()),
         findings_rows=list(inp.findings_rows or ()),
+        acr_sections=dict(inp.acr_sections or {}),
         lobe_left_ml=inp.lobe_left_ml,
         lobe_right_ml=inp.lobe_right_ml,
         lobe_split_source=inp.lobe_split_source,

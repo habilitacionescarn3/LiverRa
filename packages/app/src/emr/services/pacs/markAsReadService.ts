@@ -50,6 +50,7 @@ interface ImagingStudyLike extends FhirResourceLike {
   resourceType: 'ImagingStudy';
   status?: string;
   extension?: Array<{ url: string; valueString?: string }>;
+  meta?: { versionId?: string };
 }
 
 interface DiagnosticReportLike extends FhirResourceLike {
@@ -211,7 +212,8 @@ async function createReportAndUpdateStudy(
   // atomic. For now we issue two sequential writes through the shim — the
   // shim's stub returns the echoed resource, so `reportId` will be empty.
   const created = (await fhir.createResource(report)) as DiagnosticReportLike;
-  await fhir.updateResource(updatedStudy);
+  // C-LOCK-3: thread the observed versionId as If-Match.
+  await fhir.updateResource(updatedStudy, { ifMatch: study.meta?.versionId });
 
   return { reportId: created.id ?? '' };
 }

@@ -1,0 +1,12 @@
+/* LesionsPanelView styles
+ *
+ * Hosts the desktop two-column grid (40% list / 60% detail) that
+ * previously lived as an inline <style> block in render (L-REFINE-2).
+ */
+
+@media (min-width: 768px) {
+  .gridInner {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) !important;
+    align-items: start;
+  }
+}

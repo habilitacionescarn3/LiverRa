@@ -28,10 +28,10 @@ import {
   Text,
   Group,
   Badge,
-  ActionIcon,
   Tooltip,
   Collapse,
 } from '@mantine/core';
+import { EMRIconButton } from '../common/EMRIconButton';
 import {
   IconRulerMeasure,
   IconEye,
@@ -48,6 +48,7 @@ import {
   IconArrowUp,
 } from '@tabler/icons-react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { INTL_TAG } from '../../services/localeService';
 import type { StoredAnnotations } from '../../services/pacs/annotationService';
 import './MeasurementPanel.css';
 
@@ -115,6 +116,34 @@ interface AuthorGroup {
 /** Signature of the translation function (matches `useTranslation().t`). */
 type TFn = (key: string, params?: Record<string, unknown>) => string;
 
+/**
+ * M-TYPE-3 fix: structural shape of a Cornerstone3D annotation ``data``
+ * field used by the tools we read. The upstream types in
+ * ``@cornerstonejs/tools`` are per-tool and tightly coupled to the
+ * library's internal class hierarchy; reusing them here would mean
+ * importing 14 different type names just to read 4 properties. A
+ * compact local interface gives us the same compile-time safety
+ * (numbers stay numbers, ROI cachedStats are typed) without the
+ * coupling — and removes 13 ``as Record<string, unknown>`` casts.
+ */
+interface CornerstoneAnnotationData {
+  /** Length-tool / polyline distance in mm. */
+  length?: number;
+  /** Bidirectional minor axis in mm. */
+  width?: number;
+  /** Angle tool result in degrees. */
+  angle?: number;
+  /** Probe pixel value (HU for CT). */
+  value?: number;
+  /** Arrow / annotate text label. */
+  text?: string;
+  /**
+   * Per-tool cached scalar results. Cornerstone3D names this loosely;
+   * the keys vary per tool, so we keep it as ``Record``.
+   */
+  cachedStats?: Record<string, unknown>;
+}
+
 // ============================================================================
 // Parsing Helpers
 // ============================================================================
@@ -130,19 +159,22 @@ function parseAnnotationByTool(
   inc: (key: string) => number,
   t: TFn,
 ): ParsedMeasurement | null {
-  const d = (annData ?? {}) as Record<string, unknown>;
+  // M-TYPE-3: cast once at the boundary to the structural type rather
+  // than threading ``as Record<string, unknown>`` casts through every
+  // property access below.
+  const d = (annData ?? {}) as CornerstoneAnnotationData;
 
   // --- Length-like tools (single distance in mm) ---
   if (toolName === 'Length' || toolName === 'LengthTool') {
     const n = inc('Length');
-    const length = (d.length as number) ?? (d.cachedStats as Record<string, unknown>)?.length;
+    const length = d.length ?? d.cachedStats?.length;
     return { id: uid, type: 'Length', label: t('pacs.tools.lengthLabel', { n }), values: [{ label: 'mm', value: formatNumber(length) }] };
   }
 
   if (toolName === 'Bidirectional' || toolName === 'BidirectionalTool') {
     const n = inc('Bidirectional');
-    const major = (d.length as number) ?? (d.cachedStats as Record<string, unknown>)?.length;
-    const minor = (d.width as number) ?? (d.cachedStats as Record<string, unknown>)?.width;
+    const major = d.length ?? d.cachedStats?.length;
+    const minor = d.width ?? d.cachedStats?.width;
     return {
       id: uid, type: 'Bidirectional', label: t('pacs.tools.bidirectionalLabel', { n }),
       values: [{ label: 'long mm', value: formatNumber(major) }, { label: 'short mm', value: formatNumber(minor) }],
@@ -152,33 +184,33 @@ function parseAnnotationByTool(
   // --- Angle-like tools (single angle in degrees) ---
   if (toolName === 'Angle' || toolName === 'AngleTool') {
     const n = inc('Angle');
-    const angle = (d.angle as number) ?? (d.cachedStats as Record<string, unknown>)?.angle;
+    const angle = d.angle ?? d.cachedStats?.angle;
     return { id: uid, type: 'Angle', label: t('pacs.tools.angleLabel', { n }), values: [{ label: '°', value: formatNumber(angle) }] };
   }
 
   if (toolName === 'CobbAngle' || toolName === 'CobbAngleTool') {
     const n = inc('CobbAngle');
-    const angle = (d.angle as number) ?? (d.cachedStats as Record<string, unknown>)?.angle;
+    const angle = d.angle ?? d.cachedStats?.angle;
     return { id: uid, type: 'CobbAngle', label: t('pacs.tools.cobbAngleLabel', { n }), values: [{ label: '°', value: formatNumber(angle) }] };
   }
 
   // --- Probe tools (pixel value at a point) ---
   if (toolName === 'Probe' || toolName === 'ProbeTool') {
     const n = inc('Probe');
-    const val = (d.value as number) ?? (d.cachedStats as Record<string, unknown>)?.value;
+    const val = d.value ?? d.cachedStats?.value;
     return { id: uid, type: 'Probe', label: t('pacs.tools.probeLabel', { n }), values: [{ label: 'HU', value: formatNumber(val) }] };
   }
 
   if (toolName === 'DragProbe' || toolName === 'DragProbeTool') {
     const n = inc('DragProbe');
-    const val = (d.value as number) ?? (d.cachedStats as Record<string, unknown>)?.value;
+    const val = d.value ?? d.cachedStats?.value;
     return { id: uid, type: 'DragProbe', label: t('pacs.tools.dragProbeLabel', { n }), values: [{ label: 'HU', value: formatNumber(val) }] };
   }
 
   // --- Annotation tools (text label, no numeric value) ---
   if (toolName === 'ArrowAnnotate' || toolName === 'ArrowAnnotateTool') {
     const n = inc('ArrowAnnotate');
-    const text = (d.text as string) || '';
+    const text = d.text ?? '';
     return { id: uid, type: 'ArrowAnnotate', label: t('pacs.tools.arrowLabel', { n }), values: [{ label: 'note', value: text || '—' }] };
   }
 
@@ -216,7 +248,7 @@ function parseAnnotationByTool(
   // --- Polyline (perimeter in mm) ---
   if (toolName === 'Polyline' || toolName === 'PolylineTool') {
     const n = inc('Polyline');
-    const perimeter = (d.length as number) ?? (d.cachedStats as Record<string, unknown>)?.length;
+    const perimeter = d.length ?? d.cachedStats?.length;
     return { id: uid, type: 'Polyline', label: t('pacs.tools.polylineLabel', { n }), values: [{ label: 'mm', value: formatNumber(perimeter) }] };
   }
 
@@ -513,7 +545,7 @@ function AuthorSection({
   onJumpToAnnotation,
   onPromoteToTracked,
 }: AuthorSectionProps): JSX.Element {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
   const handleToggleExpand = useCallback(() => {
@@ -529,7 +561,7 @@ function AuthorSection({
   );
 
   const savedDate = group.lastSaved
-    ? new Date(group.lastSaved).toLocaleDateString(undefined, {
+    ? new Date(group.lastSaved).toLocaleDateString(INTL_TAG[locale] ?? 'en-GB', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -580,22 +612,17 @@ function AuthorSection({
               : t('pacs.measurements.show')
           }
         >
-          <ActionIcon
-            variant="subtle"
-            size="xs"
+          <EMRIconButton
+            icon={isVisible ? IconEye : IconEyeOff}
+            iconSize={16}
+            size="clinicalControl"
             onClick={handleToggleVisibility}
             aria-label={
               isVisible
                 ? t('pacs.measurements.hide')
                 : t('pacs.measurements.show')
             }
-          >
-            {isVisible ? (
-              <IconEye size={14} style={{ color: 'var(--emr-accent)' }} />
-            ) : (
-              <IconEyeOff size={14} style={{ color: 'var(--emr-text-secondary)' }} />
-            )}
-          </ActionIcon>
+          />
         </Tooltip>
       </Group>
 
@@ -749,15 +776,14 @@ function MeasurementRow({
         {/* T035: Jump-to icon — visual affordance for clickable rows */}
         {onJumpToAnnotation && (
           <Tooltip label={t('pacs.measurements.jumpTo')}>
-            <ActionIcon
-              variant="subtle"
-              size="xs"
+            <EMRIconButton
+              icon={IconFocus2}
+              iconSize={16}
+              size="clinicalControl"
               onClick={(e) => { e.stopPropagation(); handleRowClick(); }}
               aria-label={t('pacs.measurements.jumpTo')}
               className="measurement-row-action"
-            >
-              <IconFocus2 size={12} style={{ color: 'var(--emr-accent)' }} />
-            </ActionIcon>
+            />
           </Tooltip>
         )}
 
@@ -766,22 +792,17 @@ function MeasurementRow({
           ? t('pacs.measurements.hideAnnotation')
           : t('pacs.measurements.showAnnotation')
         }>
-          <ActionIcon
-            variant="subtle"
-            size="xs"
+          <EMRIconButton
+            icon={isVisible ? IconEye : IconEyeOff}
+            iconSize={16}
+            size="clinicalControl"
             onClick={handleToggleVisibility}
             aria-label={isVisible
               ? t('pacs.measurements.hideAnnotation')
               : t('pacs.measurements.showAnnotation')
             }
             className="measurement-row-action"
-          >
-            {isVisible ? (
-              <IconEye size={12} style={{ color: 'var(--emr-text-secondary)' }} />
-            ) : (
-              <IconEyeOff size={12} style={{ color: 'var(--emr-text-secondary)' }} />
-            )}
-          </ActionIcon>
+          />
         </Tooltip>
 
         {/* Per-row lock toggle */}
@@ -789,22 +810,17 @@ function MeasurementRow({
           ? t('pacs.measurements.unlockAnnotation')
           : t('pacs.measurements.lockAnnotation')
         }>
-          <ActionIcon
-            variant="subtle"
-            size="xs"
+          <EMRIconButton
+            icon={isLocked ? IconLock : IconLockOpen}
+            iconSize={16}
+            size="clinicalControl"
             onClick={handleToggleLock}
             aria-label={isLocked
               ? t('pacs.measurements.unlockAnnotation')
               : t('pacs.measurements.lockAnnotation')
             }
             className="measurement-row-action"
-          >
-            {isLocked ? (
-              <IconLock size={12} style={{ color: 'var(--emr-warning)' }} />
-            ) : (
-              <IconLockOpen size={12} style={{ color: 'var(--emr-text-secondary)' }} />
-            )}
-          </ActionIcon>
+          />
         </Tooltip>
       </Group>
 

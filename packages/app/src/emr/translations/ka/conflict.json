@@ -1,14 +1,14 @@
 {
-  "title": "Conflict detected",
-  "subtitle": "Your offline edit conflicts with the current server version.",
-  "chooseLabel": "Choose how to resolve",
-  "confirm": "Resolve conflict",
+  "title": "აღმოჩენილია კონფლიქტი",
+  "subtitle": "თქვენი ხაზგარეშე (offline) ცვლილება ეწინააღმდეგება სერვერის მიმდინარე ვერსიას.",
+  "chooseLabel": "აირჩიეთ გადაჭრის გზა",
+  "confirm": "კონფლიქტის გადაჭრა",
   "option": {
-    "clientWins": "Keep my changes",
-    "clientWinsDescription": "Your local edits overwrite the server version.",
-    "serverWins": "Keep server changes",
-    "serverWinsDescription": "Discard your local edits and accept the server version.",
-    "manual": "Merge manually",
-    "manualDescription": "Open a side-by-side diff to merge the two versions."
+    "clientWins": "ჩემი ცვლილებების შენარჩუნება",
+    "clientWinsDescription": "თქვენი ლოკალური ცვლილებები გადააწერს სერვერის ვერსიას.",
+    "serverWins": "სერვერის ცვლილებების შენარჩუნება",
+    "serverWinsDescription": "უარყავით თქვენი ლოკალური ცვლილებები და მიიღეთ სერვერის ვერსია.",
+    "manual": "ხელით შერწყმა",
+    "manualDescription": "გახსენით გვერდიგვერდ შედარება (diff) ორი ვერსიის შესაერთებლად."
   }
 }

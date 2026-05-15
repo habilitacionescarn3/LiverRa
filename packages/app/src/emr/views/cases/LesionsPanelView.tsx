@@ -37,9 +37,11 @@ import {
   IconPlus,
   IconTarget,
 } from '@tabler/icons-react';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
+import lesionsStyles from './LesionsPanelView.module.css';
 import { PermissionButton } from '../../components/access-control';
 import {
   EMRAlert,
@@ -67,7 +69,11 @@ import type {
 } from '../../components/liver';
 import { RUODisclaimerClaimAware } from '../../components/ruo/RUODisclaimerClaimAware';
 import { useTranslation } from '../../contexts/TranslationContext';
-import { useLesions, type Lesion as ApiLesion } from '../../hooks/useLesions';
+import {
+  useLesions,
+  lesionsQueryKey,
+  type Lesion as ApiLesion,
+} from '../../hooks/useLesions';
 import { useRefinementDispatch } from '../../hooks/useRefinementDispatch';
 import { useReviewSeat } from '../../hooks/useReviewSeat';
 import { useAuth } from '../../services/auth';
@@ -129,7 +135,32 @@ function normalizeConfidenceVector(
   };
 }
 
-function apiLesionToLesionUI(api: ApiLesion, idx: number, analysisId: string): LesionUI {
+/**
+ * L-REFINE-1: read the bounding box from the API payload when present
+ * instead of synthesising a zero-span tuple. The API now surfaces
+ * ``bbox3d`` as a 6-element array ``[x0,y0,z0,x1,y1,z1]``.
+ */
+function parseBbox(raw: unknown): BBox3D {
+  if (Array.isArray(raw) && raw.length === 6 && raw.every((n) => typeof n === 'number')) {
+    return raw as unknown as BBox3D;
+  }
+  // Legacy payloads without bbox — fall back to zero-span. Recenter is a
+  // no-op in that case (viewer holds framing).
+  return [0, 0, 0, 0, 0, 0];
+}
+
+function apiLesionToLesionUI(
+  api: ApiLesion & {
+    bbox3d?: unknown;
+    classification?: {
+      override_reviewer_role?: string | null;
+      override_reviewer_user_id?: string | null;
+      override_created_at?: string | null;
+    };
+  },
+  idx: number,
+  analysisId: string,
+): LesionUI {
   const cls = api.classification ?? {};
   const suggestedClass = toClassEnum(cls.suggested_class ?? null);
   const confidenceVector = normalizeConfidenceVector(cls.confidence_vector);
@@ -139,13 +170,18 @@ function apiLesionToLesionUI(api: ApiLesion, idx: number, analysisId: string): L
   const couinaud = toCouinaud(api.couinaud_location);
   const diameterMm = api.longest_diameter_mm ?? 0;
   const volumeMl = api.volume_ml ?? 0;
-  // No bbox in the API payload — synthesise a zero-span box at origin so
-  // the recenter helper has a valid tuple (viewer simply holds its current
-  // framing when bbox is degenerate).
-  const bbox: BBox3D = [0, 0, 0, 0, 0, 0];
+  // L-REFINE-1: bbox now comes from the API.
+  const bbox: BBox3D = parseBbox(api.bbox3d);
   const reviewerOverrideClass = cls.reviewer_override_class
     ? toClassEnum(cls.reviewer_override_class)
     : null;
+  // H-REFINE-4 / M-REFINE-3: real reviewer attribution from the JOIN
+  // in analysis.py. If the audit columns aren't present (legacy row)
+  // we omit ``reviewerOverride`` entirely rather than fabricate.
+  const overrideReviewerUserId =
+    (cls as { override_reviewer_user_id?: string | null }).override_reviewer_user_id ?? null;
+  const overrideCreatedAt =
+    (cls as { override_created_at?: string | null }).override_created_at ?? null;
 
   const ui: LesionUI = {
     id: api.id ?? `lesion-${idx}`,
@@ -165,12 +201,12 @@ function apiLesionToLesionUI(api: ApiLesion, idx: number, analysisId: string): L
     abstentionThreshold: cls.abstention_threshold_used ?? 0.4,
     temperatureApplied: cls.temperature_applied ?? 1,
     modelVersion: cls.model_version ?? 'unknown',
-    ...(reviewerOverrideClass
+    ...(reviewerOverrideClass && overrideReviewerUserId && overrideCreatedAt
       ? {
           reviewerOverride: {
             classValue: reviewerOverrideClass,
-            reviewerUserId: 'unknown',
-            at: new Date().toISOString(),
+            reviewerUserId: overrideReviewerUserId,
+            at: overrideCreatedAt,
           },
         }
       : {}),
@@ -209,6 +245,7 @@ function readApiBaseUrl(): string {
 function LesionsPanelViewBody(): ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { id: analysisId = '' } = useParams<{ id: string }>();
   const { permissions } = useAuth();
   const hasOverridePerm = permissions.includes('review.override_classification');
@@ -220,6 +257,27 @@ function LesionsPanelViewBody(): ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overrideOpen, setOverrideOpen] = useState<boolean>(false);
   const [addingLesion, setAddingLesion] = useState<boolean>(false);
+  // B-REFINE-3: viewer-click sets ``pendingVoxel``; Add Lesion is
+  // disabled until the user has clicked the viewer to pick a seed.
+  const [pendingVoxel, setPendingVoxel] = useState<[number, number, number] | null>(null);
+
+  // Listen for the same ``liverra:viewer-click`` event RefinementView
+  // dispatches. The viewer is the single source of voxel coordinates;
+  // we never invent them on the panel side.
+  useEffect(() => {
+    const onViewerClick = (ev: Event): void => {
+      const detail = (
+        ev as CustomEvent<{ voxel?: [number, number, number] }>
+      ).detail;
+      if (detail?.voxel) setPendingVoxel(detail.voxel);
+    };
+    window.addEventListener('liverra:viewer-click', onViewerClick as EventListener);
+    return () =>
+      window.removeEventListener(
+        'liverra:viewer-click',
+        onViewerClick as EventListener,
+      );
+  }, []);
 
   // Adapt API → UI shape. Memoised so the list/detail don't rerun virtualiser
   // setup on every keystroke.
@@ -255,20 +313,38 @@ function LesionsPanelViewBody(): ReactElement {
     }): Promise<void> => {
       const priorClass = selectedLesion?.suggestedClass ?? null;
       const newUiClass = OVERRIDE_TO_UI_CLASS[args.newClass];
+      // H-LOCK-3: pass the lesion version the UI last observed so the
+      // backend can CAS-bump and reject stale overwrites.
+      const apiHit = apiLesions.find((l) => l.id === args.lesionId) as
+        | (ApiLesion & { client_version?: number })
+        | undefined;
       await dispatchClassificationOverride({
         analysisId,
         lesionId: args.lesionId,
         newClass: newUiClass,
         priorClass,
         reason: args.reason,
+        clientVersion: apiHit?.client_version ?? 1,
       });
       EMRToast.success(t('common:save'));
     },
-    [analysisId, dispatchClassificationOverride, selectedLesion, t],
+    [analysisId, apiLesions, dispatchClassificationOverride, selectedLesion, t],
   );
 
   const handleAddLesion = useCallback(async () => {
     if (!seat.reviewId) return;
+    // B-REFINE-3: backend requires ``{ analysis_id, voxel:[x,y,z], label? }``.
+    // The previous body ``{ segment: 'V' }`` always 422'd; reviewers
+    // received a success toast that wasn't true. We now require the
+    // viewer to have surfaced a click coordinate before we POST.
+    if (!pendingVoxel) {
+      EMRToast.info(
+        t('refine:tools.pickVoxelBeforeAdd', {
+          defaultValue: 'Click the viewer to pick a seed before adding a lesion.',
+        }),
+      );
+      return;
+    }
     setAddingLesion(true);
     try {
       const res = await fetch(
@@ -277,17 +353,42 @@ function LesionsPanelViewBody(): ReactElement {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ segment: 'V' }),
+          body: JSON.stringify({
+            analysis_id: analysisId,
+            voxel: pendingVoxel,
+            client_version: 1,
+          }),
         },
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // M-REFINE-4: surface the actual reason — try problem+json,
+        // then fall back to HTTP-status. The previous silent toast
+        // masked 409 stale-version / 422 validation errors.
+        let detail = `HTTP ${res.status}`;
+        try {
+          const body = await res.json();
+          if (body && typeof body === 'object' && 'detail' in body) {
+            detail = String((body as { detail?: unknown }).detail ?? detail);
+          }
+        } catch {
+          /* not JSON */
+        }
+        throw new Error(detail);
+      }
       EMRToast.success(t('refine:tools.addLesion'));
-    } catch {
-      EMRToast.error(t('common:genericError'));
+      setPendingVoxel(null);
+      // Pull the new lesion into the cached list.
+      void queryClient.invalidateQueries({ queryKey: lesionsQueryKey(analysisId) });
+    } catch (err) {
+      // M-REFINE-4: route to console.warn + Sentry rather than swallow.
+      // eslint-disable-next-line no-console
+      console.warn('LesionsPanelView.handleAddLesion failed', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      EMRToast.error(msg);
     } finally {
       setAddingLesion(false);
     }
-  }, [seat.reviewId, t]);
+  }, [seat.reviewId, t, pendingVoxel, analysisId, queryClient]);
 
   const handleBack = useCallback(() => navigate(-1), [navigate]);
 
@@ -378,7 +479,14 @@ function LesionsPanelViewBody(): ReactElement {
                   {t('common:back')}
                 </EMRButton>
                 <EMRButton
-                  onClick={() => window.location.reload()}
+                  onClick={() =>
+                    // H-REFINE-5: invalidate the lesions cache instead of
+                    // ``window.location.reload()`` — preserves open modals,
+                    // sync-worker handle, and in-memory state.
+                    void queryClient.invalidateQueries({
+                      queryKey: lesionsQueryKey(analysisId),
+                    })
+                  }
                   data-testid="lesions-retry-button"
                 >
                   {t('common:retry')}
@@ -400,24 +508,16 @@ function LesionsPanelViewBody(): ReactElement {
             data-testid="lesions-layout"
           >
             <Box
-              className="lesions-grid-inner"
+              className={lesionsStyles.gridInner}
               style={{
                 display: 'grid',
                 gap: 16,
                 gridTemplateColumns: 'minmax(0, 1fr)',
               }}
             >
-              {/* Responsive grid via inline CSS — avoids a separate module file. */}
-              <style>
-                {`
-                  @media (min-width: 768px) {
-                    .lesions-grid-inner {
-                      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) !important;
-                      align-items: start;
-                    }
-                  }
-                `}
-              </style>
+              {/* L-REFINE-2: the desktop two-column rule lives in
+                  ``LesionsPanelView.module.css`` (``.gridInner``)
+                  instead of inline. */}
 
               {/* Left — list or skeleton */}
               <Box

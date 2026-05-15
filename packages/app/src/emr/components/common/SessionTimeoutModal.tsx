@@ -5,10 +5,11 @@
  * Session Timeout Warning Modal
  *
  * HIPAA-compliant modal that warns users before session timeout.
+ * Built on EMRModal wrapper (H-DS-2 fix — was raw Mantine Modal).
  * Features:
  * - Countdown timer display
- * - Non-dismissible (requires user action)
- * - Focus trap for accessibility
+ * - Non-dismissible (closeOnClickOutside={false}, closeOnEscape={false})
+ * - Focus trap via EMRModal's built-in trapFocus
  * - Screen reader announcements
  * - Stay Logged In and Logout Now buttons
  *
@@ -16,9 +17,9 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Modal, Stack, Text, Group, Progress, Box } from '@mantine/core';
-import { useFocusTrap } from '@mantine/hooks';
+import { Stack, Text, Box, Progress } from '@mantine/core';
 import { IconClock, IconLogout, IconRefresh } from '@tabler/icons-react';
+import { EMRModal } from './EMRModal';
 import { EMRButton } from './EMRButton';
 import { useTranslation } from '../../contexts/TranslationContext';
 import styles from './SessionTimeoutModal.module.css';
@@ -39,29 +40,15 @@ function formatRemainingTime(seconds: number): string {
  * Props for SessionTimeoutModal
  */
 export interface SessionTimeoutModalProps {
-  /**
-   * Whether the modal is currently open
-   */
+  /** Whether the modal is currently open */
   opened: boolean;
-
-  /**
-   * Remaining seconds until auto-logout
-   */
+  /** Remaining seconds until auto-logout */
   remainingSeconds: number;
-
-  /**
-   * Total warning duration in seconds (for progress bar)
-   */
+  /** Total warning duration in seconds (for progress bar) */
   warningDurationSeconds?: number;
-
-  /**
-   * Handler for "Stay Logged In" action
-   */
+  /** Handler for "Stay Logged In" action */
   onExtend: () => void;
-
-  /**
-   * Handler for "Logout Now" action
-   */
+  /** Handler for "Logout Now" action */
   onLogout: () => void;
 }
 
@@ -91,27 +78,24 @@ export function SessionTimeoutModal({
   onLogout,
 }: SessionTimeoutModalProps): React.JSX.Element {
   const { t } = useTranslation();
-  const focusTrapRef = useFocusTrap(opened);
   const liveRegionRef = useRef<HTMLDivElement>(null);
 
-  // Calculate progress percentage (inverted - decreases as time runs out)
+  // Calculate progress percentage (decreases as time runs out)
   const progressPercent = Math.max(
     0,
     (remainingSeconds / warningDurationSeconds) * 100
   );
 
-  // Get progress bar color based on remaining time
-  const getProgressColor = (): string => {
-    if (remainingSeconds <= 30) return 'red';
-    if (remainingSeconds <= 60) return 'orange';
-    return 'yellow';
+  // Map progress to semantic color tokens (no hardcoded colors).
+  const getProgressColorVar = (): string => {
+    if (remainingSeconds <= 30) return 'var(--emr-error)';
+    if (remainingSeconds <= 60) return 'var(--emr-warning)';
+    return 'var(--emr-info)';
   };
 
   // Announce countdown to screen readers at key intervals
   useEffect(() => {
     if (!opened || !liveRegionRef.current) return;
-
-    // Announce at specific intervals
     if (
       remainingSeconds === 120 ||
       remainingSeconds === 60 ||
@@ -136,6 +120,28 @@ export function SessionTimeoutModal({
     }
   }, [opened, t]);
 
+  // Custom footer — two side-by-side actions (Logout / Stay Logged In).
+  const footer = (
+    <Box style={{ display: 'flex', gap: 12, justifyContent: 'center', width: '100%' }}>
+      <EMRButton
+        variant="ghost"
+        icon={IconLogout}
+        onClick={onLogout}
+        className={styles.logoutButton}
+      >
+        {t('session.timeout.logoutNow')}
+      </EMRButton>
+      <EMRButton
+        variant="primary"
+        icon={IconRefresh}
+        onClick={onExtend}
+        className={styles.extendButton}
+      >
+        {t('session.timeout.stayLoggedIn')}
+      </EMRButton>
+    </Box>
+  );
+
   return (
     <>
       {/* Screen reader live region for announcements */}
@@ -147,116 +153,65 @@ export function SessionTimeoutModal({
         className={styles.srOnly}
       />
 
-      <Modal
+      <EMRModal
         opened={opened}
-        onClose={() => {}} // Non-dismissible - empty handler
+        // Non-dismissible: empty onClose handler.
+        onClose={() => {}}
+        title={t('session.timeout.title')}
+        icon={IconClock}
+        size="sm"
         closeOnClickOutside={false}
         closeOnEscape={false}
         withCloseButton={false}
-        centered
-        size="sm"
-        padding="xl"
-        radius="md"
-        trapFocus
-        returnFocus
-        lockScroll
+        footer={footer}
+        showFooter
         zIndex={10000}
-        classNames={{
-          root: styles.modalRoot,
-          content: styles.modalContent,
-          body: styles.modalBody,
-          overlay: styles.modalOverlay,
-        }}
-        aria-labelledby="session-timeout-title"
-        aria-describedby="session-timeout-description"
+        testId="session-timeout-modal"
       >
-        <div ref={focusTrapRef}>
-          <Stack gap="lg" align="center">
-            {/* Icon */}
-            <Box className={styles.iconContainer}>
-              <IconClock size={48} className={styles.icon} />
-            </Box>
-
-            {/* Title */}
+        <Stack gap="lg" align="center">
+          {/* Countdown display */}
+          <Box className={styles.countdownContainer}>
             <Text
-              id="session-timeout-title"
-              size="xl"
-              fw={700}
-              ta="center"
-              className={styles.title}
+              className={styles.countdown}
+              aria-label={t('session.timeout.remainingTime', { seconds: remainingSeconds })}
             >
-              {t('session.timeout.title', 'Session Expiring')}
+              {formatRemainingTime(remainingSeconds)}
             </Text>
+          </Box>
 
-            {/* Countdown display */}
-            <Box className={styles.countdownContainer}>
-              <Text
-                className={styles.countdown}
-                aria-label={t(
-                  'session.timeout.remainingTime',
-                  `${remainingSeconds} seconds remaining`
-                )}
-              >
-                {formatRemainingTime(remainingSeconds)}
-              </Text>
-            </Box>
+          {/* Progress bar — color via inline style targets the bar element. */}
+          <Progress
+            value={progressPercent}
+            size="lg"
+            radius="xl"
+            w="100%"
+            animated={remainingSeconds <= 30}
+            aria-label={t('session.timeout.progressLabel')}
+            styles={{ section: { backgroundColor: getProgressColorVar() } }}
+          />
 
-            {/* Progress bar */}
-            <Progress
-              value={progressPercent}
-              color={getProgressColor()}
-              size="lg"
-              radius="xl"
-              w="100%"
-              animated={remainingSeconds <= 30}
-              aria-label={t('session.timeout.progressLabel', 'Time remaining')}
-            />
+          {/* Description */}
+          <Text
+            size="sm"
+            c="var(--emr-text-secondary)"
+            ta="center"
+            className={styles.description}
+          >
+            {t(
+              'session.timeout.description',
+              'Your session will expire due to inactivity. Click "Stay Logged In" to continue working, or "Logout Now" to end your session.'
+            )}
+          </Text>
 
-            {/* Description */}
-            <Text
-              id="session-timeout-description"
-              size="sm"
-              c="dimmed"
-              ta="center"
-              className={styles.description}
-            >
-              {t(
-                'session.timeout.description',
-                'Your session will expire due to inactivity. Click "Stay Logged In" to continue working, or "Logout Now" to end your session.'
-              )}
-            </Text>
-
-            {/* Action buttons */}
-            <Group gap="md" justify="center" w="100%" mt="md">
-              <EMRButton
-                variant="ghost"
-                icon={IconLogout}
-                onClick={onLogout}
-                className={styles.logoutButton}
-              >
-                {t('session.timeout.logoutNow', 'Logout Now')}
-              </EMRButton>
-
-              <EMRButton
-                variant="primary"
-                icon={IconRefresh}
-                onClick={onExtend}
-                className={styles.extendButton}
-              >
-                {t('session.timeout.stayLoggedIn', 'Stay Logged In')}
-              </EMRButton>
-            </Group>
-
-            {/* HIPAA compliance note */}
-            <Text size="xs" c="dimmed" ta="center" className={styles.hipaaNote}>
-              {t(
-                'session.timeout.hipaaNote',
-                'For security, sessions timeout after 15 minutes of inactivity.'
-              )}
-            </Text>
-          </Stack>
-        </div>
-      </Modal>
+          {/* HIPAA compliance note */}
+          <Text size="xs" c="var(--emr-text-secondary)" ta="center" className={styles.hipaaNote}>
+            {t(
+              'session.timeout.hipaaNote',
+              'For security, sessions timeout after 15 minutes of inactivity.'
+            )}
+          </Text>
+        </Stack>
+      </EMRModal>
     </>
   );
 }

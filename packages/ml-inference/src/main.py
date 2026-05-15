@@ -75,6 +75,7 @@ def _cors_origins() -> list[str]:
         "http://localhost:3000,http://localhost:5173,"
         "http://localhost:5174,http://localhost:5175,"
         "http://localhost:5176,http://localhost:5177,"
+        "https://liverra-app.netlify.app,"
         "https://liverra.netlify.app"
     )
     raw = os.environ.get("CORS_ORIGINS", default)
@@ -112,10 +113,54 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         session_factory = _get_session_factory()
         _singletons["audit_writer"] = AuditChainWriter(session_factory)
         _singletons["phi_scrubber"] = PHIScrubber()
+        _singletons["session_factory"] = session_factory
         app.state.audit_chain_writer = _singletons["audit_writer"]
         app.state.phi_scrubber = _singletons["phi_scrubber"]
     except Exception as exc:  # pragma: no cover — degrade for local dev
         _strict_boot("Audit/PHI singletons", exc)
+
+    # ---- AuditEventEmitter (B-AUDIT-4) + LiveCascadeAuditHooks
+    # (B-CASCADE-1, B-CASCADE-2) ----------------------------------------------
+    # Before this block, AuditEventEmitter was never instantiated → every
+    # ``AuditChainWriter.write(...)`` caller bypassed PHI scrubbing and the
+    # Medplum mirror, and the cascade's CascadeAuditHooks base class
+    # produced ZERO chain rows because set_audit_hooks() was never called.
+    try:
+        from src.observability.phi_scrubber import PHIScrubber as _PHIS  # noqa: F401
+        from src.orchestrator.cascade import (
+            LiveCascadeAuditHooks,
+            set_audit_hooks,
+        )
+        from src.services.fhir.audit_event_emitter import AuditEventEmitter
+
+        # Medplum client is wired in a later phase — for now we accept any
+        # object implementing ``create_resource(...)``. When unwired, the
+        # emitter raises (per FR-029b fail-closed), and the hook catches +
+        # logs without taking down the cascade.
+        medplum_client = _singletons.get("medplum_client")
+        if medplum_client is not None and _singletons.get("audit_writer"):
+            emitter = AuditEventEmitter(
+                medplum_client=medplum_client,
+                chain_writer=_singletons["audit_writer"],
+                phi_scrubber=_singletons["phi_scrubber"],
+            )
+            _singletons["audit_event_emitter"] = emitter
+            app.state.audit_event_emitter = emitter
+
+            hooks = LiveCascadeAuditHooks(
+                emitter=emitter,
+                session_factory=_singletons.get("session_factory"),
+            )
+            set_audit_hooks(hooks)
+            app.state.cascade_audit_hooks = hooks
+            logger.info("AuditEventEmitter + LiveCascadeAuditHooks wired.")
+        else:
+            logger.warning(
+                "AuditEventEmitter not wired (medplum_client missing) — "
+                "cascade audit hooks remain no-ops until medplum is configured."
+            )
+    except Exception as exc:  # pragma: no cover — defensive
+        _strict_boot("AuditEventEmitter + cascade hooks", exc)
 
     # T414 — MBoM reader singleton (mtime-invalidated).
     try:
@@ -223,6 +268,17 @@ def create_app() -> FastAPI:
         register_exception_handler(app)
     except Exception as exc:
         _strict_boot("problem+json exception handler", exc)
+
+    # B-AUTH-1 / C-UT-3: render PermissionProblem (raised by
+    # @require_permission) as application/problem+json with `type`, `slug`,
+    # `status` at the body root. Without this, FastAPI wraps the body in
+    # `{"detail": ...}` and the RBAC red-team matrix fails.
+    try:
+        from src.middleware.require_permission import install_permission_problem_handler
+
+        install_permission_problem_handler(app)
+    except Exception as exc:
+        _strict_boot("PermissionProblem exception handler", exc)
 
     # --- Routers -----------------------------------------------------------
     try:
@@ -334,7 +390,92 @@ def create_app() -> FastAPI:
     except Exception as exc:
         _strict_boot("auth router", exc)
 
+    # --- Annual retention attestation cron (T092) ----------------------
+    _maybe_start_retention_scheduler(app)
+
     return app
+
+
+# ---------------------------------------------------------------------------
+# Annual retention-attestation cron (T092 — 002-acr-structured-readout)
+# ---------------------------------------------------------------------------
+#
+# Plain-English:
+#     Once a year on Jan 2 at 03:00 UTC, we summarise every
+#     ``readout-clipboard-export`` audit row from the previous calendar
+#     year and stash a signed JSON in S3. APScheduler is optional —
+#     when not installed (or explicitly disabled via env var), this is
+#     a no-op so dev environments don't need extra deps.
+
+
+def _maybe_start_retention_scheduler(app: FastAPI) -> None:
+    """Wire APScheduler to run the annual attestation if available.
+
+    Env-var controls:
+        LIVERRA_RETENTION_SCHEDULER — set to ``false``/``0``/``no`` to
+            disable wiring. Defaults to ``true``.
+        LIVERRA_RETENTION_BUCKET — S3 bucket name for the signed
+            envelope. Defaults to ``liverra-audit-retention``.
+    """
+    if os.environ.get("LIVERRA_RETENTION_SCHEDULER", "true").lower() not in (
+        "1",
+        "true",
+        "yes",
+    ):
+        logger.info("Retention scheduler disabled by LIVERRA_RETENTION_SCHEDULER env.")
+        return
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-not-found]
+    except ImportError:
+        logger.info(
+            "APScheduler not installed; annual retention attestation job not scheduled."
+        )
+        return
+
+    try:
+        from src.jobs.audit_retention_attestation import run_attestation
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("audit_retention_attestation not importable: %s", exc)
+        return
+
+    bucket = os.environ.get("LIVERRA_RETENTION_BUCKET", "liverra-audit-retention")
+    scheduler = AsyncIOScheduler()
+
+    @scheduler.scheduled_job("cron", month=1, day=2, hour=3, minute=0)
+    async def _annual_attestation() -> None:  # pragma: no cover — runs in prod
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        try:
+            import boto3  # type: ignore[import-not-found]
+
+            s3 = boto3.client("s3")
+        except Exception as exc:
+            logger.error("boto3 unavailable for retention job: %s", exc)
+            return
+
+        factory = _get_session_factory()
+        if factory is None:
+            logger.error("DB session factory unavailable for retention job.")
+            return
+
+        prev_year = _dt.now(_tz.utc).year - 1
+        await run_attestation(
+            year=prev_year,
+            session_factory=factory,
+            s3_client=s3,
+            bucket=bucket,
+        )
+
+    try:
+        scheduler.start()
+        app.state.retention_scheduler = scheduler
+        logger.info(
+            "Annual retention attestation scheduler started (Jan 2 03:00 UTC, bucket=%s).",
+            bucket,
+        )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("Could not start retention scheduler: %s", exc)
 
 
 # ---------------------------------------------------------------------------

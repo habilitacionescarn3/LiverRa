@@ -9,7 +9,7 @@
  * with automatic refetch on every change.
  */
 import { useMemo, useState, Suspense } from 'react';
-import { Badge, Box, Group, Stack, Table, Text } from '@mantine/core';
+import { Box, Group, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
   IconUserPlus,
@@ -19,13 +19,16 @@ import {
 } from '@tabler/icons-react';
 import {
   EMRAlert as Alert,
+  EMRBadge,
   EMRButton,
   EMRCard,
   EMREmptyState as EmptyState,
   EMRErrorBoundary,
   EMRPageHeader,
+  EMRTable,
   EMRTableSkeleton as Skeleton,
 } from '../../components/common';
+import type { EMRTableColumn } from '../../components/common';
 import UserInviteModal from '../../components/admin/UserInviteModal';
 import { useAdminUsers, type AdminUserRow } from '../../hooks/useAdminUsers';
 import { useTranslation } from '../../contexts/TranslationContext';
@@ -47,14 +50,14 @@ function relativeTime(iso: string | null, t: (k: string, p?: Record<string, stri
 function RoleBadge({ role }: { role: string }): React.ReactElement {
   const { t } = useTranslation();
   const palette: Record<string, { color: string; bg: string }> = {
-    hpb_surgeon: { color: 'var(--emr-primary)', bg: 'var(--emr-primary-alpha-10, rgba(26,54,93,0.1))' },
-    radiologist: { color: 'var(--emr-secondary)', bg: 'var(--emr-secondary-alpha-10, rgba(43,108,176,0.1))' },
-    fellow: { color: 'var(--emr-accent)', bg: 'var(--emr-accent-alpha-10, rgba(49,130,206,0.1))' },
-    ops: { color: 'var(--emr-warning)', bg: 'rgba(221,107,32,0.1)' },
-    compliance: { color: 'var(--emr-success)', bg: 'rgba(56,161,105,0.1)' },
-    dpo: { color: 'var(--emr-info, var(--emr-secondary))', bg: 'rgba(43,108,176,0.1)' },
+    hpb_surgeon: { color: 'var(--emr-primary)', bg: 'var(--emr-primary-alpha-10)' },
+    radiologist: { color: 'var(--emr-secondary)', bg: 'var(--emr-secondary-alpha-10)' },
+    fellow: { color: 'var(--emr-accent)', bg: 'var(--emr-accent-alpha-10)' },
+    ops: { color: 'var(--emr-warning)', bg: 'var(--emr-warning-alpha-10)' },
+    compliance: { color: 'var(--emr-success)', bg: 'var(--emr-success-alpha-10)' },
+    dpo: { color: 'var(--emr-info)', bg: 'var(--emr-secondary-alpha-10)' },
   };
-  const p = palette[role] ?? { color: 'var(--emr-text-secondary)', bg: 'var(--emr-gray-100)' };
+  const p = palette[role] ?? { color: 'var(--emr-text-secondary)', bg: 'var(--emr-bg-hover)' };
   const label = (t(`admin:role.${role}`) as string) || role;
   return (
     <Box
@@ -81,16 +84,11 @@ function RoleBadge({ role }: { role: string }): React.ReactElement {
 function StatusBadge({ suspended }: { suspended: boolean }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <Badge
-      variant="light"
-      color={suspended ? 'red' : 'green'}
-      size="sm"
-      style={{ textTransform: 'none' }}
-    >
+    <EMRBadge variant={suspended ? 'danger' : 'success'} size="sm">
       {suspended
         ? t('admin:users.status.suspended') || 'Suspended'
         : t('admin:users.status.active') || 'Active'}
-    </Badge>
+    </EMRBadge>
   );
 }
 
@@ -133,6 +131,106 @@ function UserCard({
       </Stack>
     </EMRCard>
   );
+}
+
+/**
+ * Build the column set for the users EMRTable. Extracted so the table
+ * declaration in the JSX stays readable and the columns can be unit-tested.
+ */
+function getUserColumns(
+  t: (k: string, p?: Record<string, string | number>) => string,
+  suspend: (id: string) => void,
+): EMRTableColumn<AdminUserRow>[] {
+  return [
+    {
+      id: 'name',
+      header: t('admin:users.col.name') || 'Name',
+      sortable: true,
+      sortFn: (a, b) => a.display_name.localeCompare(b.display_name),
+      cell: (u) => (
+        <Text fz="var(--emr-font-sm)" fw={600}>
+          {u.display_name}
+        </Text>
+      ),
+    },
+    {
+      id: 'email',
+      header: t('admin:users.col.email') || 'Email',
+      sortable: true,
+      sortFn: (a, b) => a.email.localeCompare(b.email),
+      cell: (u) => (
+        <Text
+          fz="var(--emr-font-sm)"
+          c="var(--emr-text-secondary)"
+          style={{ wordBreak: 'break-all' }}
+        >
+          {u.email}
+        </Text>
+      ),
+    },
+    {
+      id: 'role',
+      header: t('admin:users.col.role') || 'Role',
+      sortable: true,
+      sortFn: (a, b) => a.role.localeCompare(b.role),
+      cell: (u) => <RoleBadge role={u.role} />,
+    },
+    {
+      id: 'status',
+      header: t('admin:users.col.status') || 'Status',
+      sortable: true,
+      sortFn: (a, b) => Number(a.suspended) - Number(b.suspended),
+      cell: (u) => <StatusBadge suspended={u.suspended} />,
+    },
+    {
+      id: 'lastActive',
+      header: t('admin:users.col.lastActive') || 'Last active',
+      sortable: true,
+      sortFn: (a, b) => {
+        const aTs = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+        const bTs = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+        return aTs - bTs;
+      },
+      cell: (u) => (
+        <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)" style={{ whiteSpace: 'nowrap' }}>
+          {relativeTime(u.last_active_at, t)}
+        </Text>
+      ),
+    },
+    {
+      id: 'actions',
+      header: t('admin:users.col.actions') || 'Actions',
+      width: 220,
+      cell: (u) => (
+        <Group gap="xs" wrap="nowrap">
+          {u.mfa_enrolled_at && (
+            <EMRButton
+              size="sm"
+              variant="ghost"
+              icon={IconShieldLock}
+              aria-label={t('admin:users.resetMfa') || 'Reset MFA'}
+              title={t('admin:users.resetMfa') || 'Reset MFA'}
+              onClick={() => {
+                /* Endpoint not yet wired — placeholder no-op. */
+              }}
+            >
+              {t('admin:users.resetMfa') || 'Reset MFA'}
+            </EMRButton>
+          )}
+          {!u.suspended && (
+            <EMRButton
+              size="sm"
+              variant="ghost"
+              icon={IconUserOff}
+              onClick={() => suspend(u.id)}
+            >
+              {t('admin:users.suspend') || 'Suspend'}
+            </EMRButton>
+          )}
+        </Group>
+      ),
+    },
+  ];
 }
 
 function UserManagementInner(): React.ReactElement {
@@ -209,86 +307,18 @@ function UserManagementInner(): React.ReactElement {
           aria-label={t('admin:users.title') || 'User management'}
           style={{
             borderRadius: 'var(--emr-border-radius-lg)',
-            border: '1px solid var(--emr-gray-200)',
+            border: '1px solid var(--emr-border-color)',
             overflow: 'hidden',
             background: 'var(--emr-bg-card)',
             boxShadow: 'var(--emr-shadow-sm)',
           }}
         >
-          <Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>{t('admin:users.col.name') || 'Name'}</Table.Th>
-                <Table.Th>{t('admin:users.col.email') || 'Email'}</Table.Th>
-                <Table.Th>{t('admin:users.col.role') || 'Role'}</Table.Th>
-                <Table.Th>{t('admin:users.col.status') || 'Status'}</Table.Th>
-                <Table.Th>{t('admin:users.col.lastActive') || 'Last active'}</Table.Th>
-                <Table.Th style={{ width: 220 }}>
-                  {t('admin:users.col.actions') || 'Actions'}
-                </Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {users.map((u) => (
-                <Table.Tr key={u.id}>
-                  <Table.Td>
-                    <Text fz="var(--emr-font-sm)" fw={600}>
-                      {u.display_name}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text
-                      fz="var(--emr-font-sm)"
-                      c="var(--emr-text-secondary)"
-                      style={{ wordBreak: 'break-all' }}
-                    >
-                      {u.email}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <RoleBadge role={u.role} />
-                  </Table.Td>
-                  <Table.Td>
-                    <StatusBadge suspended={u.suspended} />
-                  </Table.Td>
-                  <Table.Td>
-                    <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)" style={{ whiteSpace: 'nowrap' }}>
-                      {relativeTime(u.last_active_at, t)}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
-                      {u.mfa_enrolled_at && (
-                        <EMRButton
-                          size="sm"
-                          variant="ghost"
-                          icon={IconShieldLock}
-                          aria-label={t('admin:users.resetMfa') || 'Reset MFA'}
-                          title={t('admin:users.resetMfa') || 'Reset MFA'}
-                          onClick={() => {
-                            // Endpoint not yet wired — placeholder no-op
-                            // (button visible only if user is MFA-enrolled).
-                          }}
-                        >
-                          {t('admin:users.resetMfa') || 'Reset MFA'}
-                        </EMRButton>
-                      )}
-                      {!u.suspended && (
-                        <EMRButton
-                          size="sm"
-                          variant="ghost"
-                          icon={IconUserOff}
-                          onClick={() => suspend(u.id)}
-                        >
-                          {t('admin:users.suspend') || 'Suspend'}
-                        </EMRButton>
-                      )}
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+          <EMRTable<AdminUserRow>
+            ariaLabel={t('admin:users.title') || 'User management'}
+            data={users}
+            rowKey={(u) => u.id}
+            columns={getUserColumns(t, suspend)}
+          />
         </Box>
       )}
 

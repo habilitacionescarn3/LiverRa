@@ -74,15 +74,26 @@ class MeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _is_non_dev_env() -> bool:
+    env = os.environ.get("LIVERRA_ENV", "development").lower()
+    return env in {"staging", "production"}
+
+
 def _load_allowlist() -> dict[str, str]:
     """Parse LIVERRA_DEMO_USERS into {email: role}.
 
-    Default fallback (dev only): one demo user.
+    C-SEC-2: in non-dev environments the hardcoded fallback allowlist is
+    REFUSED. Operators must explicitly set ``LIVERRA_DEMO_USERS`` (or, in
+    production, retire this password-gate entirely in favour of Cognito).
     """
-    raw = os.environ.get(
-        "LIVERRA_DEMO_USERS",
-        "demo@liverra.local:admin,lasha@liverra.local:hpb_surgeon",
-    )
+    raw = os.environ.get("LIVERRA_DEMO_USERS")
+    if raw is None:
+        if _is_non_dev_env():
+            raise RuntimeError(
+                "PRODUCTION SAFETY: LIVERRA_DEMO_USERS must be set explicitly "
+                "in staging/production; the hardcoded dev allowlist is refused."
+            )
+        raw = "demo@liverra.local:admin,lasha@liverra.local:hpb_surgeon"
     out: dict[str, str] = {}
     for entry in raw.split(","):
         entry = entry.strip()
@@ -94,14 +105,35 @@ def _load_allowlist() -> dict[str, str]:
 
 
 def _password() -> str:
-    return os.environ.get("LIVERRA_DEMO_PASSWORD", "livercheck-demo")
+    """C-SEC-2: refuse the hardcoded demo password in staging/production."""
+    pwd = os.environ.get("LIVERRA_DEMO_PASSWORD")
+    if not pwd:
+        if _is_non_dev_env():
+            raise RuntimeError(
+                "PRODUCTION SAFETY: LIVERRA_DEMO_PASSWORD must be set "
+                "explicitly in staging/production; the hardcoded dev "
+                "fallback is refused."
+            )
+        pwd = "livercheck-demo"  # dev-only fallback
+    return pwd
 
 
 def _jwt_secret() -> bytes:
-    secret = os.environ.get(
-        "LIVERRA_JWT_SECRET",
-        "dev-only-not-for-production-replace-with-32-byte-secret",
-    )
+    """C-SEC-1: refuse the hardcoded JWT signing secret in non-dev envs.
+
+    The previous default ("dev-only-not-for-production-replace-with-32-byte-secret")
+    was committed and would silently sign tokens accepted by every other
+    LiverRa service if leaked. With this guard, a missing
+    ``LIVERRA_JWT_SECRET`` in staging/production halts startup loudly.
+    """
+    secret = os.environ.get("LIVERRA_JWT_SECRET")
+    if not secret:
+        if _is_non_dev_env():
+            raise RuntimeError(
+                "PRODUCTION SAFETY: LIVERRA_JWT_SECRET must be set "
+                "in staging/production; the hardcoded dev fallback is refused."
+            )
+        secret = "dev-only-not-for-production-replace-with-32-byte-secret"
     return secret.encode("utf-8")
 
 

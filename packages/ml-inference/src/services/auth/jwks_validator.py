@@ -26,6 +26,8 @@ Spec reference: T047, research.md §A.1.
 """
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import threading
 import time
@@ -33,9 +35,25 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import httpx
-from jose import jwk, jwt
-from jose.exceptions import ExpiredSignatureError, JWTError
-from jose.utils import base64url_decode
+import jwt as pyjwt
+from jwt import ExpiredSignatureError, InvalidTokenError, PyJWK
+from jwt.exceptions import DecodeError
+
+
+def _b64url_decode(data: str | bytes) -> bytes:
+    """Decode base64url with auto-padding (replacement for jose.utils.base64url_decode)."""
+    if isinstance(data, str):
+        data = data.encode("utf-8")
+    rem = len(data) % 4
+    if rem:
+        data += b"=" * (4 - rem)
+    return base64.urlsafe_b64decode(data)
+
+
+# Re-export ``JWTError`` as an alias for PyJWT's base ``InvalidTokenError`` so that
+# any historical callers that imported ``JWTError`` from this module continue to
+# work transparently during the python-jose → PyJWT migration.
+JWTError = InvalidTokenError
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +101,14 @@ class JwksValidator:
     # (prevents DoS via unknown-kid replay).
     MIN_REFRESH_INTERVAL_SECONDS = 60
 
+    # H-SEC-3: bounded in-memory JTI replay cache. We cap entries so a
+    # forged-JTI flood can't OOM the validator. The cap of 10k is sized for
+    # a single FastAPI worker processing 2k auth'd requests/min over a
+    # 5-minute window — far more than expected steady-state. Eviction is
+    # by insertion order (FIFO via OrderedDict), which is fine because
+    # token TTLs already bound how long a JTI matters.
+    JTI_CACHE_MAX = 10_000
+
     def __init__(
         self,
         issuer_url: str,
@@ -99,6 +125,31 @@ class JwksValidator:
         self._http = http_client or httpx.Client(timeout=5.0)
         self._cache = _JWKSCache()
         self._lock = threading.Lock()
+        # JTI replay cache — (jti -> exp_unix). Module-level lock guards
+        # mutations because validate() may run from any worker thread.
+        from collections import OrderedDict
+
+        self._jti_seen: "OrderedDict[str, float]" = OrderedDict()
+        self._jti_lock = threading.Lock()
+
+    # ------------------------------------------------------------------
+    # Pre-warm (H-AUTH-4)
+    # ------------------------------------------------------------------
+
+    def prewarm(self) -> None:
+        """Synchronously populate the JWKS cache.
+
+        Call from the FastAPI lifespan startup so the first authenticated
+        request doesn't pay the JWKS-fetch latency AND so the
+        ``MIN_REFRESH_INTERVAL_SECONDS`` rate-limit on kid-miss refreshes is
+        effective from request #1. Without pre-warm, the rate limit only
+        kicks in once a key is cached — a cold-start flood of unknown-kid
+        requests would each force a JWKS refresh.
+        """
+        try:
+            self._refresh_jwks(force=True)
+        except Exception as exc:  # noqa: BLE001 — pre-warm is best-effort
+            logger.warning("JWKS pre-warm failed (will retry on first request): %s", exc)
 
     # ------------------------------------------------------------------
     # JWKS fetch + cache
@@ -159,8 +210,8 @@ class JwksValidator:
 
         # 1. Inspect header to locate the signing key.
         try:
-            header = jwt.get_unverified_header(token)
-        except JWTError as exc:
+            header = pyjwt.get_unverified_header(token)
+        except (DecodeError, InvalidTokenError) as exc:
             raise InvalidToken("malformed", f"Unparseable header: {exc}") from exc
 
         kid = header.get("kid")
@@ -173,23 +224,32 @@ class JwksValidator:
 
         key_data = self._get_jwk(kid)
 
-        # 2. Verify signature manually (jose.jwt.decode's built-in
-        #    aud/iss checks are too strict for Cognito's access-token shape).
+        # 2. Verify signature manually. We bypass PyJWT.decode() because its
+        #    built-in aud / iss checks are too strict for Cognito's
+        #    access-token shape (Cognito puts the audience in `client_id`).
         try:
-            public_key = jwk.construct(key_data)
-        except JWTError as exc:
+            pyjwk_obj = PyJWK(key_data, algorithm="RS256")
+            public_key = pyjwk_obj.key
+        except (InvalidTokenError, ValueError, KeyError) as exc:
             raise InvalidToken("jwk-construct-failed", str(exc)) from exc
 
         message, encoded_sig = token.rsplit(".", 1)
-        decoded_sig = base64url_decode(encoded_sig.encode("utf-8"))
-        if not public_key.verify(message.encode("utf-8"), decoded_sig):
-            raise InvalidToken("bad-signature", "Signature verification failed")
-
-        # 3. Decode claims without running jose's validator (we're doing
-        #    the field-by-field checks below).
+        decoded_sig = _b64url_decode(encoded_sig)
         try:
-            claims = jwt.get_unverified_claims(token)
-        except JWTError as exc:
+            # PyJWT exposes the algorithm registry so we can run verify() on
+            # the prepared key without invoking the full decode pipeline.
+            rs256 = pyjwt.get_algorithm_by_name("RS256")
+            if not rs256.verify(message.encode("utf-8"), public_key, decoded_sig):
+                raise InvalidToken("bad-signature", "Signature verification failed")
+        except InvalidTokenError as exc:
+            raise InvalidToken("bad-signature", str(exc)) from exc
+
+        # 3. Decode claims directly from the JWT payload segment. We avoid
+        #    PyJWT.decode() because we run the field-by-field checks below.
+        try:
+            payload_segment = token.split(".")[1]
+            claims = json.loads(_b64url_decode(payload_segment).decode("utf-8"))
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise InvalidToken("malformed", str(exc)) from exc
 
         now = time.time()
@@ -246,21 +306,61 @@ class JwksValidator:
                     "id-token aud does not match configured audience",
                 )
 
-        # 8. Return — callers access `custom:tenant_id`, `cognito:groups`,
+        # 8. JTI replay check (H-SEC-3) — only when the token carries a jti.
+        #    Cognito access tokens DO include jti; some older clients may
+        #    not, so we treat missing jti as "no replay protection" rather
+        #    than a hard reject (preserves backward compat with manually
+        #    minted demo tokens issued by src/api/auth.py).
+        jti = claims.get("jti")
+        if isinstance(jti, str) and jti:
+            self._check_and_record_jti(jti, float(exp))
+
+        # 9. Return — callers access `custom:tenant_id`, `cognito:groups`,
         #    and `auth_time` directly on the claims dict.
         return claims
+
+    # ------------------------------------------------------------------
+    # JTI replay cache (H-SEC-3)
+    # ------------------------------------------------------------------
+
+    def _check_and_record_jti(self, jti: str, exp_unix: float) -> None:
+        """Reject a JTI we've already observed within its TTL window.
+
+        Simple in-process FIFO cache: if you're operating multiple FastAPI
+        workers, replay protection is per-worker (a determined attacker
+        with sticky-sessions disabled could replay across workers). For
+        full cross-worker protection, swap this for a Redis SETNX with the
+        same TTL semantics — the interface stays identical.
+        """
+        now = time.time()
+        with self._jti_lock:
+            # Evict expired entries before checking.
+            stale = [k for k, e in self._jti_seen.items() if e <= now]
+            for k in stale:
+                self._jti_seen.pop(k, None)
+
+            if jti in self._jti_seen:
+                raise InvalidToken("jti-replay", f"JTI already seen: {jti}")
+
+            # Enforce hard cap (defence against forged-JTI flood).
+            while len(self._jti_seen) >= self.JTI_CACHE_MAX:
+                self._jti_seen.popitem(last=False)
+            self._jti_seen[jti] = exp_unix
 
 
 # ---------------------------------------------------------------------------
 # Convenience re-exports
 # ---------------------------------------------------------------------------
 
-__all__ = ["JwksValidator", "InvalidToken"]
+__all__ = ["JwksValidator", "InvalidToken", "JWTError", "ExpiredSignatureError"]
 
 # ---------------------------------------------------------------------------
-# Known ExpiredSignatureError alias (jose lib surface)
+# Compatibility re-exports
 # ---------------------------------------------------------------------------
-# We do NOT raise jose's ExpiredSignatureError because we skip jose's
-# built-in validation; the sentinel is re-exported here so callers that
-# used to rely on it continue to import cleanly during migration.
+# Historical callers may have imported ``ExpiredSignatureError`` / ``JWTError``
+# from this module (legacy python-jose surface). We re-export PyJWT's
+# equivalents so import sites continue to work transparently. We do NOT raise
+# these ourselves — the validator wraps every failure in :class:`InvalidToken`.
+# ``ExpiredSignatureError`` is already imported from ``jwt`` at the top of the
+# module; this assignment is a no-op kept only for documentation clarity.
 ExpiredSignatureError = ExpiredSignatureError  # noqa: F811 (intentional re-export)

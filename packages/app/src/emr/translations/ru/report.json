@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "status": {
+    "draft": "__TODO_TRANSLATE__:Draft",
+    "finalizing": "__TODO_TRANSLATE__:Finalizing",
+    "finalized": "__TODO_TRANSLATE__:Finalized",
+    "superseded": "__TODO_TRANSLATE__:Superseded",
+    "retracted": "__TODO_TRANSLATE__:Retracted"
+  },
+  "pdf": {
+    "iframeTitle": "__TODO_TRANSLATE__:Finalized Report PDF",
+    "loading": "__TODO_TRANSLATE__:Loading report…",
+    "error": "__TODO_TRANSLATE__:PDF preview unavailable.",
+    "finalizing": "__TODO_TRANSLATE__:The PDF is still being built; this panel will refresh automatically.",
+    "claimHidden": "__TODO_TRANSLATE__:PDF preview is restricted for the current RUO claim scope.",
+    "ruoBadge": "Только для исследовательских целей"
+  },
+  "pacs": {
+    "title": "__TODO_TRANSLATE__:PACS Delivery",
+    "start": "__TODO_TRANSLATE__:Start push",
+    "loading": "__TODO_TRANSLATE__:Loading deliveries…",
+    "empty": "__TODO_TRANSLATE__:No PACS destinations pushed yet. Click \"Start push\" to fan out to configured destinations.",
+    "aria": "__TODO_TRANSLATE__:Delivery timeline",
+    "nextAttempt": "__TODO_TRANSLATE__:Next attempt:",
+    "retry": "Повторить",
+    "manualFallback": "__TODO_TRANSLATE__:Download for manual push",
+    "demoBlocked": "__TODO_TRANSLATE__:Sample-data reports cannot be pushed to a real PACS destination.",
+    "status": {
+      "pending": "В ожидании",
+      "sending": "__TODO_TRANSLATE__:Sending",
+      "acknowledged": "__TODO_TRANSLATE__:Acknowledged",
+      "failed": "Ошибка",
+      "manual_fallback": "__TODO_TRANSLATE__:Manual fallback"
+    }
+  },
+  "retract": {
+    "title": "__TODO_TRANSLATE__:Retract Report",
+    "body": "__TODO_TRANSLATE__:Retraction is audit-preserving: the report row is kept and flagged. Downstream viewers will see a \"Retracted\" banner.",
+    "reasonLabel": "__TODO_TRANSLATE__:Reason for retraction",
+    "reasonPlaceholder": "__TODO_TRANSLATE__:Explain why this report is being retracted…",
+    "confirm": "__TODO_TRANSLATE__:Retract"
+  },
+  "view": {
+    "title": "__TODO_TRANSLATE__:Report",
+    "heading": "__TODO_TRANSLATE__:Analysis report",
+    "downloadPdf": "__TODO_TRANSLATE__:Download PDF",
+    "loading": "__TODO_TRANSLATE__:Loading report…",
+    "error": "__TODO_TRANSLATE__:Unable to load this report.",
+    "claimHidden": "__TODO_TRANSLATE__:Report is restricted for the current RUO claim scope.",
+    "finalizedAt": "__TODO_TRANSLATE__:Finalized at",
+    "supersededBy": "__TODO_TRANSLATE__:Superseded by",
+    "retracted": "__TODO_TRANSLATE__:This report has been retracted.",
+    "retract": "__TODO_TRANSLATE__:Retract",
+    "sampleData": "__TODO_TRANSLATE__:SAMPLE DATA",
+    "noId": "__TODO_TRANSLATE__:No report id in URL.",
+    "noIdDescription": "__TODO_TRANSLATE__:Open a finalized analysis from your cases list to view its report.",
+    "stats": {
+      "liver": "__TODO_TRANSLATE__:Liver volume",
+      "flr": "__TODO_TRANSLATE__:Future Liver Remnant",
+      "lesions": "__TODO_TRANSLATE__:Lesions",
+      "status": "Статус"
+    },
+    "parenchymaTitle": "__TODO_TRANSLATE__:Parenchyma segmentation",
+    "vesselsTitle": "__TODO_TRANSLATE__:Vessels (portal + hepatic)",
+    "flrTitle": "__TODO_TRANSLATE__:FLR — resection plane",
+    "fourPhaseTitle": "__TODO_TRANSLATE__:4-phase axial comparison",
+    "mesh3dTitle": "__TODO_TRANSLATE__:3D liver mesh",
+    "lesionsTitle": "__TODO_TRANSLATE__:Lesions",
+    "pipelineTitle": "__TODO_TRANSLATE__:Pipeline checkpoints",
+    "downloadPerSlice": "__TODO_TRANSLATE__:Per-slice PDF",
+    "findings": {
+      "title": "__TODO_TRANSLATE__:Additional findings",
+      "subtitle": "__TODO_TRANSLATE__:Heuristic screening from CT attenuation + segmentation masks. Not a substitute for radiologist interpretation.",
+      "hu_stats": "__TODO_TRANSLATE__:Liver attenuation",
+      "steatosis": "__TODO_TRANSLATE__:Steatosis",
+      "spleen": "__TODO_TRANSLATE__:Spleen volume",
+      "splenomegaly": "__TODO_TRANSLATE__:Splenomegaly",
+      "gallbladder": "__TODO_TRANSLATE__:Gallbladder",
+      "stones": "__TODO_TRANSLATE__:stones",
+      "wallThickened": "__TODO_TRANSLATE__:wall thickened",
+      "calcified": "__TODO_TRANSLATE__:Calcified lesions",
+      "simpleBiliaryCysts": "__TODO_TRANSLATE__:Simple biliary cysts",
+      "cystsDetail": "__TODO_TRANSLATE__:Meets all 4 simple-cyst criteria — no follow-up needed.",
+      "lrM": "__TODO_TRANSLATE__:Indeterminate malignant (LR-M)"
+    }
+  },
+  "artifact": {
+    "seg": "__TODO_TRANSLATE__:DICOM-SEG (liver + segments + lesions)",
+    "sr": "__TODO_TRANSLATE__:DICOM-SR (measurement report)",
+    "pdf": "__TODO_TRANSLATE__:PDF report"
+  }
+}

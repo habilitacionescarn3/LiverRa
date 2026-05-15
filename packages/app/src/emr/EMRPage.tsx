@@ -32,10 +32,13 @@
  */
 
 import { useMediaQuery } from '@mantine/hooks';
-import { Box, Burger, Group, Text } from '@mantine/core';
+import { Box, Burger, Group, Text, UnstyledButton } from '@mantine/core';
+import { IconHome } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import type { ReactElement } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { LIVERRA_ROUTES } from './constants/routes';
+import { EMRIconButton } from './components/common';
 
 import {
   Breadcrumbs,
@@ -48,6 +51,7 @@ import {
 } from './components/nav';
 import { StepUpAuthModal } from './components/access-control';
 import { FULL_MENU_ITEMS } from './constants/nav-registry';
+import { useTranslation } from './contexts/TranslationContext';
 
 /**
  * Placeholder persistent RUO disclaimer — final impl lives in T178 (Phase 3).
@@ -56,6 +60,7 @@ import { FULL_MENU_ITEMS } from './constants/nav-registry';
  * development. Replace with the real component when T178 ships.
  */
 function RUODisclaimer(): ReactElement {
+  const { t } = useTranslation();
   return (
     <Box
       aria-live="polite"
@@ -76,8 +81,7 @@ function RUODisclaimer(): ReactElement {
         letterSpacing: '0.04em',
       }}
     >
-      {/* TODO(T178): translate via `common:ruo.disclaimer` */}
-      Research Use Only
+      {t('ruo:badge')}
     </Box>
   );
 }
@@ -109,8 +113,14 @@ export function EMRPage({
   ruoDisclaimer,
 }: EMRPageProps): ReactElement {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 768px)') ?? false;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const goHome = useCallback(() => {
+    navigate(LIVERRA_ROUTES.LANDING);
+  }, [navigate]);
 
   const effectiveNavItems = navItems;
 
@@ -156,11 +166,38 @@ export function EMRPage({
             size="sm"
           />
         )}
-        <Group gap={8}>
+        {/* Logo doubles as Home — industry-standard click-target. */}
+        <UnstyledButton
+          onClick={goHome}
+          aria-label={t('common.goHome') || 'Go to home page'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '4px 8px',
+            borderRadius: 'var(--emr-border-radius)',
+            transition: 'background var(--emr-transition-base)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--emr-bg-hover)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
           <Text fw={700} size="lg" c="var(--emr-primary)">
             LiverRa
           </Text>
-        </Group>
+        </UnstyledButton>
+        {/* Dedicated Home button — explicit secondary affordance. */}
+        <EMRIconButton
+          icon={IconHome}
+          onClick={goHome}
+          aria-label={t('common.goHome') || 'Go to home page'}
+          size="md"
+          variant="subtle"
+          data-testid="nav-home-button"
+        />
         <Box style={{ flex: 1 }}>
           <Breadcrumbs />
         </Box>
@@ -191,7 +228,13 @@ export function EMRPage({
       {/* ===== Sub menu (Row 2) — conditional ===== */}
       {subMenuItems.length > 0 && <HorizontalSubMenu items={subMenuItems} />}
 
-      {/* ===== Content (Row 3) ===== */}
+      {/* ===== Content (Row 3) =====
+          `display: flex; flex-direction: column` + the inner wrapper's
+          `min-height: 100%` ensure the route content always fills the
+          scroll viewport. Without this, short pages (or pages whose own
+          flex tree doesn't fully claim vertical space) leave a visible
+          empty band at the bottom of the scroll area. Safe for tall
+          pages — they overflow as before and scroll normally. */}
       <Box
         component="main"
         role="main"
@@ -200,10 +243,22 @@ export function EMRPage({
           flex: 1,
           minHeight: 0,
           overflow: isImagingRoute ? 'hidden' : 'auto',
+          overscrollBehavior: 'none',
           paddingBottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom))' : undefined,
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Outlet />
+        <Box
+          style={{
+            minHeight: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            flex: '1 0 auto',
+          }}
+        >
+          <Outlet />
+        </Box>
       </Box>
 
       {/* ===== Mobile bottom nav ===== */}

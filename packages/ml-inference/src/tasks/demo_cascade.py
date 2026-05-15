@@ -123,33 +123,45 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
 
     logger.info("demo_cascade: starting analysis=%s start_stage=%s", analysis_id, start_stage)
 
-    # 1. Mark analysis as running
+    # M-CASCADE-3: open ONE connection for the whole task. Previously
+    # opened 8 nested ``psycopg.connect`` blocks (one per write phase) —
+    # each round-trip cost ~5 ms TCP setup, ~30 ms TLS handshake when
+    # SSL is on, and a TCP timewait socket on close. Going wide → 8x
+    # was wasteful AND the open/close churn hid a TLS-retry bug on
+    # Tailscale (rare but real). One connection, multiple cursors.
+    lesions = _synthetic_lesions(analysis_id)
+
     with psycopg.connect(db_url) as conn:
         with conn.cursor() as cur:
+            # 1. Mark analysis as running
             cur.execute(
                 "UPDATE analysis SET status='running', started_at=now() WHERE id=%s",
                 (analysis_id,),
             )
-        conn.commit()
+            conn.commit()
 
-    # 2. Run through 7 stages with realistic timing
-    for idx, (stage, duration, model_version, license_hash) in enumerate(STAGES):
-        stage_no = idx + 1
-        if stage_no <= start_stage:
-            continue
+            # 2. Run through 7 stages with realistic timing
+            for idx, (stage, duration, model_version, license_hash) in enumerate(STAGES):
+                stage_no = idx + 1
+                if stage_no <= start_stage:
+                    continue
 
-        # Simulate inference time
-        time.sleep(duration)
+                # Simulate inference time (sleep BEFORE write so progress is
+                # monotonic — observer querying mid-flight sees the right
+                # number of completed stages).
+                time.sleep(duration)
 
-        # Write checkpoint
-        with psycopg.connect(db_url) as conn:
-            with conn.cursor() as cur:
+                # H-CASCADE-3: idempotent retry — overwrite on conflict.
                 cur.execute(
                     """
                     INSERT INTO pipeline_checkpoint
                         (analysis_id, stage_no, stage, output_uri, model_version, model_license_hash)
                     VALUES (%s, %s, %s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING
+                    ON CONFLICT (analysis_id, stage_no) DO UPDATE SET
+                      stage = EXCLUDED.stage,
+                      output_uri = EXCLUDED.output_uri,
+                      model_version = EXCLUDED.model_version,
+                      model_license_hash = EXCLUDED.model_license_hash
                     """,
                     (
                         analysis_id, stage_no, stage,
@@ -157,18 +169,16 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
                         model_version, license_hash,
                     ),
                 )
-            conn.commit()
-        logger.info("demo_cascade: stage %d (%s) complete", stage_no, stage)
+                conn.commit()
+                logger.info("demo_cascade: stage %d (%s) complete", stage_no, stage)
 
-    # 3. Insert segmentations (4 layers: parenchyma, vessels, couinaud, lesions)
-    seg_specs = [
-        ("liver", "whole_liver", 1829.10, "1.2.840.demo.parenchyma", "10200004"),
-        ("vessels", "portal+hepatic", 5.20, "1.2.840.demo.vessels", "397894008"),
-        ("couinaud", "8_segments", 1829.10, "1.2.840.demo.couinaud", "63627004"),
-        ("lesion", "focal_lesions", 75.30, "1.2.840.demo.lesions", "52988006"),
-    ]
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
+            # 3. Insert segmentations (4 layers).
+            seg_specs = [
+                ("liver", "whole_liver", 1829.10, "1.2.840.demo.parenchyma", "10200004"),
+                ("vessels", "portal+hepatic", 5.20, "1.2.840.demo.vessels", "397894008"),
+                ("couinaud", "8_segments", 1829.10, "1.2.840.demo.couinaud", "63627004"),
+                ("lesion", "focal_lesions", 75.30, "1.2.840.demo.lesions", "52988006"),
+            ]
             for cat, detail, vol, sop_uid, snomed in seg_specs:
                 cur.execute(
                     """
@@ -186,12 +196,9 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
                         snomed,
                     ),
                 )
-        conn.commit()
+            conn.commit()
 
-    # 4. Insert lesions
-    lesions = _synthetic_lesions(analysis_id)
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
+            # 4. Insert lesions
             for lesion in lesions:
                 cur.execute(
                     """
@@ -209,16 +216,14 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
                         lesion["classification"],
                     ),
                 )
-        conn.commit()
+            conn.commit()
 
-    # 5. Insert FLR calculation (right hepatectomy — typical 28-32% FLR)
-    flr_pct_seed = _seed_int(analysis_id, "flr") % 500  # 0-499
-    flr_pct = 26.0 + (flr_pct_seed / 100.0)  # 26.0-31.0
-    total_ml = 1829.10
-    flr_ml = round(total_ml * flr_pct / 100, 2)
-    resected_ml = round(total_ml - flr_ml, 2)
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
+            # 5. Insert FLR calculation (right hepatectomy — typical 28-32%)
+            flr_pct_seed = _seed_int(analysis_id, "flr") % 500
+            flr_pct = 26.0 + (flr_pct_seed / 100.0)
+            total_ml = 1829.10
+            flr_ml = round(total_ml * flr_pct / 100, 2)
+            resected_ml = round(total_ml - flr_ml, 2)
             cur.execute(
                 """
                 INSERT INTO flr_calculation
@@ -229,24 +234,20 @@ def demo_cascade(self, analysis_id_str: str, start_stage: int = 0) -> dict[str, 
                 """,
                 (
                     analysis_id,
-                    # Axial-cut plane at mid-volume so FlrPlaneOverlay paints
-                    # the purple band in the default (axial) viewport in dev.
                     json.dumps({"axis": "axial", "z_index": 128, "plane": "axial_midline"}),
                     total_ml, flr_ml, flr_pct,
                     json.dumps({"x": 0, "y": 0, "z": 1}),
                     128.0, resected_ml, flr_ml, flr_pct,
                 ),
             )
-        conn.commit()
+            conn.commit()
 
-    # 6. Mark analysis as completed
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
+            # 6. Mark analysis as completed
             cur.execute(
                 "UPDATE analysis SET status='completed', completed_at=now() WHERE id=%s",
                 (analysis_id,),
             )
-        conn.commit()
+            conn.commit()
 
     logger.info("demo_cascade: completed analysis=%s", analysis_id)
     return {

@@ -82,13 +82,19 @@ def _checkpoint_stub(analysis_id: str, stage_no: int, stage: str) -> dict:
         "postgresql://liverra:liverra@localhost:5432/liverra",
     )
     with psycopg.connect(sync_url, autocommit=True) as conn:
+        # H-CASCADE-3: idempotent retry — overwrite stale rows rather than
+        # silently keeping the prior failed run's output_uri.
         conn.execute(
             """
             INSERT INTO pipeline_checkpoint
               (analysis_id, stage_no, stage, output_uri, model_version,
                model_license_hash)
             VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (analysis_id, stage_no) DO UPDATE SET
+              stage = EXCLUDED.stage,
+              output_uri = EXCLUDED.output_uri,
+              model_version = EXCLUDED.model_version,
+              model_license_hash = EXCLUDED.model_license_hash
             """,
             (
                 analysis_id,
@@ -117,6 +123,13 @@ def _checkpoint_stub(analysis_id: str, stage_no: int, stage: str) -> dict:
 # so the chord branches resolve directly to the new implementations.
 
 
+# H-CASCADE-4: stages 1..7 must all be present before completion.
+# stage 0 is ingest (file conversion); stages 1..7 are the canonical
+# clinical pipeline (anonymization, parenchyma, vessels, couinaud,
+# lesion_detection, classification, flr_init).
+_REQUIRED_STAGE_NOS: tuple[int, ...] = (1, 2, 3, 4, 5, 6, 7)
+
+
 @app.task(name="liverra.tasks.mark_cascade_complete", bind=True, acks_late=True)
 def mark_cascade_complete(self, analysis_id: str, study_id: str) -> dict:
     """Final chain step — flip Analysis row to 'completed'.
@@ -125,6 +138,12 @@ def mark_cascade_complete(self, analysis_id: str, study_id: str) -> dict:
     and the Analysis row is left in 'running' forever (UI hangs at
     "Pipeline Running"). Idempotent: only updates rows still in
     'running' state.
+
+    H-CASCADE-4: verifies all 7 required stages have a pipeline_checkpoint
+    row before flipping status to 'completed'. A partial cascade (e.g.
+    classification stage swallowed by ``except Exception`` upstream) used
+    to silently land here and get marked done — now it lands as
+    'partial_result' instead so the UI / audit surface the gap.
     """
     import psycopg
     sync_url = os.environ.get(
@@ -132,6 +151,35 @@ def mark_cascade_complete(self, analysis_id: str, study_id: str) -> dict:
         "postgresql://liverra:liverra@localhost:5432/liverra",
     )
     with psycopg.connect(sync_url, autocommit=True) as conn:
+        row = conn.execute(
+            """
+            SELECT array_agg(stage_no ORDER BY stage_no)
+              FROM pipeline_checkpoint
+             WHERE analysis_id = %s
+            """,
+            (analysis_id,),
+        ).fetchone()
+        present = set(row[0] or []) if row else set()
+        missing = [s for s in _REQUIRED_STAGE_NOS if s not in present]
+
+        if missing:
+            logger.error(
+                "mark_cascade_complete: analysis=%s missing stages %s — "
+                "marking 'partial_result' instead of 'completed'",
+                analysis_id,
+                missing,
+            )
+            conn.execute(
+                "UPDATE analysis SET status='partial_result', completed_at=now() "
+                "WHERE id = %s AND status = 'running'",
+                (analysis_id,),
+            )
+            return {
+                "analysis_id": analysis_id,
+                "status": "partial_result",
+                "missing_stages": missing,
+            }
+
         conn.execute(
             "UPDATE analysis SET status='completed', completed_at=now() "
             "WHERE id = %s AND status = 'running'",

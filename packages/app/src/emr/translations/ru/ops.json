@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "page": {
+    "title": "__TODO_TRANSLATE__:Ops queue",
+    "subtitle": "__TODO_TRANSLATE__:Cross-tenant pipeline health. No patient data is shown here.",
+    "no_phi_badge": "__TODO_TRANSLATE__:No PHI"
+  },
+  "gauges": {
+    "queued": "В очереди",
+    "running": "Выполняется",
+    "stuck": "__TODO_TRANSLATE__:Stuck >15 min",
+    "gpu_utilization": "__TODO_TRANSLATE__:GPU utilization",
+    "cold_starts": "__TODO_TRANSLATE__:Cold-starts / hour"
+  },
+  "sections": {
+    "stuck_cases": "__TODO_TRANSLATE__:Stuck cases"
+  },
+  "table": {
+    "analysis_id": "__TODO_TRANSLATE__:Analysis",
+    "status": "Статус",
+    "last_stage": "__TODO_TRANSLATE__:Last stage",
+    "stuck_for": "__TODO_TRANSLATE__:Stuck for",
+    "error_slug": "Ошибка",
+    "empty": "__TODO_TRANSLATE__:No stuck cases in the last 15 minutes."
+  },
+  "detail": {
+    "title": "__TODO_TRANSLATE__:Case detail",
+    "analysis_id": "__TODO_TRANSLATE__:Analysis ID",
+    "study_id": "__TODO_TRANSLATE__:Study ID",
+    "tenant_id": "__TODO_TRANSLATE__:Tenant ID",
+    "pipeline_version": "__TODO_TRANSLATE__:Pipeline version",
+    "last_stage": "__TODO_TRANSLATE__:Last stage",
+    "error_slug": "__TODO_TRANSLATE__:Error slug",
+    "model_versions": "__TODO_TRANSLATE__:Model versions",
+    "stuck_minutes": "__TODO_TRANSLATE__:{{minutes}} min stuck",
+    "load_failed_title": "__TODO_TRANSLATE__:Could not load case",
+    "load_failed_body": "__TODO_TRANSLATE__:Please retry or pick a different case."
+  },
+  "actions": {
+    "retry": "Повторить",
+    "cancel": "Отмена",
+    "mark_blocked": "__TODO_TRANSLATE__:Mark blocked"
+  },
+  "confirm": {
+    "retry_title": "__TODO_TRANSLATE__:Retry this analysis?",
+    "retry_body": "__TODO_TRANSLATE__:Re-queue from the last successful checkpoint. The submitter will be notified on completion.",
+    "cancel_title": "__TODO_TRANSLATE__:Cancel this analysis?",
+    "cancel_body": "__TODO_TRANSLATE__:This will stop the job gracefully. It can be retried later.",
+    "mark_blocked_title": "__TODO_TRANSLATE__:Mark blocked?",
+    "mark_blocked_body": "__TODO_TRANSLATE__:Terminal state — the submitting clinician will receive an actionable notification.",
+    "mark_blocked_note_label": "__TODO_TRANSLATE__:Internal note (optional)",
+    "mark_blocked_note_help": "__TODO_TRANSLATE__:Scrubbed for PHI before storage — keep it free of patient details.",
+    "mark_blocked_note_placeholder": "__TODO_TRANSLATE__:e.g., upstream inference service down; retry after 14:00"
+  },
+  "severity": {
+    "ok": "ОК",
+    "warn": "__TODO_TRANSLATE__:Warn",
+    "alarm": "__TODO_TRANSLATE__:Alarm"
+  },
+  "errors": {
+    "load_title": "__TODO_TRANSLATE__:Could not load queue",
+    "load_body": "__TODO_TRANSLATE__:The ops endpoint is unreachable. Retrying automatically."
+  },
+  "header": {
+    "refresh": "__TODO_TRANSLATE__:Refresh now",
+    "autoRefresh": "__TODO_TRANSLATE__:Auto-refresh",
+    "autoRefreshOn": "__TODO_TRANSLATE__:Auto-refresh on (every 5s)",
+    "autoRefreshOff": "__TODO_TRANSLATE__:Auto-refresh paused",
+    "lastUpdated": "__TODO_TRANSLATE__:Last updated {{time}}",
+    "selectCase": "__TODO_TRANSLATE__:Select a stuck case from the table to view actions.",
+    "noStuckTitle": "__TODO_TRANSLATE__:Pipeline is healthy",
+    "noStuckDescription": "__TODO_TRANSLATE__:No analyses have been stuck for more than 15 minutes."
+  }
+}

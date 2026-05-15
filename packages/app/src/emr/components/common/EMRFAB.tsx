@@ -74,17 +74,22 @@ export interface EMRFABProps {
   testId?: string;
 }
 
-/** Size configurations */
+/**
+ * Size configurations.
+ *
+ * Mini-FAB miniSize is min 44×44 (WCAG 2.5.5 AAA) — was 40 on sm, bumped to 44
+ * so mini action buttons inside expandable FABs remain reachable on touch.
+ */
 const sizeConfig: Record<EMRFABSize, { size: number; iconSize: number; miniSize: number; miniIconSize: number }> = {
-  sm: { size: 48, iconSize: 22, miniSize: 40, miniIconSize: 18 },
+  sm: { size: 48, iconSize: 22, miniSize: 44, miniIconSize: 20 },
   md: { size: 56, iconSize: 26, miniSize: 44, miniIconSize: 20 },
   lg: { size: 64, iconSize: 30, miniSize: 48, miniIconSize: 22 },
 };
 
-/** Color to CSS variable mapping */
+/** Color → gradient token mapping. All values reference design-system tokens. */
 const colorMap: Record<EMRFABColor, string> = {
   primary: 'var(--emr-gradient-primary)',
-  secondary: 'linear-gradient(135deg, var(--emr-secondary) 0%, var(--emr-accent) 100%)',
+  secondary: 'var(--emr-gradient-secondary)',
   success: 'var(--emr-gradient-success)',
   error: 'var(--emr-gradient-error)',
   warning: 'var(--emr-gradient-warning)',

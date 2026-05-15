@@ -9,7 +9,8 @@
     "shortcutHint": "B ფუნჯი  E რეზინი  P მონიშვნა  M მარკერი",
     "acquireSeatTooltip": "დასარედაქტირებლად მიიღეთ რედაქტირების უფლება",
     "readOnlyTooltip": "მხოლოდ-წაკითხვის ხედი — საქმეს ამჟამად ამოწმებს სხვა მომხმარებელი",
-    "ariaLabel": "Refinement tools"
+    "ariaLabel": "Refinement tools",
+    "marker": "მარკერი"
   },
   "classification": {
     "title": "AI კლასიფიკაციის გადაწერა",
@@ -59,12 +60,12 @@
     "keep": "შენარჩუნება"
   },
   "layers": {
-    "heading": "Layers",
-    "parenchyma": "Parenchyma",
-    "couinaudSegments": "Couinaud segments",
-    "veinTrunks": "Vein trunks",
-    "lesions": "Lesions",
-    "keyHint": "Press {{key}} to cycle layer combos"
+    "heading": "ფენები",
+    "parenchyma": "პარენქიმა",
+    "couinaudSegments": "კუინოს სეგმენტები",
+    "veinTrunks": "ვენური მაგისტრალები",
+    "lesions": "დაზიანებები",
+    "keyHint": "დააჭირეთ {{key}}-ს ფენების კომბინაციების გადასართავად"
   },
   "view": {
     "title": "დახვეწა",

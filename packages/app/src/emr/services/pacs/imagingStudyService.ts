@@ -23,6 +23,20 @@ import type {
 } from '../../types/pacs';
 
 // ============================================================================
+// Stub logging (H-PACS-2 / M-PACS-6) — centralized via shared phaseStubLog
+// ============================================================================
+// Each ported MediMind call site below expects a real persistence layer. We
+// don't have one yet, so every function below returns a benign empty/null.
+// The shared `phaseStubLog` helper handles dedupe + Sentry breadcrumb +
+// LIVERRA_STUB_LOGGING toggle.
+
+import { phaseStubLog as sharedPhaseStubLog } from './phaseStubLog';
+
+function phaseStubLog(fnName: string, args: Record<string, unknown>): void {
+  sharedPhaseStubLog('imaging-stub', fnName, args);
+}
+
+// ============================================================================
 // Minimal local FHIR shapes
 // ============================================================================
 // MediMind imports from `@medplum/fhirtypes`. We inline the slices we touch so
@@ -306,8 +320,7 @@ export async function getById(
   _fhir: LiverRaFhirClient,
   studyId: string
 ): Promise<ImagingStudyLike | null> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] getById not wired: ImagingStudy/${studyId}`);
+  phaseStubLog('getById', { studyId });
   return null;
 }
 
@@ -316,8 +329,7 @@ export async function getByUid(
   _fhir: LiverRaFhirClient,
   studyInstanceUid: string
 ): Promise<ImagingStudyLike | undefined> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] getByUid not wired: uid=${studyInstanceUid}`);
+  phaseStubLog('getByUid', { studyInstanceUid });
   return undefined;
 }
 
@@ -326,8 +338,7 @@ export async function getByAccessionNumber(
   _fhir: LiverRaFhirClient,
   accessionNumber: string
 ): Promise<ImagingStudyLike | undefined> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] getByAccessionNumber not wired: ${accessionNumber}`);
+  phaseStubLog('getByAccessionNumber', { accessionNumber });
   return undefined;
 }
 
@@ -336,8 +347,7 @@ export async function listByPatient(
   _fhir: LiverRaFhirClient,
   patientId: string
 ): Promise<ImagingStudyLike[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] listByPatient not wired: Patient/${patientId}`);
+  phaseStubLog('listByPatient', { patientId });
   return [];
 }
 
@@ -347,10 +357,10 @@ export async function fetchReportsForStudies(
   studyIds: string[],
   patientId: string
 ): Promise<Map<string, DiagnosticReportLike>> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] fetchReportsForStudies not wired: patient=${patientId} studies=${studyIds.length}`
-  );
+  phaseStubLog('fetchReportsForStudies', {
+    patientId,
+    studyCount: studyIds.length,
+  });
   return new Map();
 }
 
@@ -359,8 +369,7 @@ export async function fetchPendingOrders(
   _fhir: LiverRaFhirClient,
   patientId: string
 ): Promise<ServiceRequestLike[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] fetchPendingOrders not wired: Patient/${patientId}`);
+  phaseStubLog('fetchPendingOrders', { patientId });
   return [];
 }
 
@@ -369,8 +378,7 @@ export async function listRecentStudies(
   _fhir: LiverRaFhirClient,
   count = 50
 ): Promise<ImagingStudyListItem[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] listRecentStudies not wired: count=${count}`);
+  phaseStubLog('listRecentStudies', { count });
   return [];
 }
 
@@ -379,8 +387,7 @@ export async function listItemsByPatient(
   _fhir: LiverRaFhirClient,
   patientId: string
 ): Promise<ImagingStudyListItem[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] listItemsByPatient not wired: Patient/${patientId}`);
+  phaseStubLog('listItemsByPatient', { patientId });
   return [];
 }
 
@@ -390,8 +397,7 @@ export async function getOrCreateEndpoint(
   wadoRsUrl: string,
   name: string
 ): Promise<FhirResourceLike | null> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] getOrCreateEndpoint not wired: ${name} @ ${wadoRsUrl}`);
+  phaseStubLog('getOrCreateEndpoint', { name, wadoRsUrl });
   return null;
 }
 
@@ -401,10 +407,7 @@ export async function listUnmatchedStudies(
   offset = 0,
   pageSize = 200
 ): Promise<PaginatedUnmatchedResult> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] listUnmatchedStudies not wired: offset=${offset} pageSize=${pageSize}`
-  );
+  phaseStubLog('listUnmatchedStudies', { offset, pageSize });
   return { items: [], hasMore: false };
 }
 
@@ -415,10 +418,7 @@ export async function linkStudyToPatient(
   patientId: string,
   patientDisplay: string
 ): Promise<ImagingStudyLike | null> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] linkStudyToPatient not wired: ImagingStudy/${studyId} → Patient/${patientId} (${patientDisplay})`
-  );
+  phaseStubLog('linkStudyToPatient', { studyId, patientId, patientDisplay });
   return null;
 }
 
@@ -429,10 +429,7 @@ export async function reassignStudy(
   newPatientId: string,
   newPatientDisplay: string
 ): Promise<ReassignmentResult> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] reassignStudy not wired: ImagingStudy/${studyId} → Patient/${newPatientId} (${newPatientDisplay})`
-  );
+  phaseStubLog('reassignStudy', { studyId, newPatientId, newPatientDisplay });
   return {
     study: { resourceType: 'ImagingStudy', id: studyId } as ImagingStudyLike,
     updatedReports: 0,
@@ -448,8 +445,7 @@ export async function findReportsForStudy(
   _fhir: LiverRaFhirClient,
   studyId: string
 ): Promise<DiagnosticReportLike[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] findReportsForStudy not wired: ImagingStudy/${studyId}`);
+  phaseStubLog('findReportsForStudy', { studyId });
   return [];
 }
 
@@ -458,8 +454,7 @@ export async function deleteStudy(
   _fhir: LiverRaFhirClient,
   studyId: string
 ): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] deleteStudy not wired: ImagingStudy/${studyId}`);
+  phaseStubLog('deleteStudy', { studyId });
 }
 
 /** STUB: delete related annotations / key images / provenance. */
@@ -467,10 +462,7 @@ export async function deleteStudyRelatedResources(
   _fhir: LiverRaFhirClient,
   studyId: string
 ): Promise<StudyCleanupResult> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] deleteStudyRelatedResources not wired: ImagingStudy/${studyId}`
-  );
+  phaseStubLog('deleteStudyRelatedResources', { studyId });
   return { annotations: 0, keyImages: 0, provenance: 0 };
 }
 
@@ -479,8 +471,7 @@ export async function deleteStudyAnnotations(
   _fhir: LiverRaFhirClient,
   studyId: string
 ): Promise<number> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] deleteStudyAnnotations not wired: ImagingStudy/${studyId}`);
+  phaseStubLog('deleteStudyAnnotations', { studyId });
   return 0;
 }
 
@@ -489,8 +480,7 @@ export async function searchStudies(
   _fhir: LiverRaFhirClient,
   query: string
 ): Promise<ImagingStudyLike[]> {
-  // eslint-disable-next-line no-console
-  console.warn(`[imaging-stub] searchStudies not wired: query=${JSON.stringify(query)}`);
+  phaseStubLog('searchStudies', { query });
   return [];
 }
 
@@ -500,10 +490,10 @@ export async function findPriorStudy(
   currentStudy: ImagingStudyListItem,
   _maxAgeDays?: number
 ): Promise<PriorStudyResult> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] findPriorStudy not wired: current=${currentStudy.id} patient=${currentStudy.patientId}`
-  );
+  phaseStubLog('findPriorStudy', {
+    currentStudyId: currentStudy.id,
+    patientId: currentStudy.patientId,
+  });
   return { study: undefined, timedOut: false };
 }
 
@@ -514,10 +504,7 @@ export async function findPriorStudy(
 export async function createImagingStudyFromOrthanc(
   orthancStudyId: string
 ): Promise<ImagingStudyLike | null> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] createImagingStudyFromOrthanc not wired: orthancStudyId=${orthancStudyId}`
-  );
+  phaseStubLog('createImagingStudyFromOrthanc', { orthancStudyId });
   return null;
 }
 
@@ -530,8 +517,7 @@ export async function syncOrthancToFhir(): Promise<{
   updated: number;
   errors: number;
 }> {
-  // eslint-disable-next-line no-console
-  console.warn('[imaging-stub] syncOrthancToFhir not wired');
+  phaseStubLog('syncOrthancToFhir', {});
   return { created: 0, updated: 0, errors: 0 };
 }
 
@@ -539,8 +525,7 @@ export async function syncOrthancToFhir(): Promise<{
 export async function fetchPacsBridgeStats(
   _accessToken?: string
 ): Promise<{ worklist: PacsBridgeWorklistStats } | null> {
-  // eslint-disable-next-line no-console
-  console.warn('[imaging-stub] fetchPacsBridgeStats not wired');
+  phaseStubLog('fetchPacsBridgeStats', {});
   return null;
 }
 
@@ -560,9 +545,6 @@ export async function searchImagingStudies(
   _fhir: LiverRaFhirClient,
   params: Record<string, unknown>
 ): Promise<ImagingStudyLike[]> {
-  // eslint-disable-next-line no-console
-  console.warn(
-    `[imaging-stub] searchImagingStudies not wired: params=${JSON.stringify(params)}`
-  );
+  phaseStubLog('searchImagingStudies', { params });
   return [];
 }

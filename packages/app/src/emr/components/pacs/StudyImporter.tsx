@@ -44,6 +44,7 @@ import {
   IconCloudUpload,
 } from '@tabler/icons-react';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { INTL_TAG, type Locale } from '../../services/localeService';
 import { useLiverraFhir } from '../../hooks/useLiverraFhir';
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
 import type { FhirResourceLike } from '../../services/fhirClient';
@@ -154,7 +155,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatStudyDate(raw: string): string {
+function formatStudyDate(raw: string, locale: Locale): string {
   if (!raw || raw.length < 8) {
     return '';
   }
@@ -165,7 +166,7 @@ function formatStudyDate(raw: string): string {
   if (isNaN(d.getTime())) {
     return `${year}-${month}-${day}`;
   }
-  return d.toLocaleDateString();
+  return d.toLocaleDateString(INTL_TAG[locale] ?? 'en-GB');
 }
 
 // --------------------------------------------------------------------------
@@ -400,7 +401,7 @@ const StudyGroupCard = memo(function StudyGroupCard({
               <span className={styles.studyHeaderMetaSep}>•</span>
             )}
             {summary?.studyDate && (
-              <span>{formatStudyDate(summary.studyDate)}</span>
+              <span>{formatStudyDate(summary.studyDate, locale)}</span>
             )}
             {(summary?.seriesCount ?? 0) > 0 && (
               <>
@@ -442,7 +443,7 @@ export const StudyImporter = memo(function StudyImporter({
   preSelectedPatientName,
   onImportComplete,
 }: StudyImporterProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const fhir = useLiverraFhir();
   const dicomWebClient = useDicomWebClient();
 
@@ -658,6 +659,38 @@ export const StudyImporter = memo(function StudyImporter({
       return;
     }
 
+    // H-PACS-6: REJECT the upload if no anonymization sidecar URL is
+    // configured. Without it, raw DICOM (PatientName, MRN, DOB) flows
+    // straight to Orthanc. The dev-only proxy fallback in vite.config
+    // does NOT protect production deployments; failing closed here is
+    // the safe default. Operators may set
+    // VITE_LIVERRA_ANON_SIDECAR_BYPASS=true to opt out for offline
+    // testing — that flag is mirrored to AuditEvent at sidecar level.
+    const env = (import.meta as unknown as {
+      env?: { VITE_LIVERRA_ANON_SIDECAR_URL?: string; VITE_LIVERRA_ANON_SIDECAR_BYPASS?: string; PROD?: boolean };
+    }).env ?? {};
+    const sidecarUrl = (env.VITE_LIVERRA_ANON_SIDECAR_URL || '').trim();
+    const sidecarBypass =
+      (env.VITE_LIVERRA_ANON_SIDECAR_BYPASS || '').toLowerCase() === 'true';
+    if (!sidecarUrl && !sidecarBypass) {
+      setUploadError(
+        t('pacs.import.sidecarRequired') ??
+          'DICOM anonymization sidecar is not configured. Refusing to upload raw DICOM (PHI safety). Contact your administrator.',
+      );
+      setState('complete');
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[StudyImporter] upload blocked: VITE_LIVERRA_ANON_SIDECAR_URL is unset',
+      );
+      return;
+    }
+    if (sidecarBypass && env.PROD) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[StudyImporter] sidecar bypass enabled IN PRODUCTION — every uploaded DICOM bypasses anonymization. This is auditable.',
+      );
+    }
+
     const validFileObjects = validFiles.map((f) => f.file);
 
     // Phase 1: parse DICOM headers.
@@ -838,10 +871,15 @@ export const StudyImporter = memo(function StudyImporter({
         });
         const hit = bundle.entry?.[0]?.resource as FhirResourceLike | undefined;
         if (hit?.id) {
-          await fhir.updateResource({
-            ...hit,
-            subject: { reference: `Patient/${selectedPatient.id}` },
-          });
+          // C-LOCK-3: thread the observed versionId as If-Match.
+          const hitMeta = (hit as { meta?: { versionId?: string } }).meta;
+          await fhir.updateResource(
+            {
+              ...hit,
+              subject: { reference: `Patient/${selectedPatient.id}` },
+            },
+            { ifMatch: hitMeta?.versionId },
+          );
         }
       } catch (err) {
         // eslint-disable-next-line no-console

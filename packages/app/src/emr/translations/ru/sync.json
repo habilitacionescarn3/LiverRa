@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "online": "__TODO_TRANSLATE__:Online",
+  "offline": "__TODO_TRANSLATE__:Offline",
+  "syncing": "__TODO_TRANSLATE__:Syncing…",
+  "onlineWithQueue": "__TODO_TRANSLATE__:Online · {{count}} queued",
+  "offlineWithQueue": "__TODO_TRANSLATE__:Offline · {{count}} queued",
+  "pendingTitle": "__TODO_TRANSLATE__:Pending edits",
+  "noPending": "__TODO_TRANSLATE__:Nothing waiting to sync",
+  "moreCount": "__TODO_TRANSLATE__:+{{count}} more",
+  "lastSync": "__TODO_TRANSLATE__:Last synced at {{at}}",
+  "retryNow": "__TODO_TRANSLATE__:Retry now",
+  "editType": {
+    "mask_edit": "__TODO_TRANSLATE__:Mask edit",
+    "classification_override": "__TODO_TRANSLATE__:Classification override",
+    "plane_pose": "__TODO_TRANSLATE__:Plane pose",
+    "comment": "Комментарий",
+    "resection_plane": "__TODO_TRANSLATE__:Resection plane"
+  }
+}

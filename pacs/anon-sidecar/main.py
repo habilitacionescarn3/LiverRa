@@ -186,6 +186,20 @@ STATE = SidecarState()
 @asynccontextmanager
 async def lifespan(app: Any):  # type: ignore[no-untyped-def]
     # Startup
+    # ---- Fail-fast: crypto-shred MUST be wired in production -----------
+    # If schedule_case_key_deletion is None we can't honour FR-002a's
+    # 60-second key-deletion SLA on gate failure. In production that's a
+    # ship-stop. In CI / unit tests the env var below lets us bypass.
+    if schedule_case_key_deletion is None and os.environ.get(
+        "LIVERRA_ALLOW_MISSING_CRYPTO_SHRED", ""
+    ).lower() not in {"1", "true", "yes"}:
+        raise RuntimeError(
+            "anon-sidecar refusing to start: schedule_case_key_deletion is None — "
+            "crypto-shred path is unavailable, violating FR-002a. Either install "
+            "the erasure.crypto_shred module or set "
+            "LIVERRA_ALLOW_MISSING_CRYPTO_SHRED=1 (CI only)."
+        )
+
     if httpx is not None:
         STATE.http = httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=5.0),
@@ -402,6 +416,65 @@ def _allow() -> Any:
     return JSONResponse(status_code=200, content={"allow": True})
 
 
+async def _emit_shred_failure_audit(
+    reason_slug: str,
+    *,
+    tenant_uuid: UUID | None,
+    study_uuid: UUID | None,
+    failure_detail: str,
+) -> None:
+    """Emit a ``crypto_shred_failed`` AuditEvent so the failure is durable.
+
+    We never return from :func:`_maybe_crypto_shred` without EITHER a
+    confirmed shred OR a confirmed audit row. This helper is the second
+    half of that contract. Importing AuditChainWriter lazily so the sidecar
+    still starts when the audit chain wiring is mid-deploy.
+    """
+    try:
+        from packages.ml_inference.src.services.audit.chain_of_hashes import (  # type: ignore
+            AuditChainWriter,
+        )
+    except ImportError:
+        try:
+            from ml_inference.src.services.audit.chain_of_hashes import (  # type: ignore
+                AuditChainWriter,
+            )
+        except ImportError:
+            logger.critical(
+                "crypto_shred_failed audit emission SKIPPED — AuditChainWriter "
+                "not importable (reason=%s detail=%s tenant=%s study=%s)",
+                reason_slug, failure_detail[:120], tenant_uuid, study_uuid,
+            )
+            return
+
+    try:
+        writer = AuditChainWriter()
+        event = {
+            "resourceType": "AuditEvent",
+            "type": {"code": "crypto_shred_failed"},
+            "category": "security",
+            "outcome": "12",  # major failure (HL7 AuditEvent outcome)
+            "recorded": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "entity": [
+                {
+                    "what": {"reference": f"Study/{study_uuid}" if study_uuid else None},
+                    "detail": [
+                        {"type": "reason_slug", "valueString": reason_slug},
+                        {"type": "failure_detail", "valueString": failure_detail[:200]},
+                    ],
+                }
+            ],
+        }
+        await writer.write(event, tenant_id=tenant_uuid, session=None)
+    except Exception as audit_exc:  # noqa: BLE001
+        # If even the audit emission failed, the only durable surface left
+        # is the logs + Sentry. Promote to CRITICAL so it shows up in alerts.
+        logger.critical(
+            "crypto_shred_failed AND audit emission FAILED — reason=%s detail=%s audit_err=%s",
+            reason_slug, failure_detail[:120], str(audit_exc)[:120],
+        )
+
+
 async def _maybe_crypto_shred(
     reason_slug: str,
     *,
@@ -414,13 +487,45 @@ async def _maybe_crypto_shred(
     Called on any gate failure so that any bytes that *may* have already
     been written to S3 in a partial upload become unrecoverable within
     60 seconds (FR-002a).
+
+    Contract (CE MDR + GDPR audit-trail): on any code path we MUST end
+    with EITHER (a) a successful ``schedule_case_key_deletion`` call OR
+    (b) an emitted ``crypto_shred_failed`` AuditEvent. Silent return is
+    forbidden — those bytes might still be recoverable from S3 and the
+    regulator needs a tamper-evident "we know it failed" row.
     """
-    if schedule_case_key_deletion is None or kms_alias is None or tenant_uuid is None or study_uuid is None:
-        logger.warning(
-            "crypto_shred skipped — missing dependency or context (reason=%s)",
+    if schedule_case_key_deletion is None:
+        # KMS subsystem not wired — this is a startup-time configuration
+        # failure that should have fail-fast at lifespan() but didn't.
+        # Audit + raise so the webhook returns 5xx rather than silently
+        # admitting a study.
+        logger.critical(
+            "crypto_shred IMPOSSIBLE — schedule_case_key_deletion is None (reason=%s)",
             reason_slug,
         )
+        await _emit_shred_failure_audit(
+            reason_slug,
+            tenant_uuid=tenant_uuid,
+            study_uuid=study_uuid,
+            failure_detail="schedule_case_key_deletion_unavailable",
+        )
+        raise RuntimeError("crypto_shred_unavailable")
+
+    if kms_alias is None or tenant_uuid is None or study_uuid is None:
+        # Missing context — we still emit an audit row so the gate failure
+        # is durable.
+        logger.error(
+            "crypto_shred missing context (reason=%s kms_alias=%s tenant=%s study=%s)",
+            reason_slug, kms_alias is not None, tenant_uuid, study_uuid,
+        )
+        await _emit_shred_failure_audit(
+            reason_slug,
+            tenant_uuid=tenant_uuid,
+            study_uuid=study_uuid,
+            failure_detail="missing_kms_alias_or_context",
+        )
         return
+
     try:
         await schedule_case_key_deletion(
             kms_alias,
@@ -430,7 +535,22 @@ async def _maybe_crypto_shred(
             pending_window_days=7,
         )
     except Exception as exc:  # noqa: BLE001
+        # Shred RPC failure — bytes might still be recoverable. Emit a
+        # durable audit row + best-effort Sentry capture. NEVER return
+        # silently per FR-002a.
         logger.error("crypto_shred failed: %s", str(exc)[:120])
+        try:
+            import sentry_sdk  # type: ignore
+
+            sentry_sdk.capture_exception(exc)
+        except ImportError:
+            pass
+        await _emit_shred_failure_audit(
+            reason_slug,
+            tenant_uuid=tenant_uuid,
+            study_uuid=study_uuid,
+            failure_detail=f"shred_rpc_failed: {str(exc)[:120]}",
+        )
 
 
 if app is not None:
@@ -538,6 +658,14 @@ if app is not None:
                     "pixel gate errored sop=%s: %s",
                     _short(sop_uid), str(exc)[:120],
                 )
+                # Surface to Sentry — three nights of crashed scanners
+                # silently dropped pixel scans before this wiring landed.
+                try:
+                    import sentry_sdk  # type: ignore
+
+                    sentry_sdk.capture_exception(exc)
+                except ImportError:
+                    pass
                 await _maybe_crypto_shred(
                     "pixel_scan_error", kms_alias=kms_alias,
                     tenant_uuid=tenant_uuid, study_uuid=study_uuid,

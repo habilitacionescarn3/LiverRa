@@ -8,8 +8,10 @@
  * pose through `useFLR()` (sibling agent) and renders:
  *
  *   - Large numeric value (mL + % of total)
- *   - Adequacy badge (green ≥ 40%, yellow 30–40%, red < 30%) — advisory per
- *     FR-014b, explicitly NOT prescriptive clinical guidance
+ *   - Adequacy badge whose green/yellow/red cutoffs depend on the
+ *     `liverHealthContext` prop (H-CLIN-1): normal {warn 30, fail 25},
+ *     post-chemo {warn 35, fail 30}, cirrhotic {warn 40, fail 35} —
+ *     advisory per FR-014b, explicitly NOT prescriptive clinical guidance
  *   - RUO disclaimer variant chip via `useRUOClaim()`
  *
  * `aria-live="polite"` ensures screen readers announce FLR changes during
@@ -36,6 +38,31 @@ export interface RUOClaim {
   disclaimerVariant: DisclaimerVariant;
 }
 
+/**
+ * H-CLIN-1: liver-health context drives FLR adequacy thresholds.
+ * ESSO / ALPPS literature: healthy parenchyma needs ≥25 % remnant,
+ * post-chemo livers ≥30 %, cirrhotic livers ≥40 %. Defaults to `normal`
+ * so behaviour is preserved when the prop is omitted; callers that
+ * know the patient context (chemo history, fibrosis grade) should
+ * pass the matching value.
+ */
+export type LiverHealthContext = 'normal' | 'post-chemo' | 'cirrhotic';
+
+/**
+ * Adequacy thresholds (FLR % cutoffs) per liver-health context.
+ * The `warn` cutoff is the borderline boundary; `fail` is the low/red
+ * boundary. ≥ `warn` is adequate; [`fail`, `warn`) is borderline;
+ * < `fail` is low.
+ */
+const LIVER_HEALTH_THRESHOLDS: Record<
+  LiverHealthContext,
+  { warn: number; fail: number }
+> = {
+  normal: { warn: 30, fail: 25 },
+  'post-chemo': { warn: 35, fail: 30 },
+  cirrhotic: { warn: 40, fail: 35 },
+};
+
 /** Props for {@link FLRPanel}. */
 export interface FLRPanelProps {
   /** Analysis ID (cache key). */
@@ -48,6 +75,13 @@ export interface FLRPanelProps {
   initialTotalMl?: number;
   /** Optional RUO claim (sibling agent); when absent we default to `ruo`. */
   ruoClaim?: RUOClaim;
+  /**
+   * Liver-health context — selects the adequacy thresholds bar against
+   * which the FLR % is graded. Defaults to `'normal'` for backward
+   * compatibility; the FLRPanel renders the same UI either way, just
+   * with different cutoff numbers.
+   */
+  liverHealthContext?: LiverHealthContext;
   /** Optional callback to recompute FLR on demand. */
   onRecompute?: () => void;
   /** Optional test id. */
@@ -62,10 +96,16 @@ function useRUOClaimStub(): RUOClaim {
   return { disclaimerVariant: 'ruo' };
 }
 
-/** Map FLR% into an adequacy tier. Advisory only — never prescriptive. */
-function adequacyTier(pct: number): 'adequate' | 'borderline' | 'low' {
-  if (pct >= 40) return 'adequate';
-  if (pct >= 30) return 'borderline';
+/**
+ * Map FLR % into an adequacy tier given a {warn, fail} threshold pair.
+ * Advisory only — never prescriptive.
+ */
+function adequacyTier(
+  pct: number,
+  thresholds: { warn: number; fail: number },
+): 'adequate' | 'borderline' | 'low' {
+  if (pct >= thresholds.warn) return 'adequate';
+  if (pct >= thresholds.fail) return 'borderline';
   return 'low';
 }
 
@@ -97,11 +137,19 @@ export function FLRPanel({
   initialFlrMl,
   initialTotalMl,
   ruoClaim,
+  liverHealthContext = 'normal',
   onRecompute,
   'data-testid': testId = 'flr-panel',
 }: FLRPanelProps): React.ReactElement {
   const { t, locale } = useTranslation();
-  const claim = ruoClaim ?? useRUOClaimStub();
+  // H-CLIN-2: Rules-of-Hooks. The previous code conditionally called the
+  // hook (`ruoClaim ?? useRUOClaimStub()`), which means the hook was
+  // invoked or skipped depending on whether the prop was passed —
+  // forbidden because React tracks hook order positionally per render.
+  // Always call the stub hook; pick the prop value when provided.
+  const fallbackClaim = useRUOClaimStub();
+  const claim = ruoClaim ?? fallbackClaim;
+  const thresholds = LIVER_HEALTH_THRESHOLDS[liverHealthContext];
 
   const [flrPct, setFlrPct] = useState<number | undefined>(initialFlrPct);
   const [flrMl, setFlrMl] = useState<number | undefined>(initialFlrMl);
@@ -123,8 +171,8 @@ export function FLRPanel({
   }, []);
 
   const tier = useMemo(
-    () => (flrPct === undefined ? undefined : adequacyTier(flrPct)),
-    [flrPct],
+    () => (flrPct === undefined ? undefined : adequacyTier(flrPct, thresholds)),
+    [flrPct, thresholds],
   );
   const tierStyle = tier ? TIER_STYLES[tier] : undefined;
   const TierIcon = tierStyle?.icon ?? IconActivityHeartbeat;
@@ -133,11 +181,14 @@ export function FLRPanel({
   // licensed for CE-IIb output (FR-028b). MVP will always be `ruo`.
   const disclaimerText =
     claim.disclaimerVariant === 'ce_class_iib'
-      ? 'Approved for surgical planning. Not a substitute for clinical judgment.'
+      ? t('ruo:disclaimer.ceClassIib')
       : t('ruo:disclaimer.short');
 
+  // Bar fill width: clamp to [0, 100] but visually anchor to 50% threshold.
+  const barPct = flrPct === undefined ? 0 : Math.max(0, Math.min(100, flrPct));
+
   return (
-    <Stack data-testid={testId} gap="sm" p="md" aria-live="polite">
+    <Stack data-testid={testId} gap="md" p="md" aria-live="polite">
       <Group justify="space-between" wrap="wrap" gap="xs">
         <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
           <IconActivityHeartbeat
@@ -156,71 +207,210 @@ export function FLRPanel({
         )}
       </Group>
 
-      {/* Large numeric readout */}
+      {/* Large numeric readout — the flight-deck instrument */}
       <Box
         style={{
-          padding: 16,
-          borderRadius: 'var(--emr-border-radius-lg)',
-          background: tierStyle ? tierStyle.alpha : 'var(--emr-gray-50)',
-          border: `1px solid ${tierStyle ? tierStyle.color : 'var(--emr-gray-200)'}`,
+          padding: '18px 18px 16px',
+          borderRadius: 'var(--emr-border-radius-xl)',
+          background: tierStyle ? tierStyle.alpha : 'var(--emr-bg-hover)',
+          border: `1px solid ${tierStyle ? tierStyle.color : 'var(--emr-border-color)'}`,
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <Stack gap={4}>
+        <Stack gap={6}>
           <Text
-            fz="var(--emr-font-5xl)"
-            fw={700}
-            c={tierStyle ? tierStyle.color : 'var(--emr-text-primary)'}
-            lh={1}
+            fz="var(--emr-font-xs)"
+            fw={600}
+            c="var(--emr-text-tertiary)"
+            style={{
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}
           >
-            {flrPct !== undefined ? `${flrPct.toFixed(1)}%` : '—'}
+            {t('analysis:detail.flr.subtitle')}
           </Text>
-          <Text fz="var(--emr-font-sm)" c="var(--emr-text-secondary)">
-            {flrMl !== undefined && totalMl !== undefined
-              ? t('analysis:flr.valueMl', {
-                  ml: flrMl.toLocaleString(locale),
-                }) +
-                ' • ' +
-                t('analysis:flr.valuePct', {
-                  pct: flrPct !== undefined ? flrPct.toFixed(1) : '—',
-                })
-              : t('analysis:flr.valueMl', { ml: '—' })}
-          </Text>
+          <Group align="baseline" gap={4} wrap="nowrap" style={{ minWidth: 0 }}>
+            <Text
+              fz="var(--emr-font-7xl)"
+              fw={700}
+              c={tierStyle ? tierStyle.color : 'var(--emr-text-primary)'}
+              style={{
+                lineHeight: 0.95,
+                letterSpacing: '-0.03em',
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {flrPct !== undefined ? flrPct.toFixed(1) : '—'}
+            </Text>
+            <Text
+              fz="var(--emr-font-2xl)"
+              fw={600}
+              c={tierStyle ? tierStyle.color : 'var(--emr-text-secondary)'}
+              style={{ lineHeight: 1 }}
+            >
+              %
+            </Text>
+          </Group>
+          {flrMl !== undefined && totalMl !== undefined && (
+            <Text
+              fz="var(--emr-font-sm)"
+              c="var(--emr-text-secondary)"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {t('analysis:flr.valueMl', { ml: flrMl.toLocaleString(locale) })}
+              {' • '}
+              {t('analysis:flr.totalMl', { ml: totalMl.toLocaleString(locale) })}
+            </Text>
+          )}
+
+          {/* Adequacy badge integrated into the card so it reads as one unit */}
+          {tier && tierStyle && (
+            <Group
+              gap={6}
+              wrap="nowrap"
+              style={{
+                marginTop: 4,
+                padding: '5px 10px',
+                borderRadius: 999,
+                background: 'var(--emr-bg-card)',
+                color: tierStyle.color,
+                border: `1px solid ${tierStyle.color}`,
+                alignSelf: 'flex-start',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <TierIcon size={14} stroke={2.4} />
+              <Text fz="var(--emr-font-xs)" fw={700} c="inherit">
+                {t(`analysis:flr.adequacy.${tier}`)}
+              </Text>
+            </Group>
+          )}
         </Stack>
       </Box>
 
-      {/* Adequacy badge */}
-      {tier && tierStyle && (
-        <Group
-          gap="xs"
-          wrap="nowrap"
+      {/* Threshold legend — surgeon's mental anchor */}
+      <Stack gap={6}>
+        <Text
+          fz="var(--emr-font-xs)"
+          fw={600}
+          c="var(--emr-text-tertiary)"
           style={{
-            padding: '6px 10px',
-            borderRadius: 999,
-            background: tierStyle.alpha,
-            color: tierStyle.color,
-            alignSelf: 'flex-start',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
           }}
         >
-          <TierIcon size={14} />
-          <Text fz="var(--emr-font-xs)" fw={600} c="inherit">
-            {t(`analysis:flr.adequacy.${tier}`)}
-          </Text>
+          {t('analysis:flr.thresholdsHeader', {
+            context: liverHealthContext.replace('-', ' '),
+          })}
+        </Text>
+        {/* Three-segment bar — proportions reflect the active thresholds.
+            Failing zone = [0, fail], borderline = [fail, warn], adequate = [warn, 100]. */}
+        <Box
+          aria-hidden="true"
+          style={{
+            position: 'relative',
+            height: 8,
+            borderRadius: 999,
+            background: 'var(--emr-bg-hover)',
+            border: '1px solid var(--emr-border-color)',
+            overflow: 'hidden',
+            display: 'flex',
+          }}
+        >
+          <Box style={{ flex: `0 0 ${thresholds.fail}%`, background: 'var(--emr-error-alpha-30)' }} />
+          <Box style={{ flex: `0 0 ${thresholds.warn - thresholds.fail}%`, background: 'var(--emr-warning-alpha-30)' }} />
+          <Box style={{ flex: `0 0 ${100 - thresholds.warn}%`, background: 'var(--emr-success-alpha-30)' }} />
+          {flrPct !== undefined && (
+            <Box
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: -3,
+                bottom: -3,
+                left: `calc(${barPct}% - 2px)`,
+                width: 4,
+                borderRadius: 2,
+                background: tierStyle?.color ?? 'var(--emr-text-primary)',
+                boxShadow: '0 0 0 2px var(--emr-bg-card)',
+              }}
+            />
+          )}
+        </Box>
+        <Group justify="space-between" gap={4} wrap="nowrap">
+          <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+            <Text
+              fz="var(--emr-font-3xs)"
+              fw={700}
+              c="var(--emr-error)"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              {t('analysis:flr.thresholdRanges.low.label')}
+            </Text>
+            <Text
+              fz="var(--emr-font-3xs)"
+              c="var(--emr-text-tertiary)"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {t('analysis:flr.thresholdRanges.low.range', {
+                fail: thresholds.fail,
+              })}
+            </Text>
+          </Stack>
+          <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'center' }}>
+            <Text
+              fz="var(--emr-font-3xs)"
+              fw={700}
+              c="var(--emr-warning)"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              {t('analysis:flr.thresholdRanges.borderline.label')}
+            </Text>
+            <Text
+              fz="var(--emr-font-3xs)"
+              c="var(--emr-text-tertiary)"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {t('analysis:flr.thresholdRanges.borderline.range', {
+                fail: thresholds.fail,
+                warn: thresholds.warn,
+              })}
+            </Text>
+          </Stack>
+          <Stack gap={0} style={{ minWidth: 0, flex: 1, alignItems: 'flex-end' }}>
+            <Text
+              fz="var(--emr-font-3xs)"
+              fw={700}
+              c="var(--emr-success)"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}
+            >
+              {t('analysis:flr.thresholdRanges.adequate.label')}
+            </Text>
+            <Text
+              fz="var(--emr-font-3xs)"
+              c="var(--emr-text-tertiary)"
+              style={{ fontVariantNumeric: 'tabular-nums' }}
+            >
+              {t('analysis:flr.thresholdRanges.adequate.range', {
+                warn: thresholds.warn,
+              })}
+            </Text>
+          </Stack>
         </Group>
-      )}
+      </Stack>
 
       {/* RUO / CE disclaimer chip */}
       <Box
         role="note"
         style={{
-          padding: '6px 10px',
+          padding: '8px 10px',
           borderRadius: 'var(--emr-border-radius)',
-          background: 'var(--emr-gray-50)',
-          border: '1px dashed var(--emr-gray-300)',
+          background: 'var(--emr-bg-hover)',
+          border: '1px dashed var(--emr-border-color)',
         }}
       >
-        <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)">
+        <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)" lh={1.4}>
           {disclaimerText}
         </Text>
       </Box>

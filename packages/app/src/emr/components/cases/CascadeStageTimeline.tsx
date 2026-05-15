@@ -28,10 +28,9 @@
  * meant for "you are here in a wizard"; this is a vertical audit log.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActionIcon,
-  Badge,
   Box,
   Collapse,
   Group,
@@ -47,6 +46,7 @@ import {
   IconCircleCheck,
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
+import { EMRBadge } from '../common';
 import { useTranslation } from '../../contexts/TranslationContext';
 
 interface StageProgressEntry {
@@ -110,7 +110,7 @@ function formatDelta(prevIso: string | undefined, currIso: string): string {
 function pickStageStat(
   stage: string,
   results: ResultsBundle | undefined,
-  modelVersion: string | null,
+  _modelVersion: string | null,
   locale: string,
 ): string | null {
   if (!results) return null;
@@ -139,8 +139,11 @@ function pickStageStat(
     return null;
   }
 
-  // For all other stages the model version is the most informative thing.
-  return modelVersion ?? null;
+  // M-CASE-3: previously fell back to `modelVersion` for unknown stages
+  // which leaked internal model identifiers like `bamf-liver-tumor-ct-1.0`
+  // into the user-facing badge. Surface model version in the expanded row
+  // only — the collapsed badge stays clean.
+  return null;
 }
 
 /**
@@ -159,7 +162,11 @@ export function CascadeStageTimeline({
   analysisStatus,
   'data-testid': testId = 'cascade-stage-timeline',
 }: CascadeStageTimelineProps): React.ReactElement | null {
-  const { t, lang } = useTranslation();
+  const { t, tPlural, locale } = useTranslation();
+  // BCP-47 tag used for Intl number/locale APIs throughout this component.
+  // INTL_TAG re-exported from localeService via TranslationContext.
+  const intlTag =
+    locale === 'ru' ? 'ru-RU' : locale === 'de' ? 'de-DE' : locale === 'ka' ? 'ka-GE' : 'en-GB';
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   // Default behaviour: collapsed when the pipeline is done (surgeon already
   // past the wait), expanded while it's still chugging so live progress
@@ -170,12 +177,22 @@ export function CascadeStageTimeline({
     analysisStatus === 'partial' ||
     analysisStatus === 'failed';
   const [expanded, setExpanded] = useState<boolean>(isLive);
-  // If the live status flips (e.g. "running" → "completed" mid-session), nudge
-  // the panel back to its sensible default. We compare against a ref-like
-  // memoised default to avoid clobbering an explicit user toggle on the same
-  // status.
+  // M-CASE-7 / M-HOOK-3: when the pipeline transitions running → completed
+  // mid-session, auto-collapse the panel — UNLESS the user has already
+  // expressed an explicit preference this session. A ref tracks whether
+  // the toggle has been touched manually; once it has, we honor that
+  // preference for the rest of the session and stop auto-resetting.
+  const userToggledRef = useRef<boolean>(false);
+  const handleToggleExpanded = useCallback(() => {
+    userToggledRef.current = true;
+    setExpanded((prev) => !prev);
+  }, []);
   useEffect(() => {
+    if (userToggledRef.current) return;
     setExpanded(isLive);
+    // ``isLive`` is a pure derivation of ``analysisStatus`` (literal
+    // definition above). Tracking the source-of-truth dep keeps intent
+    // legible; isLive flips iff analysisStatus flips.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisStatus]);
 
@@ -203,14 +220,14 @@ export function CascadeStageTimeline({
 
   const activeStep = stages.length - 1;
   const totalDuration = formatTotalDuration(stages);
-  const stageCountKey =
-    stages.length === 1
-      ? 'analysis:detail.cascadeTimeline.summary.stageCount_one'
-      : 'analysis:detail.cascadeTimeline.summary.stageCount_other';
-  const stageCountLabel = t(stageCountKey, {
-    count: stages.length,
-    total: totalDuration,
-  });
+  // Russian needs 4 plural forms (one/few/many/other) — use Intl.PluralRules
+  // via `tPlural` instead of a `count === 1 ? _one : _other` ternary.
+  // Audit reference: H-I18NQ-6.
+  const stageCountLabel = tPlural(
+    'analysis:detail.cascadeTimeline.summary.stageCount',
+    stages.length,
+    { total: totalDuration },
+  );
 
   // Status pill: green check / spinner / red dot, derived from analysisStatus
   // first, then falls back to "complete" when the cascade ledger is fully
@@ -219,8 +236,8 @@ export function CascadeStageTimeline({
     if (analysisStatus === 'failed') {
       return (
         <Group gap={6} wrap="nowrap" align="center">
-          <IconAlertCircle size={14} style={{ color: 'var(--emr-danger)' }} />
-          <Text fz="var(--emr-font-xs)" fw={600} c="var(--emr-danger)">
+          <IconAlertCircle size={14} style={{ color: 'var(--emr-error)' }} />
+          <Text fz="var(--emr-font-xs)" fw={600} c="var(--emr-error)">
             {t('analysis:detail.cascadeTimeline.summary.failed')}
           </Text>
         </Group>
@@ -272,14 +289,11 @@ export function CascadeStageTimeline({
   const flrPct =
     typeof flrRaw === 'string' ? Number.parseFloat(flrRaw) : (flrRaw as number | null);
 
-  const lesionLabel =
-    lesionCount === 1
-      ? t('analysis:detail.cascadeTimeline.summary.lesionCount_one', {
-          count: lesionCount,
-        })
-      : t('analysis:detail.cascadeTimeline.summary.lesionCount_other', {
-          count: lesionCount,
-        });
+  // Russian plural: lesion needs 4 forms via Intl.PluralRules.
+  const lesionLabel = tPlural(
+    'analysis:detail.cascadeTimeline.summary.lesionCount',
+    lesionCount,
+  );
 
   const toggleId = `cascade-timeline-body-${analysisId}`;
 
@@ -290,19 +304,20 @@ export function CascadeStageTimeline({
         margin: '0 16px 12px 16px',
         borderRadius: 'var(--emr-border-radius-lg)',
         background: 'var(--emr-bg-card)',
-        border: '1px solid var(--emr-gray-200)',
+        border: '1px solid var(--emr-border-color)',
         overflow: 'hidden',
+        boxShadow: 'var(--emr-shadow-sm)',
       }}
     >
       {/* Sticky summary header — always visible */}
       <Box
         component="button"
         type="button"
-        onClick={() => setExpanded((v) => !v)}
+        onClick={handleToggleExpanded}
         onKeyDown={(e: React.KeyboardEvent<HTMLButtonElement>) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setExpanded((v) => !v);
+            handleToggleExpanded();
           }
         }}
         aria-expanded={expanded}
@@ -321,7 +336,7 @@ export function CascadeStageTimeline({
           cursor: 'pointer',
           minHeight: 44,
           boxSizing: 'border-box',
-          borderBottom: expanded ? '1px solid var(--emr-gray-200)' : 'none',
+          borderBottom: expanded ? '1px solid var(--emr-border-color)' : 'none',
         }}
       >
         <Group justify="space-between" wrap="wrap" gap="sm" align="center">
@@ -334,44 +349,35 @@ export function CascadeStageTimeline({
 
           <Group gap={6} wrap="wrap" align="center" style={{ flexShrink: 0 }}>
             {typeof liverV === 'number' && Number.isFinite(liverV) && (
-              <Badge
-                variant="light"
-                color="blue"
+              <EMRBadge
+                variant="info"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-liver-volume"
               >
                 {t('analysis:detail.cascadeTimeline.summary.liverVolume', {
-                  ml: liverV.toLocaleString(lang, { maximumFractionDigits: 0 }),
+                  ml: liverV.toLocaleString(intlTag, { maximumFractionDigits: 0 }),
                 })}
-              </Badge>
+              </EMRBadge>
             )}
             {lesionCount > 0 && (
-              <Badge
-                variant="light"
-                color="grape"
+              <EMRBadge
+                variant="primary"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-lesion-count"
               >
                 {lesionLabel}
-              </Badge>
+              </EMRBadge>
             )}
             {typeof flrPct === 'number' && Number.isFinite(flrPct) && (
-              <Badge
-                variant="light"
-                color="teal"
+              <EMRBadge
+                variant="success"
                 size="sm"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600 } }}
                 data-testid="cascade-summary-flr"
               >
                 {t('analysis:detail.cascadeTimeline.summary.flr', {
                   pct: flrPct.toFixed(1),
                 })}
-              </Badge>
+              </EMRBadge>
             )}
             <ActionIcon
               component="span"
@@ -413,7 +419,7 @@ export function CascadeStageTimeline({
         {stages.map((entry, idx) => {
           const prevIso = idx === 0 ? undefined : stages[idx - 1].written_at;
           const delta = formatDelta(prevIso, entry.written_at);
-          const stat = pickStageStat(entry.stage, results, entry.model_version, lang);
+          const stat = pickStageStat(entry.stage, results, entry.model_version, intlTag);
           const stageLabel =
             t(`analysis:stages.${entry.stage}`) ||
             entry.stage;
@@ -451,18 +457,13 @@ export function CascadeStageTimeline({
                       {stageLabel}
                     </Text>
                     {stat && (
-                      <Badge
-                        variant="light"
-                        color="blue"
+                      <EMRBadge
+                        variant="info"
                         size="sm"
-                        radius="sm"
                         data-testid={`cascade-stage-${entry.stage}-stat`}
-                        styles={{
-                          root: { textTransform: 'none', fontWeight: 600 },
-                        }}
                       >
                         {stat}
-                      </Badge>
+                      </EMRBadge>
                     )}
                   </Group>
                   <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>

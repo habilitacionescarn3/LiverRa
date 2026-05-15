@@ -52,6 +52,10 @@ VALID_STATUSES: tuple[str, ...] = (
 )
 
 
+class StaleClaimVersion(Exception):
+    """Raised by ``update`` when client_version != current row version (H-LOCK-5)."""
+
+
 @dataclass(frozen=True)
 class ClaimRegistryRow:
     """One row in ``regulatory_claim_registry``."""
@@ -129,6 +133,7 @@ async def update(
     status: str,
     regulatory_reference: Optional[str] = None,
     audit_writer=None,
+    client_version: int = 1,
 ) -> ClaimRegistryRow:
     """Upsert one row + emit a ``model_version_update`` AuditEvent.
 
@@ -153,58 +158,109 @@ async def update(
 
     now = datetime.now(tz=timezone.utc)
 
-    # Upsert — PK is (tenant_id, claim_key) per data-model §17.
-    await session.execute(
-        text(
-            """
-            INSERT INTO regulatory_claim_registry
-                (tenant_id, claim_key, status, effective_from,
-                 updated_by_user_id, regulatory_reference)
-            VALUES
-                (:tid, :key, :status, :eff, :uid, :ref)
-            ON CONFLICT (tenant_id, claim_key) DO UPDATE
-              SET status = EXCLUDED.status,
-                  effective_from = EXCLUDED.effective_from,
-                  updated_by_user_id = EXCLUDED.updated_by_user_id,
-                  regulatory_reference = EXCLUDED.regulatory_reference
-            """
-        ),
-        {
-            "tid": str(tenant_id),
-            "key": claim_key,
-            "status": status,
-            "eff": now,
-            "uid": actor_user_id,
-            "ref": regulatory_reference,
-        },
-    )
+    # H-LOCK-5: optimistic-concurrency on (tenant_id, claim_key). If the
+    # row exists, CAS-bump ``client_version`` atomically; otherwise insert
+    # a fresh row at version 1 (caller must have sent client_version=1
+    # to ack "I know this is new"). Two admins toggling the same claim
+    # at the same time both send the same version; only one bump wins.
+    existing = (
+        await session.execute(
+            text(
+                """
+                SELECT client_version FROM regulatory_claim_registry
+                 WHERE tenant_id = :tid AND claim_key = :key
+                """
+            ),
+            {"tid": str(tenant_id), "key": claim_key},
+        )
+    ).first()
+
+    if existing is None:
+        # First write — insert at version 1. Reject if caller signalled
+        # they observed any other version (likely race or replay).
+        if int(client_version) != 1:
+            raise StaleClaimVersion(
+                "Claim row does not yet exist; client_version must be 1."
+            )
+        await session.execute(
+            text(
+                """
+                INSERT INTO regulatory_claim_registry
+                    (tenant_id, claim_key, status, effective_from,
+                     updated_by_user_id, regulatory_reference,
+                     client_version)
+                VALUES
+                    (:tid, :key, :status, :eff, :uid, :ref, 1)
+                """
+            ),
+            {
+                "tid": str(tenant_id),
+                "key": claim_key,
+                "status": status,
+                "eff": now,
+                "uid": actor_user_id,
+                "ref": regulatory_reference,
+            },
+        )
+    else:
+        current_version = int(existing[0]) if existing[0] is not None else 1
+        if int(client_version) != current_version:
+            raise StaleClaimVersion(
+                "Stale claim revision — refresh and retry "
+                f"(server={current_version}, client={int(client_version)})"
+            )
+        cas = (
+            await session.execute(
+                text(
+                    """
+                    UPDATE regulatory_claim_registry
+                       SET status = :status,
+                           effective_from = :eff,
+                           updated_by_user_id = :uid,
+                           regulatory_reference = :ref,
+                           client_version = client_version + 1
+                     WHERE tenant_id = :tid
+                       AND claim_key = :key
+                       AND client_version = :cv
+                     RETURNING client_version
+                    """
+                ),
+                {
+                    "tid": str(tenant_id),
+                    "key": claim_key,
+                    "status": status,
+                    "eff": now,
+                    "uid": actor_user_id,
+                    "ref": regulatory_reference,
+                    "cv": int(client_version),
+                },
+            )
+        ).first()
+        if cas is None:
+            # Concurrent writer beat us between SELECT and UPDATE.
+            raise StaleClaimVersion(
+                "Concurrent update detected — refresh and retry."
+            )
 
     # T344 — emit a chain-of-hashes AuditEvent so the toggle is forensic.
     if audit_writer is not None:
-        event = {
-            "resourceType": "AuditEvent",
-            "id": str(uuid4()),
-            "category": "model_version_update",
-            "recorded": now.isoformat(),
-            "agent": [
-                {"who": {"reference": actor_user_id} if actor_user_id else None}
+        from src.services.audit.audit_helpers import build_audit_event
+
+        event = build_audit_event(
+            category="model_version_update",
+            actor=actor_user_id if actor_user_id else None,
+            entity_refs=[
+                # RegulatoryClaimRegistry isn't a standard FHIR resource;
+                # use the catch-all Basic with a typed slug prefix.
+                f"Basic/regulatory-claim-{tenant_id}-{claim_key}"
             ],
-            "entity": [
-                {
-                    "what": {
-                        "reference": f"RegulatoryClaimRegistry/{tenant_id}/{claim_key}"
-                    },
-                    "detail": [
-                        {"type": "status", "valueString": status},
-                        {
-                            "type": "regulatory_reference",
-                            "valueString": regulatory_reference or "",
-                        },
-                    ],
-                }
-            ],
-            "outcome": "success",
-        }
+            detail={
+                "status": status,
+                "regulatory_reference": regulatory_reference or "",
+            },
+            recorded=now.isoformat(),
+            outcome="0",
+        )
         try:
             await audit_writer.write(event, tenant_id, session)
         except Exception:

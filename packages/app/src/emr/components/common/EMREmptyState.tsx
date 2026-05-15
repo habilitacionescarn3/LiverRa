@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Anchor, Box, Button, Stack, Text } from '@mantine/core';
+import { Anchor, Box, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
   IconAlertCircle,
@@ -10,6 +10,7 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import type { ComponentType, ReactNode } from 'react';
+import { EMRButton } from './EMRButton';
 
 /** Icon props type for Tabler icons */
 interface IconProps {
@@ -304,20 +305,15 @@ export function EMREmptyState({
           <Stack align="center" gap="xs" mt="xs">
             {/* Primary/Secondary Action Button */}
             {action && (
-              <Button
-                variant={isPrimaryAction ? 'filled' : 'light'}
+              <EMRButton
+                variant={isPrimaryAction ? 'primary' : 'secondary'}
                 onClick={action.onClick}
-                leftSection={action.icon ? <action.icon size={16} stroke={2} /> : undefined}
+                icon={action.icon}
                 size={isMobile ? 'md' : 'sm'}
-                style={{
-                  borderRadius: 'var(--emr-border-radius)',
-                  background: isPrimaryAction ? 'var(--emr-gradient-primary)' : undefined,
-                  minHeight: isMobile ? 44 : undefined,
-                }}
                 data-testid={testId ? `${testId}-action` : 'emr-empty-state-action'}
               >
                 {action.label}
-              </Button>
+              </EMRButton>
             )}
 
             {/* Secondary Link */}

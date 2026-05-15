@@ -200,8 +200,12 @@ services:
       AWS_REGION: eu-central-1
       LIVERRA_PHASES_BUCKET: ${LIVERRA_PHASES_BUCKET:-liverra-phases-eu-central-1}
       LIVERRA_ANALYSES_BUCKET: ${LIVERRA_ANALYSES_BUCKET:-liverra-analyses-eu-central-1}
-      LIVERRA_INFERENCE_URL: ${LIVERRA_INFERENCE_URL:-http://100.124.94.29:9100}
-      LIVERRA_INFERENCE_TIMEOUT_S: ${LIVERRA_INFERENCE_TIMEOUT_S:-300}
+      LIVERRA_INFERENCE_URL: ${LIVERRA_INFERENCE_URL:-http://100.124.94.29:9101}
+      LIVERRA_INFERENCE_TIMEOUT_S: ${LIVERRA_INFERENCE_TIMEOUT_S:-1800}
+      # Required by inference_client — refuses to send unauthenticated
+      # requests if the env var is missing. Set in .env (gitignored).
+      LIVERRA_GPU_SHARED_TOKEN: ${LIVERRA_GPU_SHARED_TOKEN:-}
+      LIVERRA_TS_COMMERCIAL_LICENSED: ${LIVERRA_TS_COMMERCIAL_LICENSED:-false}
       LIVERRA_CASCADE_REAL_MODE: "true"
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-liverra}:${POSTGRES_PASSWORD:-liverra}@postgres:5432/${POSTGRES_DB:-liverra}

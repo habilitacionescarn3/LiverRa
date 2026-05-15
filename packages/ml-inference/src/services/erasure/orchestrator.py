@@ -132,15 +132,40 @@ async def _hard_delete_case_graph(
                 text(f"DELETE FROM {table} WHERE {clause}"),
                 params,
             )
-        except Exception as exc:  # noqa: BLE001
-            # Tables that don't exist yet in early scaffolds should not
-            # break the orchestrator — log and continue so the rest of
-            # the erasure still completes.
-            logger.warning(
-                "erasure DELETE FROM %s skipped (%s) — table may not exist yet",
-                table,
-                exc,
+        except Exception as exc:
+            # C-AUDIT-3 fix: stop reporting "success" when a DELETE fails.
+            # Original behaviour swallowed FK violations, permission errors,
+            # and deadlocks while the DPO still got a PDF certifying the
+            # erasure completed. Now: log with full traceback, capture in
+            # Sentry, and re-raise so the orchestrator's caller can roll
+            # back + retry. The narrow "table doesn't exist yet" carve-out
+            # remains so scaffolded dev environments still bootstrap — but
+            # other errors are fatal.
+            msg = str(exc).lower()
+            is_missing_table = (
+                "does not exist" in msg
+                or "undefinedtable" in msg
+                or "relation" in msg and "does not exist" in msg
             )
+            if is_missing_table:
+                logger.warning(
+                    "erasure DELETE FROM %s skipped — table not present "
+                    "(dev scaffold): %s",
+                    table,
+                    exc,
+                )
+                continue
+            logger.exception(
+                "erasure DELETE FROM %s FAILED — refusing to report success",
+                table,
+            )
+            try:
+                import sentry_sdk  # type: ignore[import-not-found]
+
+                sentry_sdk.capture_exception(exc)
+            except Exception:  # noqa: BLE001
+                pass
+            raise
 
 
 async def _insert_tombstone(
@@ -177,11 +202,20 @@ async def _insert_tombstone(
                 "ts": executed_at,
             },
         )
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "erasure_tombstone insert skipped (%s) — table may not exist yet",
-            exc,
-        )
+    except Exception as exc:
+        # Same logic as DELETE: tolerate missing-table in dev scaffolds,
+        # fail loud on anything else (FR-032a depends on the tombstone row
+        # existing for the 404-not-403 flow).
+        msg = str(exc).lower()
+        if "does not exist" in msg or "undefinedtable" in msg:
+            logger.warning(
+                "erasure_tombstone insert skipped — table not present "
+                "(dev scaffold): %s",
+                exc,
+            )
+            return
+        logger.exception("erasure_tombstone insert FAILED — re-raising")
+        raise
 
 
 async def _upload_confirmation_pdf(
@@ -244,25 +278,30 @@ async def _emit_executed_audit(
     """
     try:
         from ..audit.chain_of_hashes import AuditChainWriter
-    except ImportError:  # pragma: no cover
-        return None
+    except ImportError:
+        # B-AUDIT-1 + H-AUDIT-5 fix: missing audit module is no longer a
+        # silent skip. The terminal erasure_executed AuditEvent IS the
+        # row the regulator looks for; degrading silently is exactly the
+        # failure mode we're remediating.
+        logger.exception(
+            "erasure_executed AuditEvent unwritten — chain_of_hashes import "
+            "failed (refusing to silently succeed for tenant=%s study=%s)",
+            tenant_id,
+            study_id,
+        )
+        raise
 
     writer = AuditChainWriter()
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": "erasure_executed",
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "entity": [
-            {
-                "what": {"reference": f"Study/{study_id}"},
-                "detail": [
-                    {"type": "erasure_request_id", "valueString": str(erasure_request_id)},
-                    {"type": "tombstone_hash_hex", "valueString": tombstone_hash_hex},
-                ],
-            }
-        ],
-    }
+    from src.services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    event = build_audit_event(
+        category="erasure_executed",
+        entity_refs=[fhir_ref("Study", study_id)],
+        detail={
+            "erasure_request_id": str(erasure_request_id),
+            "tombstone_hash_hex": tombstone_hash_hex,
+        },
+    )
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no
 

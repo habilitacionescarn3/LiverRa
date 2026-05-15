@@ -85,25 +85,12 @@
 }
 
 /* ============================================================================
-   Dark Mode
+   Dark Mode (H-DS-4 fix)
+   ----------------------------------------------------------------------------
+   No module-level overrides per Dark Mode Rule #5 — the semantic tokens
+   referenced above (--emr-bg-accent-*, --emr-text-primary, etc.) auto-switch
+   based on data-mantine-color-scheme via theme.css. Previously this file
+   contained 5 :root[data-mantine-color-scheme="dark"] blocks that re-applied
+   the SAME variables (no-op), masking the true single-source-of-dark-mode
+   principle. They have been removed.
    ============================================================================ */
-
-:root[data-mantine-color-scheme="dark"] .emr-alert-error {
-  background: var(--emr-bg-accent-error) !important;
-}
-
-:root[data-mantine-color-scheme="dark"] .emr-alert-warning {
-  background: var(--emr-bg-accent-warning) !important;
-}
-
-:root[data-mantine-color-scheme="dark"] .emr-alert-success {
-  background: var(--emr-bg-accent-success) !important;
-}
-
-:root[data-mantine-color-scheme="dark"] .emr-alert-info {
-  background: var(--emr-bg-accent-secondary) !important;
-}
-
-:root[data-mantine-color-scheme="dark"] .emr-alert .mantine-Alert-message {
-  color: var(--emr-text-primary) !important;
-}

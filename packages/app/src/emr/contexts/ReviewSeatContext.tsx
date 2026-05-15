@@ -119,7 +119,14 @@ export function ReviewSeatProvider({
   httpClient,
   beaconOverride,
 }: ReviewSeatProviderProps): JSX.Element {
-  const client = httpClient ?? defaultHttpClient;
+  // C-HOOK-1: ``client`` was previously a new object each render
+  // (``httpClient ?? defaultHttpClient``). When passed to dep arrays it
+  // tore down + restarted the heartbeat ``setInterval`` on every render
+  // — exactly the failure mode the dep was meant to prevent. We now
+  // pin it to a ref that updates if the prop swaps (tests do this) but
+  // never causes effect re-runs.
+  const clientRef = useRef<SeatHttpClient>(httpClient ?? defaultHttpClient);
+  clientRef.current = httpClient ?? defaultHttpClient;
   const [state, setState] = useState<ReviewSeatState>(INITIAL_STATE);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const missedRef = useRef<number>(0);
@@ -139,7 +146,7 @@ export function ReviewSeatProvider({
     async (analysisId: string): Promise<{ reviewId: string }> => {
       setState((prev) => ({ ...prev, status: 'acquiring', isLoading: true }));
       try {
-        const response = await client.post<{
+        const response = await clientRef.current.post<{
           review_id: string;
           analysis_id: string;
           seat_held_until: string;
@@ -182,7 +189,7 @@ export function ReviewSeatProvider({
         throw apiErr;
       }
     },
-    [client],
+    [],
   );
 
   const release = useCallback(async (): Promise<void> => {
@@ -192,33 +199,38 @@ export function ReviewSeatProvider({
     setState(INITIAL_STATE);
     if (rid) {
       try {
-        await client.post(`/reviews/${rid}/release`, {});
+        await clientRef.current.post(`/reviews/${rid}/release`, {});
       } catch {
         // Release is best-effort — the seat TTL will reap it anyway.
       }
     }
-  }, [client, clearHeartbeat]);
+  }, [clearHeartbeat]);
 
   const requestTakeover = useCallback(
     async (analysisId: string): Promise<void> => {
-      await client.post('/reviews/takeover-request', {
+      await clientRef.current.post('/reviews/takeover-request', {
         analysis_id: analysisId,
       });
     },
-    [client],
+    [],
   );
 
   // --- Heartbeat loop -----------------------------------------------------
+  // H-REFINE-2 / audit line 213 fix: this effect is gated by reviewId
+  // (a ref read at tick-time) rather than by ``state.status``. Earlier
+  // the dep array included ``state.status`` which tore the interval
+  // down on every degraded↔held flip — exactly when we LEAST want a
+  // restart. Now the interval is spun up once when reviewId becomes
+  // non-null and torn down when the provider unmounts or release()
+  // clears the ref.
 
   useEffect(() => {
-    if (state.status !== 'held' && state.status !== 'degraded') {
-      return;
-    }
+    if (!state.reviewId) return undefined;
     intervalRef.current = setInterval(async () => {
       const rid = reviewIdRef.current;
       if (!rid) return;
       try {
-        const res = await client.post<{ seat_held_until: string }>(
+        const res = await clientRef.current.post<{ seat_held_until: string }>(
           `/reviews/${rid}/heartbeat`,
           {},
         );
@@ -264,7 +276,9 @@ export function ReviewSeatProvider({
     return () => {
       clearHeartbeat();
     };
-  }, [client, clearHeartbeat, state.status]);
+    // C-HOOK-1: deps intentionally exclude ``client`` — it lives in
+    // clientRef and would otherwise rebuild the interval every render.
+  }, [clearHeartbeat, state.reviewId]);
 
   // --- Release on unmount / tab-close (T424) ------------------------------
 

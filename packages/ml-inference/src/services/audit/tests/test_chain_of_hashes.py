@@ -135,3 +135,46 @@ def test_appending_forged_event_without_recompute_fails() -> None:
     }
     chain.append(forged)
     assert _verify_chain(chain) is False
+
+
+def test_canonical_json_is_stable_across_key_orderings() -> None:
+    """B-AUDIT-2 regression guard.
+
+    Two events whose Python dicts iterate in different insertion order MUST
+    canonicalize to byte-identical JSON. If they didn't, the LIKE-based
+    idempotency probes (clipboard_export_event, retention attestation, …)
+    would silently miss replays after a single Python-dict-order bump.
+    """
+    if coh is None or not hasattr(coh, "canonical_json"):
+        pytest.skip("canonical_json not exposed by chain_of_hashes")
+
+    a = {"action": "x", "outcome": "0", "agent": [{"who": {"reference": "Practitioner/1"}}]}
+    b = {"agent": [{"who": {"reference": "Practitioner/1"}}], "outcome": "0", "action": "x"}
+    assert coh.canonical_json(a) == coh.canonical_json(b)
+    # And the canonical form uses no-space separators (the LIKE convention).
+    assert ", " not in coh.canonical_json(a)
+    assert ": " not in coh.canonical_json(a)
+
+
+def test_canonical_json_preserves_utf8_non_ascii() -> None:
+    """Georgian + German text must hash identically across platforms — the
+    canonicalizer uses ``ensure_ascii=False`` so bytes stay UTF-8."""
+    if coh is None or not hasattr(coh, "canonical_json"):
+        pytest.skip("canonical_json not exposed by chain_of_hashes")
+
+    payload = {"name": "Dr. Levan გოგიჩაიშვილი", "city": "Tbilisi · Tbilissi"}
+    out = coh.canonical_json(payload)
+    # Non-ASCII MUST survive — no \uXXXX escaping.
+    assert "გ" in out
+    assert "·" in out
+    assert "\\u" not in out
+
+
+def test_canonical_json_rejects_nan_and_infinity() -> None:
+    """RFC 8785 JCS forbids NaN/±Inf — the canonicalizer must refuse them
+    so a malformed audit event can never silently land in the chain."""
+    if coh is None or not hasattr(coh, "canonical_json"):
+        pytest.skip("canonical_json not exposed by chain_of_hashes")
+
+    with pytest.raises((ValueError, TypeError)):
+        coh.canonical_json({"x": float("nan")})

@@ -113,8 +113,17 @@ function normaliseBox(les: LesionDatum): NormalisedBox | null {
     const parsed = JSON.parse(les.classification ?? '{}') as { label?: string; confidence?: number };
     if (parsed.label) label = parsed.label;
     if (typeof parsed.confidence === 'number') confidence = parsed.confidence;
-  } catch {
-    /* ignore */
+  } catch (e) {
+    // H-CATCH variant: corrupt classification JSON should be visible
+    // — the overlay label flags it so QA + Sentry beforeSend can
+    // catch the drift, but we still render the lesion bbox (not
+    // doing so would hide the lesion entirely).
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[LesionOverlay] classification JSON parse failed',
+      { lesionId: les.id, error: e },
+    );
+    label = 'parse-error';
   }
 
   const seg = les.couinaud_location !== null && les.couinaud_location !== undefined

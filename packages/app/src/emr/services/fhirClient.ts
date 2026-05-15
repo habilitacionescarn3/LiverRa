@@ -2,6 +2,8 @@
 // ============================================================================
 // LiverRa FHIR Client — Medplum facade shim
 // ============================================================================
+
+import { phaseStubLog } from './pacs/phaseStubLog';
 // Medplum → LiverRa FHIR facade. Currently stubbed; Phase 4 wires the real
 // Supabase-backed FHIR persistence. Every call is logged so we can see
 // exactly what MediMind-ported code expects the FHIR store to do — that log
@@ -44,8 +46,7 @@ export class LiverRaFhirClient {
    * STUB: returns `null` and logs the call. Phase 4 will proxy to Supabase.
    */
   async readResource(resourceType: string, id: string): Promise<FhirResourceLike | null> {
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] readResource not wired: ${resourceType}/${id}`);
+    phaseStubLog('fhir-stub', 'readResource', { resourceType, id });
     return null;
   }
 
@@ -57,9 +58,7 @@ export class LiverRaFhirClient {
     resourceType: string,
     params?: Record<string, unknown>,
   ): Promise<FhirSearchBundle> {
-    const paramSummary = params ? JSON.stringify(params) : '(none)';
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] search not wired: ${resourceType} params=${paramSummary}`);
+    phaseStubLog('fhir-stub', 'search', { resourceType, params: params ?? {} });
     return { entry: [], total: 0 };
   }
 
@@ -68,29 +67,90 @@ export class LiverRaFhirClient {
    * Phase 4 will issue a real POST /<resourceType>.
    */
   async createResource<T extends FhirResourceLike>(resource: T): Promise<T> {
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] createResource not wired: ${resource.resourceType}`);
+    phaseStubLog('fhir-stub', 'createResource', { resourceType: resource.resourceType });
     return resource;
   }
 
   /**
    * Update an existing resource. STUB: echoes the input and logs the call.
    * Phase 4 will issue a real PUT /<resourceType>/<id>.
+   *
+   * C-LOCK-3: ``options.ifMatch`` carries the ETag / ``meta.versionId``
+   * the caller last observed. Phase 4 will send it as an ``If-Match``
+   * header so the FHIR server returns 412 Precondition Failed on a
+   * concurrent edit (FHIR optimistic-locking, §3.1.0.5). For now the
+   * stub records it so the log stream surfaces every call site that
+   * passes a version — and ones that don't.
    */
-  async updateResource<T extends FhirResourceLike>(resource: T): Promise<T> {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[fhir-stub] updateResource not wired: ${resource.resourceType}/${resource.id ?? '(no-id)'}`,
-    );
+  async updateResource<T extends FhirResourceLike>(
+    resource: T,
+    options?: { ifMatch?: string },
+  ): Promise<T> {
+    const ifMatch = options?.ifMatch;
+    phaseStubLog('fhir-stub', 'updateResource', {
+      resourceType: resource.resourceType,
+      id: resource.id ?? '(no-id)',
+      ifMatch: ifMatch ?? '(none)',
+    });
     return resource;
   }
 
   /**
    * Delete a resource by type + id. STUB: no-op + log.
+   *
+   * AUDIT NOTE (C-PACS-5): for FHIR `Basic` resources that carry clinical
+   * content (annotations, key images, hanging protocols, macros), do NOT
+   * call this method — clinical retention rules require soft-delete.
+   * Use {@link softDeleteResource} instead.
+   *
+   * C-LOCK-3: ``options.ifMatch`` mirrors ``updateResource`` so a delete
+   * of a resource the caller just read can use the same versionId guard.
    */
-  async deleteResource(resourceType: string, id: string): Promise<void> {
-    // eslint-disable-next-line no-console
-    console.warn(`[fhir-stub] deleteResource not wired: ${resourceType}/${id}`);
+  async deleteResource(
+    resourceType: string,
+    id: string,
+    options?: { ifMatch?: string },
+  ): Promise<void> {
+    const ifMatch = options?.ifMatch;
+    phaseStubLog('fhir-stub', 'deleteResource', {
+      resourceType,
+      id,
+      ifMatch: ifMatch ?? '(none)',
+    });
+  }
+
+  /**
+   * Soft-delete a clinical resource — mark it ``entered-in-error`` and
+   * stamp a ``deleted-at`` extension instead of physically removing the
+   * row. CE MDR + GDPR retention rules require the clinical record to
+   * remain auditable for at least 10 years.
+   *
+   * The caller is responsible for emitting an AuditEvent referencing
+   * the soft-delete (the auditService.logStudyDelete helper is the
+   * appropriate hook for annotations / key-images; macroService /
+   * hangingProtocolEngine may want category-specific events).
+   *
+   * STUB: round-trips through updateResource so the call is visible in
+   * the log stream Phase 4 wires to Supabase.
+   */
+  async softDeleteResource<T extends FhirResourceLike>(
+    resource: T,
+    options?: { ifMatch?: string },
+  ): Promise<T> {
+    const now = new Date().toISOString();
+    const extension = Array.isArray((resource as { extension?: unknown }).extension)
+      ? ((resource as { extension?: unknown[] }).extension as unknown[]).slice()
+      : [];
+    extension.push({
+      url: 'http://liverra.ai/fhir/StructureDefinition/deleted-at',
+      valueDateTime: now,
+    });
+    const next = {
+      ...resource,
+      status: 'entered-in-error',
+      extension,
+    } as T;
+    return this.updateResource(next, options);
   }
 
   /**

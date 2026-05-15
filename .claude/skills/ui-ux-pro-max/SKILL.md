@@ -9,26 +9,26 @@ Comprehensive design guide for web and mobile applications. Contains 50+ styles,
 
 ---
 
-## MediMind Design System Override (BINDING — takes precedence over all generic recommendations)
+## LiverRa Design System Override (BINDING — takes precedence over all generic recommendations)
 
-This project is a **healthcare EMR (Electronic Medical Record)** built with **React 19 + Mantine 7.x + TypeScript**. The rules below override ANY conflicting generic advice from this skill's databases (colors.csv, styles.csv, typography.csv, etc.). All UX/accessibility/interaction guidelines remain fully applicable.
+This project is **LiverRa**, an AI-powered liver-diagnostics and surgical-planning platform built with **React 19 + Mantine 7.x + TypeScript**. The rules below override ANY conflicting generic advice from this skill's databases (colors.csv, styles.csv, typography.csv, etc.). All UX/accessibility/interaction guidelines remain fully applicable.
 
 ### Colors — MANDATORY
 
-**Source of truth:** `packages/app/src/emr/styles/theme.css` and `packages/app/src/emr/constants/theme-colors.ts`
+**Source of truth:** `packages/app/src/emr/styles/theme.css`. TypeScript inline-style contexts use `packages/app/src/emr/constants/theme-colors.ts`.
 
-**ALWAYS use CSS variables** — never hardcode hex values in components:
+**ALWAYS use semantic CSS variables** — never hardcode hex values, anywhere except `theme.css` itself. The brand ramp (`--liverra-primary-50…900`) is pending design-lead sign-off (T464); recommendations must reference the semantic alias, not the current placeholder hex.
 
-| Purpose | CSS Variable | Hex Value |
-|---------|-------------|-----------|
-| Primary (deep navy) | `var(--emr-primary)` | `#1a365d` |
-| Secondary (medium blue) | `var(--emr-secondary)` | `#2b6cb0` |
-| Accent (bright blue) | `var(--emr-accent)` | `#3182ce` |
-| Light accent | `var(--emr-light-accent)` | `#bee3f8` |
-| Success | `var(--emr-success)` | `#38a169` |
-| Warning | `var(--emr-warning)` | `#dd6b20` |
-| Error | `var(--emr-error)` | `#e53e3e` |
-| Info | `var(--emr-info)` | `#3182ce` |
+| Purpose | CSS Variable |
+|---------|-------------|
+| Primary brand | `var(--emr-primary)` |
+| Secondary | `var(--emr-secondary)` |
+| Accent | `var(--emr-accent)` |
+| Light accent | `var(--emr-light-accent)` |
+| Success | `var(--emr-success)` |
+| Warning | `var(--emr-warning)` |
+| Error | `var(--emr-error)` |
+| Info | `var(--emr-info)` |
 
 **Surface variables (auto-switch light/dark):**
 `--emr-bg-page`, `--emr-bg-card`, `--emr-bg-modal`, `--emr-bg-hover`, `--emr-bg-input`
@@ -39,15 +39,15 @@ This project is a **healthcare EMR (Electronic Medical Record)** built with **Re
 
 **FORBIDDEN colors (ZERO TOLERANCE — never recommend or generate):**
 `#3b82f6`, `#60a5fa`, `#2563eb`, `#93c5fd`, `#1d4ed8`, `#4299e1`, `#63b3ed`, `#4267B2`, `#3b5998`
-These are Tailwind/Chakra/Facebook blues that clash with the MediMind palette.
+These are Tailwind/Chakra/Facebook blues that clash with the LiverRa palette.
 
 **Primary button gradient (ALL primary buttons MUST use):**
 ```css
-background: linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%);
-/* Or: var(--emr-gradient-primary) */
+background: var(--emr-gradient-primary);
 ```
+The gradient definition lives in `theme.css` and follows the brand ramp — never inline the gradient hex.
 
-**Chart colors (in order):** `#1a365d`, `#2b6cb0`, `#3182ce`, `#38a169`, `#dd6b20`, `#e53e3e`, `#805ad5`, `#d69e2e`
+**Chart colors (in order):** `var(--emr-chart-1)` through `var(--emr-chart-8)` (defined in `theme.css`). For TypeScript chart libraries that require literal strings, import `CHART_COLORS.series` from `constants/theme-colors.ts`.
 
 ### Typography — MANDATORY
 

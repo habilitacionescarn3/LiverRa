@@ -3,9 +3,16 @@
 
 
 export type LiverraPermission =
+  | 'admin.approve_deletion'
+  | 'admin.cecho_pacs'
+  | 'admin.configure_pacs'
+  | 'admin.coverage_override'
+  | 'admin.invite_user'
+  | 'admin.suspend_user'
   | 'admin.tenant_config'
   | 'admin.user_create'
   | 'admin.user_role_change'
+  | 'admin.view_audit'
   | 'analysis.cancel'
   | 'analysis.retry'
   | 'analysis.view'
@@ -14,8 +21,12 @@ export type LiverraPermission =
   | 'audit.view'
   | 'claim_registry.activate'
   | 'claim_registry.view'
+  | 'compliance.generate_audit_summary'
   | 'compliance.sign_off'
+  | 'compliance.spot_check_ruo'
+  | 'compliance.toggle_claim_registry'
   | 'compliance.view'
+  | 'compliance.view_mbom'
   | 'erasure.approve'
   | 'erasure.execute'
   | 'erasure.request'
@@ -33,6 +44,7 @@ export type LiverraPermission =
   | 'report.pacs_retry'
   | 'report.retract'
   | 'report.view'
+  | 'review.acquire_seat'
   | 'review.flr_adjust'
   | 'review.override_classification'
   | 'review.refine_mask'
@@ -43,9 +55,16 @@ export type LiverraPermission =
   | 'study.view';
 
 export const LIVERRA_PERMISSIONS: readonly LiverraPermission[] = [
+  'admin.approve_deletion',
+  'admin.cecho_pacs',
+  'admin.configure_pacs',
+  'admin.coverage_override',
+  'admin.invite_user',
+  'admin.suspend_user',
   'admin.tenant_config',
   'admin.user_create',
   'admin.user_role_change',
+  'admin.view_audit',
   'analysis.cancel',
   'analysis.retry',
   'analysis.view',
@@ -54,8 +73,12 @@ export const LIVERRA_PERMISSIONS: readonly LiverraPermission[] = [
   'audit.view',
   'claim_registry.activate',
   'claim_registry.view',
+  'compliance.generate_audit_summary',
   'compliance.sign_off',
+  'compliance.spot_check_ruo',
+  'compliance.toggle_claim_registry',
   'compliance.view',
+  'compliance.view_mbom',
   'erasure.approve',
   'erasure.execute',
   'erasure.request',
@@ -73,6 +96,7 @@ export const LIVERRA_PERMISSIONS: readonly LiverraPermission[] = [
   'report.pacs_retry',
   'report.retract',
   'report.view',
+  'review.acquire_seat',
   'review.flr_adjust',
   'review.override_classification',
   'review.refine_mask',
@@ -104,9 +128,16 @@ export const LIVERRA_ROLES: readonly LiverraRole[] = [
 
 export const ROLE_PERMISSIONS: Record<LiverraRole, readonly LiverraPermission[]> = {
   admin: [
+    'admin.approve_deletion',
+    'admin.cecho_pacs',
+    'admin.configure_pacs',
+    'admin.coverage_override',
+    'admin.invite_user',
+    'admin.suspend_user',
     'admin.tenant_config',
     'admin.user_create',
     'admin.user_role_change',
+    'admin.view_audit',
     'audit.export',
     'audit.view',
     'claim_registry.activate',
@@ -124,8 +155,12 @@ export const ROLE_PERMISSIONS: Record<LiverraRole, readonly LiverraPermission[]>
     'audit.view',
     'claim_registry.activate',
     'claim_registry.view',
+    'compliance.generate_audit_summary',
     'compliance.sign_off',
+    'compliance.spot_check_ruo',
+    'compliance.toggle_claim_registry',
     'compliance.view',
+    'compliance.view_mbom',
     'erasure.request',
     'mbom.view',
     'report.view',
@@ -149,6 +184,7 @@ export const ROLE_PERMISSIONS: Record<LiverraRole, readonly LiverraPermission[]>
     'report.download',
     'report.finalize',
     'report.view',
+    'review.acquire_seat',
     'review.flr_adjust',
     'review.override_classification',
     'review.refine_mask',
@@ -168,6 +204,7 @@ export const ROLE_PERMISSIONS: Record<LiverraRole, readonly LiverraPermission[]>
     'analysis.view',
     'report.download',
     'report.view',
+    'review.acquire_seat',
     'review.flr_adjust',
     'review.override_classification',
     'review.refine_mask',
@@ -179,9 +216,13 @@ export const ROLE_PERMISSIONS: Record<LiverraRole, readonly LiverraPermission[]>
 
 export const STEP_UP_PERMISSIONS: ReadonlySet<LiverraPermission> =
   new Set<LiverraPermission>([
+    'admin.approve_deletion',
+    'admin.coverage_override',
+    'admin.suspend_user',
     'admin.user_role_change',
     'claim_registry.activate',
     'compliance.sign_off',
+    'compliance.toggle_claim_registry',
     'erasure.approve',
     'erasure.execute',
     'mbom.upload',

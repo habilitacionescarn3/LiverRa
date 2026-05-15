@@ -206,10 +206,14 @@ export async function updateMacro(
     throw new Error('Macro trigger must start with "."');
   }
 
-  return medplum.updateResource<Basic>({
-    ...existing,
-    extension: buildMacroExtensions(newTrigger, newExpansion, newCategory),
-  });
+  // C-LOCK-3: thread the observed versionId as If-Match.
+  return medplum.updateResource<Basic>(
+    {
+      ...existing,
+      extension: buildMacroExtensions(newTrigger, newExpansion, newCategory),
+    },
+    { ifMatch: (existing.meta as { versionId?: string } | undefined)?.versionId },
+  );
 }
 
 /**
@@ -222,6 +226,21 @@ export async function deleteMacro(
   medplum: LiverRaFhirClient,
   macroId: string,
 ): Promise<void> {
+  // C-PACS-5: report macros may carry clinical phrasing that becomes
+  // part of the diagnostic record when invoked; soft-delete preserves
+  // the audit trail. If the resource is no longer readable we fall back
+  // to hard-delete so the UI doesn't get stuck pointing at a row that
+  // refuses to update.
+  const existing = (await medplum.readResource('Basic', macroId)) as
+    | (Basic & { id?: string })
+    | null;
+  if (existing && existing.resourceType === 'Basic') {
+    // C-LOCK-3: thread the observed versionId as If-Match.
+    await medplum.softDeleteResource(existing, {
+      ifMatch: (existing.meta as { versionId?: string } | undefined)?.versionId,
+    });
+    return;
+  }
   await medplum.deleteResource('Basic', macroId);
 }
 

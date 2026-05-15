@@ -98,14 +98,31 @@ LiverRa/
 
 ---
 
-## 🌐 Current Dev Setup — Option B Split (state as of May 11, 2026)
+## 🌐 Current Architecture — Cloud Staging + Local Dev (state as of May 15, 2026)
 
-**Architecture in one line:** Laptop runs everything (Vite UI + FastAPI orchestrator + Celery worker + Postgres + Redis + MinIO + the cascade orchestration code itself); Irakli's RTX 3090 box runs ONLY a stateless GPU inference microservice for TotalSegmentator. Lasha can iterate on backend code without involving Irakli.
+**Architecture in one line:** Public testing deployment runs on Netlify (frontend) + Fly.io Frankfurt (FastAPI + Celery worker) + Supabase Frankfurt (Postgres + Storage + sqla-broker) + Irakli's PC (GPU inference, exposed via Tailscale Funnel). Local dev still uses Docker stack on laptop for fast iteration.
 
-**Network:**
+**Three runtimes today:**
+
+| Layer | Where | URL / Endpoint | State |
+|---|---|---|---|
+| Frontend (React/Vite) | Netlify | `https://liverra-app.netlify.app` | ✅ live |
+| Backend (FastAPI + Celery) | Fly.io `liverra-api`, region `fra` | `https://liverra-api.fly.dev` | ✅ live, 2 API machines + 1 worker + 1 standby |
+| Database + Storage + Queue | Supabase project `bgnvtneliltraaudtzwd` (Frankfurt) | `https://bgnvtneliltraaudtzwd.supabase.co` | ✅ 17 migrations applied, RLS on PHI tables, dev tenant seeded |
+| GPU inference | Irakli's RTX 3090 box | `100.124.94.29:9101` (Tailscale) → Funnel HTTPS URL pending | ⏳ awaiting Irakli's Funnel + token (image pre-`e2bb7dc`, needs rebuild) |
+
+**Why this split:** keeps Irakli isolated to the GPU service only (no backend/code involvement during dev). Cascade orchestration, audit chain, FHIR emission all run in Fly.io. DB + audit chain + findings persist in Supabase. Everything but the GPU is one-button deploy via `fly deploy` / `netlify deploy`.
+
+**Auth posture (staging):** Backend `LIVERRA_AUTH_BYPASS=true`, frontend gated by a shared-credentials form (`VITE_LIVERRA_STAGING_EMAIL` + `VITE_LIVERRA_STAGING_PASSWORD` baked into the bundle). On success, `localStorage:liverra:staging-auth=ok` flips the dev-bypass user in `AuthContext`. Sufficient for invited-tester demos; NOT production-grade (no real Supabase Auth / Cognito integration on the frontend yet — that's a follow-up).
+
+**Tier-1 cost (testing scale):** ~$0/mo within Supabase + Fly + Netlify free tiers. Cards required on Fly + Supabase but no charge at this traffic.
+
+**Older single-laptop "Option B Split" stack still works for local dev** — see "Local dev (Docker stack)" further down. The cloud staging just mirrors it with managed services.
+
+**Network (still relevant for local dev + GPU access):**
 - Laptop: `100.110.147.104` (macbook-air-tailcaa7ec)
-- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose)
-- GPU container: `liverra/gpu-inference:1.0.2` running with `--network host -e PORT=9101`
+- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose). Funnel-exposed HTTPS URL will be appended here once Irakli ships it.
+- GPU container target: `liverra/gpu-inference:1.0.3` (post-remediation, requires `LIVERRA_GPU_SHARED_TOKEN` to start). Image on Irakli's box today: `1.0.2` (pre-remediation) — needs rebuild.
 
 **Inference contract:** stateless. Three endpoints live on the GPU service:
 - `POST /infer/total` — task=total, returns ZIP of liver/IVC/gallbladder/spleen masks
@@ -127,7 +144,7 @@ Code: `packages/ml-inference-gpu/main.py`. Client: `packages/ml-inference/src/se
 
 **Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → internal demos + clinical validation OK; commercial sales blocked until BAMF aimi-liver-tumor-ct swap (Irakli has the spec; ~1 week of his time when ready).
 
-**To start dev (laptop side):**
+**Local dev (Docker stack on laptop) — unchanged, still the fastest iteration loop:**
 ```bash
 # 1. Local docker stack (Postgres, Redis, MinIO, Orthanc, Medplum) — once
 docker compose -f deploy/local/docker-compose.yml up -d
@@ -169,24 +186,55 @@ curl http://100.124.94.29:9101/health   # → {"ok": true, "cuda_available": tru
 - **Tailscale ACL gotcha** — new ports must be added to the tailnet ACL at https://login.tailscale.com/admin/acls before peers can reach them. Symptoms of missing ACL: `tailscale nc <host> <port>` returns `502 Bad Gateway / dial tcp i/o timeout` (NOT silent timeout — that signal is misleading). Authoritative diagnostic: `tailscale debug netmap | jq '.PacketFilter'` on the destination box.
 - **Triton path is fully dormant.** Stub model.pt files still exist for backward compat; ignore.
 
-**To resume tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
+**To resume local dev tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
+
+**Cloud deploy commands (for staging refreshes):**
+```bash
+# Backend (FastAPI + Celery → Fly.io)
+cd packages/ml-inference && fly deploy --app liverra-api --remote-only
+
+# Frontend (Vite build → Netlify)
+cd /Users/toko/Desktop/LiverRa
+NETLIFY_FILTER=@liverra/app netlify build --filter @liverra/app
+NETLIFY_FILTER=@liverra/app netlify deploy --dir packages/app/dist --prod \
+  --site c3e44f6f-4425-49ff-85b2-237c29e6cd01 --filter @liverra/app
+
+# Migrations against Supabase (after schema changes)
+./scripts/deploy-migrate.sh    # reads DATABASE_URL_SYNC from env
+
+# Health probe (cloud):
+curl https://liverra-api.fly.dev/api/v1/system/health
+```
+
+**Fly secrets reference:** see `scripts/fly-secrets.example.env` for the full list (DB URLs, Supabase keys, GPU token, CORS origins, env tier). Real values live in `fly secrets list --app liverra-api` (encrypted, never logged). Staging credentials for the frontend gate live in Netlify env (`VITE_LIVERRA_STAGING_EMAIL` + `VITE_LIVERRA_STAGING_PASSWORD`).
 
 ---
 
-## 📍 Where we stand (May 11, 2026 — read this first)
+## 📍 Where we stand (May 15, 2026 — read this first)
 
-**Last verified working end-to-end:** cascade `604fb4dc-b221-4f17-aa9f-36b5a85dd987` ran in **13m 51s** on the Todua-CT, persisted 5/7 Phase 1 findings, classification fired (1 lesion → ICC at 88% conf), FLR computed (518.5 mL, 28.4%). PDF report at `~/Desktop/liverra-report-604fb4dc.pdf`.
+**Last verified working end-to-end (local laptop):** cascade `c30909b0-97c5-43c1-b820-ba0551a2ec54` ran in **7min 48s** on a 14-series Thorax/Abdomen CT, all 8 stages, audit chain 7 rows hash-linked, 5/7 Phase 1 findings persisted with tenant_id, model_versions JSONB populated. Verified Mar 14 2026 immediately after the full-audit remediation landed.
 
-**Open decision (not yet executed):** revert the combined GPU endpoint `infer_total_and_vessels` in the cascade, go back to the original two-call pattern. Empirical data shows two-call is ~2 min faster on this Tailscale link (12m 8s vs 13m 51s). Revert is a ~5-line change in `scripts/real_cascade.py` (swap one `infer_total_and_vessels(...)` back to `infer_total(...)` upfront + restore the `infer_liver_vessels(...)` call in stage 5). Combined endpoint stays live on the GPU service for backward compat — just unused by the cascade.
+**Cloud staging URL (live):** `https://liverra-app.netlify.app` — login with the shared credentials from `scripts/netlify-env.example.env` or wherever the team stores them. After login lands on `/cases` (empty until the first cascade through the cloud path).
 
-**Next direction queued (Option 3 — for fast dev iteration):** make the cascade skip the GPU calls entirely when masks already exist in laptop's MinIO for the study. First-run stays ~12 min; **re-runs of the same study drop to ~2 min** because no upload, no TS, no download. Effort ~2 hours; not started.
+**Open dependency:** Irakli ships the Funnel URL + GPU shared token. He needs to `git pull` branch `002-acr-structured-readout` (top commit `cf3d7ce`), rebuild `liverra/gpu-inference:1.0.3`, restart with `LIVERRA_GPU_SHARED_TOKEN`, run `tailscale funnel --bg 9101`. Once those two values arrive: `fly secrets set --app liverra-api LIVERRA_INFERENCE_URL=... LIVERRA_GPU_SHARED_TOKEN=...` and end-to-end works in the cloud.
 
-**Recent commits relevant to this state:**
-- `3c87b9d` — Phase 1 findings + Option B split (the foundation)
-- `af77982` — `--network host` + `PORT` env var (WSL2-tailscaled-bridge-network gotcha)
-- `a58f405` — combined `/infer/total_and_vessels` endpoint (the experiment that turned out slower)
-- `a6e42b3` — spleen-mask messaging fix (surface "too small" warning instead of silent omission)
-- `e325919` — bumped client timeout default 5min → 30min, fixed stale `:9100` default URL
+**Recent commits relevant to this state (most recent first):**
+- `cf3d7ce` — GPU service `__main__` block (Irakli's smoke-test request)
+- `650a50b` — staging credentials gate on SigninView (`VITE_LIVERRA_STAGING_*`)
+- `86b208a` — asyncpg statement_cache_size=0 in production session (Supabase pooler)
+- `df213f2` — backend live at liverra-api.fly.dev (RLS-session stub middleware)
+- `c51a0cf` — cloud-staging artifacts (Dockerfile entrypoint, fly.toml, deploy-migrate.sh, runbook)
+- `16ecfdf` — asyncpg statement_cache_size=0 in alembic env (same fix, migrations side)
+- `2f92420` — restored canonical blue brand ramp (warm-gray T464 experiment reverted)
+- `b05f9bc`, `4631734` — post-audit fixes (model_versions ModelProvenance shape, /results study_id shadowing)
+- `e2bb7dc` — GPU bearer auth + model-version provenance headers + license gate + ZIP-slip fix
+- 16 more commits from the May 14 audit remediation — see `audit-findings/full-emr-audit-2026-05-14-PART1-*.md`
+
+**Open architectural decisions (deferred, not blocking):**
+- Real Supabase Auth on the frontend (today: shared-credentials gate + backend bypass). Lift when paying-tester cohort > 5.
+- Replace Supabase Auth with Cognito for production CE-MDR submission (per CLAUDE.md regulatory plan; current setup is staging-tier only).
+- Move object storage from Supabase Storage → AWS S3 eu-central-1 with KMS for real PHI.
+- Revert combined GPU endpoint to two-call pattern (still ~2 min faster per CLAUDE.md historical note); already done in commit `e2bb7dc`'s real_cascade.py.
 
 ---
 
@@ -272,26 +320,77 @@ cd packages/app && VITE_LIVERRA_DEV_BYPASS=true npx vite --port 5173
 - When adding a new namespace, register it in `TRANSLATION_NAMESPACES` in `TranslationContext.tsx`.
 - Medical terminology in `de/ka/ru` files is CODEOWNERS-locked — never commit translations without medical reviewer sign-off.
 
-### Unified Color System (CRITICAL — to be created)
-- Theme variables in `packages/app/src/emr/styles/theme.css` (port from MediMind, rebrand colors)
-- NEVER hardcode colors in component files
-- FORBIDDEN: Tailwind blues (#3b82f6, #60a5fa, #2563eb), Facebook blue (#4267B2)
-- Light/dark mode via `data-mantine-color-scheme` attribute
-- Semantic variables only: `--emr-bg-page`, `--emr-bg-card`, NEVER `--emr-gray-N` for backgrounds
+### Unified Color System (CRITICAL)
 
-### EMR Component Library (to be ported)
+**Source of truth:** `packages/app/src/emr/styles/theme.css`. The brand ramp lives under `--liverra-primary-50…900`; semantic tokens (`--emr-primary`, `--emr-secondary`, `--emr-accent`, `--emr-light-accent`) are aliased onto it so a future ramp swap is one-file. T464 gates the brand-ramp swap pending design-lead sign-off — never edit ramp values without bumping `brand-tokens.md` status.
+
+- NEVER hardcode hex values in component files. Use `var(--emr-*)` in CSS, `THEME_COLORS.*` from `constants/theme-colors.ts` in TypeScript inline styles.
+- **FORBIDDEN (Tailwind/Chakra/Facebook blues that clash with LiverRa palette):** `#3b82f6`, `#60a5fa`, `#2563eb`, `#93c5fd`, `#1d4ed8`, `#4299e1`, `#63b3ed`, `#4267B2`, `#3b5998`. The frontend-designer agent self-audits with a denylist grep on every file it touches.
+- Semantic token categories: **brand** (`--emr-primary/secondary/accent/light-accent`), **surface** (`--emr-bg-page/card/modal/hover/input`), **text** (`--emr-text-primary/secondary/inverse`), **semantic status** (`--emr-success/warning/error/info`), **borders** (`--emr-border-color/default`), **alpha overlays** (`--emr-{primary,secondary,white}-alpha-N`).
+- Light/dark mode auto-switches via `data-mantine-color-scheme` attribute — surface and text vars resolve to the right value in either mode.
+- NEVER use `--emr-gray-N` for backgrounds (numbered gray scale inverts in dark mode). Use semantic surface vars instead.
+
+### Dark Mode Architecture (CRITICAL — 7 rules)
+
+1. **NEVER hardcode dark hex values** in CSS modules (e.g., `#1e293b`, `#334155`). Use `var(--emr-bg-card)`, `var(--emr-bg-hover)`, etc.
+2. **NEVER use dark-mode values as `var()` fallbacks** — `var(--emr-bg-card, #1e293b)` is wrong because the variable is always defined and the fallback never activates.
+3. **NEVER use numeric fallbacks for theme variables** — `var(--emr-font-sm, 12px)` is unnecessary.
+4. **Always use semantic `var(--emr-xxx)` variables** — they auto-switch between light and dark.
+5. **NEVER write `:root[data-mantine-color-scheme="dark"]` overrides in CSS modules.** Dark mode is owned by `theme.css`; module-level overrides cause gray-scale inversion bugs.
+6. **NEVER use `--emr-gray-N` variables for backgrounds.** The numbering inverts in dark mode. Use semantic surface vars instead (`--emr-bg-page`, `--emr-bg-card`, etc.).
+7. **For progress bars / colored fills**, use direct color values from the brand or semantic palette (`var(--emr-success)`, `var(--emr-secondary)`) — these are intentional brand colors, not surfaces.
+
+### Primary Button Gradient (CRITICAL)
+
+ALL primary buttons MUST use:
+```css
+background: var(--emr-gradient-primary);
+```
+The gradient definition lives in `theme.css` and follows the brand ramp. **Never inline the gradient hex** — when T464 lands and warm-gray flips to the approved ramp, the gradient updates everywhere automatically.
+
+### EMR Component Library (CRITICAL)
+
+**Source of truth:** `explanations/ui-component-library.md` (component architecture, Mantine→EMR* mapping table, known gaps).
+
+- 51 common components in `packages/app/src/emr/components/common/`, 21 form fields in `packages/app/src/emr/components/shared/EMRFormFields/` — all already in place.
 - ALL modals → `EMRModal` from `components/common/`
-- ALL form fields → `EMRTextInput`, `EMRSelect`, `EMRDatePicker`, `EMRCheckbox`
-- ALL primary buttons → `EMRButton` with gradient `linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%)` (LiverRa may override — TBD in constitution)
+- ALL form fields → `EMRTextInput`, `EMRTextarea`, `EMRNumberInput`, `EMRSelect`, `EMRMultiSelect`, `EMRAutocomplete`, `EMRCheckbox`, `EMRSwitch`, `EMRRadioGroup`, `EMRDatePicker`, `EMRDateTimePicker`, `EMRTimeInput`, `EMRColorInput`
+- ALL primary buttons → `EMRButton` (uses the gradient token, never an inline gradient)
+- ALL tables → `EMRTable` / `EMRVirtualTable`
+- The `frontend-designer` agent runs a denylist grep that flags any `@mantine/core` or `@mantine/dates` import outside the allowed layout-primitive set (Box, Group, Stack, Text, Paper, Grid, etc.) — those imports must use the EMR* wrapper instead.
+
+### EMRModal Usage (CRITICAL)
+
+ALL modals MUST use `EMRModal` from `packages/app/src/emr/components/common/EMRModal.tsx`.
+
+**Sizes:** `sm` (580px), `md` (780px), `lg` (980px), `xl` (1200px), `xxl` (95vw). Prefer `lg` or larger for any form with 4+ fields.
+
+```tsx
+<EMRModal
+  opened={opened} onClose={onClose} size="lg"
+  icon={IconEdit} title={t('title')} subtitle={name}
+  cancelLabel={t('cancel')} submitLabel={t('save')}
+  onSubmit={handleSubmit} submitLoading={loading}
+>
+  {/* Form fields only — EMR* components */}
+</EMRModal>
+```
+
+### Unified Typography (CRITICAL)
+
+NEVER hardcode font sizes. Use `theme.css` variables:
+- Sizes: `--emr-font-xs` (11px) through `--emr-font-3xl` (24px)
+- Weights: `--emr-font-normal` (400) through `--emr-font-bold` (700)
 
 ### Mobile-First Responsive (CRITICAL)
 - Style for mobile first, enhance with media queries
-- Min 44×44px tap targets, min 16px font on mobile
+- Min 44×44px tap targets, min 16px font on mobile (prevents iOS zoom)
 - Mantine breakpoints: xs 576, sm 768, md 992, lg 1200, xl 1400
+- Use Mantine responsive props: `span={{ base: 12, md: 6 }}`
 
 ### Flexbox Text Overflow (CRITICAL)
 - Buttons/badges/pills: `flexShrink: 0` + `whiteSpace: 'nowrap'`
-- Flex children with truncation: `minWidth: 0`
+- Flex children with truncation (lineClamp / ellipsis): `minWidth: 0`
 - `Group` with mixed content: `wrap="wrap"`, never `wrap="nowrap"` unless all children fit
 
 ### Mantine Button Styling (CRITICAL)
@@ -572,3 +671,12 @@ Comprehensive research was completed BEFORE this scaffold was built. Consolidate
 5. Follow plan → tasks → analyze → implement cycle
 
 **Remember:** First line of code gets written AFTER the constitution and the first feature spec are complete. Not before.
+
+## Active Technologies
+- TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure (002-acr-structured-readout)
+- PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables (002-acr-structured-readout)
+- TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 + TanStack Query (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditChainWriter` infrastructure; existing PostHog client; existing `idb` (IndexedDB wrapper) (002-acr-structured-readout)
+- PostgreSQL — reuses `analysis_finding` table (migration 0013) and `audit_event_chain` table (migration 0005); no new tables; one new `audit_category` enum value (Postgres CHECK constraint update required) (002-acr-structured-readout)
+
+## Recent Changes
+- 002-acr-structured-readout: Added TypeScript 5 strict (frontend), Python 3.11 (PDF render) + React 19 + Mantine 7 (frontend); FastAPI + Jinja2 + existing PDF builder (Python); existing `AuditEvent` infrastructure

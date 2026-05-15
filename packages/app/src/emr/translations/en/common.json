@@ -47,6 +47,10 @@
   "permission": {
     "accessDenied": "You don't have permission to do this."
   },
+  "permissionDenied": {
+    "title": "Access denied",
+    "body": "You don't have permission to view this page. Contact your administrator if you believe this is an error."
+  },
   "recordLock": {
     "locked": "This record is locked by another user.",
     "lockedWithOverride": "This record is locked by another user. You may request an override.",
@@ -68,5 +72,6 @@
     "explanation": "This action requires a fresh authentication to protect sensitive data.",
     "reauthenticate": "Re-authenticate",
     "title": "Confirm it's you"
-  }
+  },
+  "goHome": "Go to home page"
 }

@@ -1,0 +1,131 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "classes": {
+    "HCC": {
+      "name": "__TODO_TRANSLATE__:HCC",
+      "long": "__TODO_TRANSLATE__:Hepatocellular carcinoma",
+      "malignancy": "__TODO_TRANSLATE__:malignant"
+    },
+    "ICC": {
+      "name": "__TODO_TRANSLATE__:ICC",
+      "long": "__TODO_TRANSLATE__:Intrahepatic cholangiocarcinoma",
+      "malignancy": "__TODO_TRANSLATE__:malignant"
+    },
+    "MET": {
+      "name": "__TODO_TRANSLATE__:MET",
+      "long": "__TODO_TRANSLATE__:Metastasis",
+      "malignancy": "__TODO_TRANSLATE__:malignant"
+    },
+    "FNH": {
+      "name": "__TODO_TRANSLATE__:FNH",
+      "long": "__TODO_TRANSLATE__:Focal nodular hyperplasia",
+      "malignancy": "__TODO_TRANSLATE__:benign"
+    },
+    "HEM": {
+      "name": "__TODO_TRANSLATE__:HEM",
+      "long": "__TODO_TRANSLATE__:Hemangioma",
+      "malignancy": "__TODO_TRANSLATE__:benign"
+    },
+    "CYST": {
+      "name": "__TODO_TRANSLATE__:CYST",
+      "long": "__TODO_TRANSLATE__:Hepatic cyst",
+      "malignancy": "__TODO_TRANSLATE__:benign"
+    }
+  },
+  "abstention": {
+    "label": "__TODO_TRANSLATE__:Uncertain",
+    "help": "__TODO_TRANSLATE__:The AI could not confidently classify this lesion. Radiologist review is recommended.",
+    "tooltip": "__TODO_TRANSLATE__:Uncertain — radiologist review recommended",
+    "reviewCta": "__TODO_TRANSLATE__:Mark for review",
+    "badgeAria": "__TODO_TRANSLATE__:Uncertain classification, radiologist review recommended"
+  },
+  "list": {
+    "heading": "__TODO_TRANSLATE__:Detected lesions",
+    "columns": {
+      "thumbnail": "__TODO_TRANSLATE__:Preview",
+      "location": "__TODO_TRANSLATE__:Segment",
+      "diameter": "__TODO_TRANSLATE__:Diameter",
+      "class": "__TODO_TRANSLATE__:Class",
+      "confidence": "__TODO_TRANSLATE__:Confidence",
+      "source": "__TODO_TRANSLATE__:Source"
+    },
+    "source": {
+      "ai_detected": "__TODO_TRANSLATE__:AI",
+      "reviewer_prompted": "__TODO_TRANSLATE__:Reviewer"
+    },
+    "rowAria": "__TODO_TRANSLATE__:Lesion {{index}} of {{total}}, Segment {{segment}}, {{diameter}} mm, {{className}} suggested, {{confidence}}% confidence",
+    "emptyState": {
+      "title": "__TODO_TRANSLATE__:No lesions detected",
+      "body": "__TODO_TRANSLATE__:The AI did not identify any focal lesions. Please review manually — AI may miss small or atypical lesions."
+    },
+    "loading": "__TODO_TRANSLATE__:Loading lesions…",
+    "filters": {
+      "heading": "__TODO_TRANSLATE__:Filter lesions",
+      "confidence": "__TODO_TRANSLATE__:Min confidence",
+      "confidenceValue": "__TODO_TRANSLATE__:{{value}}% or higher",
+      "class": "__TODO_TRANSLATE__:Class",
+      "classAll": "__TODO_TRANSLATE__:All classes",
+      "size": "__TODO_TRANSLATE__:Size",
+      "sizeAll": "__TODO_TRANSLATE__:Any size",
+      "sizeSmall": "__TODO_TRANSLATE__:< 10 mm",
+      "sizeMedium": "__TODO_TRANSLATE__:10–30 mm",
+      "sizeLarge": "__TODO_TRANSLATE__:> 30 mm",
+      "segment": "__TODO_TRANSLATE__:Segment",
+      "segmentAll": "__TODO_TRANSLATE__:All segments",
+      "clear": "__TODO_TRANSLATE__:Clear filters",
+      "resultCount": "__TODO_TRANSLATE__:{{count}} of {{total}} lesions"
+    },
+    "aiSuggestionSuffix": "__TODO_TRANSLATE__:(AI suggestion)"
+  },
+  "detail": {
+    "heading": "__TODO_TRANSLATE__:Lesion #{{index}}",
+    "close": "__TODO_TRANSLATE__:Close lesion detail",
+    "sections": {
+      "location": "__TODO_TRANSLATE__:Location",
+      "size": "__TODO_TRANSLATE__:Size",
+      "classification": "__TODO_TRANSLATE__:Classification",
+      "visualization": "__TODO_TRANSLATE__:Visualization",
+      "actions": "__TODO_TRANSLATE__:Actions"
+    },
+    "location": {
+      "segment": "__TODO_TRANSLATE__:Couinaud segment",
+      "multiSegment": "__TODO_TRANSLATE__:Spans multiple segments",
+      "description": "__TODO_TRANSLATE__:Anatomical description"
+    },
+    "size": {
+      "axial": "__TODO_TRANSLATE__:Axial diameter",
+      "coronal": "__TODO_TRANSLATE__:Coronal diameter",
+      "sagittal": "__TODO_TRANSLATE__:Sagittal diameter",
+      "volume": "__TODO_TRANSLATE__:Volume",
+      "mm": "__TODO_TRANSLATE__:mm",
+      "ml": "__TODO_TRANSLATE__:mL"
+    },
+    "classification": {
+      "distribution": "__TODO_TRANSLATE__:Probability distribution",
+      "highest": "__TODO_TRANSLATE__:Highest-probability class",
+      "temperature": "__TODO_TRANSLATE__:Calibration temperature: {{value}}",
+      "abstained": "__TODO_TRANSLATE__:AI abstained — no class above threshold {{threshold}}"
+    },
+    "visualization": {
+      "axial": "__TODO_TRANSLATE__:Axial",
+      "coronal": "__TODO_TRANSLATE__:Coronal",
+      "sagittal": "__TODO_TRANSLATE__:Sagittal",
+      "watermark": "Только для исследовательских целей"
+    },
+    "actions": {
+      "override": "__TODO_TRANSLATE__:Override classification",
+      "overrideHelp": "__TODO_TRANSLATE__:Override with a radiologist-chosen class (logged for audit).",
+      "reReview": "__TODO_TRANSLATE__:Mark for re-review",
+      "reReviewHelp": "__TODO_TRANSLATE__:Flag this lesion for a second-reader review."
+    }
+  },
+  "layer": {
+    "title": "__TODO_TRANSLATE__:Lesion overlays",
+    "hiddenCount": "__TODO_TRANSLATE__:{{count}} lesions hidden",
+    "focusAria": "__TODO_TRANSLATE__:Focus on lesion {{index}}: {{className}} in segment {{segment}}"
+  }
+}

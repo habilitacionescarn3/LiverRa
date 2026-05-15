@@ -47,6 +47,8 @@ export interface DispatchClassificationInput {
   newClass: string;
   priorClass: string | null;
   reason: string;
+  /** Optimistic-lock tag (H-LOCK-3). The backend CAS-bumps the lesion row. */
+  clientVersion?: number;
 }
 
 export interface UseRefinementDispatchResult {
@@ -125,7 +127,9 @@ export function useRefinementDispatch(): UseRefinementDispatchResult {
           lesion_id: input.lesionId,
           new_class: input.newClass,
           reason: input.reason,
-          client_version: 1,
+          // H-LOCK-3: thread the version the UI last observed so the
+          // backend can CAS-bump and reject stale overwrites.
+          client_version: input.clientVersion ?? 1,
         },
         endpoint: `/reviews/${seat.reviewId}/classification-override`,
       });

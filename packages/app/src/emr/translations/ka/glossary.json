@@ -1,17 +1,169 @@
 {
   "__reviewers": "@georgian-hpb-reviewer — გთხოვთ გადაამოწმოთ ტერმინოლოგია (Couinaud სეგმენტები; HPB ქირურგიის ნომენკლატურა). Latin transliteration kept alongside the Georgian script so terminology lookups remain interoperable.",
   "couinaud": {
-    "I":    { "name": "სეგმენტი I",    "latin": "Lobus caudatus",                                       "role": "კუდიანი წილი (Lobus caudatus)" },
-    "II":   { "name": "სეგმენტი II",   "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",    "role": "მარცხენა ლატერალური ზედა" },
-    "III":  { "name": "სეგმენტი III",  "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",   "role": "მარცხენა ლატერალური ქვედა" },
-    "IV":   { "name": "სეგმენტი IV",   "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",             "role": "მარცხენა მედიალური" },
-    "V":    { "name": "სეგმენტი V",    "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",      "role": "მარჯვენა წინა ქვედა" },
-    "VI":   { "name": "სეგმენტი VI",   "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",    "role": "მარჯვენა უკანა ქვედა" },
-    "VII":  { "name": "სეგმენტი VII",  "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",   "role": "მარჯვენა უკანა ზედა" },
-    "VIII": { "name": "სეგმენტი VIII", "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",   "role": "მარჯვენა წინა ზედა" }
+    "I": {
+      "name": "სეგმენტი I",
+      "latin": "Lobus caudatus",
+      "role": "კუდიანი წილი (Lobus caudatus)"
+    },
+    "II": {
+      "name": "სეგმენტი II",
+      "latin": "Segmentum II (Lobus hepatis sinister, laterale superius)",
+      "role": "მარცხენა ლატერალური ზედა"
+    },
+    "III": {
+      "name": "სეგმენტი III",
+      "latin": "Segmentum III (Lobus hepatis sinister, laterale inferius)",
+      "role": "მარცხენა ლატერალური ქვედა"
+    },
+    "IV": {
+      "name": "სეგმენტი IV",
+      "latin": "Segmentum IV (Lobus hepatis sinister, mediale)",
+      "role": "მარცხენა მედიალური"
+    },
+    "V": {
+      "name": "სეგმენტი V",
+      "latin": "Segmentum V (Lobus hepatis dexter, anterius inferius)",
+      "role": "მარჯვენა წინა ქვედა"
+    },
+    "VI": {
+      "name": "სეგმენტი VI",
+      "latin": "Segmentum VI (Lobus hepatis dexter, posterius inferius)",
+      "role": "მარჯვენა უკანა ქვედა"
+    },
+    "VII": {
+      "name": "სეგმენტი VII",
+      "latin": "Segmentum VII (Lobus hepatis dexter, posterius superius)",
+      "role": "მარჯვენა უკანა ზედა"
+    },
+    "VIII": {
+      "name": "სეგმენტი VIII",
+      "latin": "Segmentum VIII (Lobus hepatis dexter, anterius superius)",
+      "role": "მარჯვენა წინა ზედა"
+    }
   },
   "vessels": {
-    "portal":  { "name": "კარიბჭის ვენა",    "latin": "Vena portae hepatis", "role": "შემოსადინებელი ვენური ღერო — ნაწლავებიდან და ელენთიდან" },
-    "hepatic": { "name": "ღვიძლის ვენები",   "latin": "Venae hepaticae",     "role": "გამომყოფი ვენური ღერო — ქვედა ღრუ ვენისკენ" }
+    "portal": {
+      "name": "კარიბჭის ვენა",
+      "latin": "Vena portae hepatis",
+      "role": "შემოსადინებელი ვენური ღერო — სისხლი მოაქვს ნაწლავებიდან და ელენთიდან"
+    },
+    "hepatic": {
+      "name": "ღვიძლის ვენები",
+      "latin": "Venae hepaticae",
+      "role": "გამომყოფი ვენური ღერო — ქვედა ღრუ ვენისკენ"
+    }
+  },
+  "page": {
+    "title": "კლინიკური გლოსარიუმი",
+    "subtitle": "LiverRa-ში გამოყენებული ტერმინოლოგია: Couinaud ანატომია, სისხლძარღვები, ლეზიების კლასები და აბრევიატურები.",
+    "searchPlaceholder": "საძიებო ტერმინები, ლათინური სახელები ან აბრევიატურები…",
+    "clearFilter": "ფილტრის გასუფთავება",
+    "noMatches": "თქვენს ძიებაზე შესაბამისი ტერმინი ვერ მოიძებნა.",
+    "resultsCount": "ნაპოვნია {{count}} / {{total}} ტერმინი"
+  },
+  "categories": {
+    "all": "ყველა",
+    "couinaud": "Couinaud სეგმენტები",
+    "vessels": "სისხლძარღვები",
+    "lesions": "ლეზიების კლასები",
+    "phases": "კონტრასტული ფაზები",
+    "abbreviations": "აბრევიატურები"
+  },
+  "lesions": {
+    "hcc": {
+      "name": "ჰეპატოცელულარული კარცინომა",
+      "abbr": "HCC",
+      "role": "პირველადი ავთვისებიანი სიმსივნე, რომელიც ვითარდება ჰეპატოციტებიდან; ხშირად ციროზულ ფონზე."
+    },
+    "icc": {
+      "name": "ინტრაჰეპატური ქოლანგიოკარცინომა",
+      "abbr": "ICC",
+      "role": "სანაღვლე გზების პირველადი ავთვისებიანი სიმსივნე, რომელიც ვითარდება ღვიძლშიდა სანაღვლე სადინარებიდან."
+    },
+    "metastasis": {
+      "name": "მეტასტაზი",
+      "abbr": "MET",
+      "role": "მეორადი ავთვისებიანი სიმსივნე — ხშირად კოლორექტალური, პანკრეასის, სარძევე ჯირკვლის ან ნეიროენდოკრინული პირველადი კერებით."
+    },
+    "fnh": {
+      "name": "ფოკალური ნოდულარული ჰიპერპლაზია",
+      "abbr": "FNH",
+      "role": "კეთილთვისებიანი ჰიპერპლაზიური ლეზია; ხასიათდება ცენტრალური ნაწიბურით MRI კვლევაზე."
+    },
+    "hemangioma": {
+      "name": "ჰემანგიომა",
+      "abbr": "HEM",
+      "role": "კეთილთვისებიანი სისხლძარღვოვანი ლეზია; ტიპურია პერიფერიული კვანძოვანი გაძლიერება."
+    },
+    "cyst": {
+      "name": "მარტივი კისტა",
+      "abbr": "CYST",
+      "role": "კეთილთვისებიანი თხევადი წარმონაქმნი; კონტრასტული გაძლიერება არ აღინიშნება."
+    }
+  },
+  "phases": {
+    "native": {
+      "name": "ნატიური (უკონტრასტო)",
+      "role": "საბაზისო CT კვლევა კონტრასტის შეყვანამდე."
+    },
+    "arterial": {
+      "name": "გვიანი არტერიული",
+      "role": "~30 წამი ინექციიდან; ღვიძლის არტერიის გაძლიერება — კარგად ჩანს HCC და FNH."
+    },
+    "portal": {
+      "name": "პორტული ვენური",
+      "role": "~65–75 წამი; ღვიძლის პარენქიმის მაქსიმალური გაძლიერება — კარგად ჩანს მეტასტაზები."
+    },
+    "venous": {
+      "name": "ღვიძლის ვენური",
+      "role": "~3 წუთი; წონასწორობის ფაზა — ვლინდება სიმსივნის კონტრასტის გამორეცხვა (washout)."
+    },
+    "delayed": {
+      "name": "დაგვიანებული",
+      "role": "~5–10 წუთი; ფიბროზული კომპონენტები ინარჩუნებენ კონტრასტს."
+    }
+  },
+  "abbreviations": {
+    "flr": {
+      "name": "ღვიძლის მომავალი რემნანტი (Future Liver Remnant)",
+      "abbr": "FLR",
+      "role": "რეზექციის შემდგომი ღვიძლის მოცულობა, გამოხატული მთლიანი მოცულობის %-ში. სამიზნე ≥30–40% ჯანსაღი ღვიძლისთვის, უფრო მაღალი — დაზიანებისას."
+    },
+    "alpps": {
+      "name": "ღვიძლის დანაწილებისა და კარიბჭის ვენის ლიგირების ასოცირება ეტაპობრივი ჰეპატექტომიისთვის (ALPPS)",
+      "abbr": "ALPPS",
+      "role": "ორეტაპიანი ჰეპატექტომიის ტექნიკა, რომელიც აჩქარებს FLR ჰიპერტროფიას."
+    },
+    "ruo": {
+      "name": "მხოლოდ კვლევითი მიზნებისთვის (Research Use Only)",
+      "abbr": "RUO",
+      "role": "რეგულაციური სფერო — შედეგები არ არის განკუთვნილი კლინიკური გადაწყვეტილებების მისაღებად."
+    },
+    "mrn": {
+      "name": "სამედიცინო ბარათის ნომერი (Medical Record Number)",
+      "abbr": "MRN",
+      "role": "საავადმყოფოს მიერ მინიჭებული პაციენტის იდენტიფიკატორი."
+    },
+    "sop_uid": {
+      "name": "SOP Instance UID",
+      "abbr": "SOP UID",
+      "role": "DICOM უნიკალური იდენტიფიკატორი თითოეული ობიექტისთვის."
+    },
+    "dicom_seg": {
+      "name": "DICOM სეგმენტაცია",
+      "abbr": "SEG",
+      "role": "სტანდარტული DICOM IOD 3D მასკების ექსპორტისთვის."
+    },
+    "dicom_sr": {
+      "name": "DICOM სტრუქტურირებული ანგარიში",
+      "abbr": "SR",
+      "role": "სტანდარტული DICOM IOD სტრუქტურირებული კლინიკური დასკვნებისთვის."
+    },
+    "pacs": {
+      "name": "სურათების არქივირებისა და გადაცემის სისტემა (PACS)",
+      "abbr": "PACS",
+      "role": "საავადმყოფოს გამოსახულებების შენახვისა და გადაცემის სისტემა; DICOM-ზე დაფუძნებული."
+    }
   }
 }

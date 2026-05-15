@@ -138,15 +138,15 @@ export function RUODisclaimer({
       data-testid={testId}
       role="note"
       aria-hidden="false"
-      aria-label={shortText}
+      aria-label={`${shortText}. ${longText}`}
       tabIndex={0}
       style={{
         position: 'fixed',
         right: 16,
         bottom: 16,
         zIndex: 1150,
-        maxWidth: 360,
-        minWidth: 240,
+        maxWidth: 320,
+        minWidth: 200,
         borderRadius: 'var(--emr-border-radius-lg)',
         overflow: 'hidden',
         background:
@@ -222,31 +222,34 @@ export function RUODisclaimer({
         <rect width="100%" height="100%" fill="url(#ruo-svg-pattern)" />
       </svg>
 
-      {/* Layer 1: primary readable text */}
+      {/* Layer 1: primary readable text — single-line for minimal footprint;
+          longText kept in `aria-label` for screen readers and inside the
+          canvas/SVG watermarks (Layers 2 + 4) for screenshot-burn compliance. */}
       <Box
         style={{
           position: 'relative',
           zIndex: 2,
-          padding: '10px 14px',
+          padding: '8px 12px',
           display: 'flex',
-          alignItems: 'flex-start',
-          gap: 10,
+          alignItems: 'center',
+          gap: 8,
         }}
       >
         <IconAlertOctagon
-          size={20}
+          size={16}
           stroke={2}
-          style={{ flexShrink: 0, marginTop: 2 }}
+          style={{ flexShrink: 0 }}
           aria-hidden="true"
         />
-        <Box style={{ minWidth: 0 }}>
-          <Text fz="var(--emr-font-sm)" fw={700} c="inherit" lh={1.3}>
-            {shortText}
-          </Text>
-          <Text fz="var(--emr-font-xs)" c="inherit" lh={1.35} style={{ opacity: 0.92 }}>
-            {longText}
-          </Text>
-        </Box>
+        <Text
+          fz="var(--emr-font-sm)"
+          fw={700}
+          c="inherit"
+          lh={1.3}
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {shortText}
+        </Text>
       </Box>
     </Box>
   );

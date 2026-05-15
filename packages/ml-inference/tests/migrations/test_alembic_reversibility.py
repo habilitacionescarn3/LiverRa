@@ -58,6 +58,13 @@ def alembic_cfg(postgres_container: str):  # type: ignore[no-untyped-def]
     if not ALEMBIC_INI.exists():
         pytest.skip(f"alembic.ini missing at {ALEMBIC_INI}")
 
+    # Alembic's relative ``script_location`` in alembic.ini resolves
+    # against the process cwd. Pytest can run from anywhere (CI vs.
+    # editor vs. monorepo root), so anchor the cwd explicitly to the
+    # alembic.ini directory before any alembic command executes.
+    # This is the second half of the M-UT-3 fix.
+    os.chdir(ALEMBIC_INI.parent)
+
     cfg = Config(str(ALEMBIC_INI))
     cfg.set_main_option("script_location", str(VERSIONS_DIR.parent))
     cfg.set_main_option("sqlalchemy.url", postgres_container)
@@ -70,7 +77,14 @@ def alembic_cfg(postgres_container: str):  # type: ignore[no-untyped-def]
 
 
 def _list_revisions(versions_dir: Path) -> List[str]:
-    """Return revision identifiers in chronological (filename) order."""
+    """Return revision identifiers in chronological (filename) order.
+
+    Migration files declare the revision as either ``revision = "0001..."``
+    or ``revision: str = "0001..."`` (annotated). The earlier version of
+    this helper only matched the unannotated form, which silently dropped
+    every migration in this repo (all use the annotated form) and made
+    the parametrize list empty — root cause of audit finding M-UT-3.
+    """
 
     if not versions_dir.exists():
         return []
@@ -79,10 +93,16 @@ def _list_revisions(versions_dir: Path) -> List[str]:
     for p in files:
         text = p.read_text()
         for line in text.splitlines():
-            if line.startswith("revision = "):
-                rev = line.split("=", 1)[1].strip().strip("\"'")
-                revisions.append(rev)
-                break
+            stripped = line.lstrip()
+            # Accept both ``revision =`` and ``revision: str =`` forms.
+            if stripped.startswith("revision = ") or stripped.startswith("revision:"):
+                if "=" not in stripped:
+                    continue
+                rev = stripped.split("=", 1)[1].strip().strip("\"'")
+                # Reject empty / quote-only fragments
+                if rev:
+                    revisions.append(rev)
+                    break
     return revisions
 
 

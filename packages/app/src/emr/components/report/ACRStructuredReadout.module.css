@@ -1,0 +1,121 @@
+/*
+ * ACRStructuredReadout.module.css — parent layout for the structured
+ * readout panel (002-acr-structured-readout, T040).
+ *
+ * Mobile-first; NO hex literals — every color is a `var(--emr-*)` token
+ * so light/dark mode is governed by theme.css.
+ */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--emr-spacing-md);
+  width: 100%;
+  padding: var(--emr-spacing-lg);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  border-radius: var(--emr-border-radius-xl);
+  box-shadow: var(--emr-shadow-md);
+  transition: var(--emr-transition-smooth);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--emr-spacing-sm);
+  width: 100%;
+  padding-bottom: var(--emr-spacing-md);
+  border-bottom: 1px solid var(--emr-border-color);
+}
+
+.headerTitle {
+  font-size: var(--emr-font-xl);
+  font-weight: var(--emr-font-bold);
+  color: var(--emr-text-primary);
+  margin: 0;
+  min-width: 0;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerTitle::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--emr-gradient-primary);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--emr-spacing-md);
+  width: 100%;
+}
+
+.sectionSeparator {
+  border: 0;
+  border-top: 1px solid var(--emr-border-default);
+  margin: 0;
+}
+
+.copyButton {
+  flex-shrink: 0;
+}
+
+.tooltipContent {
+  max-width: 280px;
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-primary);
+}
+
+.tooltipActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--emr-spacing-sm);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.disclaimer {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  font-style: italic;
+  padding: var(--emr-spacing-md);
+  margin-top: var(--emr-spacing-xs);
+  border-top: 1px solid var(--emr-border-color);
+  background: var(--emr-bg-hover);
+  border-radius: 0 0 var(--emr-border-radius) var(--emr-border-radius);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+@media (min-width: 768px) {
+  .root {
+    padding: var(--emr-spacing-lg);
+  }
+  .sections {
+    gap: var(--emr-spacing-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    transition: none;
+  }
+}

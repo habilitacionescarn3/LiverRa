@@ -142,6 +142,13 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
   const managerRef = useRef<UserManager | null>(null);
   const envRef = useRef<OidcEnv | null>(null);
 
+  // L-HOOK-4 / H-HOOK-3: capture ``testOverrides`` once at mount so the
+  // init effect (deps ``[]``) reads a stable value. Swapping overrides
+  // post-mount would change semantics in a test but never in prod, and
+  // the alternative — listing them in deps — re-runs the entire init
+  // including ``manager.events.addUserLoaded`` subscriptions.
+  const overridesRef = useRef(testOverrides);
+
   const [user, setUser] = useState<User | null>(testOverrides?.initialUser ?? null);
   const [authMe, setAuthMe] = useState<AuthMeResponse | null>(testOverrides?.authMe ?? null);
   const [isLoading, setIsLoading] = useState<boolean>(!testOverrides);
@@ -149,6 +156,7 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
   // One-time init: build UserManager, subscribe to its events, load initial user.
   useEffect(() => {
     let cancelled = false;
+    const testOverrides = overridesRef.current;
 
     if (testOverrides) {
       managerRef.current = testOverrides.manager ?? null;
@@ -170,7 +178,25 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
       // AND an explicit flag — Vite tree-shakes the branch out of prod.
       const meta =
         (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-      if (import.meta.env.DEV && meta.VITE_LIVERRA_DEV_BYPASS === 'true') {
+      // Staging deploy (Netlify build) — bypass after the credentials gate
+      // (SigninView) sets `liverra:staging-auth=ok` in localStorage. Without
+      // that flag the user lands on /signin and is forced to enter the
+      // shared staging credentials.
+      // When staging creds are configured (locally OR on Netlify) the gate
+      // owns the flow — dev-bypass is suppressed so `vite dev` mirrors
+      // staging instead of silently auto-signing the dev user in.
+      const stagingGateConfigured =
+        Boolean(meta.VITE_LIVERRA_STAGING_EMAIL) &&
+        Boolean(meta.VITE_LIVERRA_STAGING_PASSWORD);
+      const stagingGatePassed =
+        stagingGateConfigured &&
+        typeof window !== 'undefined' &&
+        window.localStorage?.getItem('liverra:staging-auth') === 'ok';
+      const devBypassActive =
+        !stagingGateConfigured &&
+        import.meta.env.DEV &&
+        meta.VITE_LIVERRA_DEV_BYPASS === 'true';
+      if (devBypassActive || stagingGatePassed) {
         const mockUser = {
           profile: { sub: 'dev-user', email: 'dev@liverra.local', name: 'Dev User' },
           access_token: 'dev-access-token',

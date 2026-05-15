@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "watermark": "Только для исследовательских целей — не для клинического применения",
+  "disclaimer": {
+    "short": "Только для исследовательских целей — не для клинического применения",
+    "long": "__TODO_TRANSLATE__:AI-generated outputs on this page are advisory and have not been cleared for clinical decision-making.",
+    "ceShort": "__TODO_TRANSLATE__:Approved for surgical planning",
+    "ceLong": "__TODO_TRANSLATE__:Not a substitute for clinical judgment. Always verify measurements independently.",
+    "ceClassIib": "__TODO_TRANSLATE__:Approved for surgical planning. Not a substitute for clinical judgment."
+  },
+  "badge": "Только для исследовательских целей"
+}

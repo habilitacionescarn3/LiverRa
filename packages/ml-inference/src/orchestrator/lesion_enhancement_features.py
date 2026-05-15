@@ -42,6 +42,7 @@ def extract_lesion_features(
     liver_mask: np.ndarray,
     voxel_ml: float,
     background_dilation_voxels: int = 2,
+    all_lesions_mask: np.ndarray | None = None,
 ) -> dict:
     """Compute the 4-phase enhancement signature for one lesion.
 
@@ -60,6 +61,16 @@ def extract_lesion_features(
     background_dilation_voxels
         Voxels of margin to exclude around the lesion when computing
         background liver HU. Avoids contamination from peritumoral edema.
+    all_lesions_mask
+        C-CLIN-2: ``(Z, Y, X)`` union of EVERY lesion mask in this scan
+        (including ``lesion_mask`` itself). When supplied, the
+        background HU pool excludes voxels belonging to ANY lesion, not
+        just the current one. On multi-lesion scans the previous
+        implementation included neighbouring lesions in the background,
+        biasing the relative-enhancement curve toward APHE-positive
+        classifications. When ``None``, falls back to the
+        single-lesion behaviour (still correct on solitary-lesion
+        scans).
 
     Returns
     -------
@@ -99,15 +110,25 @@ def extract_lesion_features(
 
     # Build background liver mask: parenchyma minus lesion minus a small
     # dilation buffer around the lesion.
+    # C-CLIN-2: when ``all_lesions_mask`` is supplied, also strip every
+    # other lesion's voxels (with the same dilation buffer) so the
+    # background HU pool is pure parenchyma. Otherwise, on a scan with
+    # an HCC + a coincident hemangioma, the hemangioma's wash-in
+    # artefactually elevates the "background" HU and the HCC's relative
+    # enhancement scores too low.
+    if all_lesions_mask is not None:
+        exclude = (lesion_bool | (all_lesions_mask > 0))
+    else:
+        exclude = lesion_bool
     if background_dilation_voxels > 0:
         from scipy.ndimage import binary_dilation
         struct = np.ones((3, 3, 3), dtype=bool)
-        lesion_dilated = binary_dilation(
-            lesion_bool, structure=struct, iterations=background_dilation_voxels
+        exclude_dilated = binary_dilation(
+            exclude, structure=struct, iterations=background_dilation_voxels
         )
     else:
-        lesion_dilated = lesion_bool
-    background_bool = (liver_mask > 0) & ~lesion_dilated
+        exclude_dilated = exclude
+    background_bool = (liver_mask > 0) & ~exclude_dilated
 
     voxels = int(lesion_bool.sum())
 
@@ -127,14 +148,32 @@ def extract_lesion_features(
         lesion_vox = vol[lesion_bool]
         bg_vox = vol[background_bool]
         lesion_mean = _safe_mean(lesion_vox)
+        # H-CLIN-3: when the background pool is empty (liver mask
+        # didn't intersect with this phase volume, or every parenchymal
+        # voxel was excluded by the all-lesions mask), the previous
+        # behaviour set ``bg_mean = 0`` silently, so the downstream
+        # classifier confidently labeled the lesion against AIR (-1000
+        # HU) as APHE-positive HCC. Flag the phase as missing instead;
+        # callers (e.g., classifier) check ``.get("missing")`` and skip.
+        if bg_vox.size == 0:
+            phases_features[phase_name] = {
+                "lesion_mean_hu":       round(lesion_mean, 2),
+                "lesion_median_hu":     round(_safe_median(lesion_vox), 2),
+                "lesion_std_hu":        round(_safe_std(lesion_vox), 2),
+                "background_liver_hu":  float("nan"),
+                "relative_enhancement": float("nan"),
+                "missing":              True,
+                "reason":               "empty_background",
+            }
+            continue
         bg_mean = _safe_mean(bg_vox)
         phases_features[phase_name] = {
-            "lesion_mean_hu": round(lesion_mean, 2),
-            "lesion_median_hu": round(_safe_median(lesion_vox), 2),
-            "lesion_std_hu": round(_safe_std(lesion_vox), 2),
-            "background_liver_hu": round(bg_mean, 2),
+            "lesion_mean_hu":       round(lesion_mean, 2),
+            "lesion_median_hu":     round(_safe_median(lesion_vox), 2),
+            "lesion_std_hu":        round(_safe_std(lesion_vox), 2),
+            "background_liver_hu":  round(bg_mean, 2),
             "relative_enhancement": round(lesion_mean - bg_mean, 2),
-            "missing": False,
+            "missing":              False,
         }
 
     # Pattern flags — robust to any missing phase via .get with defaults

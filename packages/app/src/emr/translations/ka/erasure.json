@@ -19,8 +19,10 @@
       "status": "სტატუსი",
       "requested_at": "მოთხოვნა",
       "tombstone": "Tombstone",
-      "pdf": "PDF"
-    }
+      "pdf": "PDF",
+      "actions": "ქმედებები"
+    },
+    "view": "ნახვა"
   },
   "wizard": {
     "title": "ახალი GDPR წაშლის მოთხოვნა",

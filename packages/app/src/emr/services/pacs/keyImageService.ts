@@ -345,8 +345,10 @@ export async function unflagKeyImage(
     throw new Error('Only the original author can unflag this key image');
   }
 
-  // Delete the Basic resource
-  await client.deleteResource('Basic', keyImageId);
+  // C-PACS-5: key-image flags are part of the clinical reading and must
+  // remain in the audit trail — soft-delete (entered-in-error + deleted-at
+  // extension) instead of physical removal.
+  await client.softDeleteResource<FhirBasic>(resource);
 
   // Fire-and-forget audit event
   logKeyImageFlag({

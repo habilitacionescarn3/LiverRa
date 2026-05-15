@@ -64,6 +64,14 @@ async def _run(
         # MinIO during ingestion. Never enable in prod — PHI must be
         # scrubbed before any inference touches the volume.
         bypass = os.environ.get("ANON_SIDECAR_BYPASS", "").lower() in {"1", "true", "yes"}
+        # CC-2: refuse the bypass when LIVERRA_ENV is staging/production.
+        # Mirrors the LIVERRA_AUTH_BYPASS guard in auth_middleware.py.
+        env = os.environ.get("LIVERRA_ENV", "development").lower()
+        if bypass and env in {"staging", "production"}:
+            raise RuntimeError(
+                f"PRODUCTION SAFETY: ANON_SIDECAR_BYPASS forbidden when "
+                f"LIVERRA_ENV={env}. Anonymization is a non-negotiable PHI gate."
+            )
         if bypass:
             logger.warning(
                 "anonymization bypassed (ANON_SIDECAR_BYPASS=true) — analysis=%s",

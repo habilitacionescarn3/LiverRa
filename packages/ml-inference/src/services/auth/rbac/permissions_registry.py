@@ -11,9 +11,16 @@ from enum import Enum
 class Permission(str, Enum):
     """LiverRa permission enumeration."""
 
+    ADMIN_APPROVE_DELETION = 'admin.approve_deletion'
+    ADMIN_CECHO_PACS = 'admin.cecho_pacs'
+    ADMIN_CONFIGURE_PACS = 'admin.configure_pacs'
+    ADMIN_COVERAGE_OVERRIDE = 'admin.coverage_override'
+    ADMIN_INVITE_USER = 'admin.invite_user'
+    ADMIN_SUSPEND_USER = 'admin.suspend_user'
     ADMIN_TENANT_CONFIG = 'admin.tenant_config'
     ADMIN_USER_CREATE = 'admin.user_create'
     ADMIN_USER_ROLE_CHANGE = 'admin.user_role_change'
+    ADMIN_VIEW_AUDIT = 'admin.view_audit'
     ANALYSIS_CANCEL = 'analysis.cancel'
     ANALYSIS_RETRY = 'analysis.retry'
     ANALYSIS_VIEW = 'analysis.view'
@@ -22,8 +29,12 @@ class Permission(str, Enum):
     AUDIT_VIEW = 'audit.view'
     CLAIM_REGISTRY_ACTIVATE = 'claim_registry.activate'
     CLAIM_REGISTRY_VIEW = 'claim_registry.view'
+    COMPLIANCE_GENERATE_AUDIT_SUMMARY = 'compliance.generate_audit_summary'
     COMPLIANCE_SIGN_OFF = 'compliance.sign_off'
+    COMPLIANCE_SPOT_CHECK_RUO = 'compliance.spot_check_ruo'
+    COMPLIANCE_TOGGLE_CLAIM_REGISTRY = 'compliance.toggle_claim_registry'
     COMPLIANCE_VIEW = 'compliance.view'
+    COMPLIANCE_VIEW_MBOM = 'compliance.view_mbom'
     ERASURE_APPROVE = 'erasure.approve'
     ERASURE_EXECUTE = 'erasure.execute'
     ERASURE_REQUEST = 'erasure.request'
@@ -41,6 +52,7 @@ class Permission(str, Enum):
     REPORT_PACS_RETRY = 'report.pacs_retry'
     REPORT_RETRACT = 'report.retract'
     REPORT_VIEW = 'report.view'
+    REVIEW_ACQUIRE_SEAT = 'review.acquire_seat'
     REVIEW_FLR_ADJUST = 'review.flr_adjust'
     REVIEW_OVERRIDE_CLASSIFICATION = 'review.override_classification'
     REVIEW_REFINE_MASK = 'review.refine_mask'
@@ -53,9 +65,16 @@ class Permission(str, Enum):
 
 ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
     'admin': frozenset({
+        Permission.ADMIN_APPROVE_DELETION,
+        Permission.ADMIN_CECHO_PACS,
+        Permission.ADMIN_CONFIGURE_PACS,
+        Permission.ADMIN_COVERAGE_OVERRIDE,
+        Permission.ADMIN_INVITE_USER,
+        Permission.ADMIN_SUSPEND_USER,
         Permission.ADMIN_TENANT_CONFIG,
         Permission.ADMIN_USER_CREATE,
         Permission.ADMIN_USER_ROLE_CHANGE,
+        Permission.ADMIN_VIEW_AUDIT,
         Permission.AUDIT_EXPORT,
         Permission.AUDIT_VIEW,
         Permission.CLAIM_REGISTRY_ACTIVATE,
@@ -73,8 +92,12 @@ ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
         Permission.AUDIT_VIEW,
         Permission.CLAIM_REGISTRY_ACTIVATE,
         Permission.CLAIM_REGISTRY_VIEW,
+        Permission.COMPLIANCE_GENERATE_AUDIT_SUMMARY,
         Permission.COMPLIANCE_SIGN_OFF,
+        Permission.COMPLIANCE_SPOT_CHECK_RUO,
+        Permission.COMPLIANCE_TOGGLE_CLAIM_REGISTRY,
         Permission.COMPLIANCE_VIEW,
+        Permission.COMPLIANCE_VIEW_MBOM,
         Permission.ERASURE_REQUEST,
         Permission.MBOM_VIEW,
         Permission.REPORT_VIEW,
@@ -98,6 +121,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
         Permission.REPORT_DOWNLOAD,
         Permission.REPORT_FINALIZE,
         Permission.REPORT_VIEW,
+        Permission.REVIEW_ACQUIRE_SEAT,
         Permission.REVIEW_FLR_ADJUST,
         Permission.REVIEW_OVERRIDE_CLASSIFICATION,
         Permission.REVIEW_REFINE_MASK,
@@ -117,6 +141,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
         Permission.ANALYSIS_VIEW,
         Permission.REPORT_DOWNLOAD,
         Permission.REPORT_VIEW,
+        Permission.REVIEW_ACQUIRE_SEAT,
         Permission.REVIEW_FLR_ADJUST,
         Permission.REVIEW_OVERRIDE_CLASSIFICATION,
         Permission.REVIEW_REFINE_MASK,
@@ -127,9 +152,13 @@ ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
 }
 
 STEP_UP_PERMISSIONS: frozenset[Permission] = frozenset({
+    Permission.ADMIN_APPROVE_DELETION,
+    Permission.ADMIN_COVERAGE_OVERRIDE,
+    Permission.ADMIN_SUSPEND_USER,
     Permission.ADMIN_USER_ROLE_CHANGE,
     Permission.CLAIM_REGISTRY_ACTIVATE,
     Permission.COMPLIANCE_SIGN_OFF,
+    Permission.COMPLIANCE_TOGGLE_CLAIM_REGISTRY,
     Permission.ERASURE_APPROVE,
     Permission.ERASURE_EXECUTE,
     Permission.MBOM_UPLOAD,
@@ -138,9 +167,16 @@ STEP_UP_PERMISSIONS: frozenset[Permission] = frozenset({
 })
 
 TENANT_SCOPED_PERMISSIONS: frozenset[Permission] = frozenset({
+    Permission.ADMIN_APPROVE_DELETION,
+    Permission.ADMIN_CECHO_PACS,
+    Permission.ADMIN_CONFIGURE_PACS,
+    Permission.ADMIN_COVERAGE_OVERRIDE,
+    Permission.ADMIN_INVITE_USER,
+    Permission.ADMIN_SUSPEND_USER,
     Permission.ADMIN_TENANT_CONFIG,
     Permission.ADMIN_USER_CREATE,
     Permission.ADMIN_USER_ROLE_CHANGE,
+    Permission.ADMIN_VIEW_AUDIT,
     Permission.ANALYSIS_CANCEL,
     Permission.ANALYSIS_RETRY,
     Permission.ANALYSIS_VIEW,
@@ -159,6 +195,7 @@ TENANT_SCOPED_PERMISSIONS: frozenset[Permission] = frozenset({
     Permission.REPORT_PACS_RETRY,
     Permission.REPORT_RETRACT,
     Permission.REPORT_VIEW,
+    Permission.REVIEW_ACQUIRE_SEAT,
     Permission.REVIEW_FLR_ADJUST,
     Permission.REVIEW_OVERRIDE_CLASSIFICATION,
     Permission.REVIEW_REFINE_MASK,

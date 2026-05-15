@@ -47,6 +47,7 @@ import {
   EMRSwitch,
 } from '../shared/EMRFormFields';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { toLocaleDateForPacs } from '../../services/pacs/dateFormatHelpers';
 import type { ReadingWorklistItem, ImagingPriority } from '../../types/pacs';
 import type { UseReadingWorklistReturn } from '../../hooks/pacs/useReadingWorklist';
 import styles from './ReadingWorklist.module.css';
@@ -169,7 +170,7 @@ function WaitTimeCell({
 }: {
   item: ReadingWorklistItem;
 }): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const slaColor = getSLAColor(item.priority, item.waitTime);
   const slaProgress = getSLAProgress(item.priority, item.waitTime);
 
@@ -386,12 +387,14 @@ interface MobileCardProps {
   item: ReadingWorklistItem;
   onClick?: () => void;
   t: (key: string) => string;
+  locale: import('../../services/localeService').Locale;
 }
 
 const MobileCard = memo(function MobileCard({
   item,
   onClick,
   t,
+  locale,
 }: MobileCardProps): React.ReactElement {
   const priorityClass =
     item.priority === 'stat'
@@ -453,7 +456,7 @@ const MobileCard = memo(function MobileCard({
             style={{ color: 'var(--emr-text-secondary)', flexShrink: 0 }}
           />
           <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-            {item.date ? new Date(item.date).toLocaleDateString() : '--'}
+            {item.date ? toLocaleDateForPacs(item.date, locale) : '--'}
           </Text>
         </Group>
         <Group gap="xs" wrap="nowrap">
@@ -559,7 +562,7 @@ export const ReadingWorklist = memo(function ReadingWorklist({
   autoAdvance: autoAdvanceProp,
   onAutoAdvanceChange,
 }: ReadingWorklistProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // Auto-advance state — localStorage-backed fallback when uncontrolled.
@@ -750,7 +753,7 @@ export const ReadingWorklist = memo(function ReadingWorklist({
         hideOnTablet: true,
         render: (row) => (
           <Text size="sm" style={{ whiteSpace: 'nowrap' }}>
-            {row.date ? new Date(row.date).toLocaleDateString() : '--'}
+            {row.date ? toLocaleDateForPacs(row.date, locale) : '--'}
           </Text>
         ),
       },
@@ -1026,6 +1029,7 @@ export const ReadingWorklist = memo(function ReadingWorklist({
               item={item}
               onClick={() => onStudyClick?.(item)}
               t={t}
+              locale={locale}
             />
           ))}
         </Stack>

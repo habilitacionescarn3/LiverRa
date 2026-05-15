@@ -43,6 +43,12 @@ def _bundle(segmentation_ids: list[str], fail_at: int) -> dict[str, Any]:
                 "status": "final",
                 "code": {
                     "coding": [
+                        # L-FHIR-1: test-only identifier system. Not in
+                        # FHIR_SYSTEMS — the rollback assertion only
+                        # cares that the URL round-trips, not that it
+                        # matches the canonical registry. If you need a
+                        # real system here later, swap to
+                        # ``SNOMED_LIVER_CODES.LIVER.system``.
                         {
                             "system": "http://liverra.ai/fhir/segmentation",
                             "code": "mask-edit",

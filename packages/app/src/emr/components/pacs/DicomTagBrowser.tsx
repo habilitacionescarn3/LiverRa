@@ -11,8 +11,8 @@
 // ============================================================================
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { TextInput, Stack, Text, Loader } from '@mantine/core';
-import { IconSearch, IconFileInfo } from '@tabler/icons-react';
+import { TextInput, Stack, Text, Loader, Group, Switch } from '@mantine/core';
+import { IconSearch, IconFileInfo, IconEyeOff } from '@tabler/icons-react';
 import { EMRModal } from '../common/EMRModal';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
@@ -20,7 +20,51 @@ import type {
   DicomJsonObject,
   DicomJsonTag,
 } from '../../services/pacs/dicomwebClient';
+import {
+  logStudyView,
+  logBreakGlass,
+} from '../../services/pacs/auditService';
 import styles from './DicomTagBrowser.module.css';
+
+// ============================================================================
+// PHI tag set — masked by default. Reveal requires a break-glass action.
+// ============================================================================
+//
+// PS3.15 Table E.1-1 (Basic Application Confidentiality Profile) identifier
+// fields most likely to leak from a tag browser:
+//   00100010 Patient Name
+//   00100020 Patient ID
+//   00100030 Patient Birth Date
+//   00100040 Patient Sex
+//   00101010 Patient Age
+//   00100050 Patient Insurance Plan Code Sequence
+//   00080090 Referring Physician
+//   00080080 Institution Name
+//   00080050 Accession Number
+//   00101000 Other Patient IDs
+//
+// We keep the list deliberately conservative — when in doubt, mask.
+const PHI_TAGS = new Set([
+  '00100010',
+  '00100020',
+  '00100030',
+  '00100040',
+  '00101010',
+  '00100050',
+  '00080090',
+  '00080080',
+  '00080050',
+  '00101000',
+]);
+
+/** Mask a tag value to its last 4 characters with leading bullets. */
+function maskValue(value: string): string {
+  const clean = value.trim();
+  if (clean.length <= 4) {
+    return '••••';
+  }
+  return `••••${clean.slice(-4)}`;
+}
 
 // ============================================================================
 // Tag dictionary — the most common DICOM tags we want human-friendly names for.
@@ -109,6 +153,8 @@ interface TagRow {
   tagName: string;
   vr: string;
   value: string;
+  /** Raw tag (uppercased, no parens) used to check the PHI_TAGS set. */
+  rawTagId: string;
 }
 
 /** Format "00100010" → "(0010,0010)". */
@@ -153,6 +199,7 @@ function parseTags(metadata: DicomJsonObject): TagRow[] {
           TAG_NAMES[tagId.toUpperCase()] || TAG_NAMES[tagId] || 'Unknown',
         vr: tagData.vr,
         value: '[Pixel Data]',
+        rawTagId: tagId.toUpperCase(),
       });
       continue;
     }
@@ -162,6 +209,7 @@ function parseTags(metadata: DicomJsonObject): TagRow[] {
       tagName: TAG_NAMES[tagId.toUpperCase()] || TAG_NAMES[tagId] || 'Unknown',
       vr: tagData.vr,
       value: formatTagValue(tagData),
+      rawTagId: tagId.toUpperCase(),
     });
   }
   return rows.sort((a, b) => a.tagId.localeCompare(b.tagId));
@@ -184,6 +232,43 @@ export function DicomTagBrowser({
   const [allTags, setAllTags] = useState<TagRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // C-PACS-3: PHI redaction is ON by default. Toggling it OFF emits a
+  // break-glass AuditEvent so the access is durable. Reset on close so
+  // the next modal open starts redacted again.
+  const [phiRevealed, setPhiRevealed] = useState(false);
+
+  // C-PACS-3: emit an audit row whenever the tag browser opens — it shows
+  // the study's full DICOM metadata which is, by definition, a privileged
+  // view. We avoid duplicate writes by keying the effect on opened+study.
+  useEffect(() => {
+    if (!opened || !studyInstanceUid) return;
+    logStudyView({
+      studyId: studyInstanceUid,
+      description: 'dicom_tag_browser_opened',
+    });
+    // Reset the reveal state every time the modal re-opens.
+    setPhiRevealed(false);
+  }, [opened, studyInstanceUid]);
+
+  const handlePhiToggle = (next: boolean): void => {
+    if (next) {
+      // Going from masked → revealed requires a break-glass reason.
+      const reason = window.prompt(
+        t('pacs.dicomTags.breakGlassPrompt') ??
+          'Reveal patient identifiers. Enter break-glass reason (required):',
+      );
+      if (!reason || reason.trim().length < 3) {
+        return;
+      }
+      logBreakGlass({
+        studyId: studyInstanceUid,
+        description: `dicom_tag_browser_reveal: ${reason.trim().slice(0, 200)}`,
+      });
+      setPhiRevealed(true);
+    } else {
+      setPhiRevealed(false);
+    }
+  };
 
   // Debounce the filter value by 150ms so typing stays snappy.
   useEffect(() => {
@@ -266,14 +351,31 @@ export function DicomTagBrowser({
       showFooter={false}
       testId="dicom-tag-browser"
     >
-      <Stack gap="sm">
-        <TextInput
-          placeholder={t('pacs.dicomTags.searchPlaceholder')}
-          leftSection={<IconSearch size={16} />}
-          value={filter}
-          onChange={(e) => setFilter(e.currentTarget.value)}
-          size="sm"
-        />
+      <Stack gap="sm" data-phi="true">
+        <Group justify="space-between" align="center">
+          <TextInput
+            placeholder={t('pacs.dicomTags.searchPlaceholder')}
+            leftSection={<IconSearch size={16} />}
+            value={filter}
+            onChange={(e) => setFilter(e.currentTarget.value)}
+            size="sm"
+            style={{ flex: 1 }}
+          />
+          <Switch
+            checked={!phiRevealed}
+            onChange={(e) => handlePhiToggle(!e.currentTarget.checked)}
+            label={
+              <Group gap={4} wrap="nowrap">
+                <IconEyeOff size={14} />
+                <Text size="xs">
+                  {t('pacs.dicomTags.maskPhi') ?? 'Mask patient identifiers'}
+                </Text>
+              </Group>
+            }
+            data-testid="dicom-tag-phi-mask-toggle"
+            size="sm"
+          />
+        </Group>
 
         {loading && (
           <div className={styles.emptyMessage}>
@@ -310,14 +412,19 @@ export function DicomTagBrowser({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTags.map((tag) => (
-                    <tr key={tag.tagId}>
-                      <td className={styles.tagId}>{tag.tagId}</td>
-                      <td className={styles.tagName}>{tag.tagName}</td>
-                      <td>{tag.vr}</td>
-                      <td className={styles.tagValue}>{tag.value}</td>
-                    </tr>
-                  ))}
+                  {filteredTags.map((tag) => {
+                    const isPhi = PHI_TAGS.has(tag.rawTagId);
+                    const displayValue =
+                      isPhi && !phiRevealed ? maskValue(tag.value) : tag.value;
+                    return (
+                      <tr key={tag.tagId} data-phi={isPhi ? 'true' : 'false'}>
+                        <td className={styles.tagId}>{tag.tagId}</td>
+                        <td className={styles.tagName}>{tag.tagName}</td>
+                        <td>{tag.vr}</td>
+                        <td className={styles.tagValue}>{displayValue}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

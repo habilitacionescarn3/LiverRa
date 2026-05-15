@@ -1,0 +1,17 @@
+/* RefinementView styles
+ *
+ * Hosts the mobile-rail-collapse + reduced-motion query that previously
+ * lived as inline <style> blocks in render (L-REFINE-2).
+ */
+
+@media (max-width: 767px) {
+  .body {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .syntheticOverlay {
+    transition: none !important;
+  }
+}

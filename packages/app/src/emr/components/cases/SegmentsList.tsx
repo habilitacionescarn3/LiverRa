@@ -16,10 +16,10 @@
  */
 
 import { useMemo } from 'react';
-import { Badge, Box, Group, Stack, Text } from '@mantine/core';
+import { Box, Group, Stack, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import { IconLayoutDashboard } from '@tabler/icons-react';
-import { EMREmptyState } from '../common';
+import { EMRBadge, EMREmptyState } from '../common';
 import { useTranslation } from '../../contexts/TranslationContext';
 import {
   COUINAUD_LABELS,
@@ -37,11 +37,30 @@ interface SegmentationRow {
   snomed_code?: string | null;
 }
 
+/** Per-stage provenance shape since Agent 2.4's GPU-response headers
+ *  landed. Legacy cascades may still have plain-string values. */
+interface ModelProvenance {
+  model_id?: string | null;
+  weights_sha?: string | null;
+  model_version?: string | null;
+}
+
 interface ResultsBundle {
   segmentations?: SegmentationRow[];
   analysis?: {
-    model_versions?: Record<string, string> | null;
+    model_versions?: Record<string, string | ModelProvenance> | null;
   };
+}
+
+/** Coerce either legacy string or new ModelProvenance dict to a display
+ *  string. Picks "model_id@model_version" when both present, else
+ *  whichever is set, else null. */
+function formatModelVersion(v: string | ModelProvenance | null | undefined): string | null {
+  if (v == null) return null;
+  if (typeof v === 'string') return v;
+  const { model_id, model_version } = v;
+  if (model_id && model_version) return `${model_id}@${model_version}`;
+  return model_version || model_id || null;
 }
 
 export interface SegmentsListProps {
@@ -58,12 +77,12 @@ function swatchFor(row: SegmentationRow): string {
     if (COUINAUD_LABELS.includes(detail)) {
       return getCouinaudColorVar(detail);
     }
-    return 'var(--emr-gray-300)';
+    return 'var(--emr-gray-400)';
   }
   if (cat === 'portal_vein' || cat === 'portal') return VESSEL_COLOR_VARS.portal;
   if (cat === 'hepatic_vein' || cat === 'hepatic') return VESSEL_COLOR_VARS.hepatic;
   if (cat === 'liver' || cat === 'parenchyma') return 'var(--emr-success)';
-  return 'var(--emr-gray-300)';
+  return 'var(--emr-gray-400)';
 }
 
 /** Translation key + display name for an anatomy row. */
@@ -126,14 +145,15 @@ export function SegmentsList({
   });
 
   // Map anatomy_category → its source model name in the analysis row.
+  // Values may be strings (legacy) or ModelProvenance dicts (post-Agent 2.4).
   const modelVersionFor = useMemo(() => {
     const mv = data?.analysis?.model_versions ?? {};
     return (cat: string): string | null => {
       const c = cat.toLowerCase();
-      if (c === 'liver') return mv['parenchyma'] ?? mv['stu-net-parenchyma'] ?? null;
-      if (c === 'couinaud') return mv['couinaud'] ?? mv['pictorial-couinaud'] ?? null;
+      if (c === 'liver') return formatModelVersion(mv['parenchyma'] ?? mv['stu-net-parenchyma']);
+      if (c === 'couinaud') return formatModelVersion(mv['couinaud'] ?? mv['pictorial-couinaud']);
       if (c === 'portal_vein' || c === 'portal' || c === 'hepatic_vein' || c === 'hepatic')
-        return mv['vessels'] ?? mv['liverra-vessels'] ?? null;
+        return formatModelVersion(mv['vessels'] ?? mv['liverra-vessels']);
       return null;
     };
   }, [data]);
@@ -164,7 +184,7 @@ export function SegmentsList({
 
   if (error) {
     return (
-      <Text fz="var(--emr-font-sm)" c="var(--emr-danger)">
+      <Text fz="var(--emr-font-sm)" c="var(--emr-error)">
         {error.message}
       </Text>
     );
@@ -206,10 +226,22 @@ export function SegmentsList({
             wrap="wrap"
             align="center"
             style={{
-              padding: 8,
-              borderRadius: 'var(--emr-border-radius-sm, 6px)',
+              padding: '8px 10px',
+              borderRadius: 'var(--emr-border-radius)',
               background: 'var(--emr-bg-card)',
-              border: '1px solid var(--emr-gray-200)',
+              border: '1px solid var(--emr-border-color)',
+              transition: 'border-color var(--emr-transition-base), background var(--emr-transition-base), transform var(--emr-transition-base)',
+              cursor: 'default',
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget;
+              el.style.borderColor = 'var(--emr-secondary-alpha-30)';
+              el.style.background = 'var(--emr-secondary-alpha-04)';
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget;
+              el.style.borderColor = 'var(--emr-border-color)';
+              el.style.background = 'var(--emr-bg-card)';
             }}
           >
             <Box
@@ -219,8 +251,9 @@ export function SegmentsList({
                 height: 14,
                 borderRadius: 4,
                 background: swatch,
-                border: '1px solid var(--emr-gray-300)',
+                border: '1px solid var(--emr-border-color)',
                 flexShrink: 0,
+                boxShadow: '0 0 0 1px var(--emr-bg-card) inset',
               }}
             />
             <Box style={{ flex: 1, minWidth: 0 }}>
@@ -232,20 +265,18 @@ export function SegmentsList({
               >
                 {label}
               </Text>
-              <Text fz="var(--emr-font-xs)" c="var(--emr-text-secondary)">
+              <Text
+                fz="var(--emr-font-xs)"
+                c="var(--emr-text-secondary)"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              >
                 {volumeText}
               </Text>
             </Box>
             {modelVer && (
-              <Badge
-                variant="light"
-                color="gray"
-                size="xs"
-                radius="sm"
-                styles={{ root: { textTransform: 'none', fontWeight: 600, flexShrink: 0 } }}
-              >
+              <EMRBadge variant="neutral" size="sm">
                 {modelVer}
-              </Badge>
+              </EMRBadge>
             )}
           </Group>
         );

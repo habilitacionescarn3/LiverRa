@@ -1,0 +1,90 @@
+{
+  "panelHeading": "სტრუქტურირებული რადიოლოგიური დასკვნა",
+  "openPanel": "სტრუქტურირებული დასკვნის გახსნა",
+  "ruoDisclaimer": "--- მხოლოდ კვლევითი გამოყენებისთვის — არ არის პირველადი დიაგნოსტიკისთვის ---",
+  "sections": {
+    "liver": { "title": "ღვიძლი", "empty": "არ შეფასებულა" },
+    "lesions": { "title": "დაზიანებები", "empty": "დაზიანებები არ აღმოჩენილა" },
+    "vessels": { "title": "სისხლძარღვები", "empty": "არ შეფასებულა" },
+    "gallbladder": { "title": "ნაღვლის ბუშტი", "empty": "არ შეფასებულა" },
+    "spleen": { "title": "ელენთა", "empty": "არ შეფასებულა" },
+    "flrAssessment": { "title": "FLR-ის შეფასება", "empty": "FLR გათვლა არ მოთხოვნილა" }
+  },
+  "status": {
+    "computing": "გამოთვლა — შედეგები გამოჩნდება კასკადის დასრულების შემდეგ",
+    "awaitingAnalysis": "ანალიზის მოლოდინში",
+    "computationFailed": "გამოთვლა მიუწვდომელია",
+    "notAvailable": "მიუწვდომელია",
+    "noFindings": "მონაცემები ვერ მოიძებნა"
+  },
+  "labels": {
+    "volume": "მოცულობა",
+    "wallThickness": "კედლის სისქე",
+    "attenuation": "სიმკვრივე",
+    "huMean": "საშუალო HU",
+    "huRange": "HU-ს დიაპაზონი",
+    "stones": "აღმოჩენილია კენჭები",
+    "splenomegaly": "სპლენომეგალია",
+    "steatosisGrade": "სტეატოზის ხარისხი",
+    "flrPercent": "FLR %",
+    "flrSafety": "უსაფრთხოების კლასიფიკაცია",
+    "flrPlan": "გეგმა",
+    "flrRecommendation": "რეკომენდაცია",
+    "primaryLesionSize": "ძირითადი დაზიანების ზომა",
+    "primaryLesionClass": "ძირითადი დაზიანების კლასი",
+    "lesionSegment": "სეგმენტი",
+    "lesionConfidence": "სანდოობა",
+    "lesionInterpretation": "ინტერპრეტაცია",
+    "liverSpleenDelta": "Δ ღვიძლი–ელენთა",
+    "lrM": "LR-M",
+    "yes": "დიახ",
+    "no": "არა"
+  },
+  "values": {
+    "splenomegalyPresent": "სახეზეა",
+    "splenomegalyAbsent": "ნორმის ფარგლებში",
+    "steatosisNone": "არ არის",
+    "steatosisMild": "მსუბუქი",
+    "steatosisModerate": "საშუალო",
+    "steatosisSevere": "მძიმე",
+    "flrSafetyLow": "დაბალი",
+    "flrSafetyBorderline": "სასაზღვრო",
+    "flrSafetyAdequate": "ადეკვატური"
+  },
+  "copy": {
+    "buttonLabel": "ბუფერში კოპირება",
+    "buttonAriaLabel": "სტრუქტურირებული დასკვნის ბუფერში კოპირება",
+    "successToast": "დასკვნა დაკოპირდა ბუფერში",
+    "warningToastAuditPending": "დასკვნა დაკოპირდა; ექსპორტის აუდიტი ხელახლა ცდილობს",
+    "errorToastBlocked": "ბრაუზერმა დაბლოკა ბუფერის წვდომა — სცადეთ ხელახლა",
+    "errorToastStale": "ანალიზი განახლდა სხვა ექსპერტის მიერ — განაახლეთ კოპირებისთვის",
+    "errorToastAuthDenied": "ამ ანალიზთან თქვენი წვდომა გაუქმდა — განაახლეთ",
+    "errorToastUnknown": "დასკვნის კოპირება ვერ მოხერხდა — სცადეთ ხელახლა",
+    "tooltipFirstTime": "დაკოპირეთ ეს დასკვნა მარტივი ტექსტის სახით PACS დიქტოვებისთვის. ერთი აუდიტის ჩანაწერი ფიქსირდება თითო კლიკზე.",
+    "tooltipDismiss": "გასაგებია"
+  },
+  "staleness": {
+    "lastComputed": "ბოლოს გამოთვლილია {{time}}",
+    "stale": "მოძველებული"
+  },
+  "warnings": {
+    "degraded": "ხარისხი დაბალია"
+  },
+  "lesions": {
+    "interpretationIcc": "ICC-ს ტიპი",
+    "interpretationHcc": "HCC-ს ტიპი",
+    "interpretationSimpleCyst": "მარტივი ბილიარული კისტა",
+    "interpretationCalcified": "კალციფიცირებული დაზიანება",
+    "interpretationIndeterminate": "LR-M (გაურკვეველი)",
+    "noFurther": "დამატებითი დაზიანებები არ აღმოჩენილა.",
+    "primary": "ძირითადი",
+    "size": "ზომა",
+    "count": "დაზიანებების რაოდენობა"
+  },
+  "recommendations": {
+    "considerPveAlpps": "განიხილეთ PVE ან ALPPS",
+    "noteAdequateRemnant": "ნარჩენი მოცულობა აკმაყოფილებს ინსტიტუციურ ზღვარს",
+    "borderlineDiscussMdt": "სასაზღვრო ნარჩენი — განიხილეთ მულტიდისციპლინურ გუნდთან (MDT)"
+  },
+  "panelDescription": "ACR-სტილის სტრუქტურირებული ანატომიური დასკვნა კასკადის ევრისტიკული მონაცემებით."
+}

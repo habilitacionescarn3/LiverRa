@@ -178,6 +178,14 @@ export function getCS3DToolName(appToolName: string): string {
 let initialized = false;
 let renderingEngine: cornerstone.RenderingEngine | null = null;
 
+// H-PACS-1: refcount the shared rendering engine. Previously
+// destroyCornerstone() tore the engine down on the first unmount even if
+// another live PACS viewer was still using it (multi-tab + comparison-
+// view scenarios). Callers now acquire a refcount when they mount and
+// release it on unmount; only the last release actually destroys the
+// engine. The matching `acquireCornerstoneRef()` helper lives below.
+let engineRefcount = 0;
+
 // ============================================================================
 // ArrowAnnotate Text Input Callback
 // ============================================================================
@@ -286,11 +294,38 @@ export async function initCornerstone(): Promise<void> {
 }
 
 /**
- * Destroy Cornerstone3D state — call when the viewer surface is fully
- * unmounted (e.g., user signs out or navigates out of the analysis view).
- * Frees GPU buffers and cleans up the shared ToolGroup.
+ * Acquire a reference to the shared Cornerstone state.
+ *
+ * Pattern (H-PACS-1):
+ *   const release = acquireCornerstoneRef();
+ *   // ... use the engine / toolgroup ...
+ *   return () => release();        // unmount
+ *
+ * The returned `release` function is idempotent — calling it twice
+ * decrements the count once. When the count reaches zero the engine is
+ * destroyed via `destroyCornerstone()`, matching the previous behaviour
+ * for single-viewer scenarios.
  */
-export function destroyCornerstone(): void {
+export function acquireCornerstoneRef(): () => void {
+  engineRefcount += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    engineRefcount = Math.max(0, engineRefcount - 1);
+    if (engineRefcount === 0) {
+      destroyCornerstoneNow();
+    }
+  };
+}
+
+/**
+ * Destroy Cornerstone3D state UNCONDITIONALLY. Internal helper called by
+ * the refcount reaching zero. External callers should prefer
+ * `acquireCornerstoneRef()` + release pattern so multi-view scenarios
+ * don't tear down the engine while another viewport still needs it.
+ */
+function destroyCornerstoneNow(): void {
   try {
     cornerstoneTools.ToolGroupManager.destroyToolGroup(TOOL_GROUP_ID);
   } catch {
@@ -303,6 +338,28 @@ export function destroyCornerstone(): void {
   }
   renderingEngine = null;
   initialized = false;
+}
+
+/**
+ * Destroy Cornerstone3D state — kept for backward compatibility with
+ * callers that haven't migrated to `acquireCornerstoneRef()` yet.
+ *
+ * BACKWARD-COMPATIBLE BEHAVIOUR: if refcount is non-zero we warn rather
+ * than destroy, because tearing down the engine while another viewport
+ * still has it attached blanks all open PACS tabs (H-PACS-1). New
+ * code MUST use `acquireCornerstoneRef()`.
+ */
+export function destroyCornerstone(): void {
+  if (engineRefcount > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[cornerstoneInit] destroyCornerstone() called with engineRefcount=${engineRefcount}; ` +
+        'preferring refcount semantics (use acquireCornerstoneRef() instead). ' +
+        'Engine NOT destroyed.',
+    );
+    return;
+  }
+  destroyCornerstoneNow();
 }
 
 /** Backward-compatible alias — some older callers expect this name. */

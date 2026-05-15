@@ -79,7 +79,15 @@ class InviteService:
 
     @classmethod
     def from_app_state(cls, state: Any) -> "InviteService":
-        """Build from FastAPI app.state (injected by startup) with env fallback."""
+        """Build from FastAPI app.state (injected by startup) with env fallback.
+
+        CC-2 / B-AUTH-4: there is NO hardcoded dev-fallback signing key any
+        more. The env var must be set in every environment. The risk of a
+        well-known fallback secret leaking into a non-dev deployment was
+        too high — invite-accept JWTs are bearer credentials granting
+        account creation, so a fallback secret is effectively a tenant
+        compromise vector.
+        """
         svc = getattr(state, "invite_service", None)
         if isinstance(svc, cls):
             return svc
@@ -88,16 +96,13 @@ class InviteService:
             or os.environ.get("LIVERRA_INVITE_JWT_SECRET")
         )
         if not secret:
-            # Fail loud in regulated environments so a missing env var never
-            # silently falls back to a well-known signing key.
-            if os.environ.get("LIVERRA_ENV", "development").lower() in (
-                "staging",
-                "production",
-            ):
-                raise RuntimeError(
-                    "LIVERRA_INVITE_JWT_SECRET must be set in staging/production"
-                )
-            secret = "dev-invite-secret-CHANGE-ME"  # dev fallback only
+            env = os.environ.get("LIVERRA_ENV", "development").lower()
+            raise RuntimeError(
+                "LIVERRA_INVITE_JWT_SECRET must be set "
+                f"(LIVERRA_ENV={env}). Generate one with "
+                "`python -c 'import secrets; print(secrets.token_urlsafe(48))'` "
+                "and export it before starting the FastAPI app."
+            )
         base = (
             getattr(state, "app_base_url", None)
             or os.environ.get("LIVERRA_APP_BASE_URL")
@@ -188,17 +193,26 @@ class InviteService:
         )
 
     # ------------------------------------------------------------------
-    # Verify
+    # Verify + consume
     # ------------------------------------------------------------------
 
+    INVITE_ISSUER = "liverra.ai"
+
     def verify_token(self, token: str) -> InvitePayload:
-        """Return parsed payload. Raises `jwt.PyJWTError` on failure."""
+        """Return parsed payload. Raises ``jwt.PyJWTError`` on failure.
+
+        B-AUTH-4 / H-AUTH-6: enforces ``iss`` AND ``aud`` AND mandates the
+        ``jti`` claim's presence so a follow-up ``consume_invite`` can mark
+        it used. The previous version checked ``aud`` only — a forged token
+        from any other LiverRa system was accepted.
+        """
         payload = jwt.decode(
             token,
             self._secret,
             algorithms=[JWT_ALG],
             audience="invite",
-            options={"require": ["exp", "iat", "sub"]},
+            issuer=self.INVITE_ISSUER,
+            options={"require": ["exp", "iat", "sub", "iss", "jti"]},
         )
         return InvitePayload(
             invite_id=UUID(payload["invite_id"]),
@@ -208,3 +222,66 @@ class InviteService:
             display_name=payload.get("display_name", ""),
             locale=payload.get("locale", "en"),
         )
+
+    async def consume_invite(
+        self, *, session: AsyncSession, token: str
+    ) -> InvitePayload:
+        """Verify token + mark its ``jti`` consumed atomically.
+
+        Raises :class:`InviteAlreadyUsed` if another caller already claimed
+        the JTI (race-safe via ``INSERT … ON CONFLICT DO NOTHING RETURNING``).
+        Backwards-compatible with deployments where the ``invite_used`` table
+        has not yet been migrated — in that case we still verify the JWT but
+        log a warning so the migration gap is visible in observability.
+        """
+        payload = jwt.decode(
+            token,
+            self._secret,
+            algorithms=[JWT_ALG],
+            audience="invite",
+            issuer=self.INVITE_ISSUER,
+            options={"require": ["exp", "iat", "sub", "iss", "jti"]},
+        )
+        jti: str = payload["jti"]
+        try:
+            row = await session.execute(
+                text(
+                    """
+                    INSERT INTO invite_used (jti, consumed_at)
+                    VALUES (:jti, NOW())
+                    ON CONFLICT (jti) DO NOTHING
+                    RETURNING jti
+                    """
+                ),
+                {"jti": jti},
+            )
+            consumed = row.fetchone()
+            await session.commit()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "invite_used table missing or unreachable; "
+                "replay protection BYPASSED for this call: %s",
+                exc,
+            )
+            await session.rollback()
+            consumed = ("bypass",)  # treat as fresh consumption
+
+        if consumed is None:
+            raise InviteAlreadyUsed(jti)
+
+        return InvitePayload(
+            invite_id=UUID(payload["invite_id"]),
+            tenant_id=UUID(payload["tenant_id"]),
+            email=payload["email"],
+            role=payload["role"],
+            display_name=payload.get("display_name", ""),
+            locale=payload.get("locale", "en"),
+        )
+
+
+class InviteAlreadyUsed(Exception):
+    """Raised when an invite JTI was previously consumed (single-use enforced)."""
+
+    def __init__(self, jti: str) -> None:
+        super().__init__(f"Invite already used: jti={jti}")
+        self.jti = jti

@@ -56,7 +56,20 @@
     "arrowAnnotateCancel": "__TODO_TRANSLATE__:Cancel",
     "arrowAnnotateLabel": "__TODO_TRANSLATE__:Annotation label",
     "arrowAnnotatePrompt": "__TODO_TRANSLATE__:Enter label for this annotation",
-    "arrowAnnotateSubmit": "__TODO_TRANSLATE__:Add label"
+    "arrowAnnotateSubmit": "__TODO_TRANSLATE__:Add label",
+    "lengthLabel": "__TODO_TRANSLATE__:Length #{{n}}",
+    "bidirectionalLabel": "__TODO_TRANSLATE__:Bidirectional #{{n}}",
+    "angleLabel": "__TODO_TRANSLATE__:Angle #{{n}}",
+    "cobbAngleLabel": "__TODO_TRANSLATE__:Cobb Angle #{{n}}",
+    "probeLabel": "__TODO_TRANSLATE__:Probe #{{n}}",
+    "dragProbeLabel": "__TODO_TRANSLATE__:Drag Probe #{{n}}",
+    "arrowLabel": "__TODO_TRANSLATE__:Arrow #{{n}}",
+    "roiLabel": "__TODO_TRANSLATE__:ROI #{{n}}",
+    "rectRoiLabel": "__TODO_TRANSLATE__:Rect ROI #{{n}}",
+    "circleRoiLabel": "__TODO_TRANSLATE__:Circle ROI #{{n}}",
+    "freehandRoiLabel": "__TODO_TRANSLATE__:Freehand ROI #{{n}}",
+    "splineRoiLabel": "__TODO_TRANSLATE__:Spline ROI #{{n}}",
+    "polylineLabel": "__TODO_TRANSLATE__:Polyline #{{n}}"
   },
   "wlPresets": {
     "title": "__TODO_TRANSLATE__:Window / Level presets",
@@ -212,5 +225,47 @@
     "study": "__TODO_TRANSLATE__:Study",
     "date": "__TODO_TRANSLATE__:Date",
     "signedBy": "__TODO_TRANSLATE__:Signed by"
-  }
+  },
+  "measurements": {
+    "title": "__TODO_TRANSLATE__:Measurements",
+    "empty": "__TODO_TRANSLATE__:No measurements yet",
+    "hint": "__TODO_TRANSLATE__:Use the Length, Angle, or ROI tools to add measurements",
+    "unknownAuthor": "__TODO_TRANSLATE__:Unknown",
+    "hide": "__TODO_TRANSLATE__:Hide annotations",
+    "show": "__TODO_TRANSLATE__:Show annotations",
+    "hideAnnotation": "__TODO_TRANSLATE__:Hide",
+    "showAnnotation": "__TODO_TRANSLATE__:Show",
+    "lockAnnotation": "__TODO_TRANSLATE__:Lock",
+    "unlockAnnotation": "__TODO_TRANSLATE__:Unlock",
+    "saved": "Сохранено",
+    "tracked": "__TODO_TRANSLATE__:Tracked",
+    "untracked": "__TODO_TRANSLATE__:Untracked",
+    "trackedHint": "__TODO_TRANSLATE__:Solid lines — saved to report",
+    "untrackedHint": "__TODO_TRANSLATE__:Dashed lines — temporary",
+    "jumpTo": "__TODO_TRANSLATE__:Click to navigate to annotation",
+    "promoteToTracked": "__TODO_TRANSLATE__:Promote to Tracked"
+  },
+  "annotations": {
+    "loadFailed": "__TODO_TRANSLATE__:Failed to load annotations",
+    "saveFailed": "__TODO_TRANSLATE__:Failed to save annotations"
+  },
+  "sr": {
+    "noMeasurements": "__TODO_TRANSLATE__:No measurements",
+    "noAnnotationsToSave": "__TODO_TRANSLATE__:Draw at least one measurement before saving to PACS.",
+    "measurementsSaved": "__TODO_TRANSLATE__:Measurements saved",
+    "measurementsSavedMessage": "__TODO_TRANSLATE__:Saved {{count}} measurement(s) to PACS.",
+    "measurementsLoaded": "__TODO_TRANSLATE__:Measurements loaded",
+    "measurementsLoadedMessage": "__TODO_TRANSLATE__:Loaded {{count}} measurement(s) from PACS.",
+    "saveFailed": "__TODO_TRANSLATE__:Save to PACS failed",
+    "loadFailed": "__TODO_TRANSLATE__:Load from PACS failed",
+    "annotationManagerNotReady": "__TODO_TRANSLATE__:Cornerstone3D annotation manager not available"
+  },
+  "keyImages": "__TODO_TRANSLATE__:Key Images",
+  "keyImage": "__TODO_TRANSLATE__:Key image",
+  "flagCurrentImage": "__TODO_TRANSLATE__:Flag Current Image",
+  "flagReason": "__TODO_TRANSLATE__:Reason for flagging…",
+  "confirmFlag": "__TODO_TRANSLATE__:Confirm flag",
+  "noKeyImages": "__TODO_TRANSLATE__:No key images flagged yet",
+  "flagHint": "__TODO_TRANSLATE__:Use the star button to flag important images",
+  "unflagImage": "__TODO_TRANSLATE__:Unflag image"
 }

@@ -44,6 +44,15 @@ import { MobileProvider } from './emr/contexts/MobileContext';
 import { PermissionProvider } from './emr/contexts/PermissionContext';
 import { ThemeProvider } from './emr/contexts/ThemeContext';
 import { TranslationProvider } from './emr/contexts/TranslationContext';
+import { fhirClient } from './emr/services/fhirClient';
+import { initAuditService } from './emr/services/pacs/auditService';
+
+// C-AUDIT-1 + C-PACS-2 fix: bootstrap the audit retry pipeline at app start.
+// Before this call, every imaging-PHI access (study view, break-glass,
+// annotation save) emitted ZERO events because the audit service was never
+// initialised. Calling this first means even a buffered event from a prior
+// tab (durable in IndexedDB) drains on next startup.
+initAuditService(fhirClient);
 
 const queryClient = new QueryClient({
   defaultOptions: {

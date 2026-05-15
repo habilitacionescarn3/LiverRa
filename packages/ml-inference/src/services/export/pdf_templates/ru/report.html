@@ -1,0 +1,393 @@
+{# SPDX-FileCopyrightText: Copyright LiverRa contributors #}
+{# SPDX-License-Identifier: Apache-2.0 #}
+{# LiverRa surgeon-facing report — Russian (T-PDF-redesign).               #}
+{# Chrome translated to Russian; medical terminology marked __TODO_TRANSLATE__ #}
+{# pending CODEOWNERS medical-terminology review.                          #}
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>Отчёт LiverRa {{ report_id }}</title>
+  </head>
+  <body>
+    {% if sample_case_flag %}
+      <div class="sample-banner">
+        ПРИМЕР ДАННЫХ — не настоящий пациент. Не для клинического применения.
+      </div>
+    {% endif %}
+
+    {# ----------------------------- Brand band ----------------------------- #}
+    <header class="brand-band">
+      <div class="brand-row">
+        <div class="wordmark">Liver<span class="accent">Ra</span></div>
+        <div class="ruo-chip">{{ watermark_text }}</div>
+      </div>
+      <div style="font-size: 9pt; color: #ebf4ff; margin-top: 1.5mm; font-weight: 500;">
+        Отчёт анализа печени · сводка выходных данных конвейера
+      </div>
+      <div class="meta">
+        <div><span class="k">Отчёт</span><br /><span class="v">{{ report_id }}</span></div>
+        <div><span class="k">Анализ</span><br /><span class="v">{{ analysis_id }}</span></div>
+        <div><span class="k">Учреждение</span><br /><span class="v">{{ tenant_display_name or "—" }}</span></div>
+        <div><span class="k">Финализировал</span><br /><span class="v">{{ finalized_by_display }}</span></div>
+        <div><span class="k">Финализирован (UTC)</span><br /><span class="v">{{ finalized_at }}</span></div>
+        <div><span class="k">Конвейер</span><br /><span class="v">{{ pipeline_version or "—" }}</span></div>
+      </div>
+    </header>
+
+    {# --------------------------- KPI hero cards --------------------------- #}
+    {% if kpi_cards %}
+      <div class="kpi-grid">
+        {% for card in kpi_cards %}
+          <div class="kpi-card tone-{{ card.tone or 'default' }}">
+            <div class="kpi-label">{{ card.label }}</div>
+            <div class="kpi-value">{{ card.value }}</div>
+            {% if card.sublabel %}<div class="kpi-sub">{{ card.sublabel }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if ct_renders_unavailable %}
+      <div class="ct-unavailable">
+        <strong>⚠ Артефакты КТ-визуализации недоступны для данного анализа.</strong>
+        Возможно, конвейер выполнялся в режиме демонстрации, либо в S3-бакете
+        анализов отсутствуют поэтапные маски. Объёмы и классификации ниже
+        остаются достоверными — они берутся из базы данных, а не из конвейера
+        визуализации. Чтобы восстановить наложения КТ: проверьте, что
+        <code>liverra-phases-eu-central-1</code> и
+        <code>liverra-analyses-eu-central-1</code> содержат
+        <code>studies/&lt;study_id&gt;/phases/portal_venous.nii.gz</code> и
+        <code>analyses/&lt;analysis_id&gt;/parenchyma_mask.nii.gz</code>.
+      </div>
+    {% endif %}
+
+    {% if mask_warnings %}
+      <div class="ct-unavailable">
+        <strong>⚠ Проверка качества выходных данных конвейера — обнаружено проблем: {{ mask_warnings|length }}.</strong>
+        <ul style="margin: 1.5mm 0 0 4mm; padding: 0;">
+          {% for w in mask_warnings %}
+            <li style="margin-bottom: 1mm;">{{ w }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {# ====================== ЭТАП 2 — Паренхима ======================= #}
+    <section class="stage-section">
+      <h2><span class="stage-tag">ЭТАП 2</span>Сегментация паренхимы</h2>
+      <p class="section-lead">Контур всей печени от TotalSegmentator (task=total); объём интегрирован по маске сегментации. Срезы КТ ниже показывают контур ИИ (красный), наложенный на исходный КТ.</p>
+      <div class="kpi-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="kpi-card">
+          <div class="kpi-label">Печень всего</div>
+          <div class="kpi-value">{{ parenchyma_volume_ml }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">мл</span></div>
+          <div class="kpi-sub">Вся паренхима</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Левая доля</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_left_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">мл</span></div>
+          <div class="kpi-sub">
+            {% if lobe_split_source == 'cantlie_estimate' %}
+              Оценка по Кантли (Куино недоступен)
+            {% else %}
+              Сегменты II + III + IV
+            {% endif %}
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Правая доля</div>
+          <div class="kpi-value">{{ "%.0f"|format(lobe_right_ml or 0) }} <span style="font-size: 10pt; font-weight: 600; color: #6b7280;">мл</span></div>
+          <div class="kpi-sub">
+            {% if lobe_split_source == 'cantlie_estimate' %}
+              Оценка по Кантли (Куино недоступен)
+            {% else %}
+              Сегменты V–VIII
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if parenchyma_render_uri %}
+        <div class="ct-render-caption">КТ — 6 аксиальных · 2 корональных · 2 сагиттальных среза · красный контур = маска печени</div>
+        <img class="ct-render" src="{{ parenchyma_render_uri }}" alt="Многосрезовый КТ паренхимы с наложением контура" />
+      {% endif %}
+    </section>
+
+    {# =================== ЭТАП 3a — Сосуды ============================ #}
+    {% if portal_vein_ml is not none or hepatic_vein_ml is not none or vessels_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">ЭТАП 3a</span>Сосудистые стволы</h2>
+        <p class="section-lead">Деревья портальной и печёночной вен, извлечённые из подсети Куино. На КТ ниже показаны контуры сосудов (голубой) внутри контура печени (красный) — корональный MIP и 3 аксиальных детальных среза.</p>
+        {% if vessels_chart_svg %}
+          <div class="exec-card">
+            {{ vessels_chart_svg|safe }}
+            <div class="exec-sub">
+              Проверки соответствия и долей записаны в журнал аудита конвейера.
+            </div>
+          </div>
+        {% endif %}
+        {% if vessels_render_uri %}
+          <div class="ct-render-caption">КТ — корональный MIP + 3 аксиальных детальных · голубой = дерево сосудов · красный = контур печени</div>
+          <img class="ct-render" src="{{ vessels_render_uri }}" alt="Наложение дерева сосудов на КТ" />
+        {% endif %}
+      </section>
+    {% endif %}
+
+    {# =================== ЭТАП 3b — Куино =========================== #}
+    <section class="stage-section">
+      <h2><span class="stage-tag">ЭТАП 3b</span>Волюметрия по Куино — 8 сегментов</h2>
+      <p class="section-lead">Объёмы по сегментам, рассчитанные эвристикой Куино LiverRa (линия Кантли + бифуркация воротной вены). Столбцы пропорциональны самому крупному сегменту.</p>
+      <div class="exec-card">
+        {% if couinaud_chart_svg %}
+          {{ couinaud_chart_svg|safe }}
+        {% else %}
+          <table class="volumes">
+            <thead><tr><th>Сегмент</th><th style="text-align: right;">Объём (мл)</th></tr></thead>
+            <tbody>
+              {% for roman in ['I','II','III','IV','V','VI','VII','VIII'] %}
+                <tr><td>Куино {{ roman }}</td>
+                  <td style="text-align: right;">{{ "%.1f"|format(couinaud_volumes.get(roman, 0)) }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% endif %}
+      </div>
+    </section>
+
+    {# =================== ЭТАП 4 + 5 — Образования + Классификация ======== #}
+    <section class="stage-section">
+      <h2><span class="stage-tag">ЭТАПЫ 4 + 5</span>Обнаружение образований и классификация</h2>
+      {% if lesions %}
+        <p class="section-lead">Обнаружено образований: {{ lesion_count }}. Классификатор правил LI-RADS — один предложенный класс с обоснованием. Поддержка принятия решений хирурга, не автономный диагноз.</p>
+        {% for lesion in lesions %}
+          <div class="lesion-row-detailed">
+            <div class="lesion-head">
+              <span class="lesion-num">#{{ "%02d"|format(loop.index) }}</span>
+              <span class="lesion-chip" style="background: {{ lesion.class_color or '#9ca3af' }};"></span>
+              <span class="lesion-class">{{ lesion.class_label_localised or "—" }}</span>
+              {% if lesion.couinaud_segment %}
+                <span class="meta-pill">Сегмент {{ lesion.couinaud_segment }}</span>
+              {% endif %}
+              {% if lesion.couinaud_location %}
+                <span class="meta-pill">{{ lesion.couinaud_location|replace('_', ' ') }}</span>
+              {% endif %}
+              <span class="meta-pill">{{ "%.1f"|format(lesion.diameter_mm or 0) }} мм</span>
+              <span class="meta-pill">{{ "%.1f"|format(lesion.volume_ml or 0) }} мл</span>
+              {% if lesion.discovery_source %}
+                <span class="meta-pill">{{ lesion.discovery_source|replace('_', ' ') }}</span>
+              {% endif %}
+              {% if lesion.confidence_pct %}
+                <span class="conf-strong">{{ "%.0f"|format(lesion.confidence_pct) }} %</span>
+              {% endif %}
+            </div>
+            {% if lesion.probs_bar_svg %}
+              {{ lesion.probs_bar_svg|safe }}
+            {% endif %}
+            {% if lesion.reasoning %}
+              <ul class="lesion-reasoning">
+                {% for r in lesion.reasoning %}
+                  <li>{{ r }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            {% if lesion.thumbnail_uri %}
+              <div class="ct-render-caption" style="margin-top: 2mm;">КТ — аксиальный · корональный · сагиттальный с центром на образовании · жёлтый = контур образования · красный = контур печени · кривая контрастирования ниже</div>
+              <img class="lesion-thumbnail" src="{{ lesion.thumbnail_uri }}" alt="Миниатюра КТ образования с кривой 4-фазного контрастирования" />
+            {% endif %}
+            {% if lesion.abstained %}
+              <div style="color: #b45309; font-size: 7.5pt; margin-top: 1mm;">
+                ⚠ Модель воздержалась — уверенность ниже порога арендатора; требуется подтверждение хирурга перед подписанием.
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="section-lead" style="color: #16a34a;">Образования не обнаружены конвейером.</p>
+      {% endif %}
+    </section>
+
+    {# =================== ЭТАП 6 — FLR ================================= #}
+    <section class="stage-section">
+      <h2><span class="stage-tag">ЭТАП 6</span>Будущий остаток печени (FLR)</h2>
+      <p class="section-lead">Плоскость правосторонней гепатэктомии с учётом сегментов (откатывается к аксиальной средней точке, когда Куино недоступен). Уточняется хирургом в мастере финализации.</p>
+      <div class="exec-grid">
+        <div class="exec-card" style="text-align: center;">
+          {% if flr_donut_svg %}
+            {{ flr_donut_svg|safe }}
+          {% elif flr_remnant_pct_functional is not none %}
+            <div style="font-size: 26pt; font-weight: 800; color: #111827; margin: 4mm 0 1mm 0;">
+              {{ flr_remnant_pct_functional }} %
+            </div>
+            <div style="color: #6b7280;">{{ flr_adequacy_label or "—" }}</div>
+          {% else %}
+            <div style="color: #9ca3af; padding: 8mm 0;">FLR не рассчитан</div>
+          {% endif %}
+          <div class="flr-thresholds">
+            &lt; {{ flr_threshold_inadequate }} % недостаточно ·
+            {{ flr_threshold_inadequate }}–{{ flr_threshold_borderline }} % пограничный ·
+            ≥ {{ flr_threshold_borderline }} % достаточный
+          </div>
+        </div>
+        <div class="exec-card">
+          <div class="exec-title">Геометрия плоскости резекции</div>
+          {% if flr_remnant_volume_ml is not none %}
+            <p style="margin: 1mm 0;"><strong>Объём остатка:</strong> {{ flr_remnant_volume_ml }} мл</p>
+          {% endif %}
+          {% if flr_remnant_pct_functional is not none %}
+            <p style="margin: 1mm 0;"><strong>Функциональный остаток:</strong> {{ flr_remnant_pct_functional }} %</p>
+          {% endif %}
+          <p style="margin: 1mm 0;"><strong>Достаточность:</strong> {{ flr_adequacy_label or "—" }}</p>
+          <p style="margin: 2mm 0 0 0; font-size: 7.5pt; color: #6b7280;">
+            Плоскость инициализирована эвристикой ИИ; хирург корректирует в рабочей области уточнения перед финальным подписанием.
+          </p>
+        </div>
+      </div>
+      {% if flr_render_uri %}
+        <div class="ct-render-caption">КТ — корональный + сагиттальный · зелёный = будущий остаток (выше плоскости) · красный = резецированная часть · жёлтый пунктир = плоскость резекции</div>
+        <img class="ct-render" src="{{ flr_render_uri }}" alt="Плоскость резекции FLR на КТ" />
+      {% endif %}
+    </section>
+
+    {# =================== ЭТАП 7b — Структурированная сводка ACR =================== #}
+    {# Feature 002-acr-structured-readout — six-section ACR/RSNA anatomical readout. #}
+    {% if acr_sections %}
+      <section class="stage-section acr-readout">
+        <h2><span class="stage-tag">ЭТАП 7b</span>Эвристические находки — структурированная сводка ACR</h2>
+        <p class="section-lead">Анатомическая сводка из шести разделов (Печень, Образования, Сосуды, Жёлчный пузырь, Селезёнка, Оценка FLR). Эвристика — не заменяет интерпретацию рентгенолога.</p>
+        {% set section_titles = {
+          'liver': 'ПЕЧЕНЬ',
+          'lesions': 'ОБРАЗОВАНИЯ',
+          'vessels': 'СОСУДЫ',
+          'gallbladder': 'ЖЁЛЧНЫЙ ПУЗЫРЬ',
+          'spleen': 'СЕЛЕЗЁНКА',
+          'flrAssessment': 'ОЦЕНКА FLR'
+        } %}
+        {% for section_name, rows in acr_sections.items() %}
+          <div class="acr-section">
+            <h3 class="acr-section-title">{{ section_titles.get(section_name, section_name|upper) }}</h3>
+            {% if rows %}
+              <div class="findings-list">
+                {% for row in rows %}
+                  <div class="finding-row">
+                    <div class="finding-head">
+                      {% if row.itemId %}
+                        <span class="finding-label">{{ row.itemId }}{% if row.segment %} (сегмент {{ row.segment }}){% endif %}:</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% else %}
+                        <span class="finding-label">{{ row.label }}</span>
+                        <span class="finding-value">{{ row.value }}</span>
+                      {% endif %}
+                      {# B-ACR-1: stale-finding marker — FR-023c #}
+                      {% if row.stale %}
+                        <span class="finding-stale">&#8635; последний расчёт {{ row.stale.computed_at }}</span>
+                      {% endif %}
+                    </div>
+                    {% if row.warning %}
+                      <div class="finding-warning">! {{ row.warning }}</div>
+                    {% endif %}
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="acr-empty">Нет находок для отчёта.</p>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <p class="acr-ruo-footer">--- ТОЛЬКО ДЛЯ ИССЛЕДОВАТЕЛЬСКИХ ЦЕЛЕЙ — НЕ ДЛЯ ПЕРВИЧНОЙ ДИАГНОСТИКИ ---</p>
+      </section>
+    {% elif findings_rows %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">ЭТАП 7b</span>Эвристические находки</h2>
+        <p class="section-lead">Скрининг фазы 1 на основе КТ-плотности и масок органов (селезёнка, жёлчный пузырь, HU образований). Эвристика — не заменяет интерпретацию рентгенолога.</p>
+        <div class="findings-list">
+          {% for row in findings_rows %}
+            <div class="finding-row alert-{{ row.alert or 'none' }}">
+              <div class="finding-head">
+                <span class="finding-label">{{ row.label }}</span>
+                <span class="finding-value">{{ row.value }}</span>
+                {% if row.badge %}
+                  <span class="pill tone-{{ row.badge.tone }}">{{ row.badge.label }}</span>
+                {% endif %}
+              </div>
+              {% if row.detail %}
+                <div class="finding-detail">{{ row.detail }}</div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {# =================== 4-phase + 3D mesh renders ===================== #}
+    {% if four_phase_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">ФАЗЫ</span>Сравнение 4 фаз</h2>
+        <p class="section-lead">Параллельные аксиальные срезы по нативной / артериальной / портально-венозной / отсроченной фазам — золотой стандарт радиологии для характеристики гиперваскулярных и гиповаскулярных образований.</p>
+        <img class="ct-render" src="{{ four_phase_render_uri }}" alt="Сравнение 4 фаз" />
+      </section>
+    {% endif %}
+
+    {% if mesh3d_render_uri %}
+      <section class="stage-section">
+        <h2><span class="stage-tag">3D</span>3D-модель поверхности печени</h2>
+        <p class="section-lead">Реконструкция паренхимы методом маршируюших кубов; полезна для брифингов хирургической команды.</p>
+        <img class="ct-render" src="{{ mesh3d_render_uri }}" alt="3D-модель печени" />
+      </section>
+    {% endif %}
+
+    {# =================== ЭТАПЫ 1–7 — Журнал аудита конвейера =============== #}
+    {% if cascade_checkpoints %}
+      <h2><span class="stage-tag">АУДИТ</span>Журнал аудита конвейера</h2>
+      <p class="section-lead">Отслеживание моделей и лицензий по каждому этапу для регуляторного контроля (FR-027). ⚠ отмечает некоммерческие лицензии.</p>
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Этап</th><th>Модель</th><th>Лицензия</th>
+            <th>Хеш контрольной точки</th><th>Записано (UTC)</th><th>Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cp in cascade_checkpoints %}
+            <tr>
+              <td>{{ cp.stage_no if cp.stage_no is not none else loop.index0 }}</td>
+              <td class="col-stage">{{ cp.stage }}</td>
+              <td>{{ cp.model_version or "—" }}</td>
+              <td class="{{ 'license-warn' if cp.license_warn else '' }}">{{ cp.license_short or cp.license_hash or "—" }}</td>
+              <td class="col-hash">{{ cp.output_hash_short or cp.output_uri or "—" }}</td>
+              <td>{{ cp.written_at or "—" }}</td>
+              <td class="status-{{ cp.status_icon or 'ok' }}">{{ cp.status_label or "OK" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {# =================== Атрибуция моделей + декларации RUO =============== #}
+    {% if model_summary %}
+      <h2>Атрибуция моделей</h2>
+      <table class="volumes">
+        <thead><tr><th>Модель</th><th>Версия</th><th>Лицензия</th></tr></thead>
+        <tbody>
+          {% for row in model_summary %}
+            <tr><td>{{ row.name }}</td><td>{{ row.version }}</td><td>{{ row.license }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if claim_registry %}
+      <h2>Снимок реестра деклараций RUO</h2>
+      <ul style="margin: 0; padding-left: 5mm;">
+        {% for claim in claim_registry %}
+          <li><strong>{{ claim.key }}</strong> — {{ claim.status }} ({{ claim.watermark_variant or "default" }})</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {# --------------------------- Подвал ----------------------------------- #}
+    <div class="footer-strip">
+      <div class="ruo-line">{{ watermark_text }}</div>
+      <div>Программное обеспечение: LiverRa v1 MVP · {{ software_versions }}{% if pipeline_version %} · конвейер {{ pipeline_version }}{% endif %}</div>
+      <div>Данный отчёт носит исключительно информационный характер. Клинические решения принимает квалифицированный лечащий врач.</div>
+    </div>
+  </body>
+</html>

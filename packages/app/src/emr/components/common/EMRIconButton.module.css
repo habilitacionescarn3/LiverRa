@@ -1,12 +1,26 @@
 /* EMRIconButton — square icon-only button (toolbar / rail toggle). */
 
+/*
+ * Tap-target policy (WCAG 2.5.5 AAA):
+ *   - md (default) = 44×44 — full WCAG compliance, used everywhere by default.
+ *   - sm = 38×38 — visual square is smaller but we expand the hit zone to
+ *     44×44 via a ::before pseudo-element that traps the same pointer events.
+ *     Use only when dense toolbars require it.
+ *   - lg = 44×44 — kept for backward compat (was the "comfortable" size).
+ *   - clinicalControl = 44×44 — clinical-viewer controls (measurement,
+ *     segmentation toolbars). Identical sizing to md, distinct className so
+ *     viewer styles can apply tool-specific accents without bleeding into
+ *     general icon buttons.
+ */
+
 .btn {
+  position: relative;  /* anchor for ::before hit zone */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: var(--emr-border-radius);
   background: transparent;
@@ -14,7 +28,7 @@
   color: var(--emr-text-secondary);
   cursor: pointer;
   transition: background var(--emr-transition-base), color var(--emr-transition-base),
-    border-color var(--emr-transition-base), transform var(--emr-transition-fast, 0.12s ease);
+    border-color var(--emr-transition-base), transform var(--emr-transition-fast);
 }
 
 .btn:hover {
@@ -38,11 +52,34 @@
 }
 
 .sm {
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
+}
+
+/* Expand the hit zone for sm buttons to 44×44 (WCAG 2.5.5 AAA) without
+ * changing the visual square. ::before is absolutely positioned, inherits
+ * pointer events through the button. */
+.sm::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  z-index: 0;
 }
 
 .lg {
+  width: 50px;
+  height: 50px;
+}
+
+/* clinicalControl — 44×44 control surface for the DICOM viewer toolbar +
+ * measurement/segmentation panel. Same dimensions as default `md` but a
+ * dedicated className so viewer-side styling (accents, theater mode) can
+ * scope to clinical controls only. */
+.clinicalControl {
   width: 44px;
   height: 44px;
 }

@@ -97,7 +97,13 @@ function parseMeasurements(annotationData: string): ParsedMeasurement[] {
     }
 
     return measurements;
-  } catch {
+  } catch (e) {
+    // L-CATCH-9: parseMeasurements is best-effort enrichment for the
+    // radiology-report surface — corrupted Cornerstone3D annotation
+    // JSON yields an empty measurement list rather than blocking
+    // report render. Trace to debug so the issue is visible in dev.
+    // eslint-disable-next-line no-console
+    console.debug('[ReportMeasurements] annotation JSON parse failed', { e });
     return [];
   }
 }

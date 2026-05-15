@@ -1,31 +1,35 @@
 # SPDX-FileCopyrightText: Copyright LiverRa contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Default initial-FLR Celery task (T163).
+"""Initial-FLR Celery task (stage 7 of the dormant Triton cascade).
 
-Stage 7 of the cascade. Computes the seed resection plane using a
-simple heuristic: an axial plane at the vertical midpoint of the
-parenchyma bounding box. The future liver remnant (FLR) is the voxel
-count on one side of that plane, multiplied by voxel volume.
+B-CLIN-3 + B-CLIN-4 (audit 2026-05-14): the previous implementation here
+multiplied voxel counts by a hardcoded ``(2.3 ** 3) / 1000`` mL voxel and
+sliced the parenchyma at its axial midpoint as a stand-in FLR. Both
+were wrong:
 
-Plain-English analogy:
-    Before the surgeon drags the resection plane to the final position,
-    we plant a "reasonable first guess" flag at the middle of the
-    liver. The surgeon then nudges it, and a faster WebGPU calculation
-    (research §C.5) refines the number at <20 ms per drag.
+  - Real CT voxel spacing varies 0.7–5 mm — the hardcoded 2.3³ mm³
+    voxel produces volumes ~10× too large at 5 mm and ~30× too small at
+    0.7 mm.
+  - The axial-midpoint heuristic has no clinical basis. ESSO/ALPPS FLR
+    is the per-segment sum of the remnant Couinaud segments under a
+    given resection pattern, not "everything superior of the bbox
+    centroid."
 
-Budget (research §C.2): 5 s soft / 10 s hard.
+This module now wraps :func:`src.orchestrator.flr_segment_aware.compute_flr`
+and pulls (a) actual NIfTI voxel spacing via ``nibabel`` and (b) the
+Couinaud label map written by the Couinaud stage's checkpoint. The live
+cascade (``scripts/real_cascade.py``) already does this in-line; this
+Celery task path is kept around for the dormant Triton cascade graph
+in :func:`src.orchestrator.cascade.build_cascade`.
 
-Why not use the mid-hepatic-vein directly here?
-    Stage 3 (Couinaud) produces the hepatic-vein mask. Because this
-    placeholder fires *before* vessel awareness in the partial-result
-    flow, we fall back to the parenchyma centroid on the Z axis. When
-    Couinaud output is available the number will be re-derived at the
-    client (WebGPU), so the heuristic is only a seed.
+The default resection pattern is ``right_hepatectomy`` — the most
+common clinical resection. Surgeon-driven plane drag re-computes FLR
+client-side (WebGPU) at <20 ms per drag, so this task only seeds the
+initial value.
 """
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import os
 from typing import Any
@@ -48,19 +52,27 @@ from sqlalchemy import text
 
 from src.db.session import get_sessionmaker
 from src.orchestrator import cascade, checkpoint
+from src.orchestrator.flr_segment_aware import compute_flr
 from src.workers.app import app
 
 logger = logging.getLogger(__name__)
 
 
-_DEFAULT_VOXEL_VOLUME_ML = (2.3 ** 3) / 1000.0  # match parenchyma task
+DEFAULT_PATTERN = "right_hepatectomy"
 
 
-def _download_mask(s3_client: Any, uri: str) -> np.ndarray:
-    """Read a NIfTI mask from S3. Uses a temp file + nib.load() rather
-    than Nifti1Image.from_bytes(), because the latter only handles
-    uncompressed NIfTI bytes — masks written by SimpleITK to .nii.gz
-    are properly gzipped and would fail with HeaderDataError."""
+def _download_mask_with_spacing(
+    s3_client: Any, uri: str
+) -> tuple[np.ndarray, tuple[float, float, float]]:
+    """Read a NIfTI mask from S3 and return (array, (sx, sy, sz)) mm.
+
+    Uses a temp file + nib.load() rather than Nifti1Image.from_bytes(),
+    because the latter only handles uncompressed NIfTI bytes — masks
+    written by SimpleITK to .nii.gz are properly gzipped and would fail
+    with HeaderDataError. ``get_zooms`` returns the voxel spacing in the
+    NIfTI's own axis order; we return it positionally so the FLR
+    computation can multiply by it (mL math).
+    """
     if nib is None:
         raise RuntimeError("nibabel is not installed")
     assert uri.startswith("s3://"), f"expected s3:// URI, got {uri!r}"
@@ -74,38 +86,9 @@ def _download_mask(s3_client: Any, uri: str) -> np.ndarray:
         tf.flush()
         nii = nib.load(tf.name)  # type: ignore[attr-defined]
         data = np.asarray(nii.get_fdata(), dtype=np.uint8)
-    return data
-
-
-def _compute_default_plane(mask: np.ndarray) -> tuple[dict[str, Any], int, int]:
-    """Return (plane_pose, flr_voxels, total_voxels).
-
-    Heuristic: axial plane at Z = midpoint of parenchyma bounding box.
-    FLR = voxels with z < plane (the "superior" half, arbitrary-but-deterministic).
-    """
-    coords = np.argwhere(mask > 0)
-    if coords.size == 0:
-        return (
-            {"axis": "axial", "z_index": 0, "heuristic": "parenchyma_empty"},
-            0,
-            0,
-        )
-    z_min = int(coords[:, 0].min())
-    z_max = int(coords[:, 0].max())
-    z_plane = (z_min + z_max) // 2
-
-    flr_mask = mask.copy()
-    flr_mask[z_plane:, :, :] = 0  # keep only the superior half as FLR
-    flr_voxels = int(flr_mask.sum())
-    total_voxels = int(mask.sum())
-
-    plane_pose = {
-        "axis": "axial",
-        "z_index": z_plane,
-        "bbox_z": [z_min, z_max],
-        "heuristic": "axial_midpoint",
-    }
-    return plane_pose, flr_voxels, total_voxels
+        zooms = nii.header.get_zooms()[:3]
+    spacing = (float(zooms[0]), float(zooms[1]), float(zooms[2]))
+    return data, spacing
 
 
 async def _persist_flr(
@@ -113,11 +96,15 @@ async def _persist_flr(
     plane_pose: dict[str, Any],
     flr_ml: float,
     total_ml: float,
+    pattern: str,
 ) -> None:
     """INSERT an ``flr_calculation`` row in the same txn as checkpoint."""
     sessionmaker = get_sessionmaker()
     async with sessionmaker() as session:
         async with session.begin():
+            # C-CLIN-1: derive flr_pct from the SAME total_ml we store,
+            # so any frontend "flr_ml / total_ml * 100" sanity check
+            # holds exactly.
             pct = (flr_ml / total_ml * 100.0) if total_ml > 0 else 0.0
             await session.execute(
                 text(
@@ -151,7 +138,7 @@ async def _persist_flr(
                 stage_no=7,
                 stage="flr_init",
                 output_uri=f"flr://analyses/{analysis_id}",
-                model_version="heuristic-axial-midpoint@v1",
+                model_version=f"flr-segment-aware-{pattern}@v1",
                 session=session,
                 model_license_hash="n/a-heuristic",
             )
@@ -163,52 +150,74 @@ def _json_dumps(obj: dict[str, Any]) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"))
 
 
+async def _resolve_uri(analysis_uuid: UUID, stage: str) -> str:
+    sessionmaker = get_sessionmaker()
+    async with sessionmaker() as session:
+        row = await session.execute(
+            text(
+                """
+                SELECT output_uri FROM pipeline_checkpoint
+                WHERE analysis_id = :aid AND stage = :stage
+                """
+            ),
+            {"aid": str(analysis_uuid), "stage": stage},
+        )
+        found = row.first()
+        if not found:
+            raise RuntimeError(
+                f"Cannot compute FLR before '{stage}' stage is checkpointed"
+            )
+        return found[0]
+
+
 async def _run(
     analysis_id: str,
     study_id: str,
     parenchyma_mask_uri: str | None = None,
+    couinaud_mask_uri: str | None = None,
+    pattern: str = DEFAULT_PATTERN,
     *,
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     analysis_uuid = UUID(analysis_id)
 
     if parenchyma_mask_uri is None:
-        # Convention: cascade chain passes the parenchyma output through
-        # ``previous_result`` — look it up from the checkpoint table when
-        # we were invoked stand-alone (e.g. replay after partial failure).
-        sessionmaker = get_sessionmaker()
-        async with sessionmaker() as session:
-            row = await session.execute(
-                text(
-                    """
-                    SELECT output_uri FROM pipeline_checkpoint
-                    WHERE analysis_id = :aid AND stage = 'parenchyma'
-                    """
-                ),
-                {"aid": str(analysis_uuid)},
-            )
-            found = row.first()
-            if not found:
-                raise RuntimeError(
-                    "Cannot compute FLR before parenchyma stage is checkpointed"
-                )
-            parenchyma_mask_uri = found[0]
+        parenchyma_mask_uri = await _resolve_uri(analysis_uuid, "parenchyma")
+    if couinaud_mask_uri is None:
+        # Couinaud stage is mandatory for segment-aware FLR. If the
+        # cascade graph routed here without a Couinaud checkpoint the
+        # caller broke the contract — fail loudly rather than fall back
+        # to a clinically-meaningless heuristic.
+        couinaud_mask_uri = await _resolve_uri(analysis_uuid, "couinaud")
 
     s3_client = boto3.client(
         "s3", region_name=os.environ.get("AWS_REGION", "eu-central-1")
     )
     loop = asyncio.get_running_loop()
-    mask = await loop.run_in_executor(
-        None, _download_mask, s3_client, parenchyma_mask_uri
+
+    # B-CLIN-3: load actual voxel spacing from the parenchyma NIfTI
+    # rather than assuming 2.3³ mm³. Couinaud + parenchyma share the
+    # same grid so either NIfTI yields the correct spacing.
+    parenchyma_arr, spacing_mm = await loop.run_in_executor(
+        None, _download_mask_with_spacing, s3_client, parenchyma_mask_uri
+    )
+    couinaud_arr, _ = await loop.run_in_executor(
+        None, _download_mask_with_spacing, s3_client, couinaud_mask_uri
+    )
+    if parenchyma_arr.shape != couinaud_arr.shape:
+        raise RuntimeError(
+            f"parenchyma/Couinaud shape mismatch: "
+            f"{parenchyma_arr.shape} vs {couinaud_arr.shape}"
+        )
+
+    voxel_ml = float(spacing_mm[0] * spacing_mm[1] * spacing_mm[2]) / 1000.0
+
+    # B-CLIN-4: replace axial-midpoint heuristic with segment-aware FLR.
+    plane_pose, flr_ml, total_ml = compute_flr(
+        couinaud_arr, voxel_ml, pattern=pattern
     )
 
-    plane_pose, flr_voxels, total_voxels = _compute_default_plane(mask)
-    flr_ml = float(flr_voxels * _DEFAULT_VOXEL_VOLUME_ML)
-    total_ml = float(total_voxels * _DEFAULT_VOXEL_VOLUME_ML)
-
-    # T165 wiring: one transaction commits both the FLR row and the
-    # checkpoint for stage 7.
-    await _persist_flr(analysis_uuid, plane_pose, flr_ml, total_ml)
+    await _persist_flr(analysis_uuid, plane_pose, flr_ml, total_ml, pattern)
 
     return {
         "analysis_id": str(analysis_uuid),
@@ -233,11 +242,14 @@ def compute_initial_flr(
     analysis_id: str,
     study_id: str,
     parenchyma_mask_uri: str | None = None,
+    couinaud_mask_uri: str | None = None,
+    pattern: str = DEFAULT_PATTERN,
 ) -> dict[str, Any]:
-    """Celery entry point for the default-FLR stage."""
+    """Celery entry point for the segment-aware initial-FLR stage."""
     correlation_id = getattr(self.request, "id", None)
     logger.info(
-        "compute_initial_flr task=%s analysis=%s", correlation_id, analysis_id
+        "compute_initial_flr task=%s analysis=%s pattern=%s",
+        correlation_id, analysis_id, pattern,
     )
 
     async def _wrapped() -> dict[str, Any]:
@@ -248,10 +260,12 @@ def compute_initial_flr(
             analysis_id,
             study_id,
             parenchyma_mask_uri,
+            couinaud_mask_uri,
+            pattern,
             correlation_id=correlation_id,
         )
 
     return asyncio.run(_wrapped())
 
 
-__all__ = ["compute_initial_flr"]
+__all__ = ["compute_initial_flr", "DEFAULT_PATTERN"]

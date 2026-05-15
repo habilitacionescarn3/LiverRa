@@ -13,7 +13,13 @@
     "emptyTitle": "მოდელები არ არის ჩამოთვლილი",
     "emptyDescription": "მიმდინარე build-ში ჯერ არ არის MBoM ჩანაწერები.",
     "tableAriaLabel": "MBoM ცხრილი",
-    "loadError": "MBoM-ის ჩატვირთვა ვერ მოხერხდა."
+    "loadError": "MBoM-ის ჩატვირთვა ვერ მოხერხდა.",
+    "downloadJson": "JSON-ის ჩამოტვირთვა",
+    "filterLicense": "ლიცენზია",
+    "filterAll": "ყველა ლიცენზია",
+    "summaryModels": "{{n}} მოდელი",
+    "summaryApproved": "{{n}} დამტკიცებული",
+    "summaryPending": "{{n}} მოლოდინში"
   },
   "audit": {
     "title": "აუდიტის შეჯამება",
@@ -34,7 +40,22 @@
     "colActor": "აქტორი",
     "colSubject": "სუბიექტი",
     "colOutcome": "შედეგი",
-    "tableAriaLabel": "აუდიტის მოვლენების ცხრილი"
+    "tableAriaLabel": "აუდიტის მოვლენების ცხრილი",
+    "categoryLabel": "კატეგორიის ფილტრი",
+    "categoryAll": "ყველა კატეგორია",
+    "summary": {
+      "title": "შესაბამისობის მიმოხილვა",
+      "subtitle": "აუდიტის, წაშლისა და RUO განცხადებების სტატუსის მიმოხილვა (ბოლო 30 დღე).",
+      "totalEvents": "მოვლენების ჯამი",
+      "successRate": "წარმატების მაჩვენებელი",
+      "deniedEvents": "უარყოფილი",
+      "erasurePending": "წაშლის მოლოდინში მყოფი მოთხოვნები",
+      "ruoCleared": "დაშვებული განცხადებები",
+      "ruoUnderAssessment": "შეფასების პროცესში",
+      "ruoOnly": "მხოლოდ RUO",
+      "byCategory": "მოვლენები კატეგორიების მიხედვით",
+      "noData": "ამ პერიოდში მონაცემები არ არის."
+    }
   },
   "chain": {
     "verifying": "ჯაჭვი მოწმდება…",
@@ -99,7 +120,7 @@
       "under_conformity_assessment": "შესაბამისობის შეფასებაში",
       "cleared": "დაშვებული"
     },
-    "emptyTitle": "No claims yet",
-    "emptyDescription": "No regulatory claims have been configured for this tenant."
+    "emptyTitle": "განცხადებები არ არის",
+    "emptyDescription": "ამ მოიჯარისთვის რეგულატორული განცხადებები არ არის კონფიგურირებული."
   }
 }

@@ -1,239 +1,280 @@
 {
   "status": {
-    "all": "All",
-    "uploading": "Uploading",
-    "anonymizing": "Anonymizing",
-    "queued": "Queued",
-    "running": "Running",
-    "done": "Done",
-    "completed": "__TODO_TRANSLATE__:Completed",
-    "failed": "Failed",
-    "cancelled": "Cancelled"
+    "all": "ყველა",
+    "uploading": "იტვირთება",
+    "anonymizing": "ანონიმიზაცია",
+    "queued": "რიგშია",
+    "running": "მიმდინარეობს",
+    "done": "შესრულდა",
+    "completed": "დასრულებულია",
+    "failed": "ჩავარდა",
+    "cancelled": "გაუქმდა"
   },
   "cases": {
-    "title": "Analyses",
-    "subtitle": "Tenant-scoped liver imaging cases",
-    "newUpload": "New upload",
-    "open": "Open",
-    "tableAria": "Liver analyses",
+    "title": "ანალიზები",
+    "subtitle": "ტენანტის ფარგლებში ღვიძლის გამოსახულებების ქეისები",
+    "newUpload": "ახალი ატვირთვა",
+    "open": "გახსნა",
+    "tableAria": "ღვიძლის ანალიზები",
     "col": {
-      "thumb": "Thumbnail",
-      "studyUid": "Study UID",
-      "patient": "Patient",
-      "uploadedAt": "Uploaded",
-      "status": "Status",
+      "thumb": "მინიატურა",
+      "studyUid": "კვლევის UID",
+      "patient": "პაციენტი",
+      "uploadedAt": "ატვირთულია",
+      "status": "სტატუსი",
       "flr": "FLR %",
-      "actions": "Actions"
+      "actions": "მოქმედებები"
     },
     "filters": {
-      "status": "Status",
-      "dateFrom": "From",
-      "dateTo": "To",
-      "phase": "Phase",
-      "reset": "Reset"
+      "status": "სტატუსი",
+      "dateFrom": "დან",
+      "dateTo": "მდე",
+      "phase": "ფაზა",
+      "reset": "გასუფთავება"
     },
     "empty": {
-      "title": "No analyses yet",
-      "description": "Upload your first liver CT/MRI study to kick off an automated segmentation + FLR analysis.",
-      "upload": "Upload a study"
+      "title": "ჯერჯერობით ანალიზები არ არის",
+      "description": "ატვირთეთ თქვენი პირველი ღვიძლის CT/MRI კვლევა, რათა დაიწყოს ავტომატური სეგმენტაცია და FLR ანალიზი.",
+      "upload": "კვლევის ატვირთვა",
+      "fromPacs": "PACS კვლევების დათვალიერება"
     },
     "error": {
-      "title": "Could not load cases",
-      "retry": "Retry"
+      "title": "ქეისების ჩატვირთვა ვერ მოხერხდა",
+      "retry": "განმეორება"
     },
     "pagination": {
-      "summary": "Showing {{from}}–{{to}} of {{total}}",
-      "prev": "Previous",
-      "next": "Next",
-      "pageOf": "Page {{page}} of {{total}}"
+      "summary": "ნაჩვენებია {{from}}–{{to}} / {{total}}-დან",
+      "prev": "წინა",
+      "next": "შემდეგი",
+      "pageOf": "გვერდი {{page}} / {{total}}-დან"
     }
   },
   "detail": {
-    "title": "Analysis • {{studyUid}}",
-    "back": "Back to cases",
-    "downloadReport": "Download report",
-    "openFinalize": "__TODO_TRANSLATE__:Finalize & generate report",
-    "drawerAria": "Case details drawer",
-    "resizeAria": "Resize drawer",
-    "mprAria": "Multi-planar preview strip",
-    "mprPlaceholder": "Multi-planar views (axial / sagittal / coronal) will appear here once ready.",
+    "title": "ანალიზი • {{studyUid}}",
+    "back": "ქეისებზე დაბრუნება",
+    "downloadReport": "ანგარიშის ჩამოტვირთვა",
+    "openFinalize": "დასრულება და ანგარიშის გენერირება",
+    "drawerAria": "ქეისის დეტალების პანელი",
+    "resizeAria": "პანელის ზომის შეცვლა",
+    "mprAria": "მრავალპლანარული წინასწარი ნახვის პანელი",
+    "mprPlaceholder": "მრავალპლანარული ხედები (აქსიალური / საგიტალური / კორონალური) გამოჩნდება აქ, როგორც კი მზად იქნება.",
     "error": {
-      "title": "Could not load analysis"
+      "title": "ანალიზის ჩატვირთვა ვერ მოხერხდა"
     },
     "viewer": {
-      "loading": "Preparing the 3D viewer…"
+      "loading": "მზადდება 3D მნახველი…"
     },
     "tabs": {
-      "segments": "Segments",
-      "lesions": "Lesions",
-      "measurements": "Measurements",
-      "notes": "Notes"
+      "segments": "სეგმენტები",
+      "lesions": "დაზიანებები",
+      "measurements": "გაზომვები",
+      "notes": "შენიშვნები"
     },
     "drawer": {
-      "segmentsPlaceholder": "Couinaud segments I–VIII and per-segment volumes will appear here.",
-      "lesionsPlaceholder": "Detected lesions and LiLNet classifications will appear here.",
-      "measurementsPlaceholder": "Linear + volumetric measurements will appear here.",
-      "notesPlaceholder": "Surgeon notes attached to this case will appear here.",
-      "loading": "__TODO_TRANSLATE__:Loading…",
-      "openRefinement": "__TODO_TRANSLATE__:Open Refinement",
+      "segmentsPlaceholder": "Couinaud-ს I–VIII სეგმენტები და სეგმენტური მოცულობები გამოჩნდება აქ.",
+      "lesionsPlaceholder": "აღმოჩენილი დაზიანებები და LiLNet კლასიფიკაციები გამოჩნდება აქ.",
+      "measurementsPlaceholder": "ხაზოვანი და მოცულობითი გაზომვები გამოჩნდება აქ.",
+      "notesPlaceholder": "ამ ქეისზე მიმაგრებული ქირურგის შენიშვნები გამოჩნდება აქ.",
+      "loading": "იტვირთება…",
+      "openRefinement": "დაზუსტების გახსნა",
       "segmentsEmpty": {
-        "title": "__TODO_TRANSLATE__:No segments yet",
-        "description": "__TODO_TRANSLATE__:Couinaud segments and vessel masks will appear here once the cascade finishes."
+        "title": "სეგმენტები ჯერ არ არის",
+        "description": "Couinaud-ს სეგმენტები და სისხლძარღვების ნიღბები გამოჩნდება აქ, მას შემდეგ რაც კასკადი დასრულდება."
       },
       "measurementsEmpty": {
-        "title": "__TODO_TRANSLATE__:No measurements yet",
-        "description": "__TODO_TRANSLATE__:Linear and volumetric measurements added in Refinement will appear here."
+        "title": "გაზომვები ჯერ არ არის",
+        "description": "დაზუსტებისას დამატებული ხაზოვანი და მოცულობითი გაზომვები გამოჩნდება აქ."
       },
       "notesEmpty": {
-        "title": "__TODO_TRANSLATE__:No notes yet",
-        "description": "__TODO_TRANSLATE__:Surgeon notes attached during Refinement will appear here."
+        "title": "შენიშვნები ჯერ არ არის",
+        "description": "დაზუსტებისას დამატებული ქირურგის შენიშვნები გამოჩნდება აქ."
       }
     },
     "cascadeTimeline": {
-      "title": "__TODO_TRANSLATE__:Pipeline activity",
-      "modelVersion": "__TODO_TRANSLATE__:Model",
-      "outputUri": "__TODO_TRANSLATE__:Output",
-      "licenseHash": "__TODO_TRANSLATE__:License hash",
+      "title": "პროცესის აქტივობა",
+      "modelVersion": "მოდელი",
+      "outputUri": "შედეგი",
+      "licenseHash": "ლიცენზიის ჰეში",
       "summary": {
-        "complete": "__TODO_TRANSLATE__:Pipeline complete",
-        "runningStage": "__TODO_TRANSLATE__:Running stage {{current}} of {{total}}",
-        "failed": "__TODO_TRANSLATE__:Pipeline failed",
-        "queued": "__TODO_TRANSLATE__:Queued",
-        "stageCount_one": "__TODO_TRANSLATE__:{{count}} stage · {{total}} total",
-        "stageCount_other": "__TODO_TRANSLATE__:{{count}} stages · {{total}} total",
-        "expand": "__TODO_TRANSLATE__:Show pipeline details",
-        "collapse": "__TODO_TRANSLATE__:Hide pipeline details",
-        "liverVolume": "__TODO_TRANSLATE__:Liver {{ml}} ml",
-        "lesionCount_one": "__TODO_TRANSLATE__:{{count}} lesion",
-        "lesionCount_other": "__TODO_TRANSLATE__:{{count}} lesions",
-        "flr": "__TODO_TRANSLATE__:FLR {{pct}}%"
+        "complete": "პროცესი დასრულებულია",
+        "runningStage": "მიმდინარეობს მე-{{current}} ეტაპი {{total}}-დან",
+        "failed": "პროცესი ჩავარდა",
+        "queued": "რიგშია",
+        "stageCount_one": "{{count}} ეტაპი · სულ {{total}}",
+        "stageCount_other": "{{count}} ეტაპი · სულ {{total}}",
+        "stageCount_few": "{{count}} ეტაპი · სულ {{total}}",
+        "stageCount_many": "{{count}} ეტაპი · სულ {{total}}",
+        "expand": "პროცესის დეტალების ჩვენება",
+        "collapse": "პროცესის დეტალების დამალვა",
+        "liverVolume": "ღვიძლი {{ml}} მლ",
+        "lesionCount_one": "{{count}} დაზიანება",
+        "lesionCount_other": "{{count}} დაზიანება",
+        "lesionCount_few": "{{count}} დაზიანება",
+        "lesionCount_many": "{{count}} დაზიანება",
+        "flr": "FLR {{pct}}%"
       }
     },
     "workspace": {
-      "title": "__TODO_TRANSLATE__:Case workspace",
-      "subtitle": "__TODO_TRANSLATE__:Browse segments, lesions and notes"
+      "title": "ქეისის სამუშაო სივრცე",
+      "subtitle": "სეგმენტების, დაზიანებების და შენიშვნების დათვალიერება"
     },
     "viewerCard": {
-      "lastUpdated": "__TODO_TRANSLATE__:Last updated · {{when}}",
-      "studyLabel": "__TODO_TRANSLATE__:Study {{uid}}"
+      "lastUpdated": "ბოლოს განახლდა · {{when}}",
+      "studyLabel": "კვლევა {{uid}}"
     },
     "flr": {
-      "subtitle": "__TODO_TRANSLATE__:Primary surgical decision input"
+      "subtitle": "პირველადი ქირურგიული გადაწყვეტილების მონაცემი"
     },
-    "ruoBadge": "__TODO_TRANSLATE__:RUO — Not for clinical use",
+    "ruoBadge": "RUO — არ არის კლინიკური გამოყენებისთვის",
     "crumbs": {
-      "cases": "Cases"
+      "cases": "ქეისები"
+    },
+    "metrics": {
+      "liverVolume": "ღვიძლი",
+      "lesions": "დაზიანებები",
+      "lesionsCount_one": "{{count}} დაზიანება",
+      "lesionsCount_other": "{{count}} დაზიანება",
+      "flr": "FLR",
+      "flrUnit": "%",
+      "volumeUnit": "მლ"
+    },
+    "theater": {
+      "enter": "მნახველის ფოკუსირება",
+      "exit": "ფოკუსის რეჟიმიდან გამოსვლა",
+      "shortcutHint": "დააჭირეთ F"
+    },
+    "rails": {
+      "collapseLeft": "სამუშაო პანელის ჩაკეცვა",
+      "expandLeft": "სამუშაო პანელის გაშლა",
+      "collapseRight": "FLR პანელის ჩაკეცვა",
+      "expandRight": "FLR პანელის გაშლა"
     }
   },
   "stages": {
-    "ingest": "__TODO_TRANSLATE__:DICOM ingest",
-    "anonymization": "__TODO_TRANSLATE__:Anonymisation",
-    "parenchyma": "__TODO_TRANSLATE__:Parenchyma segmentation",
-    "vessels": "__TODO_TRANSLATE__:Vessel segmentation",
-    "couinaud": "__TODO_TRANSLATE__:Couinaud segmentation",
-    "lesion_detection": "__TODO_TRANSLATE__:Lesion detection",
-    "classification": "__TODO_TRANSLATE__:Lesion classification",
-    "flr_init": "__TODO_TRANSLATE__:FLR calculation"
+    "ingest": "DICOM ჩატვირთვა",
+    "anonymization": "ანონიმიზაცია",
+    "parenchyma": "პარენქიმის სეგმენტაცია",
+    "vessels": "სისხლძარღვების სეგმენტაცია",
+    "couinaud": "Couinaud-ს სეგმენტაცია",
+    "lesion_detection": "დაზიანების აღმოჩენა",
+    "classification": "დაზიანების კლასიფიკაცია",
+    "flr_init": "FLR გამოთვლა"
   },
   "anatomy": {
-    "liver": "__TODO_TRANSLATE__:Liver (parenchyma)",
-    "portal_vein": "__TODO_TRANSLATE__:Portal vein",
-    "hepatic_vein": "__TODO_TRANSLATE__:Hepatic vein",
+    "liver": "ღვიძლი (პარენქიმა)",
+    "portal_vein": "კარის ვენა",
+    "hepatic_vein": "ღვიძლის ვენა",
     "couinaud": {
-      "I": "__TODO_TRANSLATE__:Couinaud I",
-      "II": "__TODO_TRANSLATE__:Couinaud II",
-      "III": "__TODO_TRANSLATE__:Couinaud III",
-      "IV": "__TODO_TRANSLATE__:Couinaud IV",
-      "V": "__TODO_TRANSLATE__:Couinaud V",
-      "VI": "__TODO_TRANSLATE__:Couinaud VI",
-      "VII": "__TODO_TRANSLATE__:Couinaud VII",
-      "VIII": "__TODO_TRANSLATE__:Couinaud VIII"
+      "I": "Couinaud I",
+      "II": "Couinaud II",
+      "III": "Couinaud III",
+      "IV": "Couinaud IV",
+      "V": "Couinaud V",
+      "VI": "Couinaud VI",
+      "VII": "Couinaud VII",
+      "VIII": "Couinaud VIII"
     }
   },
   "viewer": {
-    "ariaLabel": "LiverRa 3D viewer",
-    "statusReady": "Ready",
-    "statusLoading": "Loading volume…",
-    "statusNotReady": "Analysis not ready",
-    "keyboardHelpTitle": "Keyboard shortcuts",
+    "ariaLabel": "LiverRa 3D მნახველი",
+    "statusReady": "მზადაა",
+    "statusLoading": "იტვირთება მოცულობა…",
+    "statusNotReady": "ანალიზი არ არის მზად",
+    "keyboardHelpTitle": "კლავიატურის მალსახმობები",
     "keyboard": {
-      "layers": "Toggle layers",
-      "plane": "Resection plane tool",
-      "zoom": "Zoom in / out",
-      "reset": "Reset view"
+      "layers": "ფენების გადართვა",
+      "plane": "რეზექციის სიბრტყის ინსტრუმენტი",
+      "zoom": "მიახლოება / დაშორება",
+      "reset": "ხედის საწყის მდგომარეობაში დაბრუნება"
     },
-    "webgpuMissing": "WebGPU is unavailable. Falling back to CPU voxel counting — interactions may be slower.",
-    "parenchymaLabel": "Parenchyma overlay",
-    "loading": "Loading viewer…",
-    "loadingSeries": "__TODO_TRANSLATE__:Loading series…",
-    "noStudy": "__TODO_TRANSLATE__:No DICOM study attached to this analysis.",
-    "loadFailed": "__TODO_TRANSLATE__:Could not load DICOM series.",
-    "maskLoadFailed": "__TODO_TRANSLATE__:Mask overlay could not be loaded.",
-    "sliceCounter": "__TODO_TRANSLATE__:Slice {{current}} / {{total}}",
+    "webgpuMissing": "WebGPU მიუწვდომელია. გამოიყენება CPU-ზე დაფუძნებული ვოქსელების დათვლა — ინტერაქცია შესაძლოა იყოს უფრო ნელი.",
+    "parenchymaLabel": "პარენქიმის გადაფარვა",
+    "loading": "იტვირთება მნახველი…",
+    "loadingSeries": "იტვირთება სერია…",
+    "noStudy": "ამ ანალიზზე არ არის მიმაგრებული DICOM კვლევა.",
+    "loadFailed": "DICOM სერიის ჩატვირთვა ვერ მოხერხდა.",
+    "maskLoadFailed": "ნიღბის გადაფარვის ჩატვირთვა ვერ მოხერხდა.",
+    "sliceCounter": "შრე {{current}} / {{total}}",
     "layers": {
-      "title": "__TODO_TRANSLATE__:Layers",
-      "ariaLabel": "__TODO_TRANSLATE__:Layer visibility toggles",
-      "parenchyma": "__TODO_TRANSLATE__:Parenchyma",
+      "title": "ფენები",
+      "ariaLabel": "ფენების ხილვადობის გადამრთველი",
+      "parenchyma": "პარენქიმა",
       "couinaud": {
-        "master": "__TODO_TRANSLATE__:Couinaud (8 segments)",
-        "expandAria": "__TODO_TRANSLATE__:Expand Couinaud sub-segments",
-        "i": "__TODO_TRANSLATE__:Segment I (caudate)",
-        "ii": "__TODO_TRANSLATE__:Segment II",
-        "iii": "__TODO_TRANSLATE__:Segment III",
-        "iv": "__TODO_TRANSLATE__:Segment IV",
-        "v": "__TODO_TRANSLATE__:Segment V",
-        "vi": "__TODO_TRANSLATE__:Segment VI",
-        "vii": "__TODO_TRANSLATE__:Segment VII",
-        "viii": "__TODO_TRANSLATE__:Segment VIII"
+        "master": "Couinaud (8 სეგმენტი)",
+        "expandAria": "Couinaud სუბ-სეგმენტების გაშლა",
+        "i": "სეგმენტი I (კუდიანი)",
+        "ii": "სეგმენტი II",
+        "iii": "სეგმენტი III",
+        "iv": "სეგმენტი IV",
+        "v": "სეგმენტი V",
+        "vi": "სეგმენტი VI",
+        "vii": "სეგმენტი VII",
+        "viii": "სეგმენტი VIII"
       },
-      "vessels": "__TODO_TRANSLATE__:Vessels",
-      "portalVein": "__TODO_TRANSLATE__:Portal vein",
-      "hepaticVein": "__TODO_TRANSLATE__:Hepatic vein",
-      "lesions": "__TODO_TRANSLATE__:Lesions",
-      "flrPlane": "__TODO_TRANSLATE__:FLR cutting plane",
-      "notReady": "__TODO_TRANSLATE__:Mask not yet available.",
-      "couinaudDeferred": "__TODO_TRANSLATE__:Couinaud overlay rendering ships in a later release.",
-      "vesselsDeferred": "__TODO_TRANSLATE__:Vessel overlay rendering ships in a later release.",
-      "noLesions": "__TODO_TRANSLATE__:No lesions detected on this study.",
-      "noFlrPlane": "__TODO_TRANSLATE__:FLR cutting plane not available for this analysis."
+      "vessels": "სისხლძარღვები",
+      "portalVein": "კარის ვენა",
+      "hepaticVein": "ღვიძლის ვენა",
+      "lesions": "დაზიანებები",
+      "flrPlane": "FLR რეზექციის სიბრტყე",
+      "notReady": "ნიღაბი ჯერ არ არის ხელმისაწვდომი.",
+      "couinaudDeferred": "Couinaud-ს გადაფარვის რენდერი დაემატება შემდგომ განახლებაში.",
+      "vesselsDeferred": "სისხლძარღვების გადაფარვის რენდერი დაემატება შემდგომ განახლებაში.",
+      "noLesions": "ამ კვლევაში დაზიანებები არ არის აღმოჩენილი.",
+      "noFlrPlane": "FLR რეზექციის სიბრტყე არ არის ხელმისაწვდომი ამ ანალიზისთვის."
     },
     "viewMode": {
-      "title": "__TODO_TRANSLATE__:View",
-      "ariaLabel": "__TODO_TRANSLATE__:View mode",
-      "axial": "__TODO_TRANSLATE__:Axial",
-      "mpr": "__TODO_TRANSLATE__:MPR (3-up)",
-      "switchToAxial": "__TODO_TRANSLATE__:Show axial only",
-      "switchToMpr": "__TODO_TRANSLATE__:Show 3-up MPR (axial / sagittal / coronal)",
+      "title": "ხედი",
+      "ariaLabel": "ხედის რეჟიმი",
+      "axial": "აქსიალური",
+      "mpr": "MPR (3 პანელი)",
+      "switchToAxial": "მხოლოდ აქსიალურის ჩვენება",
+      "switchToMpr": "3 პანელიანი MPR-ის ჩვენება (აქსიალური / საგიტალური / კორონალური)",
       "panelTitle": {
-        "axial": "__TODO_TRANSLATE__:Axial",
-        "sagittal": "__TODO_TRANSLATE__:Sagittal",
-        "coronal": "__TODO_TRANSLATE__:Coronal"
+        "axial": "აქსიალური",
+        "sagittal": "საგიტალური",
+        "coronal": "კორონალური"
       },
-      "mprUnavailable": "__TODO_TRANSLATE__:MPR view unavailable on this device.",
-      "mobileForcedAxial": "__TODO_TRANSLATE__:MPR is disabled on small screens for legibility."
+      "mprUnavailable": "MPR ხედი მიუწვდომელია ამ მოწყობილობაზე.",
+      "mobileForcedAxial": "MPR გათიშულია მცირე ეკრანებზე წაკითხვადობისთვის."
     }
   },
   "flr": {
-    "title": "Future Liver Remnant",
-    "valueMl": "{{ml}} mL",
-    "valuePct": "{{pct}}% of total",
+    "title": "დარჩენილი ღვიძლის მომავალი მოცულობა (FLR)",
+    "valueMl": "{{ml}} მლ",
+    "valuePct": "საერთო მოცულობის {{pct}}%",
     "adequacy": {
-      "adequate": "Adequate (advisory ≥ 40%)",
-      "borderline": "Borderline (30–40%)",
-      "low": "Low (< 30%)"
+      "adequate": "ადეკვატური (რეკომენდებული ≥ 40%)",
+      "borderline": "მოსაზღვრე (30–40%)",
+      "low": "დაბალი (< 30%)"
     },
-    "recompute": "Recompute",
-    "ariaLive": "FLR measurement updates"
+    "thresholdsHeader": "ადეკვატურობის ზღვრები ({{context}})",
+    "thresholdRanges": {
+      "low": {
+        "label": "დაბალი",
+        "range": "< {{fail}}%"
+      },
+      "borderline": {
+        "label": "მოსაზღვრე",
+        "range": "{{fail}}–{{warn}}%"
+      },
+      "adequate": {
+        "label": "ადეკვატური",
+        "range": "≥ {{warn}}%"
+      }
+    },
+    "recompute": "ხელახალი გამოთვლა",
+    "ariaLive": "FLR გაზომვების განახლებები",
+    "totalMl": "სულ {{ml}} მლ"
   },
   "plane": {
-    "ariaLabel": "Resection plane offset",
-    "cpuFallback": "CPU fallback engaged — WebGPU unavailable.",
-    "translate": "Plane offset",
-    "rotate": "Plane rotation",
-    "reset": "Reset plane"
+    "ariaLabel": "რეზექციის სიბრტყის წანაცვლება",
+    "cpuFallback": "ჩართულია CPU ალტერნატივა — WebGPU მიუწვდომელია.",
+    "translate": "სიბრტყის წანაცვლება",
+    "rotate": "სიბრტყის როტაცია",
+    "reset": "სიბრტყის საწყის მდგომარეობაში დაბრუნება"
   },
   "coldStart": {
-    "warming": "Models warming up",
-    "timeRemaining": "~{{seconds}}s remaining. Your analysis will start automatically."
+    "warming": "მოდელები მზადდება",
+    "timeRemaining": "დარჩა ~{{seconds}} წმ. თქვენი ანალიზი ავტომატურად დაიწყება."
   }
 }

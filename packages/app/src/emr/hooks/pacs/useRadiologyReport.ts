@@ -261,6 +261,10 @@ export function useRadiologyReport({
       setError(msg);
       return null;
     }
+    // M-HOOK-4 justification: ``t`` (translation function) is referenced
+    // for the error fallback but tracked by react-i18next as stable
+    // across the component lifetime; adding it would chum the deps
+    // array on every locale-context render without functional benefit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [medplum, loadAddenda]);
 

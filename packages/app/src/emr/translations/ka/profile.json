@@ -1,39 +1,94 @@
 {
   "__comment__": "Georgian profile copy — awaiting CODEOWNERS review. Missing keys fall back to English.",
   "page": {
-    "title": "__TODO_TRANSLATE__:Profile",
-    "subtitle": "__TODO_TRANSLATE__:Manage your account, preferences, and security."
+    "title": "პროფილი",
+    "subtitle": "მართეთ თქვენი ანგარიში, პარამეტრები და უსაფრთხოება."
   },
   "header": {
-    "editProfile": "__TODO_TRANSLATE__:Edit profile",
-    "emailUnavailable": "__TODO_TRANSLATE__:Email unavailable",
-    "roleUnassigned": "__TODO_TRANSLATE__:No role assigned"
+    "editProfile": "პროფილის რედაქტირება",
+    "emailUnavailable": "ელფოსტა მიუწვდომელია",
+    "roleUnassigned": "როლი არ არის მინიჭებული"
   },
   "sections": {
-    "account":     "__TODO_TRANSLATE__:Account",
-    "preferences": "__TODO_TRANSLATE__:Preferences",
-    "security":    "__TODO_TRANSLATE__:Security",
-    "compliance":  "__TODO_TRANSLATE__:Compliance"
+    "account": "ანგარიში",
+    "preferences": "პარამეტრები",
+    "security": "უსაფრთხოება",
+    "compliance": "შესაბამისობა"
   },
   "actions": {
-    "save":   "__TODO_TRANSLATE__:Save changes",
-    "cancel": "__TODO_TRANSLATE__:Cancel"
+    "save": "ცვლილებების შენახვა",
+    "cancel": "გაუქმება",
+    "saving": "ინახება..."
   },
   "fields": {
-    "lastActiveNever": "__TODO_TRANSLATE__:Never",
-    "lastActiveFirstSession": "__TODO_TRANSLATE__:Welcome! This is your first session.",
-    "displayNameHelper": "__TODO_TRANSLATE__:Visible to your team on cases, audit events, and reports."
+    "lastActiveNever": "არასდროს",
+    "lastActiveFirstSession": "მოგესალმებით! ეს თქვენი პირველი სესიაა.",
+    "displayNameHelper": "ხილულია თქვენი გუნდისთვის ქეისებზე, აუდიტის მოვლენებსა და რეპორტებში.",
+    "email": "Email",
+    "emailReadonly": "ელფოსტის შესაცვლელად დაუკავშირდით ადმინისტრატორს.",
+    "displayName": "სახელი",
+    "displayNamePlaceholder": "როგორ გამოჩნდება თქვენი სახელი ჟურნალებსა და რეპორტებში",
+    "role": "როლი",
+    "locale": "ენა",
+    "theme": "თემა",
+    "mfaStatus": "მრავალფაქტორიანი ავთენტიფიკაცია",
+    "ruoAccepted": "RUO პირობები მიღებულია",
+    "lastActive": "ბოლო აქტივობა"
   },
   "password": {
-    "title": "__TODO_TRANSLATE__:Password",
-    "description": "__TODO_TRANSLATE__:Self-serve password changes are coming soon. For now, contact your administrator."
+    "title": "პაროლი",
+    "description": "პაროლის დამოუკიდებლად შეცვლის ფუნქცია მალე დაემატება. ამჟამად დაუკავშირდით ადმინისტრატორს."
   },
   "sessions": {
-    "title": "__TODO_TRANSLATE__:Active sessions",
-    "description": "__TODO_TRANSLATE__:Review devices currently signed in to your LiverRa account."
+    "title": "აქტიური სესიები",
+    "description": "გადახედეთ მოწყობილობებს, რომლებითაც შესული ხართ LiverRa-ში."
   },
-  "comingSoon": "__TODO_TRANSLATE__:Coming soon",
+  "comingSoon": "მალე დაემატება",
   "ruo": {
-    "footerPill": "__TODO_TRANSLATE__:Research Use Only — outputs are not for clinical decision-making."
+    "footerPill": "Research Use Only — შედეგები არ გამოიყენება კლინიკური გადაწყვეტილებებისთვის.",
+    "acceptedAt": "მიღებულია {{date}}-ში",
+    "neverAccepted": "ჯერ არ არის მიღებული — დაასრულეთ რეგისტრაცია მისაღებად.",
+    "reAccept": "RUO პირობების ხელახლა მიღება",
+    "reAcceptBody": "თუ თქვენი ორგანიზაცია მოითხოვს პერიოდულ ხელახალ დადასტურებას, შეგიძლიათ აქ მოაწეროთ ხელი. ეს მოქმედება საჭიროებს MFA-ს.",
+    "reAcceptCta": "ხელახლა მიღება",
+    "reAccepted": "RUO პირობები ხელახლა მიღებულია."
+  },
+  "locale": {
+    "en": "ინგლისური",
+    "de": "გერმანული",
+    "ka": "ქართული",
+    "ru": "რუსული"
+  },
+  "theme": {
+    "light": "ნათელი",
+    "dark": "ბნელი",
+    "system": "სისტემური"
+  },
+  "role": {
+    "hpb_surgeon": "HPB ქირურგი",
+    "radiologist": "რადიოლოგი",
+    "fellow": "რეზიდენტი/ფელოუ",
+    "admin": "ადმინისტრატორი",
+    "operations": "ოპერაციები",
+    "compliance": "შესაბამისობის რეცენზენტი",
+    "dpo": "მონაცემთა დაცვის ოფიცერი"
+  },
+  "mfa": {
+    "enrolled": "გააქტიურებულია",
+    "notEnrolled": "არ არის გააქტიურებული",
+    "enrolledAt": "გააქტიურდა {{date}}-ში",
+    "reset": "MFA-ის განულება",
+    "resetBody": "უსაფრთხოებისთვის, MFA-ის განულებას ასრულებს ადმინისტრატორი. დააჭირეთ ქვემოთ მოთხოვნის გასაგზავნად; ადმინისტრატორი დაგიკავშირდებათ ერთი სამუშაო დღის ვადაში.",
+    "resetCta": "MFA-ის განულების მოთხოვნა",
+    "resetSent": "განულების მოთხოვნა გაიგზავნა. ადმინისტრატორი დაგიკავშირდებათ.",
+    "resetAdmin": "ადმინისტრატორის კონტაქტი: {{admin}}"
+  },
+  "toast": {
+    "saved": "პროფილი განახლებულია.",
+    "saveError": "შენახვა ვერ მოხერხდა — გთხოვთ, სცადოთ ხელახლა."
+  },
+  "errors": {
+    "displayNameRequired": "სახელი სავალდებულოა.",
+    "displayNameTooLong": "სახელი უნდა იყოს 80 სიმბოლოზე ნაკლები."
   }
 }

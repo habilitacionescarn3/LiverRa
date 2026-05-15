@@ -23,7 +23,10 @@ import pytest
 try:
     from fastapi import FastAPI, Request
     from fastapi.testclient import TestClient
-    from src.middleware.require_permission import require_permission  # type: ignore[import-not-found]
+    from src.middleware.require_permission import (  # type: ignore[import-not-found]
+        install_permission_problem_handler,
+        require_permission,
+    )
 except Exception as exc:  # pragma: no cover — env-dependent
     pytest.skip(f"require_permission / FastAPI not importable: {exc}", allow_module_level=True)
 
@@ -67,6 +70,8 @@ def audit_sink() -> List[dict]:
 
 def _build_app(user: _FakeUser, audit_sink: List[dict]) -> FastAPI:
     app = FastAPI()
+    # Render PermissionProblem as proper application/problem+json (T049).
+    install_permission_problem_handler(app)
     _install_fake_auth(app, user, audit_sink)
 
     @app.get("/api/v1/studies/{study_id}")

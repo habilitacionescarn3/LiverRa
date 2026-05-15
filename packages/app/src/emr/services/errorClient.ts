@@ -76,6 +76,10 @@ export const LIVERRA_ERROR_EVENTS = {
   RetryBanner: 'liverra:retry-banner',
   CaseErased: 'liverra:case-erased',
   PermissionDenied: 'liverra:permission-denied',
+  // H-AUTH-5: generic "non-critical client operation failed" — subscribed
+  // by the global toast surface + Sentry forwarder. Emit with
+  //   { operation: string; message: string; cause?: unknown }
+  OperationFailed: 'liverra:operation-failed',
 } as const;
 
 function dispatchDomEvent(name: string, detail: Record<string, unknown>): void {

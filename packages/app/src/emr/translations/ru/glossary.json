@@ -15,5 +15,155 @@
     "lesions": "__TODO_TRANSLATE__:Lesion classes",
     "phases": "__TODO_TRANSLATE__:Contrast phases",
     "abbreviations": "__TODO_TRANSLATE__:Abbreviations"
+  },
+  "couinaud": {
+    "I": {
+      "name": "__TODO_TRANSLATE__:Segment I",
+      "latin": "__TODO_TRANSLATE__:Lobus caudatus",
+      "role": "__TODO_TRANSLATE__:Caudate lobe"
+    },
+    "II": {
+      "name": "__TODO_TRANSLATE__:Segment II",
+      "latin": "__TODO_TRANSLATE__:Segmentum II (lobus hepatis sinister, laterale superius)",
+      "role": "__TODO_TRANSLATE__:Left lateral superior"
+    },
+    "III": {
+      "name": "__TODO_TRANSLATE__:Segment III",
+      "latin": "__TODO_TRANSLATE__:Segmentum III (lobus hepatis sinister, laterale inferius)",
+      "role": "__TODO_TRANSLATE__:Left lateral inferior"
+    },
+    "IV": {
+      "name": "__TODO_TRANSLATE__:Segment IV",
+      "latin": "__TODO_TRANSLATE__:Segmentum IV (lobus hepatis sinister, mediale)",
+      "role": "__TODO_TRANSLATE__:Left medial"
+    },
+    "V": {
+      "name": "__TODO_TRANSLATE__:Segment V",
+      "latin": "__TODO_TRANSLATE__:Segmentum V (lobus hepatis dexter, anterius inferius)",
+      "role": "__TODO_TRANSLATE__:Right anterior inferior"
+    },
+    "VI": {
+      "name": "__TODO_TRANSLATE__:Segment VI",
+      "latin": "__TODO_TRANSLATE__:Segmentum VI (lobus hepatis dexter, posterius inferius)",
+      "role": "__TODO_TRANSLATE__:Right posterior inferior"
+    },
+    "VII": {
+      "name": "__TODO_TRANSLATE__:Segment VII",
+      "latin": "__TODO_TRANSLATE__:Segmentum VII (lobus hepatis dexter, posterius superius)",
+      "role": "__TODO_TRANSLATE__:Right posterior superior"
+    },
+    "VIII": {
+      "name": "__TODO_TRANSLATE__:Segment VIII",
+      "latin": "__TODO_TRANSLATE__:Segmentum VIII (lobus hepatis dexter, anterius superius)",
+      "role": "__TODO_TRANSLATE__:Right anterior superior"
+    }
+  },
+  "vessels": {
+    "portal": {
+      "name": "__TODO_TRANSLATE__:Portal vein",
+      "latin": "__TODO_TRANSLATE__:Vena portae hepatis",
+      "role": "__TODO_TRANSLATE__:Afferent venous trunk — inflow from gut + spleen"
+    },
+    "hepatic": {
+      "name": "__TODO_TRANSLATE__:Hepatic vein",
+      "latin": "__TODO_TRANSLATE__:Venae hepaticae",
+      "role": "__TODO_TRANSLATE__:Efferent venous trunk — outflow to inferior vena cava"
+    }
+  },
+  "lesions": {
+    "hcc": {
+      "name": "__TODO_TRANSLATE__:Hepatocellular carcinoma",
+      "abbr": "__TODO_TRANSLATE__:HCC",
+      "role": "__TODO_TRANSLATE__:Primary liver malignancy arising from hepatocytes; typically cirrhotic background."
+    },
+    "icc": {
+      "name": "__TODO_TRANSLATE__:Intrahepatic cholangiocarcinoma",
+      "abbr": "__TODO_TRANSLATE__:ICC",
+      "role": "__TODO_TRANSLATE__:Primary biliary-tract malignancy arising from intrahepatic bile ducts."
+    },
+    "metastasis": {
+      "name": "__TODO_TRANSLATE__:Metastasis",
+      "abbr": "__TODO_TRANSLATE__:MET",
+      "role": "__TODO_TRANSLATE__:Secondary malignancy — commonly colorectal, pancreatic, breast, or neuroendocrine primaries."
+    },
+    "fnh": {
+      "name": "__TODO_TRANSLATE__:Focal nodular hyperplasia",
+      "abbr": "__TODO_TRANSLATE__:FNH",
+      "role": "__TODO_TRANSLATE__:Benign hyperplastic lesion; central scar characteristic on MRI."
+    },
+    "hemangioma": {
+      "name": "__TODO_TRANSLATE__:Hemangioma",
+      "abbr": "__TODO_TRANSLATE__:HEM",
+      "role": "__TODO_TRANSLATE__:Benign vascular lesion; peripheral nodular enhancement typical."
+    },
+    "cyst": {
+      "name": "__TODO_TRANSLATE__:Simple cyst",
+      "abbr": "__TODO_TRANSLATE__:CYST",
+      "role": "__TODO_TRANSLATE__:Benign fluid-filled lesion; no enhancement expected."
+    }
+  },
+  "phases": {
+    "native": {
+      "name": "__TODO_TRANSLATE__:Non-contrast (native)",
+      "role": "__TODO_TRANSLATE__:Baseline CT acquired before contrast injection."
+    },
+    "arterial": {
+      "name": "__TODO_TRANSLATE__:Late arterial",
+      "role": "__TODO_TRANSLATE__:~30s post-injection; hepatic artery enhancement — HCC and FNH conspicuous."
+    },
+    "portal": {
+      "name": "__TODO_TRANSLATE__:Portal venous",
+      "role": "__TODO_TRANSLATE__:~65–75s; liver parenchyma maximally enhanced — metastases conspicuous."
+    },
+    "venous": {
+      "name": "__TODO_TRANSLATE__:Hepatic venous",
+      "role": "__TODO_TRANSLATE__:~3min; equilibrium phase — tumor washout detectable."
+    },
+    "delayed": {
+      "name": "__TODO_TRANSLATE__:Delayed",
+      "role": "__TODO_TRANSLATE__:~5–10min; fibrous components retain contrast."
+    }
+  },
+  "abbreviations": {
+    "flr": {
+      "name": "__TODO_TRANSLATE__:Future Liver Remnant",
+      "abbr": "__TODO_TRANSLATE__:FLR",
+      "role": "__TODO_TRANSLATE__:Post-resection liver volume expressed as % of total liver volume. Target ≥30–40% in healthy liver, higher with impairment."
+    },
+    "alpps": {
+      "name": "__TODO_TRANSLATE__:Associating Liver Partition and Portal vein ligation for Staged hepatectomy",
+      "abbr": "__TODO_TRANSLATE__:ALPPS",
+      "role": "__TODO_TRANSLATE__:Two-stage hepatectomy technique that accelerates FLR hypertrophy."
+    },
+    "ruo": {
+      "name": "Только для исследовательских целей",
+      "abbr": "__TODO_TRANSLATE__:RUO",
+      "role": "__TODO_TRANSLATE__:Regulatory scope — output is not cleared for clinical decision-making."
+    },
+    "mrn": {
+      "name": "__TODO_TRANSLATE__:Medical Record Number",
+      "abbr": "__TODO_TRANSLATE__:MRN",
+      "role": "__TODO_TRANSLATE__:Hospital-assigned patient identifier."
+    },
+    "sop_uid": {
+      "name": "__TODO_TRANSLATE__:SOP Instance UID",
+      "abbr": "__TODO_TRANSLATE__:SOP UID",
+      "role": "__TODO_TRANSLATE__:DICOM unique identifier per object — regenerated on every finalize."
+    },
+    "dicom_seg": {
+      "name": "__TODO_TRANSLATE__:DICOM Segmentation",
+      "abbr": "__TODO_TRANSLATE__:SEG",
+      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for 3D mask export."
+    },
+    "dicom_sr": {
+      "name": "__TODO_TRANSLATE__:DICOM Structured Report",
+      "abbr": "__TODO_TRANSLATE__:SR",
+      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for structured clinical findings."
+    },
+    "pacs": {
+      "name": "__TODO_TRANSLATE__:Picture Archiving and Communication System",
+      "abbr": "__TODO_TRANSLATE__:PACS",
+      "role": "__TODO_TRANSLATE__:Hospital image storage + routing system; DICOM-native."
+    }
   }
 }

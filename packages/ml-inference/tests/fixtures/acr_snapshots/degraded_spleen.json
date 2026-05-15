@@ -1,0 +1,14 @@
+{
+  "analysis_id": "22222222-2222-2222-2222-222222222222",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "locale": "en",
+  "captured_at": "2026-05-13T14:23:00Z",
+  "status": "partial",
+  "findings": {
+    "hu_stats": { "mean": 50.0, "median": 50.0, "p10": 44.0, "p90": 56.0, "std": 5.0, "voxel_count": 11000 },
+    "spleen": { "volume_ml": 18.0, "splenomegaly": false, "voxels": 65, "threshold_ml": 314.0, "reference": "linguraru2010", "warning": "Volumetry degraded: TotalSegmentator returned only 65 voxels." },
+    "gallbladder": { "volume_ml": 60.0, "wall_thickness_mm": 0.6, "wall_thickened": false, "stones_detected": false, "stone_voxel_count": 0 }
+  },
+  "lesions": [],
+  "flr": null
+}

@@ -8,7 +8,8 @@
     "addLesion": "Add Lesion",
     "shortcutHint": "B brush  E erase  P prompt  M marker",
     "acquireSeatTooltip": "Acquire seat to refine",
-    "readOnlyTooltip": "Read-only view — another reviewer holds this case"
+    "readOnlyTooltip": "Read-only view — another reviewer holds this case",
+    "marker": "Marker"
   },
   "classification": {
     "title": "Override AI classification",

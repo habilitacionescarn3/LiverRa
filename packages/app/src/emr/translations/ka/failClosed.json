@@ -1,57 +1,57 @@
 {
   "cashier": {
-    "title": "Cashier service unavailable",
-    "message": "The cashier service is temporarily unreachable. Payments cannot be processed right now.",
-    "alternative": "You can retry in a moment or use a manual backup process.",
-    "retryLabel": "Retry",
-    "suggestion1": "Check your network connection.",
-    "suggestion2": "Wait a moment and retry.",
-    "suggestion3": "Contact support if the problem persists."
+    "title": "მოლარის სერვისი მიუწვდომელია",
+    "message": "მოლარის სერვისი დროებით მიუწვდომელია. ამჟამად გადახდების დამუშავება შეუძლებელია.",
+    "alternative": "შეგიძლიათ სცადოთ ოდნავ მოგვიანებით ან გამოიყენოთ მექანიკური სარეზერვო პროცესი.",
+    "retryLabel": "თავიდან ცდა",
+    "suggestion1": "შეამოწმეთ ქსელთან კავშირი.",
+    "suggestion2": "დაიცადეთ ცოტა ხანი და სცადეთ თავიდან.",
+    "suggestion3": "დაუკავშირდით მხარდაჭერას, თუ პრობლემა არ მოგვარდა."
   },
   "emergencyAccess": {
-    "title": "Emergency access check failed",
-    "message": "We could not verify your emergency-access rights.",
-    "retryLabel": "Retry",
-    "breakGlassLabel": "Request break-glass access",
-    "autoRetrying": "Automatically retrying…",
-    "autoRetryExhausted": "Automatic retries exhausted. Please retry manually.",
-    "suggestion1": "Check your network connection.",
-    "suggestion2": "Verify your credentials.",
-    "suggestion3": "Request break-glass access if this is an emergency."
+    "title": "გადაუდებელი წვდომის შემოწმება ვერ მოხერხდა",
+    "message": "თქვენი გადაუდებელი წვდომის უფლებების გადამოწმება ვერ მოხერხდა.",
+    "retryLabel": "თავიდან ცდა",
+    "breakGlassLabel": "break-glass წვდომის მოთხოვნა",
+    "autoRetrying": "მიმდინარეობს ავტომატური გადამოწმება…",
+    "autoRetryExhausted": "ავტომატური ცდების ლიმიტი ამოიწურა. გთხოვთ სცადოთ ხელით.",
+    "suggestion1": "შეამოწმეთ ქსელთან კავშირი.",
+    "suggestion2": "შეამოწმეთ თქვენი ავტორიზაციის მონაცემები.",
+    "suggestion3": "გადაუდებელი შემთხვევისას მოითხოვეთ break-glass წვდომა."
   },
   "pharmacyDDI": {
-    "title": "Drug interaction check unavailable",
-    "message": "The drug-drug interaction (DDI) service is unreachable.",
-    "alternative": "You can retry or request a supervised override.",
-    "retryLabel": "Retry",
-    "overrideLabel": "Request override",
-    "suggestion1": "Check your network connection.",
-    "suggestion2": "Wait a moment and retry.",
-    "suggestion3": "Request an override from a pharmacist if urgent."
+    "title": "წამალთაშორისი ურთიერთქმედების შემოწმება მიუწვდომელია",
+    "message": "წამალთაშორისი ურთიერთქმედების (DDI) სერვისი მიუწვდომელია.",
+    "alternative": "შეგიძლიათ სცადოთ თავიდან ან მოითხოვოთ ზედამხედველობითი უგულებელყოფა (override).",
+    "retryLabel": "თავიდან ცდა",
+    "overrideLabel": "უგულებელყოფის მოთხოვნა",
+    "suggestion1": "შეამოწმეთ ქსელთან კავშირი.",
+    "suggestion2": "დაიცადეთ ცოტა ხანი და სცადეთ თავიდან.",
+    "suggestion3": "გადაუდებელი შემთხვევისას მოითხოვეთ უგულებელყოფა ფარმაცევტისგან."
   },
   "roleAssignment": {
-    "title": "Role assignment failed",
-    "message": "Your user role could not be determined.",
-    "alternative": "Sign out and back in, or contact your administrator.",
-    "suggestion1": "Sign out and sign in again.",
-    "suggestion2": "Refresh the page.",
-    "suggestion3": "Contact your administrator for role reassignment."
+    "title": "როლის მინიჭება ვერ მოხერხდა",
+    "message": "თქვენი მომხმარებლის როლის დადგენა ვერ მოხერხდა.",
+    "alternative": "გამოდით და თავიდან შედით სისტემაში, ან დაუკავშირდით ადმინისტრატორს.",
+    "suggestion1": "გამოდით და თავიდან შედით სისტემაში.",
+    "suggestion2": "განაახლეთ გვერდი.",
+    "suggestion3": "დაუკავშირდით ადმინისტრატორს როლის ხელახლა მისანიჭებლად."
   },
   "shiftOverlap": {
-    "title": "Shift overlap detected",
-    "message": "Your shift assignment overlaps with another scheduled shift.",
-    "alternative": "Verify your shift calendar or request an override.",
-    "verifyLabel": "Verify shift",
-    "suggestion1": "Check your shift calendar.",
-    "suggestion2": "Ask your scheduler to resolve the overlap.",
-    "suggestion3": "Contact your supervisor."
+    "title": "გამოვლენილია ცვლების თანაკვეთა",
+    "message": "თქვენი ცვლის განრიგი იკვეთება სხვა დაგეგმილ ცვლასთან.",
+    "alternative": "გადაამოწმეთ თქვენი ცვლების კალენდარი ან მოითხოვეთ უგულებელყოფა.",
+    "verifyLabel": "ცვლის გადამოწმება",
+    "suggestion1": "შეამოწმეთ თქვენი ცვლების კალენდარი.",
+    "suggestion2": "სთხოვეთ განრიგის შემდგენელს თანაკვეთის მოგვარება.",
+    "suggestion3": "დაუკავშირდით თქვენს ხელმძღვანელს."
   },
   "warehouse": {
-    "title": "Warehouse service unavailable",
-    "message": "The inventory warehouse is temporarily unreachable.",
-    "alternative": "Retry shortly or use an offline stock sheet.",
-    "suggestion1": "Check your network connection.",
-    "suggestion2": "Wait a moment and retry.",
-    "suggestion3": "Use a paper backup if critical."
+    "title": "საწყობის სერვისი მიუწვდომელია",
+    "message": "ინვენტარის საწყობი დროებით მიუწვდომელია.",
+    "alternative": "სცადეთ მოგვიანებით ან გამოიყენეთ ხაზგარეშე მარაგების ფურცელი.",
+    "suggestion1": "შეამოწმეთ ქსელთან კავშირი.",
+    "suggestion2": "დაიცადეთ ცოტა ხანი და სცადეთ თავიდან.",
+    "suggestion3": "კრიტიკულ სიტუაციაში გამოიყენეთ ქაღალდის სარეზერვო ვერსია."
   }
 }

@@ -123,7 +123,7 @@ export class FormErrorBoundary extends Component<FormErrorBoundaryProps, FormErr
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
-          style={{ padding: 'var(--mantine-spacing-md)' }}
+          style={{ padding: 'var(--emr-spacing-md)' }}
         >
           <Alert
             icon={<IconAlertTriangle size={24} />}

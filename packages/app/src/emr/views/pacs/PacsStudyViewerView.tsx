@@ -43,8 +43,8 @@ import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
 
 import {
   activateToolOnGroup,
+  acquireCornerstoneRef,
   configureDicomAuth,
-  destroyCornerstone,
   getOrCreateRenderingEngine,
   getOrCreateToolGroup,
   initCornerstone,
@@ -57,6 +57,7 @@ import { useTranslation } from '../../contexts/TranslationContext';
 import { PACSErrorBoundary } from '../../components/pacs/PACSErrorBoundary';
 import { WindowPresets } from '../../components/pacs/WindowPresets';
 import ViewportOverlay from '../../components/pacs/ViewportOverlay';
+import { getCurrentAccessToken } from '../../services/auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -129,11 +130,29 @@ export default function PacsStudyViewerView(): JSX.Element {
   // left in-flight decodes orphaned and the setStack promise hanging.
   useEffect(() => {
     let cancelled = false;
+    // H-PACS-1: refcount the rendering engine so multi-tab / comparison-
+    // view scenarios don't tear it down on the first unmount.
+    const releaseRef = acquireCornerstoneRef();
 
     (async () => {
       try {
         await initCornerstone();
-        configureDicomAuth(() => '');
+        // B-PACS-3: wire the real auth token into Cornerstone's WADO-RS
+        // image loader. Previous code passed an empty-string callback
+        // which sent every pixel-frame fetch with no Authorization
+        // header. The PROD branch in getCurrentAccessToken's caller
+        // throws when the token is missing, so a misconfigured deploy
+        // fails loud at viewer-init rather than silently leaking
+        // images.
+        configureDicomAuth(() => {
+          const token = getCurrentAccessToken();
+          if (!token && import.meta.env.PROD) {
+            throw new Error(
+              'PacsStudyViewer: PACS auth token missing in production',
+            );
+          }
+          return token;
+        });
         if (cancelled || !elementRef.current) return;
 
         const engine = getOrCreateRenderingEngine();
@@ -155,8 +174,15 @@ export default function PacsStudyViewerView(): JSX.Element {
 
     return () => {
       cancelled = true;
-      destroyCornerstone();
+      // Disable this viewport so the engine can reclaim its slot, but
+      // only destroy the engine when the LAST viewer releases its ref.
+      try {
+        engineRef.current?.disableElement(VIEWPORT_ID);
+      } catch {
+        /* viewport may not have been enabled yet — ignore */
+      }
       engineRef.current = null;
+      releaseRef();
     };
   }, []);
 
@@ -522,6 +548,11 @@ export default function PacsStudyViewerView(): JSX.Element {
             totalImages={imageCount > 0 ? imageCount : undefined}
             windowWidth={windowWidth}
             windowCenter={windowCenter}
+            // PHI safety (H-PACS-3): pass the studyId so the overlay can
+            // emit a break-glass AuditEvent when the user clicks Reveal.
+            // Without this prop the name stays as initials forever (the
+            // safe default).
+            studyId={studyInstanceUid}
           />
           {isLoading && (
             <Group

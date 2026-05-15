@@ -1,0 +1,15 @@
+{
+  "analysis_id": "11111111-1111-1111-1111-111111111111",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "locale": "en",
+  "captured_at": "2026-05-13T14:23:00Z",
+  "status": "completed",
+  "findings": {
+    "hu_stats": { "mean": 58.0, "median": 58.0, "p10": 52.0, "p90": 64.0, "std": 4.0, "voxel_count": 12000 },
+    "steatosis": { "grade": "none", "liver_mean_hu": 58.0, "spleen_mean_hu": 50.0, "liver_spleen_delta": 8.0, "warnings": [], "reference": "kim2021" },
+    "spleen": { "volume_ml": 180.0, "splenomegaly": false, "voxels": 60000, "threshold_ml": 314.0, "reference": "linguraru2010" },
+    "gallbladder": { "volume_ml": 40.0, "wall_thickness_mm": 0.5, "wall_thickened": false, "stones_detected": false, "stone_voxel_count": 0 }
+  },
+  "lesions": [],
+  "flr": { "plan_pattern": "left_hepatectomy", "flr_pct": 65.0, "flr_ml": 1180.0, "safety_class": "adequate", "computed_at": "2026-05-13T14:18:00Z", "plane_pose": null, "total_ml": 1815.0 }
+}

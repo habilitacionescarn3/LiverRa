@@ -1,0 +1,54 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "http://liverra.ai/fhir/StructureDefinition/ruo-watermark-present",
+  "name": "LiverRaRuoWatermarkPresent",
+  "title": "LiverRa — RUO Watermark Present",
+  "status": "draft",
+  "kind": "complex-type",
+  "abstract": false,
+  "description": "Set to `true` only when the renderer has verifiably burnt the Research-Use-Only watermark into the produced artifact (PDF, clipboard payload, exported image). Auditors rely on this flag to prove disclaimer presence without re-opening the file.",
+  "context": [
+    {
+      "type": "element",
+      "expression": "DiagnosticReport"
+    },
+    {
+      "type": "element",
+      "expression": "DocumentReference"
+    },
+    {
+      "type": "element",
+      "expression": "Observation"
+    }
+  ],
+  "type": "Extension",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Extension",
+  "differential": {
+    "element": [
+      {
+        "id": "Extension",
+        "path": "Extension",
+        "short": "True iff RUO watermark was burnt into the artifact at render time",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Extension.url",
+        "path": "Extension.url",
+        "fixedUri": "http://liverra.ai/fhir/StructureDefinition/ruo-watermark-present"
+      },
+      {
+        "id": "Extension.value[x]",
+        "path": "Extension.value[x]",
+        "short": "Boolean — verifiable presence flag",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "boolean"
+          }
+        ]
+      }
+    ]
+  }
+}

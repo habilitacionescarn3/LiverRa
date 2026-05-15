@@ -1,0 +1,82 @@
+{
+  "_meta": {
+    "locale": "ru",
+    "status": "shell",
+    "notes": "All keys marked __TODO_TRANSLATE__ pending CODEOWNERS medical-terminology review. UI chrome (actions, navigation, errors) translated directly."
+  },
+  "actions": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "submit": "Отправить",
+    "close": "Закрыть",
+    "retry": "Повторить",
+    "back": "Назад",
+    "next": "Далее"
+  },
+  "state": {
+    "loading": "Загрузка…",
+    "empty": "Ничего не найдено",
+    "error": "Что-то пошло не так"
+  },
+  "ruo": {
+    "notice": "Только для исследовательских целей — не для клинического применения"
+  },
+  "placeholder": "TODO: перевод ожидается",
+  "back": "Назад",
+  "cancel": "Отмена",
+  "close": "Закрыть",
+  "confirm": "Подтвердить",
+  "continue": "Продолжить",
+  "error": "Ошибка",
+  "genericError": "Что-то пошло не так. Попробуйте ещё раз.",
+  "somethingWentWrong": "Что-то пошло не так.",
+  "loading": "Загрузка…",
+  "next": "Далее",
+  "refresh": "Обновить",
+  "retry": "Повторить",
+  "save": "Сохранить",
+  "skip": "Пропустить",
+  "submitting": "Отправка…",
+  "delete": "Удалить",
+  "ok": "ОК",
+  "or": "или",
+  "tryAgain": "Повторить",
+  "clearInput": "Очистить поле",
+  "fileInput": "Поле загрузки файла",
+  "formError": "Ошибка формы",
+  "insert": "Вставить",
+  "print": "Печать",
+  "formErrorMessage": "Пожалуйста, исправьте ошибки и попробуйте ещё раз.",
+  "invalidTime": "Неверное время",
+  "noOptionsFound": "Варианты не найдены",
+  "permission": {
+    "accessDenied": "У вас нет прав для выполнения этого действия."
+  },
+  "permissionDenied": {
+    "title": "__TODO_TRANSLATE__:Access denied",
+    "body": "__TODO_TRANSLATE__:You don't have permission to view this page. Contact your administrator if you believe this is an error."
+  },
+  "recordLock": {
+    "locked": "__TODO_TRANSLATE__:This record is locked by another user.",
+    "lockedWithOverride": "__TODO_TRANSLATE__:This record is locked by another user. You may request an override.",
+    "override": "__TODO_TRANSLATE__:Override lock",
+    "timeRemaining": "__TODO_TRANSLATE__:Lock expires in {{hours}}h {{minutes}}m"
+  },
+  "sensitiveData": {
+    "restricted": "__TODO_TRANSLATE__:Restricted",
+    "restrictedMessage": "__TODO_TRANSLATE__:Sensitive data is hidden. Contact your administrator if access is required."
+  },
+  "sessionRecovery": {
+    "discard": "Отменить",
+    "resume": "Продолжить",
+    "title": "__TODO_TRANSLATE__:Resume your session?",
+    "unsavedWork": "__TODO_TRANSLATE__:We found unsaved work from your previous session."
+  },
+  "stepUp": {
+    "actionLabel": "__TODO_TRANSLATE__:Re-authenticate",
+    "explanation": "__TODO_TRANSLATE__:This action requires a fresh authentication to protect sensitive data.",
+    "reauthenticate": "__TODO_TRANSLATE__:Re-authenticate",
+    "title": "__TODO_TRANSLATE__:Confirm it's you"
+  },
+  "goHome": "__TODO_TRANSLATE__:Go to home page"
+}

@@ -190,14 +190,7 @@ async def _emit_ops_audit(
     user = getattr(request.state, "user", None)
     user_id = user_id or (getattr(user, "id", None) if user else None)
 
-    event = {
-        "resourceType": "AuditEvent",
-        "id": str(uuid4()),
-        "category": category,
-        "recorded": datetime.now(timezone.utc).isoformat(),
-        "agent": [{"who": {"reference": f"Practitioner/{user_id}" if user_id else None}}],
-        "entity": [{"what": {"reference": f"Analysis/{analysis_id}"}}],
-    }
+    extensions_in: list[dict[str, Any]] | None = None
     if extra:
         # Extra is scrubbed as a precaution — ops actions may carry
         # a "note" field that a careless engineer could populate with
@@ -207,7 +200,16 @@ async def _emit_ops_audit(
             extra = PHIScrubber().scrub_dict(extra)
         except Exception:  # pragma: no cover
             pass
-        event["extension"] = [{"url": "liverra:extra", "valueString": str(extra)}]
+        extensions_in = [{"url": "liverra:extra", "valueString": str(extra)}]
+
+    from ..services.audit.audit_helpers import build_audit_event, fhir_ref
+
+    event = build_audit_event(
+        category=category,
+        actor=f"Practitioner/{user_id}" if user_id else None,
+        entity_refs=[fhir_ref("Analysis", analysis_id)],
+        extensions=extensions_in,
+    )
 
     row = await writer.write(event, tenant_id, session)
     return row.sequence_no

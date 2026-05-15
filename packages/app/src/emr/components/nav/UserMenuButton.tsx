@@ -101,8 +101,8 @@ export const UserMenuButton = memo(function UserMenuButton() {
             radius="xl"
             color="liverraPrimary"
             style={{
-              background: 'var(--emr-gradient-primary, linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%))',
-              color: 'var(--emr-text-inverse, #ffffff)',
+              background: 'var(--emr-gradient-primary)',
+              color: 'var(--emr-text-inverse)',
               fontWeight: 600,
               fontSize: 'var(--emr-font-sm)',
             }}
@@ -126,8 +126,8 @@ export const UserMenuButton = memo(function UserMenuButton() {
               size={36}
               radius="xl"
               style={{
-                background: 'var(--emr-gradient-primary, linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%))',
-                color: 'var(--emr-text-inverse, #ffffff)',
+                background: 'var(--emr-gradient-primary)',
+                color: 'var(--emr-text-inverse)',
                 fontWeight: 600,
                 fontSize: 'var(--emr-font-sm)',
                 flexShrink: 0,

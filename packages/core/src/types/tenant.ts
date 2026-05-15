@@ -22,8 +22,14 @@ export const Role = {
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
-/** Supported UI + email locales (constitution: en/de/ka only — no ru). */
-export type Locale = 'en' | 'de' | 'ka';
+/**
+ * Supported UI + email locales. Active triad per CLAUDE.md: en (primary), ru
+ * (Georgia/CIS market), ka (Georgian). de retained as DACH fallback. Keep in
+ * sync with `packages/app/src/emr/services/localeService.ts` (canonical
+ * frontend `Locale` type) and the `user.locale_preference` Postgres CHECK
+ * constraint.
+ */
+export type Locale = 'en' | 'de' | 'ka' | 'ru';
 
 /** User theme preference; `system` defers to OS setting. */
 export type ThemePreference = 'light' | 'dark' | 'system';

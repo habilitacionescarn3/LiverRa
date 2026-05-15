@@ -131,17 +131,21 @@ def anonymize(req: AnonymizeRequest) -> AnonymizeResponse:
 
     new_orthanc_id = _anonymize_orthanc_study(orthanc_id)
     if not new_orthanc_id:
-        # Best-effort dev mode: if Orthanc's anonymizer failed, still
-        # return done so the cascade can proceed. Surface the issue in
-        # logs but don't block development.
-        logger.warning(
-            "Anonymize failed for orthanc=%s analysis=%s — returning "
-            "passthrough so cascade can proceed (DEV ONLY)",
+        # FAIL-CLOSED: never return success when Orthanc's anonymizer fails.
+        # The previous behaviour returned a "passthrough" URI pointing at the
+        # ORIGINAL un-scrubbed DICOM (raw PatientName/DOB/MRN), which then
+        # flowed into S3, FHIR ImagingStudy, and PDF reports. Per FR-002a,
+        # gate failures MUST block downstream stages. If a dev fast-path is
+        # ever needed it must be gated behind an explicit env var
+        # (LIVERRA_ANON_SIDECAR_BYPASS) AND emit an AuditEvent — neither is
+        # wired today, so we always 502.
+        logger.error(
+            "Anonymize failed for orthanc=%s analysis=%s — failing closed (no passthrough)",
             orthanc_id, req.analysis_id,
         )
-        return AnonymizeResponse(
-            status="done",
-            output_uri=f"orthanc://passthrough/{orthanc_id}",
+        raise HTTPException(
+            status_code=502,
+            detail="anonymization_failed",
         )
 
     logger.info(

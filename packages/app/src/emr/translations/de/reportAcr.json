@@ -1,0 +1,91 @@
+{
+  "_note": "C-ACR-1: UI chrome translated; clinical terms (anatomical labels, grading scales, LR-M, LI-RADS recommendations) retain __TODO_TRANSLATE__ markers pending CODEOWNERS medical-terminology review per CLAUDE.md i18n discipline.",
+  "panelHeading": "Strukturierter radiologischer Befund",
+  "openPanel": "Strukturierten Befund öffnen",
+  "ruoDisclaimer": "--- NUR ZU FORSCHUNGSZWECKEN — NICHT FÜR DIE PRIMÄRDIAGNOSTIK ---",
+  "sections": {
+    "liver": { "title": "__TODO_TRANSLATE__:LIVER", "empty": "Nicht beurteilt" },
+    "lesions": { "title": "__TODO_TRANSLATE__:LESIONS", "empty": "Keine Läsionen erkannt" },
+    "vessels": { "title": "__TODO_TRANSLATE__:VESSELS", "empty": "Nicht beurteilt" },
+    "gallbladder": { "title": "__TODO_TRANSLATE__:GALLBLADDER", "empty": "Nicht beurteilt" },
+    "spleen": { "title": "__TODO_TRANSLATE__:SPLEEN", "empty": "Nicht beurteilt" },
+    "flrAssessment": { "title": "__TODO_TRANSLATE__:FLR ASSESSMENT", "empty": "FLR-Plan nicht angefordert" }
+  },
+  "status": {
+    "computing": "Wird berechnet — Ergebnisse erscheinen nach Abschluss der Kaskade",
+    "awaitingAnalysis": "Analyse ausstehend",
+    "computationFailed": "Berechnung nicht verfügbar",
+    "notAvailable": "Nicht verfügbar",
+    "noFindings": "Keine Befunde zu berichten"
+  },
+  "labels": {
+    "volume": "Volumen",
+    "wallThickness": "__TODO_TRANSLATE__:Wall thickness",
+    "attenuation": "__TODO_TRANSLATE__:Attenuation",
+    "huMean": "__TODO_TRANSLATE__:Mean HU",
+    "huRange": "__TODO_TRANSLATE__:HU range",
+    "stones": "__TODO_TRANSLATE__:Stones detected",
+    "splenomegaly": "__TODO_TRANSLATE__:Splenomegaly",
+    "steatosisGrade": "__TODO_TRANSLATE__:Steatosis grade",
+    "flrPercent": "__TODO_TRANSLATE__:FLR %",
+    "flrSafety": "__TODO_TRANSLATE__:Safety classification",
+    "flrPlan": "Plan",
+    "flrRecommendation": "Empfehlung",
+    "primaryLesionSize": "__TODO_TRANSLATE__:Primary lesion size",
+    "primaryLesionClass": "__TODO_TRANSLATE__:Primary lesion class",
+    "lesionSegment": "Segment",
+    "lesionConfidence": "Konfidenz",
+    "lesionInterpretation": "Interpretation",
+    "liverSpleenDelta": "__TODO_TRANSLATE__:Δ liver–spleen",
+    "lrM": "LR-M",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "values": {
+    "splenomegalyPresent": "__TODO_TRANSLATE__:Present",
+    "splenomegalyAbsent": "__TODO_TRANSLATE__:Within reference",
+    "steatosisNone": "__TODO_TRANSLATE__:None",
+    "steatosisMild": "__TODO_TRANSLATE__:Mild",
+    "steatosisModerate": "__TODO_TRANSLATE__:Moderate",
+    "steatosisSevere": "__TODO_TRANSLATE__:Severe",
+    "flrSafetyLow": "__TODO_TRANSLATE__:LOW",
+    "flrSafetyBorderline": "__TODO_TRANSLATE__:BORDERLINE",
+    "flrSafetyAdequate": "__TODO_TRANSLATE__:ADEQUATE"
+  },
+  "copy": {
+    "buttonLabel": "In Zwischenablage kopieren",
+    "buttonAriaLabel": "Strukturierten Befund in Zwischenablage kopieren",
+    "successToast": "Befund in Zwischenablage kopiert",
+    "warningToastAuditPending": "Befund kopiert; Export-Audit wird wiederholt",
+    "errorToastBlocked": "Browser blockierte Zugriff auf Zwischenablage — bitte erneut versuchen",
+    "errorToastStale": "Analyse wurde von anderem Prüfer aktualisiert — neu laden zum Kopieren",
+    "errorToastAuthDenied": "Ihr Zugriff auf diese Analyse wurde widerrufen — neu laden",
+    "errorToastUnknown": "Befund konnte nicht kopiert werden — bitte erneut versuchen",
+    "tooltipFirstTime": "Diesen Befund als Klartext für PACS-Diktat kopieren. Pro Klick wird eine Audit-Zeile aufgezeichnet.",
+    "tooltipDismiss": "Verstanden"
+  },
+  "staleness": {
+    "lastComputed": "Zuletzt berechnet {{time}}",
+    "stale": "veraltet"
+  },
+  "warnings": {
+    "degraded": "Qualität reduziert"
+  },
+  "lesions": {
+    "interpretationIcc": "__TODO_TRANSLATE__:ICC pattern",
+    "interpretationHcc": "__TODO_TRANSLATE__:HCC pattern",
+    "interpretationSimpleCyst": "__TODO_TRANSLATE__:Simple biliary cyst",
+    "interpretationCalcified": "__TODO_TRANSLATE__:Calcified lesion",
+    "interpretationIndeterminate": "__TODO_TRANSLATE__:LR-M (indeterminate)",
+    "noFurther": "Keine weiteren Läsionen erkannt.",
+    "primary": "Primär",
+    "size": "Größe",
+    "count": "Läsionsanzahl"
+  },
+  "recommendations": {
+    "considerPveAlpps": "__TODO_TRANSLATE__:consider PVE or ALPPS",
+    "noteAdequateRemnant": "__TODO_TRANSLATE__:remnant volume meets institutional threshold",
+    "borderlineDiscussMdt": "__TODO_TRANSLATE__:borderline remnant — discuss at MDT"
+  },
+  "panelDescription": "Strukturierter anatomischer ACR-Befund mit den heuristischen Ergebnissen der Kaskade."
+}

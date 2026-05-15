@@ -877,6 +877,16 @@ def _build_pdf_input(
         couinaud_volumes, parenchyma_ml,
     )
     findings_rows = _build_findings_rows(payload.get("findings"))
+    # ACR-structured readout (002-acr-structured-readout T065). Runs in
+    # sequence with the legacy flat-list above; both feed the template
+    # for the duration of the transition.
+    from .export.acr_section_builder import build_acr_sections as _build_acr_sections
+    acr_sections = _build_acr_sections(
+        findings_dict=payload.get("findings"),
+        lesions=payload.get("lesions") or (),
+        flr=payload.get("flr"),
+        status=str(analysis.get("status") or "completed"),
+    )
 
     flr_pct = flr.get("remnant_pct_functional")
     if flr_pct is None:
@@ -943,7 +953,7 @@ def _build_pdf_input(
         # ("completed") which clinicians read as a person's name.
         finalized_by_display="system (auto)",
         finalized_at=finalized_at,
-        locale=locale if locale in ("en", "de", "ka") else "en",
+        locale=locale if locale in ("en", "de", "ka", "ru") else "en",
         parenchyma_volume_ml=parenchyma_ml,
         couinaud_volumes=couinaud_volumes,
         flr_remnant_volume_ml=flr_remnant_ml_f,
@@ -977,6 +987,7 @@ def _build_pdf_input(
         ct_renders_unavailable=(len(screenshots_dict) == 0 and not screenshots_list),
         mask_warnings=tuple(mask_warnings or ()),
         findings_rows=tuple(findings_rows),
+        acr_sections=acr_sections,
         lobe_left_ml=lobe_left_ml,
         lobe_right_ml=lobe_right_ml,
         lobe_split_source=lobe_split_source,
@@ -1008,7 +1019,7 @@ def render_analysis_pdf(
         phases_bucket: CT phases bucket override (consumed by stage_render
             via env var; kept for backward-compatible callers).
         analyses_bucket: analyses (mask) bucket override (same pattern).
-        locale: report locale; one of ``en | de | ka`` (defaults to en).
+        locale: report locale; one of ``en | de | ka | ru`` (defaults to en).
 
     The function NEVER raises on missing CT/mask objects — those
     screenshots are skipped so the PDF still delivers the structured

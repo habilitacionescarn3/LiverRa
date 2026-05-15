@@ -43,6 +43,8 @@ import {
   EMRTableSkeleton as Skeleton,
 } from '../../components/common';
 import { useTranslation } from '../../contexts/TranslationContext';
+import { useHasPermission } from '../../contexts/PermissionContext';
+import { getCurrentAccessToken } from '../../services/auth';
 
 /** Analysis status values mirror the backend enum (T133).
  *
@@ -207,9 +209,17 @@ function useCasesListStub(
     setLoading(true);
     setError(null);
     const query = new URLSearchParams(filtersToQuery(filters));
+    // H-SEC-5: real access token from AuthContext (was hardcoded
+    // 'dev-access-token' which forced operators to keep LIVERRA_AUTH_BYPASS=true
+    // on the backend; that in turn enabled B-AUTH-3). When unauthenticated,
+    // omit the header entirely and let the backend's 401 path reply.
+    const accessToken = getCurrentAccessToken();
+    const authHeaders: Record<string, string> = accessToken
+      ? { Authorization: `Bearer ${accessToken}` }
+      : {};
     fetch(`${apiBaseUrl}/analyses?${query.toString()}`, {
       credentials: 'include',
-      headers: { Authorization: 'Bearer dev-access-token' },
+      headers: authHeaders,
     })
       .then((r) => {
         if (!r.ok) throw new Error(`GET /analyses failed: ${r.status}`);
@@ -307,7 +317,7 @@ function CaseCard({
         padding: 16,
         borderRadius: 'var(--emr-border-radius-lg)',
         background: 'var(--emr-bg-card)',
-        border: '1px solid var(--emr-gray-200)',
+        border: '1px solid var(--emr-border-color)',
         cursor: 'pointer',
         minHeight: 88,
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
@@ -318,7 +328,7 @@ function CaseCard({
           width: 64,
           height: 64,
           borderRadius: 'var(--emr-border-radius)',
-          background: 'var(--emr-gray-100)',
+          background: 'var(--emr-bg-hover)',
           backgroundImage: row.thumbnailUrl ? `url(${row.thumbnailUrl})` : undefined,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -373,6 +383,11 @@ function CasesListViewInner({
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
+  // M-CASE-1: defense-in-depth — route already gates on `analysis.view`,
+  // but if a misconfigured route or stale RBAC payload slips through,
+  // we don't want the stub fetch hook below to leak case rows.
+  const canViewAnalysis = useHasPermission('analysis.view');
+
   const filters = useMemo(() => parseFilters(searchParams), [searchParams]);
 
   // Document title for the browser tab.
@@ -411,6 +426,16 @@ function CasesListViewInner({
     { label: t('analysis:status.failed'), value: 'failed' },
   ];
 
+  if (!canViewAnalysis) {
+    return (
+      <Stack gap="lg" p={{ base: 'sm', md: 'lg' } as unknown as string}>
+        <Alert variant="error" title={t('common:permissionDenied.title')}>
+          {t('common:permissionDenied.body')}
+        </Alert>
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap="lg" p={{ base: 'sm', md: 'lg' } as unknown as string}>
       <EMRPageHeader
@@ -444,7 +469,7 @@ function CasesListViewInner({
           padding: 12,
           borderRadius: 'var(--emr-border-radius-lg)',
           background: 'var(--emr-bg-card)',
-          border: '1px solid var(--emr-gray-200)',
+          border: '1px solid var(--emr-border-color)',
         }}
       >
         <Group wrap="wrap" gap="sm" align="flex-end">
@@ -471,7 +496,7 @@ function CasesListViewInner({
                 height: 32,
                 padding: '4px 8px',
                 fontSize: 'var(--emr-font-sm)',
-                border: '1px solid var(--emr-gray-300)',
+                border: '1px solid var(--emr-border-color)',
                 borderRadius: 'var(--emr-border-radius-sm)',
                 background: 'var(--emr-bg-input)',
                 color: 'var(--emr-text-primary)',
@@ -491,7 +516,7 @@ function CasesListViewInner({
                 height: 32,
                 padding: '4px 8px',
                 fontSize: 'var(--emr-font-sm)',
-                border: '1px solid var(--emr-gray-300)',
+                border: '1px solid var(--emr-border-color)',
                 borderRadius: 'var(--emr-border-radius-sm)',
                 background: 'var(--emr-bg-input)',
                 color: 'var(--emr-text-primary)',
@@ -571,7 +596,7 @@ function CasesListViewInner({
         <Box
           style={{
             borderRadius: 'var(--emr-border-radius-lg)',
-            border: '1px solid var(--emr-gray-200)',
+            border: '1px solid var(--emr-border-color)',
             overflow: 'hidden',
             background: 'var(--emr-bg-card)',
           }}
@@ -607,7 +632,7 @@ function CasesListViewInner({
                         width: 56,
                         height: 56,
                         borderRadius: 'var(--emr-border-radius-sm)',
-                        background: 'var(--emr-gray-100)',
+                        background: 'var(--emr-bg-hover)',
                         backgroundImage: row.thumbnailUrl
                           ? `url(${row.thumbnailUrl})`
                           : undefined,
