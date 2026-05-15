@@ -98,14 +98,31 @@ LiverRa/
 
 ---
 
-## 🌐 Current Dev Setup — Option B Split (state as of May 11, 2026)
+## 🌐 Current Architecture — Cloud Staging + Local Dev (state as of May 15, 2026)
 
-**Architecture in one line:** Laptop runs everything (Vite UI + FastAPI orchestrator + Celery worker + Postgres + Redis + MinIO + the cascade orchestration code itself); Irakli's RTX 3090 box runs ONLY a stateless GPU inference microservice for TotalSegmentator. Lasha can iterate on backend code without involving Irakli.
+**Architecture in one line:** Public testing deployment runs on Netlify (frontend) + Fly.io Frankfurt (FastAPI + Celery worker) + Supabase Frankfurt (Postgres + Storage + sqla-broker) + Irakli's PC (GPU inference, exposed via Tailscale Funnel). Local dev still uses Docker stack on laptop for fast iteration.
 
-**Network:**
+**Three runtimes today:**
+
+| Layer | Where | URL / Endpoint | State |
+|---|---|---|---|
+| Frontend (React/Vite) | Netlify | `https://liverra-app.netlify.app` | ✅ live |
+| Backend (FastAPI + Celery) | Fly.io `liverra-api`, region `fra` | `https://liverra-api.fly.dev` | ✅ live, 2 API machines + 1 worker + 1 standby |
+| Database + Storage + Queue | Supabase project `bgnvtneliltraaudtzwd` (Frankfurt) | `https://bgnvtneliltraaudtzwd.supabase.co` | ✅ 17 migrations applied, RLS on PHI tables, dev tenant seeded |
+| GPU inference | Irakli's RTX 3090 box | `100.124.94.29:9101` (Tailscale) → Funnel HTTPS URL pending | ⏳ awaiting Irakli's Funnel + token (image pre-`e2bb7dc`, needs rebuild) |
+
+**Why this split:** keeps Irakli isolated to the GPU service only (no backend/code involvement during dev). Cascade orchestration, audit chain, FHIR emission all run in Fly.io. DB + audit chain + findings persist in Supabase. Everything but the GPU is one-button deploy via `fly deploy` / `netlify deploy`.
+
+**Auth posture (staging):** Backend `LIVERRA_AUTH_BYPASS=true`, frontend gated by a shared-credentials form (`VITE_LIVERRA_STAGING_EMAIL` + `VITE_LIVERRA_STAGING_PASSWORD` baked into the bundle). On success, `localStorage:liverra:staging-auth=ok` flips the dev-bypass user in `AuthContext`. Sufficient for invited-tester demos; NOT production-grade (no real Supabase Auth / Cognito integration on the frontend yet — that's a follow-up).
+
+**Tier-1 cost (testing scale):** ~$0/mo within Supabase + Fly + Netlify free tiers. Cards required on Fly + Supabase but no charge at this traffic.
+
+**Older single-laptop "Option B Split" stack still works for local dev** — see "Local dev (Docker stack)" further down. The cloud staging just mirrors it with managed services.
+
+**Network (still relevant for local dev + GPU access):**
 - Laptop: `100.110.147.104` (macbook-air-tailcaa7ec)
-- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose)
-- GPU container: `liverra/gpu-inference:1.0.2` running with `--network host -e PORT=9101`
+- Irakli's box: `100.124.94.29` (`liverra-triton-host`) — **GPU service on `:9101`** (port 9100 was a MinIO collision; 9101 took an ACL grant to expose). Funnel-exposed HTTPS URL will be appended here once Irakli ships it.
+- GPU container target: `liverra/gpu-inference:1.0.3` (post-remediation, requires `LIVERRA_GPU_SHARED_TOKEN` to start). Image on Irakli's box today: `1.0.2` (pre-remediation) — needs rebuild.
 
 **Inference contract:** stateless. Three endpoints live on the GPU service:
 - `POST /infer/total` — task=total, returns ZIP of liver/IVC/gallbladder/spleen masks
@@ -127,7 +144,7 @@ Code: `packages/ml-inference-gpu/main.py`. Client: `packages/ml-inference/src/se
 
 **Licensing today:** TotalSegmentator weights = CC-BY-NC-SA-4.0 → internal demos + clinical validation OK; commercial sales blocked until BAMF aimi-liver-tumor-ct swap (Irakli has the spec; ~1 week of his time when ready).
 
-**To start dev (laptop side):**
+**Local dev (Docker stack on laptop) — unchanged, still the fastest iteration loop:**
 ```bash
 # 1. Local docker stack (Postgres, Redis, MinIO, Orthanc, Medplum) — once
 docker compose -f deploy/local/docker-compose.yml up -d
@@ -169,24 +186,55 @@ curl http://100.124.94.29:9101/health   # → {"ok": true, "cuda_available": tru
 - **Tailscale ACL gotcha** — new ports must be added to the tailnet ACL at https://login.tailscale.com/admin/acls before peers can reach them. Symptoms of missing ACL: `tailscale nc <host> <port>` returns `502 Bad Gateway / dial tcp i/o timeout` (NOT silent timeout — that signal is misleading). Authoritative diagnostic: `tailscale debug netmap | jq '.PacketFilter'` on the destination box.
 - **Triton path is fully dormant.** Stub model.pt files still exist for backward compat; ignore.
 
-**To resume tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
+**To resume local dev tomorrow:** Bring up the Docker stack (`docker compose ... up -d`), confirm uvicorn + celery + vite are running, probe `:9101`. Tailscale auto-reconnects.
+
+**Cloud deploy commands (for staging refreshes):**
+```bash
+# Backend (FastAPI + Celery → Fly.io)
+cd packages/ml-inference && fly deploy --app liverra-api --remote-only
+
+# Frontend (Vite build → Netlify)
+cd /Users/toko/Desktop/LiverRa
+NETLIFY_FILTER=@liverra/app netlify build --filter @liverra/app
+NETLIFY_FILTER=@liverra/app netlify deploy --dir packages/app/dist --prod \
+  --site c3e44f6f-4425-49ff-85b2-237c29e6cd01 --filter @liverra/app
+
+# Migrations against Supabase (after schema changes)
+./scripts/deploy-migrate.sh    # reads DATABASE_URL_SYNC from env
+
+# Health probe (cloud):
+curl https://liverra-api.fly.dev/api/v1/system/health
+```
+
+**Fly secrets reference:** see `scripts/fly-secrets.example.env` for the full list (DB URLs, Supabase keys, GPU token, CORS origins, env tier). Real values live in `fly secrets list --app liverra-api` (encrypted, never logged). Staging credentials for the frontend gate live in Netlify env (`VITE_LIVERRA_STAGING_EMAIL` + `VITE_LIVERRA_STAGING_PASSWORD`).
 
 ---
 
-## 📍 Where we stand (May 11, 2026 — read this first)
+## 📍 Where we stand (May 15, 2026 — read this first)
 
-**Last verified working end-to-end:** cascade `604fb4dc-b221-4f17-aa9f-36b5a85dd987` ran in **13m 51s** on the Todua-CT, persisted 5/7 Phase 1 findings, classification fired (1 lesion → ICC at 88% conf), FLR computed (518.5 mL, 28.4%). PDF report at `~/Desktop/liverra-report-604fb4dc.pdf`.
+**Last verified working end-to-end (local laptop):** cascade `c30909b0-97c5-43c1-b820-ba0551a2ec54` ran in **7min 48s** on a 14-series Thorax/Abdomen CT, all 8 stages, audit chain 7 rows hash-linked, 5/7 Phase 1 findings persisted with tenant_id, model_versions JSONB populated. Verified Mar 14 2026 immediately after the full-audit remediation landed.
 
-**Open decision (not yet executed):** revert the combined GPU endpoint `infer_total_and_vessels` in the cascade, go back to the original two-call pattern. Empirical data shows two-call is ~2 min faster on this Tailscale link (12m 8s vs 13m 51s). Revert is a ~5-line change in `scripts/real_cascade.py` (swap one `infer_total_and_vessels(...)` back to `infer_total(...)` upfront + restore the `infer_liver_vessels(...)` call in stage 5). Combined endpoint stays live on the GPU service for backward compat — just unused by the cascade.
+**Cloud staging URL (live):** `https://liverra-app.netlify.app` — login with the shared credentials from `scripts/netlify-env.example.env` or wherever the team stores them. After login lands on `/cases` (empty until the first cascade through the cloud path).
 
-**Next direction queued (Option 3 — for fast dev iteration):** make the cascade skip the GPU calls entirely when masks already exist in laptop's MinIO for the study. First-run stays ~12 min; **re-runs of the same study drop to ~2 min** because no upload, no TS, no download. Effort ~2 hours; not started.
+**Open dependency:** Irakli ships the Funnel URL + GPU shared token. He needs to `git pull` branch `002-acr-structured-readout` (top commit `cf3d7ce`), rebuild `liverra/gpu-inference:1.0.3`, restart with `LIVERRA_GPU_SHARED_TOKEN`, run `tailscale funnel --bg 9101`. Once those two values arrive: `fly secrets set --app liverra-api LIVERRA_INFERENCE_URL=... LIVERRA_GPU_SHARED_TOKEN=...` and end-to-end works in the cloud.
 
-**Recent commits relevant to this state:**
-- `3c87b9d` — Phase 1 findings + Option B split (the foundation)
-- `af77982` — `--network host` + `PORT` env var (WSL2-tailscaled-bridge-network gotcha)
-- `a58f405` — combined `/infer/total_and_vessels` endpoint (the experiment that turned out slower)
-- `a6e42b3` — spleen-mask messaging fix (surface "too small" warning instead of silent omission)
-- `e325919` — bumped client timeout default 5min → 30min, fixed stale `:9100` default URL
+**Recent commits relevant to this state (most recent first):**
+- `cf3d7ce` — GPU service `__main__` block (Irakli's smoke-test request)
+- `650a50b` — staging credentials gate on SigninView (`VITE_LIVERRA_STAGING_*`)
+- `86b208a` — asyncpg statement_cache_size=0 in production session (Supabase pooler)
+- `df213f2` — backend live at liverra-api.fly.dev (RLS-session stub middleware)
+- `c51a0cf` — cloud-staging artifacts (Dockerfile entrypoint, fly.toml, deploy-migrate.sh, runbook)
+- `16ecfdf` — asyncpg statement_cache_size=0 in alembic env (same fix, migrations side)
+- `2f92420` — restored canonical blue brand ramp (warm-gray T464 experiment reverted)
+- `b05f9bc`, `4631734` — post-audit fixes (model_versions ModelProvenance shape, /results study_id shadowing)
+- `e2bb7dc` — GPU bearer auth + model-version provenance headers + license gate + ZIP-slip fix
+- 16 more commits from the May 14 audit remediation — see `audit-findings/full-emr-audit-2026-05-14-PART1-*.md`
+
+**Open architectural decisions (deferred, not blocking):**
+- Real Supabase Auth on the frontend (today: shared-credentials gate + backend bypass). Lift when paying-tester cohort > 5.
+- Replace Supabase Auth with Cognito for production CE-MDR submission (per CLAUDE.md regulatory plan; current setup is staging-tier only).
+- Move object storage from Supabase Storage → AWS S3 eu-central-1 with KMS for real PHI.
+- Revert combined GPU endpoint to two-call pattern (still ~2 min faster per CLAUDE.md historical note); already done in commit `e2bb7dc`'s real_cascade.py.
 
 ---
 
