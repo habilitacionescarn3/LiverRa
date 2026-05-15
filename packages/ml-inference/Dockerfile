@@ -26,8 +26,12 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY . /app/
+RUN chmod +x /app/entrypoint.sh
 
-EXPOSE 8090
+# Fly.io sets PORT=8080; local uses 8090. Both honored by entrypoint.sh.
+EXPOSE 8080 8090
 
-# Default command — overridden by docker-compose for the celery worker.
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8090"]
+# Default = API. Override with PROCESS_GROUP=worker for the Celery worker
+# machine (Fly.io reads this from fly.toml [processes]).
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["api"]

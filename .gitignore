@@ -89,3 +89,7 @@ test-results/
 tmp/
 temp/
 *.tmp
+
+# Cloud-deploy secret files (templates are .example.env, committed)
+scripts/fly-secrets.env
+scripts/netlify-env.env
