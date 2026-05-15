@@ -202,11 +202,23 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
           access_token: 'dev-access-token',
           expired: false,
         } as unknown as User;
+        // Prime BOTH stores. The stub backs services/auth's useAuth(); the
+        // local `user` state backs useAuthContext(). They must agree, otherwise
+        // AuthRootGate (context) sees null while ProtectedRoute (stub) sees
+        // a user — producing a /signin ↔ /cases redirect loop.
         __setAuthStub({
           user: mockUser,
           permissions: [...LIVERRA_PERMISSIONS],
         });
-        setIsLoading(false);
+        if (!cancelled) {
+          setUser(mockUser);
+          setAuthMe({
+            user: { id: 'dev-user', email: 'dev@liverra.local', name: 'Dev User' },
+            tenant: { id: 'dev-tenant' },
+            permissions: [...LIVERRA_PERMISSIONS],
+          });
+          setIsLoading(false);
+        }
         return;
       }
       // No OIDC configured → treat as unauthenticated + stop loading so
