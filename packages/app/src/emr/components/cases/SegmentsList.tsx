@@ -37,11 +37,30 @@ interface SegmentationRow {
   snomed_code?: string | null;
 }
 
+/** Per-stage provenance shape since Agent 2.4's GPU-response headers
+ *  landed. Legacy cascades may still have plain-string values. */
+interface ModelProvenance {
+  model_id?: string | null;
+  weights_sha?: string | null;
+  model_version?: string | null;
+}
+
 interface ResultsBundle {
   segmentations?: SegmentationRow[];
   analysis?: {
-    model_versions?: Record<string, string> | null;
+    model_versions?: Record<string, string | ModelProvenance> | null;
   };
+}
+
+/** Coerce either legacy string or new ModelProvenance dict to a display
+ *  string. Picks "model_id@model_version" when both present, else
+ *  whichever is set, else null. */
+function formatModelVersion(v: string | ModelProvenance | null | undefined): string | null {
+  if (v == null) return null;
+  if (typeof v === 'string') return v;
+  const { model_id, model_version } = v;
+  if (model_id && model_version) return `${model_id}@${model_version}`;
+  return model_version || model_id || null;
 }
 
 export interface SegmentsListProps {
@@ -126,14 +145,15 @@ export function SegmentsList({
   });
 
   // Map anatomy_category → its source model name in the analysis row.
+  // Values may be strings (legacy) or ModelProvenance dicts (post-Agent 2.4).
   const modelVersionFor = useMemo(() => {
     const mv = data?.analysis?.model_versions ?? {};
     return (cat: string): string | null => {
       const c = cat.toLowerCase();
-      if (c === 'liver') return mv['parenchyma'] ?? mv['stu-net-parenchyma'] ?? null;
-      if (c === 'couinaud') return mv['couinaud'] ?? mv['pictorial-couinaud'] ?? null;
+      if (c === 'liver') return formatModelVersion(mv['parenchyma'] ?? mv['stu-net-parenchyma']);
+      if (c === 'couinaud') return formatModelVersion(mv['couinaud'] ?? mv['pictorial-couinaud']);
       if (c === 'portal_vein' || c === 'portal' || c === 'hepatic_vein' || c === 'hepatic')
-        return mv['vessels'] ?? mv['liverra-vessels'] ?? null;
+        return formatModelVersion(mv['vessels'] ?? mv['liverra-vessels']);
       return null;
     };
   }, [data]);
