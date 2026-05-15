@@ -56,14 +56,21 @@ const ORTHANC_DEV_PASSWORD = process.env.ORTHANC_DEV_PASSWORD ?? 'orthanc';
 // but the default Orthanc container publishes IPv4 only, so `localhost` 500s.
 const ORTHANC_DEV_ORIGIN = process.env.ORTHANC_DEV_ORIGIN ?? 'http://127.0.0.1:8042';
 
-// Production safety: refuse to build if dev-bypass is enabled. Prevents an
-// accidental `VITE_LIVERRA_DEV_BYPASS=true` slipping into a Netlify build
-// and exposing an authless app on the public internet.
+// Production safety: refuse to build if dev-bypass is enabled WITHOUT a
+// matching staging-credentials gate. Pure DEV_BYPASS in prod = authless app
+// on the public internet. DEV_BYPASS + STAGING_EMAIL + STAGING_PASSWORD =
+// recognized "staging tier" — user must type the shared credentials to
+// flip the localStorage flag that primes the mock user.
 if (process.env.NODE_ENV === 'production' && process.env.VITE_LIVERRA_DEV_BYPASS === 'true') {
-  throw new Error(
-    'PRODUCTION SAFETY: VITE_LIVERRA_DEV_BYPASS=true is not allowed in NODE_ENV=production. '
-    + 'Unset it in Netlify env vars before deploying.',
-  );
+  const stagingGateConfigured =
+    !!process.env.VITE_LIVERRA_STAGING_EMAIL && !!process.env.VITE_LIVERRA_STAGING_PASSWORD;
+  if (!stagingGateConfigured) {
+    throw new Error(
+      'PRODUCTION SAFETY: VITE_LIVERRA_DEV_BYPASS=true is not allowed in NODE_ENV=production '
+      + 'without VITE_LIVERRA_STAGING_EMAIL + VITE_LIVERRA_STAGING_PASSWORD also set. '
+      + 'Either unset DEV_BYPASS or configure the staging credentials gate.',
+    );
+  }
 }
 
 export default defineConfig(({ mode }) => {
