@@ -784,7 +784,11 @@ async def get_analysis_results(
     # active row per (analysis, lesion) by the partial UNIQUE index
     # created in migration 0015.
     lesions = []
-    for row in (
+    # NOTE: do NOT bind the loop variable to `row` — `row` above already
+    # holds the analysis row used by ``_to_detail(row, ...)`` below.
+    # Reusing it here would shadow the analysis row and make ``_to_detail``
+    # fail with NoSuchColumnError for ``study_id`` on every cascade.
+    for lesion_row in (
         await session.execute(
             text(
                 """
@@ -810,7 +814,7 @@ async def get_analysis_results(
             {"id": str(analysis_id)},
         )
     ).mappings():
-        d = dict(row)
+        d = dict(lesion_row)
         # If classification is a JSON dict, hoist override fields into it
         # so the UI's `cls.reviewer_override_class` /
         # `cls.override_reviewer_role` reads land where they belong. If
