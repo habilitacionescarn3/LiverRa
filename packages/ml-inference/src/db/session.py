@@ -81,6 +81,13 @@ def get_engine() -> AsyncEngine:
             pool_size=10,
             max_overflow=20,
             future=True,
+            # Supabase / pgbouncer transaction-mode pooler doesn't support
+            # asyncpg's prepared-statement cache. Disable for both. No-op
+            # against direct Postgres connections.
+            connect_args={
+                "statement_cache_size": 0,
+                "prepared_statement_cache_size": 0,
+            },
         )
         _ENGINES[key] = eng
     return eng
