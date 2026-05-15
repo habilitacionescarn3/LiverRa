@@ -37,17 +37,23 @@
    * Tracking: T464 (deferred-work contract delivered; ramp swap awaits
    * sign-off).
    */
-  /* LiverRa primary ramp (50…900) — source of truth for brand color */
-  --liverra-primary-50:  #f7f5f3;
-  --liverra-primary-100: #eae5e0;
-  --liverra-primary-200: #d8d0c8;
-  --liverra-primary-300: #b8aa9d;
-  --liverra-primary-400: #8a7a6c;
-  --liverra-primary-500: #6b5c4f;
-  --liverra-primary-600: #4d4236;
-  --liverra-primary-700: #352d24;
-  --liverra-primary-800: #231e18;
-  --liverra-primary-900: #15110d;
+  /* LiverRa primary ramp (50…900) — source of truth for brand color.
+     Reverted from the warm-gray "T464 pending" experiment back to the
+     canonical LiverRa blue palette (status: pending was never signed off
+     by design lead, so the warm-gray drift is treated as audit C-DS-1
+     and reverted). Ramp values verified against original brand spec:
+     navy #1a365d (700), medium #2b6cb0 (500), light #3182ce (400),
+     pale #bee3f8 (100). */
+  --liverra-primary-50:  #ebf8ff;
+  --liverra-primary-100: #bee3f8;
+  --liverra-primary-200: #90cdf4;
+  --liverra-primary-300: #4299e1;
+  --liverra-primary-400: #3182ce;
+  --liverra-primary-500: #2b6cb0;
+  --liverra-primary-600: #234e7f;
+  --liverra-primary-700: #1a365d;
+  --liverra-primary-800: #0f2440;
+  --liverra-primary-900: #091a2e;
 
   /* Primary warm-gray palette - used for main navigation and primary actions */
   /* Mapped from MediMind blue ramp (#1a365d / #2b6cb0 / #3182ce / #bee3f8) */
@@ -1517,17 +1523,19 @@
 /* Dark theme overrides - activated via Mantine's color scheme attribute */
 /* Uses Tailwind Slate color family for blue-tinted dark surfaces */
 :root[data-mantine-color-scheme="dark"] {
-  /* LiverRa primary ramp (dark mode) — inverted warm-gray */
-  --liverra-primary-50:  #15110d;
-  --liverra-primary-100: #231e18;
-  --liverra-primary-200: #352d24;
-  --liverra-primary-300: #4d4236;
-  --liverra-primary-400: #6b5c4f;
-  --liverra-primary-500: #8a7a6c;
-  --liverra-primary-600: #b8aa9d;
-  --liverra-primary-700: #d8d0c8;
-  --liverra-primary-800: #eae5e0;
-  --liverra-primary-900: #f7f5f3;
+  /* LiverRa primary ramp (dark mode) — inverted blue palette to remain
+     readable on dark backgrounds. Lightens as the index increases, the
+     opposite of light mode. */
+  --liverra-primary-50:  #091a2e;
+  --liverra-primary-100: #0f2440;
+  --liverra-primary-200: #1a365d;
+  --liverra-primary-300: #234e7f;
+  --liverra-primary-400: #2b6cb0;
+  --liverra-primary-500: #3182ce;
+  --liverra-primary-600: #4299e1;
+  --liverra-primary-700: #63b3ed;
+  --liverra-primary-800: #90cdf4;
+  --liverra-primary-900: #bee3f8;
 
   /* Core Colors - warm-gray accents for dark mode (mapped from brand ramp) */
   --emr-primary: var(--liverra-primary-400);

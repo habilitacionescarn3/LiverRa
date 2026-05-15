@@ -314,6 +314,11 @@ const DEFAULT_PRELOAD_NAMESPACES: readonly TranslationNamespace[] = [
   // raw key on first render and never recover (the `t` callback identity is
   // stable across bundle loads).
   'ruo',
+  // Preload `help` because LandingView is the landing route (`/`) and reads
+  // a dozen `help.landing.*` keys via `useMemo`. Without eager load, the
+  // first paint shows raw keys and the memo locks them in until manual
+  // refresh — same failure mode as `ruo`.
+  'help',
 ];
 
 export function TranslationProvider({

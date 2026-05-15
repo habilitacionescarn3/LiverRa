@@ -39,16 +39,16 @@
  */
 export const THEME_COLORS = {
   /** Brand primary — deepest brand value. Mirrors `var(--emr-primary)` (alias of `--liverra-primary-700`). */
-  primary: '#352d24',
+  primary: '#1a365d',
 
   /** Brand secondary — mid brand value. Mirrors `var(--emr-secondary)` (alias of `--liverra-primary-500`). */
-  secondary: '#6b5c4f',
+  secondary: '#2b6cb0',
 
   /** Brand accent — lighter brand value, used for accents & focus. Mirrors `var(--emr-accent)` (alias of `--liverra-primary-400`). */
-  accent: '#8a7a6c',
+  accent: '#3182ce',
 
   /** Light accent — pale brand bg / hover tint. Mirrors `var(--emr-light-accent)` (alias of `--liverra-primary-100`). */
-  lightAccent: '#eae5e0',
+  lightAccent: '#bee3f8',
 
   /** White — inverse text, light surfaces. */
   white: '#ffffff',
@@ -175,7 +175,7 @@ export const STATUS_COLORS = {
  */
 export const GRADIENTS = {
   /** Primary button gradient. Mirrors `var(--emr-gradient-primary)`. */
-  primary: 'linear-gradient(135deg, #352d24 0%, #6b5c4f 50%, #8a7a6c 100%)',
+  primary: 'linear-gradient(135deg, #1a365d 0%, #2b6cb0 50%, #3182ce 100%)',
 
   /** Success gradient. */
   success: 'linear-gradient(135deg, #38a169 0%, #48bb78 100%)',
