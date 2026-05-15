@@ -33,7 +33,7 @@ import ProtectedRoute from './emr/components/ProtectedRoute/ProtectedRoute';
 import type { LiverraPermission } from './emr/constants/permissions.gen';
 import { LIVERRA_ROUTES } from './emr/constants/routes';
 import { EMRPage } from './emr/EMRPage';
-import { useAuth } from './emr/services/auth';
+import { useAuthContext } from './emr/contexts/AuthContext';
 
 // --- Eager routes (in initial bundle) ----------------------------------------
 import LandingView from './emr/views/LandingView';
@@ -106,7 +106,11 @@ function Guarded({
  * paint that the earlier in-Outlet gate produced on cold starts.
  */
 function AuthRootGate(): JSX.Element | null {
-  const { user, isLoading } = useAuth();
+  // Use the context-backed hook (not the stub-backed `useAuth()` from
+  // services/auth) — the stub's `isLoading` only flips false when a user
+  // is primed into the stub, so it stays `true` forever on the unauth
+  // path. The context hook reflects AuthProvider's real loading state.
+  const { user, isLoading } = useAuthContext();
   if (isLoading) return null;
   if (!user) return <Navigate to={LIVERRA_ROUTES.SIGNIN} replace />;
   return <EMRPage />;
