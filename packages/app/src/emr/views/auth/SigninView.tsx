@@ -20,7 +20,7 @@
  * password-gate feature shipping in parallel.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Center,
@@ -66,14 +66,44 @@ export default function SigninView(): JSX.Element {
   const isDev = Boolean(import.meta.env.DEV);
   const devBypassActive = isDev && meta.VITE_LIVERRA_DEV_BYPASS === 'true';
 
+  // Staging credentials gate. Reads VITE_LIVERRA_STAGING_EMAIL +
+  // VITE_LIVERRA_STAGING_PASSWORD baked into the bundle at build time.
+  // Active whenever a value is configured; ignored locally.
+  const stagingEmail = meta.VITE_LIVERRA_STAGING_EMAIL ?? '';
+  const stagingPassword = meta.VITE_LIVERRA_STAGING_PASSWORD ?? '';
+  const stagingGateActive =
+    stagingEmail.length > 0 && stagingPassword.length > 0;
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [credError, setCredError] = useState<string | null>(null);
+
   const handleSignIn = (): void => {
     signIn().catch((err) => {
       console.error('[SigninView] signIn failed:', err);
     });
   };
 
+  const handleStagingSubmit = (): void => {
+    setCredError(null);
+    const emailMatch = email.trim().toLowerCase() === stagingEmail.toLowerCase();
+    const pwMatch = password === stagingPassword;
+    if (!emailMatch || !pwMatch) {
+      setCredError('Invalid email or password.');
+      return;
+    }
+    window.localStorage.setItem('liverra:staging-auth', 'ok');
+    // AuthContext re-reads this on next mount; full reload primes the
+    // dev-bypass user without any oidc-client side effects.
+    window.location.assign(returnTo);
+  };
+
   const handleFormSubmit = (event: React.FormEvent): void => {
     event.preventDefault();
+    if (stagingGateActive) {
+      handleStagingSubmit();
+      return;
+    }
     if (oidcConfigured) handleSignIn();
   };
 
@@ -193,9 +223,13 @@ export default function SigninView(): JSX.Element {
                 type="email"
                 autoComplete="email"
                 leftSection={<IconMail size={16} />}
-                disabled
+                value={email}
+                onChange={(e) => setEmail(e.currentTarget.value)}
+                disabled={!stagingGateActive}
                 data-testid="signin-email"
-                description={t('auth:signin.emailHelper')}
+                description={
+                  stagingGateActive ? undefined : t('auth:signin.emailHelper')
+                }
               />
 
               <EMRTextInput
@@ -204,17 +238,29 @@ export default function SigninView(): JSX.Element {
                 type="password"
                 autoComplete="current-password"
                 leftSection={<IconLock size={16} />}
-                disabled
+                value={password}
+                onChange={(e) => setPassword(e.currentTarget.value)}
+                disabled={!stagingGateActive}
                 data-testid="signin-password"
               />
 
+              {credError && (
+                <EMRAlert
+                  variant="error"
+                  icon={IconAlertTriangle}
+                  data-testid="signin-error"
+                >
+                  {credError}
+                </EMRAlert>
+              )}
+
               <Tooltip
                 label={
-                  oidcConfigured
+                  stagingGateActive || oidcConfigured
                     ? t('auth:signin.cta')
                     : t('auth:signin.notConfiguredHint')
                 }
-                disabled={oidcConfigured}
+                disabled={stagingGateActive || oidcConfigured}
                 withArrow
                 position="top"
               >
@@ -223,8 +269,11 @@ export default function SigninView(): JSX.Element {
                     type="submit"
                     variant="primary"
                     size="md"
-                    onClick={handleSignIn}
-                    disabled={!oidcConfigured}
+                    onClick={() => {
+                      if (stagingGateActive) handleStagingSubmit();
+                      else handleSignIn();
+                    }}
+                    disabled={!stagingGateActive && !oidcConfigured}
                     fullWidth
                     icon={IconShieldLock}
                     data-testid="signin-cta"

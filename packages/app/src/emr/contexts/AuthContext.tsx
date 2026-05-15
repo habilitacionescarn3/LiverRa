@@ -178,7 +178,18 @@ export function AuthProvider({ children, testOverrides }: AuthProviderProps): JS
       // AND an explicit flag — Vite tree-shakes the branch out of prod.
       const meta =
         (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
-      if (import.meta.env.DEV && meta.VITE_LIVERRA_DEV_BYPASS === 'true') {
+      // Dev mode (vite dev) — bypass via env flag.
+      // Staging deploy (Netlify build) — bypass after the credentials gate
+      // (SigninView) sets `liverra:staging-auth=ok` in localStorage. Without
+      // that flag the user lands on /signin and is forced to enter the
+      // shared staging credentials.
+      const devBypassActive =
+        import.meta.env.DEV && meta.VITE_LIVERRA_DEV_BYPASS === 'true';
+      const stagingGatePassed =
+        meta.VITE_LIVERRA_DEV_BYPASS === 'true' &&
+        typeof window !== 'undefined' &&
+        window.localStorage?.getItem('liverra:staging-auth') === 'ok';
+      if (devBypassActive || stagingGatePassed) {
         const mockUser = {
           profile: { sub: 'dev-user', email: 'dev@liverra.local', name: 'Dev User' },
           access_token: 'dev-access-token',

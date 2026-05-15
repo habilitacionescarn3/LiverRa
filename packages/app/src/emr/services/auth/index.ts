@@ -26,6 +26,7 @@ import {
   type CognitoAccessTokenClaims,
   type CreateOidcClientOptions,
 } from './oidcClient';
+import { getCurrentSupabaseToken } from './supabase';
 
 export { createOidcClient, decodeAccessToken, extractAuthTime };
 export type { CognitoAccessTokenClaims, CreateOidcClientOptions };
