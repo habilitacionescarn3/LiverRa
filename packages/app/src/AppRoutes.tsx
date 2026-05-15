@@ -99,17 +99,17 @@ function Guarded({
 }
 
 /**
- * Landing index gate. LiverRa is hospital-only — there's no public marketing
- * audience, so logged-out users at `/` get punted to `/signin` rather than
- * seeing the feature pitch. Doesn't render `<ProtectedRoute>` because that
- * shows a skeleton during auth-hydrate; for a landing we'd rather render
- * nothing for the half-second of loading.
+ * Authentication gate at the root `/`. Decides BEFORE the EMRPage shell
+ * mounts: unauthenticated → straight to /signin (no shell flash);
+ * authenticated → render the shell, with the index Outlet showing
+ * LandingView. Putting the gate above EMRPage prevents the empty-shell
+ * paint that the earlier in-Outlet gate produced on cold starts.
  */
-function LandingGate(): JSX.Element | null {
+function AuthRootGate(): JSX.Element | null {
   const { user, isLoading } = useAuth();
   if (isLoading) return null;
   if (!user) return <Navigate to={LIVERRA_ROUTES.SIGNIN} replace />;
-  return <LandingView />;
+  return <EMRPage />;
 }
 
 // -----------------------------------------------------------------------------
@@ -128,12 +128,12 @@ export const appRouter = createBrowserRouter([
     element: <AuthCallbackView />,
   },
 
-  // Authenticated shell
+  // Authenticated shell (gate decides before EMRPage mounts)
   {
     path: '/',
-    element: <EMRPage />,
+    element: <AuthRootGate />,
     children: [
-      { index: true, element: <LandingGate /> },
+      { index: true, element: <LandingView /> },
 
       // Onboarding -----------------------------------------------------------
       {
