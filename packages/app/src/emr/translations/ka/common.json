@@ -1,77 +1,77 @@
 {
   "actions": {
-    "save": "Save",
-    "cancel": "Cancel",
-    "submit": "Submit",
-    "close": "Close",
-    "retry": "Retry",
-    "back": "Back",
-    "next": "Next"
+    "save": "შენახვა",
+    "cancel": "გაუქმება",
+    "submit": "წარდგენა",
+    "close": "დახურვა",
+    "retry": "გამეორება",
+    "back": "უკან",
+    "next": "შემდეგი"
   },
   "state": {
-    "loading": "Loading…",
-    "empty": "No results",
-    "error": "Something went wrong"
+    "loading": "იტვირთება…",
+    "empty": "შედეგები არ არის",
+    "error": "დაფიქსირდა შეცდომა"
   },
   "ruo": {
-    "notice": "Research Use Only — not for clinical use"
+    "notice": "მხოლოდ კვლევითი მიზნებისთვის — არა კლინიკური გამოყენებისთვის"
   },
-  "placeholder": "TODO: translation pending",
-  "back": "Back",
-  "cancel": "Cancel",
-  "close": "Close",
-  "confirm": "Confirm",
-  "continue": "Continue",
-  "error": "Error",
-  "genericError": "Something went wrong. Please try again.",
-  "loading": "Loading…",
-  "next": "Next",
-  "refresh": "Refresh",
-  "retry": "Retry",
-  "save": "Save",
-  "skip": "Skip",
-  "submitting": "Submitting…",
-  "delete": "Delete",
+  "placeholder": "თარგმანი პროცესშია",
+  "back": "უკან",
+  "cancel": "გაუქმება",
+  "close": "დახურვა",
+  "confirm": "დადასტურება",
+  "continue": "გაგრძელება",
+  "error": "შეცდომა",
+  "genericError": "დაფიქსირდა შეცდომა. გთხოვთ, სცადოთ თავიდან.",
+  "loading": "იტვირთება…",
+  "next": "შემდეგი",
+  "refresh": "განახლება",
+  "retry": "გამეორება",
+  "save": "შენახვა",
+  "skip": "გამოტოვება",
+  "submitting": "იგზავნება…",
+  "delete": "წაშლა",
   "ok": "OK",
-  "or": "or",
-  "tryAgain": "Try again",
-  "clearInput": "Clear input",
-  "fileInput": "File input",
-  "formError": "Form error",
-  "formErrorMessage": "Please fix the errors and try again.",
-  "invalidTime": "Invalid time",
-  "noOptionsFound": "No options found",
+  "or": "ან",
+  "tryAgain": "სცადეთ თავიდან",
+  "clearInput": "ველის გასუფთავება",
+  "fileInput": "ფაილის ატვირთვა",
+  "formError": "შეცდომა ფორმაში",
+  "formErrorMessage": "გთხოვთ, გაასწოროთ შეცდომები და სცადოთ თავიდან.",
+  "invalidTime": "არასწორი დრო",
+  "noOptionsFound": "ვარიანტები ვერ მოიძებნა",
   "permission": {
-    "accessDenied": "You don't have permission to do this."
+    "accessDenied": "თქვენ არ გაქვთ ამის უფლება."
   },
   "permissionDenied": {
-    "title": "__TODO_TRANSLATE__:Access denied",
-    "body": "__TODO_TRANSLATE__:You don't have permission to view this page. Contact your administrator if you believe this is an error."
+    "title": "წვდომა უარყოფილია",
+    "body": "თქვენ არ გაქვთ ამ გვერდის ნახვის უფლება. დაუკავშირდით ადმინისტრატორს, თუ მიგაჩნიათ, რომ ეს შეცდომაა."
   },
   "recordLock": {
-    "locked": "This record is locked by another user.",
-    "lockedWithOverride": "This record is locked by another user. You may request an override.",
-    "override": "Override lock",
-    "timeRemaining": "Lock expires in {{hours}}h {{minutes}}m"
+    "locked": "ამ ჩანაწერზე სხვა მომხმარებელი მუშაობს.",
+    "lockedWithOverride": "ამ ჩანაწერზე სხვა მომხმარებელი მუშაობს. შეგიძლიათ მოითხოვოთ წვდომის გადაწერა.",
+    "override": "წვდომის გადაწერა",
+    "timeRemaining": "ბლოკირების ვადა იწურება {{hours}}სთ {{minutes}}წთ-ში"
   },
   "sensitiveData": {
-    "restricted": "Restricted",
-    "restrictedMessage": "Sensitive data is hidden. Contact your administrator if access is required."
+    "restricted": "შეზღუდულია",
+    "restrictedMessage": "სენსიტიური მონაცემები დაფარულია. დაუკავშირდით ადმინისტრატორს წვდომის მისაღებად."
   },
   "sessionRecovery": {
-    "discard": "Discard",
-    "resume": "Resume",
-    "title": "Resume your session?",
-    "unsavedWork": "We found unsaved work from your previous session."
+    "discard": "უარყოფა",
+    "resume": "გაგრძელება",
+    "title": "გსურთ სესიის გაგრძელება?",
+    "unsavedWork": "ნაპოვნია შეუნახავი მონაცემები წინა სესიიდან."
   },
   "stepUp": {
-    "actionLabel": "Re-authenticate",
-    "explanation": "This action requires a fresh authentication to protect sensitive data.",
-    "reauthenticate": "Re-authenticate",
-    "title": "Confirm it's you"
+    "actionLabel": "ხელახალი ავტორიზაცია",
+    "explanation": "ეს მოქმედება საჭიროებს ხელახალ ავტორიზაციას სენსიტიური მონაცემების დასაცავად.",
+    "reauthenticate": "ხელახალი ავტორიზაცია",
+    "title": "დაადასტურეთ თქვენი ვინაობა"
   },
-  "somethingWentWrong": "Что-то пошло не так.",
-  "insert": "Вставить",
-  "print": "Печать",
-  "goHome": "__TODO_TRANSLATE__:Go to home page"
+  "somethingWentWrong": "დაფიქსირდა შეცდომა.",
+  "insert": "ჩასმა",
+  "print": "ბეჭდვა",
+  "goHome": "მთავარ გვერდზე გადასვლა"
 }

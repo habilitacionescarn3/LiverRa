@@ -13,7 +13,7 @@
     "empty": {
       "title": "ჯერ კიდევ არ გყავთ მომხმარებლები",
       "description": "გაგზავნეთ პირველი მოწვევა, რათა კლინიცისტი შემოუერთდეს თქვენს ტენანტს.",
-      "cta": "__TODO_TRANSLATE__:Invite your first user"
+      "cta": "პირველი მოწვევის გაგზავნა"
     },
     "status": {
       "active": "აქტიური",
@@ -25,15 +25,15 @@
       "role": "როლი",
       "status": "სტატუსი",
       "actions": "მოქმედებები",
-      "lastActive": "__TODO_TRANSLATE__:Last active"
+      "lastActive": "ბოლოს აქტიური"
     },
-    "resetMfa": "__TODO_TRANSLATE__:Reset MFA",
+    "resetMfa": "MFA-ის განულება",
     "lastActive": {
-      "never": "__TODO_TRANSLATE__:Never",
-      "justNow": "__TODO_TRANSLATE__:Just now",
-      "minutesAgo": "__TODO_TRANSLATE__:{{n}} min ago",
-      "hoursAgo": "__TODO_TRANSLATE__:{{n}} h ago",
-      "daysAgo": "__TODO_TRANSLATE__:{{n}} d ago"
+      "never": "არასოდეს",
+      "justNow": "ახლახან",
+      "minutesAgo": "{{n}} წუთის წინ",
+      "hoursAgo": "{{n}} საათის წინ",
+      "daysAgo": "{{n}} დღის წინ"
     }
   },
   "invite": {
@@ -50,7 +50,7 @@
     "radiologist": "რადიოლოგი",
     "fellow": "ფელოუ",
     "ops": "ოპერაციები",
-    "compliance": "Compliance",
+    "compliance": "შესაბამისობა (Compliance)",
     "dpo": "DPO"
   },
   "pacs": {
@@ -67,15 +67,15 @@
     "roundTrip": "დაყოვნება",
     "saved": "PACS დანიშნულება შენახულია.",
     "section": {
-      "endpoint": "__TODO_TRANSLATE__:DICOM endpoint",
-      "endpointHelp": "__TODO_TRANSLATE__:The AE title, host, and port your PACS listens on for C-STORE.",
-      "security": "__TODO_TRANSLATE__:Transport security",
-      "securityHelp": "__TODO_TRANSLATE__:Pin a certificate fingerprint to detect MITM tampering."
+      "endpoint": "DICOM ენდპოინტი",
+      "endpointHelp": "AE title, ჰოსტი და პორტი, რომელზეც თქვენი PACS უსმენს C-STORE-ს.",
+      "security": "ტრანსპორტის უსაფრთხოება",
+      "securityHelp": "მიამაგრეთ სერტიფიკატის ანაბეჭდი MITM ჩარევის გამოსავლენად."
     },
-    "aeTitleHelp": "__TODO_TRANSLATE__:Up to 16 chars, letters/digits/dash only.",
-    "hostHelp": "__TODO_TRANSLATE__:Reachable hostname or IPv4 address from the LiverRa edge appliance.",
-    "portHelp": "__TODO_TRANSLATE__:Default DICOM port is 104; DICOM-TLS commonly uses 2762.",
-    "echoIdle": "__TODO_TRANSLATE__:Run a C-ECHO before saving to verify the destination is reachable."
+    "aeTitleHelp": "16 სიმბოლომდე, მხოლოდ ასოები/ციფრები/ტირე.",
+    "hostHelp": "მისაწვდომი ჰოსტის სახელი ან IPv4 მისამართი LiverRa-ს მოწყობილობიდან.",
+    "portHelp": "DICOM-ის სტანდარტული პორტია 104; DICOM-TLS ჩვეულებრივ იყენებს 2762-ს.",
+    "echoIdle": "შენახვამდე გაუშვით C-ECHO დანიშნულების ადგილის მისაწვდომობის შესამოწმებლად."
   },
   "audit": {
     "title": "აუდიტის ბრაუზერი",
@@ -85,9 +85,9 @@
       "to": "მდე",
       "category": "კატეგორია",
       "all": "ყველა",
-      "title": "__TODO_TRANSLATE__:Filter events",
-      "clear": "__TODO_TRANSLATE__:Clear filters",
-      "showing": "__TODO_TRANSLATE__:Showing {{n}} events"
+      "title": "მოვლენების ფილტრი",
+      "clear": "ფილტრების გასუფთავება",
+      "showing": "ნაჩვენებია {{n}} მოვლენა"
     },
     "empty": {
       "title": "მოვლენები არ არის",
@@ -102,36 +102,36 @@
       "summary": "რეზიუმე"
     },
     "outcome": {
-      "success": "Успешно",
-      "denied": "__TODO_TRANSLATE__:Denied",
-      "error": "Ошибка"
+      "success": "წარმატებული",
+      "denied": "უარყოფილი",
+      "error": "შეცდომა"
     },
     "drawer": {
-      "title": "__TODO_TRANSLATE__:Audit event detail",
-      "subtitle": "__TODO_TRANSLATE__:Sequence #{{seq}}",
-      "json": "__TODO_TRANSLATE__:Raw event JSON",
-      "copyJson": "__TODO_TRANSLATE__:Copy JSON",
-      "copied": "__TODO_TRANSLATE__:Copied to clipboard",
-      "open": "__TODO_TRANSLATE__:View detail"
+      "title": "აუდიტის მოვლენის დეტალები",
+      "subtitle": "მიმდევრობა #{{seq}}",
+      "json": "მოვლენის JSON მონაცემები",
+      "copyJson": "JSON-ის კოპირება",
+      "copied": "დაკოპირდა გაცვლის ბუფერში",
+      "open": "დეტალების ნახვა"
     }
   },
   "deleteRequest": {
     "title": "ქეისის წაშლის მოთხოვნა",
     "studyId": "კვლევის ID",
     "requestedBy": "მოითხოვა",
-    "approve": "დამტკიცება (soft-delete)",
+    "approve": "დამტკიცება (რბილი წაშლა)",
     "reject": "უარყოფა"
   },
   "coverageOverride": {
-    "title": "Coverage Override (FR-006a)",
+    "title": "დაფარვის გადაფარვა (Coverage Override FR-006a)",
     "noPermission": "უფლება არასაკმარისია",
     "noPermissionBody": "თქვენ არ გაქვთ admin.coverage_override უფლება.",
-    "warning": "Override-ები ასუსტებს ფაზების დაფარვის უსაფრთხოებას. ყოველი override აუდიტდება და აისახება ქვემდინარე FHIR მოვლენებზე.",
-    "tenantFlag": "ნაწილობრივი დაფარვის override-ის დაშვება (მთელი ტენანტისთვის)",
-    "perCase": "Override თითო ანალიზზე",
+    "warning": "გადაფარვები (Override) ასუსტებს ფაზების დაფარვის უსაფრთხოებას. ყოველი გადაფარვა აუდიტდება და აისახება ქვემდინარე FHIR მოვლენებზე.",
+    "tenantFlag": "ნაწილობრივი დაფარვის გადაფარვის დაშვება (მთელი ტენანტისთვის)",
+    "perCase": "გადაფარვა თითო ანალიზზე",
     "reason": "მიზეზი (მინ. 10 სიმბოლო)",
-    "submit": "Override step-up MFA-ით",
-    "flagSaved": "ტენანტის ფლაგი განახლდა.",
-    "analysisSaved": "ანალიზის override გამოყენდა."
+    "submit": "გადაფარვა step-up MFA-ით",
+    "flagSaved": "ტენანტის სტატუსი განახლდა.",
+    "analysisSaved": "ანალიზის გადაფარვა გამოყენდა."
   }
 }

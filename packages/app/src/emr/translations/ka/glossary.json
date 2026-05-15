@@ -46,7 +46,7 @@
     "portal": {
       "name": "კარიბჭის ვენა",
       "latin": "Vena portae hepatis",
-      "role": "შემოსადინებელი ვენური ღერო — ნაწლავებიდან და ელენთიდან"
+      "role": "შემოსადინებელი ვენური ღერო — სისხლი მოაქვს ნაწლავებიდან და ელენთიდან"
     },
     "hepatic": {
       "name": "ღვიძლის ვენები",
@@ -55,115 +55,115 @@
     }
   },
   "page": {
-    "title": "__TODO_TRANSLATE__:Clinical glossary",
-    "subtitle": "__TODO_TRANSLATE__:Terminology used across LiverRa: Couinaud anatomy, vessels, lesion classes, and abbreviations.",
-    "searchPlaceholder": "__TODO_TRANSLATE__:Search terms, Latin names, or abbreviations…",
-    "clearFilter": "__TODO_TRANSLATE__:Clear filter",
-    "noMatches": "__TODO_TRANSLATE__:No terms match your search.",
-    "resultsCount": "__TODO_TRANSLATE__:{{count}} of {{total}} terms"
+    "title": "კლინიკური გლოსარიუმი",
+    "subtitle": "LiverRa-ში გამოყენებული ტერმინოლოგია: Couinaud ანატომია, სისხლძარღვები, ლეზიების კლასები და აბრევიატურები.",
+    "searchPlaceholder": "საძიებო ტერმინები, ლათინური სახელები ან აბრევიატურები…",
+    "clearFilter": "ფილტრის გასუფთავება",
+    "noMatches": "თქვენს ძიებაზე შესაბამისი ტერმინი ვერ მოიძებნა.",
+    "resultsCount": "ნაპოვნია {{count}} / {{total}} ტერმინი"
   },
   "categories": {
-    "all": "__TODO_TRANSLATE__:All",
-    "couinaud": "__TODO_TRANSLATE__:Couinaud segments",
-    "vessels": "__TODO_TRANSLATE__:Vessels",
-    "lesions": "__TODO_TRANSLATE__:Lesion classes",
-    "phases": "__TODO_TRANSLATE__:Contrast phases",
-    "abbreviations": "__TODO_TRANSLATE__:Abbreviations"
+    "all": "ყველა",
+    "couinaud": "Couinaud სეგმენტები",
+    "vessels": "სისხლძარღვები",
+    "lesions": "ლეზიების კლასები",
+    "phases": "კონტრასტული ფაზები",
+    "abbreviations": "აბრევიატურები"
   },
   "lesions": {
     "hcc": {
-      "name": "__TODO_TRANSLATE__:Hepatocellular carcinoma",
-      "abbr": "__TODO_TRANSLATE__:HCC",
-      "role": "__TODO_TRANSLATE__:Primary liver malignancy arising from hepatocytes; typically cirrhotic background."
+      "name": "ჰეპატოცელულარული კარცინომა",
+      "abbr": "HCC",
+      "role": "პირველადი ავთვისებიანი სიმსივნე, რომელიც ვითარდება ჰეპატოციტებიდან; ხშირად ციროზულ ფონზე."
     },
     "icc": {
-      "name": "__TODO_TRANSLATE__:Intrahepatic cholangiocarcinoma",
-      "abbr": "__TODO_TRANSLATE__:ICC",
-      "role": "__TODO_TRANSLATE__:Primary biliary-tract malignancy arising from intrahepatic bile ducts."
+      "name": "ინტრაჰეპატური ქოლანგიოკარცინომა",
+      "abbr": "ICC",
+      "role": "სანაღვლე გზების პირველადი ავთვისებიანი სიმსივნე, რომელიც ვითარდება ღვიძლშიდა სანაღვლე სადინარებიდან."
     },
     "metastasis": {
-      "name": "__TODO_TRANSLATE__:Metastasis",
-      "abbr": "__TODO_TRANSLATE__:MET",
-      "role": "__TODO_TRANSLATE__:Secondary malignancy — commonly colorectal, pancreatic, breast, or neuroendocrine primaries."
+      "name": "მეტასტაზი",
+      "abbr": "MET",
+      "role": "მეორადი ავთვისებიანი სიმსივნე — ხშირად კოლორექტალური, პანკრეასის, სარძევე ჯირკვლის ან ნეიროენდოკრინული პირველადი კერებით."
     },
     "fnh": {
-      "name": "__TODO_TRANSLATE__:Focal nodular hyperplasia",
-      "abbr": "__TODO_TRANSLATE__:FNH",
-      "role": "__TODO_TRANSLATE__:Benign hyperplastic lesion; central scar characteristic on MRI."
+      "name": "ფოკალური ნოდულარული ჰიპერპლაზია",
+      "abbr": "FNH",
+      "role": "კეთილთვისებიანი ჰიპერპლაზიური ლეზია; ხასიათდება ცენტრალური ნაწიბურით MRI კვლევაზე."
     },
     "hemangioma": {
-      "name": "__TODO_TRANSLATE__:Hemangioma",
-      "abbr": "__TODO_TRANSLATE__:HEM",
-      "role": "__TODO_TRANSLATE__:Benign vascular lesion; peripheral nodular enhancement typical."
+      "name": "ჰემანგიომა",
+      "abbr": "HEM",
+      "role": "კეთილთვისებიანი სისხლძარღვოვანი ლეზია; ტიპურია პერიფერიული კვანძოვანი გაძლიერება."
     },
     "cyst": {
-      "name": "__TODO_TRANSLATE__:Simple cyst",
-      "abbr": "__TODO_TRANSLATE__:CYST",
-      "role": "__TODO_TRANSLATE__:Benign fluid-filled lesion; no enhancement expected."
+      "name": "მარტივი კისტა",
+      "abbr": "CYST",
+      "role": "კეთილთვისებიანი თხევადი წარმონაქმნი; კონტრასტული გაძლიერება არ აღინიშნება."
     }
   },
   "phases": {
     "native": {
-      "name": "__TODO_TRANSLATE__:Non-contrast (native)",
-      "role": "__TODO_TRANSLATE__:Baseline CT acquired before contrast injection."
+      "name": "ნატიური (უკონტრასტო)",
+      "role": "საბაზისო CT კვლევა კონტრასტის შეყვანამდე."
     },
     "arterial": {
-      "name": "__TODO_TRANSLATE__:Late arterial",
-      "role": "__TODO_TRANSLATE__:~30s post-injection; hepatic artery enhancement — HCC and FNH conspicuous."
+      "name": "გვიანი არტერიული",
+      "role": "~30 წამი ინექციიდან; ღვიძლის არტერიის გაძლიერება — კარგად ჩანს HCC და FNH."
     },
     "portal": {
-      "name": "__TODO_TRANSLATE__:Portal venous",
-      "role": "__TODO_TRANSLATE__:~65–75s; liver parenchyma maximally enhanced — metastases conspicuous."
+      "name": "პორტული ვენური",
+      "role": "~65–75 წამი; ღვიძლის პარენქიმის მაქსიმალური გაძლიერება — კარგად ჩანს მეტასტაზები."
     },
     "venous": {
-      "name": "__TODO_TRANSLATE__:Hepatic venous",
-      "role": "__TODO_TRANSLATE__:~3min; equilibrium phase — tumor washout detectable."
+      "name": "ღვიძლის ვენური",
+      "role": "~3 წუთი; წონასწორობის ფაზა — ვლინდება სიმსივნის კონტრასტის გამორეცხვა (washout)."
     },
     "delayed": {
-      "name": "__TODO_TRANSLATE__:Delayed",
-      "role": "__TODO_TRANSLATE__:~5–10min; fibrous components retain contrast."
+      "name": "დაგვიანებული",
+      "role": "~5–10 წუთი; ფიბროზული კომპონენტები ინარჩუნებენ კონტრასტს."
     }
   },
   "abbreviations": {
     "flr": {
-      "name": "__TODO_TRANSLATE__:Future Liver Remnant",
-      "abbr": "__TODO_TRANSLATE__:FLR",
-      "role": "__TODO_TRANSLATE__:Post-resection liver volume expressed as % of total liver volume. Target ≥30–40% in healthy liver, higher with impairment."
+      "name": "ღვიძლის მომავალი რემნანტი (Future Liver Remnant)",
+      "abbr": "FLR",
+      "role": "რეზექციის შემდგომი ღვიძლის მოცულობა, გამოხატული მთლიანი მოცულობის %-ში. სამიზნე ≥30–40% ჯანსაღი ღვიძლისთვის, უფრო მაღალი — დაზიანებისას."
     },
     "alpps": {
-      "name": "__TODO_TRANSLATE__:Associating Liver Partition and Portal vein ligation for Staged hepatectomy",
-      "abbr": "__TODO_TRANSLATE__:ALPPS",
-      "role": "__TODO_TRANSLATE__:Two-stage hepatectomy technique that accelerates FLR hypertrophy."
+      "name": "ღვიძლის დანაწილებისა და კარიბჭის ვენის ლიგირების ასოცირება ეტაპობრივი ჰეპატექტომიისთვის (ALPPS)",
+      "abbr": "ALPPS",
+      "role": "ორეტაპიანი ჰეპატექტომიის ტექნიკა, რომელიც აჩქარებს FLR ჰიპერტროფიას."
     },
     "ruo": {
-      "name": "Только для исследовательских целей",
-      "abbr": "__TODO_TRANSLATE__:RUO",
-      "role": "__TODO_TRANSLATE__:Regulatory scope — output is not cleared for clinical decision-making."
+      "name": "მხოლოდ კვლევითი მიზნებისთვის (Research Use Only)",
+      "abbr": "RUO",
+      "role": "რეგულაციური სფერო — შედეგები არ არის განკუთვნილი კლინიკური გადაწყვეტილებების მისაღებად."
     },
     "mrn": {
-      "name": "__TODO_TRANSLATE__:Medical Record Number",
-      "abbr": "__TODO_TRANSLATE__:MRN",
-      "role": "__TODO_TRANSLATE__:Hospital-assigned patient identifier."
+      "name": "სამედიცინო ბარათის ნომერი (Medical Record Number)",
+      "abbr": "MRN",
+      "role": "საავადმყოფოს მიერ მინიჭებული პაციენტის იდენტიფიკატორი."
     },
     "sop_uid": {
-      "name": "__TODO_TRANSLATE__:SOP Instance UID",
-      "abbr": "__TODO_TRANSLATE__:SOP UID",
-      "role": "__TODO_TRANSLATE__:DICOM unique identifier per object — regenerated on every finalize."
+      "name": "SOP Instance UID",
+      "abbr": "SOP UID",
+      "role": "DICOM უნიკალური იდენტიფიკატორი თითოეული ობიექტისთვის."
     },
     "dicom_seg": {
-      "name": "__TODO_TRANSLATE__:DICOM Segmentation",
-      "abbr": "__TODO_TRANSLATE__:SEG",
-      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for 3D mask export."
+      "name": "DICOM სეგმენტაცია",
+      "abbr": "SEG",
+      "role": "სტანდარტული DICOM IOD 3D მასკების ექსპორტისთვის."
     },
     "dicom_sr": {
-      "name": "__TODO_TRANSLATE__:DICOM Structured Report",
-      "abbr": "__TODO_TRANSLATE__:SR",
-      "role": "__TODO_TRANSLATE__:Standard DICOM IOD for structured clinical findings."
+      "name": "DICOM სტრუქტურირებული ანგარიში",
+      "abbr": "SR",
+      "role": "სტანდარტული DICOM IOD სტრუქტურირებული კლინიკური დასკვნებისთვის."
     },
     "pacs": {
-      "name": "__TODO_TRANSLATE__:Picture Archiving and Communication System",
-      "abbr": "__TODO_TRANSLATE__:PACS",
-      "role": "__TODO_TRANSLATE__:Hospital image storage + routing system; DICOM-native."
+      "name": "სურათების არქივირებისა და გადაცემის სისტემა (PACS)",
+      "abbr": "PACS",
+      "role": "საავადმყოფოს გამოსახულებების შენახვისა და გადაცემის სისტემა; DICOM-ზე დაფუძნებული."
     }
   }
 }

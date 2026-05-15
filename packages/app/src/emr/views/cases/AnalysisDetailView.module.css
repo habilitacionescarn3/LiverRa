@@ -230,6 +230,11 @@
   .rail {
     display: none;
   }
+  /* On phones, scale the viewer to a fraction of the viewport instead of
+     using the 620px desktop floor, which would dominate small screens. */
+  .viewerCard {
+    min-height: 60vh;
+  }
 }
 
 /* ── Rails ───────────────────────────────────────────────────────────── */
@@ -364,7 +369,13 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
+  /* Floor the viewer at a "proper viewer" height so it doesn't get squeezed
+     by the hero / ACR readout / footer. ~30% taller than the previous
+     squeezed state on standard laptop viewports; the page scrolls past
+     when needed rather than crushing the medical images. Theater mode
+     and mobile each have their own height rules below, so this floor
+     only governs the default desktop/tablet workspace layout. */
+  min-height: 820px;
   background: var(--emr-bg-card);
   border: 1px solid var(--emr-border-color);
   border-radius: var(--emr-border-radius-xl);

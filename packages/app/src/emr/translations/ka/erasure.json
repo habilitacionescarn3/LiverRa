@@ -20,9 +20,9 @@
       "requested_at": "მოთხოვნა",
       "tombstone": "Tombstone",
       "pdf": "PDF",
-      "actions": "__TODO_TRANSLATE__:Actions"
+      "actions": "ქმედებები"
     },
-    "view": "Просмотр"
+    "view": "ნახვა"
   },
   "wizard": {
     "title": "ახალი GDPR წაშლის მოთხოვნა",

@@ -58,19 +58,19 @@
     "body": "დემო ქეისი არ შეიცავს რეალურ პაციენტის მონაცემებს. PACS-push გამორთულია; გამომავალი მონიშნულია „Sample data\" ნიშნულით.",
     "open": "დემო ქეისის გახსნა",
     "navLabel": "დემო ქეისი",
-    "heroTitle": "__TODO_TRANSLATE__:See LiverRa end to end in 30 seconds",
+    "heroTitle": "ნახეთ LiverRa-ს სრული ციკლი 30 წამში",
     "feature": {
       "segmentation": {
-        "title": "__TODO_TRANSLATE__:AI segmentation",
-        "body": "__TODO_TRANSLATE__:Liver parenchyma, 8 Couinaud segments, vessels, and lesions — all auto-segmented."
+        "title": "AI სეგმენტაცია",
+        "body": "ღვიძლის პარენქიმა, კუინოს 8 სეგმენტი, სისხლძარღვები და ლეზიები — სრულად ავტომატური სეგმენტაცია."
       },
       "flr": {
-        "title": "__TODO_TRANSLATE__:FLR & volumetry",
-        "body": "__TODO_TRANSLATE__:Future Liver Remnant calculation with surgical-grade volumetric outputs."
+        "title": "FLR და ვოლუმეტრია",
+        "body": "ღვიძლის მომავალი ნარჩენის (FLR) გაანგარიშება ქირურგიული სიზუსტის ვოლუმეტრიული მონაცემებით."
       },
       "ruo": {
-        "title": "Только для исследовательских целей",
-        "body": "__TODO_TRANSLATE__:Synthetic data, watermarked exports, PACS push disabled — safe to explore."
+        "title": "მხოლოდ კვლევითი გამოყენებისთვის",
+        "body": "სინთეტური მონაცემები, წყლის ნიშნები ექსპორტზე, PACS-ში გაგზავნა გამორთულია — უსაფრთხოა გამოსაცდელად."
       }
     }
   }

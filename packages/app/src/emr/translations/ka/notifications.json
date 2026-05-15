@@ -1,84 +1,84 @@
 {
-  "title": "Notifications",
-  "empty": "No notifications",
-  "high": "High",
-  "urgent": "Urgent",
-  "unread": "Unread",
-  "unreadNotifications": "{{count}} unread notifications",
-  "markAllRead": "Mark all as read",
-  "viewAll": "View all",
+  "title": "შეტყობინებები",
+  "empty": "შეტყობინებები არ არის",
+  "high": "მაღალი",
+  "urgent": "სასწრაფო",
+  "unread": "წაუკითხავი",
+  "unreadNotifications": "{{count}} წაუკითხავი შეტყობინება",
+  "markAllRead": "ყველას წაკითხულად მონიშვნა",
+  "viewAll": "ყველას ნახვა",
   "prefs": {
     "page": {
-      "title": "__TODO_TRANSLATE__:Notification preferences",
-      "subtitle": "__TODO_TRANSLATE__:Choose which events send an email. PHI-incident alerts are always on by compliance policy.",
-      "saveError": "__TODO_TRANSLATE__:Failed to save preferences. Your change was reverted.",
-      "saving": "Сохранение…",
-      "saved": "Сохранено"
+      "title": "შეტყობინებების პარამეტრები",
+      "subtitle": "აირჩიეთ მოვლენები, რომლებზეც გსურთ ელფოსტის მიღება. PHI ინციდენტების შეტყობინებები ყოველთვის ჩართულია შესაბამისობის პოლიტიკის მიხედვით.",
+      "saveError": "პარამეტრების შენახვა ვერ მოხერხდა. ცვლილება გაუქმდა.",
+      "saving": "ინახება...",
+      "saved": "შენახულია"
     },
     "groups": {
       "clinical": {
-        "title": "__TODO_TRANSLATE__:Clinical events",
-        "description": "__TODO_TRANSLATE__:Case pipeline outcomes relevant to your reviews."
+        "title": "კლინიკური მოვლენები",
+        "description": "ქეისების დამუშავების შედეგები, რომლებიც მნიშვნელოვანია თქვენი განხილვისთვის."
       },
       "operational": {
-        "title": "__TODO_TRANSLATE__:Operational events",
-        "description": "__TODO_TRANSLATE__:Queue health, PACS delivery, system maintenance."
+        "title": "ოპერაციული მოვლენები",
+        "description": "რიგის მდგომარეობა, PACS-ში გადაგზავნა, სისტემური ტექნიკური მომსახურება."
       },
       "security": {
-        "title": "__TODO_TRANSLATE__:Security & compliance",
-        "description": "__TODO_TRANSLATE__:Account activity, invites, erasure confirmations, PHI incidents."
+        "title": "უსაფრთხოება და შესაბამისობა",
+        "description": "ანგარიშის აქტივობა, მოწვევები, მონაცემების წაშლის დადასტურება, PHI ინციდენტები."
       }
     },
     "events": {
       "analysis_complete": {
-        "label": "__TODO_TRANSLATE__:Analysis complete",
-        "description": "__TODO_TRANSLATE__:Sent when one of your uploaded cases finishes all pipeline stages.",
-        "group": "__TODO_TRANSLATE__:clinical"
+        "label": "ანალიზი დასრულდა",
+        "description": "გაიგზავნება, როდესაც თქვენი ატვირთული ქეისი დაასრულებს დამუშავების ყველა ეტაპს.",
+        "group": "კლინიკური"
       },
       "analysis_failed": {
-        "label": "__TODO_TRANSLATE__:Analysis failed",
-        "description": "__TODO_TRANSLATE__:Sent when a pipeline stage fails with a non-retryable error.",
-        "group": "__TODO_TRANSLATE__:clinical"
+        "label": "ანალიზი ვერ მოხერხდა",
+        "description": "გაიგზავნება, როდესაც დამუშავების ეტაპი შეწყდება კრიტიკული შეცდომით.",
+        "group": "კლინიკური"
       },
       "queued_long": {
-        "label": "__TODO_TRANSLATE__:Case queued over 15 min",
-        "description": "__TODO_TRANSLATE__:Sent when a queued case has waited longer than the ops SLO.",
-        "group": "__TODO_TRANSLATE__:operational"
+        "label": "ქეისი რიგშია 15 წუთზე მეტია",
+        "description": "გაიგზავნება, როდესაც ქეისი რიგში იცდის ოპერაციულ SLO-ზე მეტხანს.",
+        "group": "ოპერაციული"
       },
       "pacs_failed": {
-        "label": "__TODO_TRANSLATE__:PACS push failed",
-        "description": "__TODO_TRANSLATE__:Sent when a report delivery exhausts its retry budget.",
-        "group": "__TODO_TRANSLATE__:operational"
+        "label": "PACS-ში გადაგზავნა ვერ მოხერხდა",
+        "description": "გაიგზავნება, როდესაც რეპორტის PACS-ში გადაგზავნის ყველა მცდელობა ამოიწურება.",
+        "group": "ოპერაციული"
       },
       "maintenance_window": {
-        "label": "__TODO_TRANSLATE__:Maintenance window",
-        "description": "__TODO_TRANSLATE__:Sent 24h before a scheduled infrastructure change that may affect availability.",
-        "group": "__TODO_TRANSLATE__:operational"
+        "label": "ტექნიკური მომსახურების პერიოდი",
+        "description": "გაიგზავნება ინფრასტრუქტურის დაგეგმილ ცვლილებამდე 24 საათით ადრე, რამაც შეიძლება გავლენა მოახდინოს ხელმისაწვდომობაზე.",
+        "group": "ოპერაციული"
       },
       "mfa_reset": {
-        "label": "__TODO_TRANSLATE__:MFA reset",
-        "description": "__TODO_TRANSLATE__:Sent when someone (you or an admin) resets your multi-factor credentials.",
-        "group": "__TODO_TRANSLATE__:security"
+        "label": "MFA-ის განულება",
+        "description": "გაიგზავნება, როდესაც თქვენ ან ადმინისტრატორი გაანულებთ მრავალფაქტორიან ავთენტიფიკაციას.",
+        "group": "უსაფრთხოება"
       },
       "invite_accepted": {
-        "label": "__TODO_TRANSLATE__:Invite accepted",
-        "description": "__TODO_TRANSLATE__:Sent to the inviter when a new user completes onboarding.",
-        "group": "__TODO_TRANSLATE__:security"
+        "label": "მოწვევა მიღებულია",
+        "description": "ეგზავნება მომწვევს, როდესაც ახალი მომხმარებელი დაასრულებს რეგისტრაციას.",
+        "group": "უსაფრთხოება"
       },
       "erasure_confirmed": {
-        "label": "__TODO_TRANSLATE__:Erasure confirmed",
-        "description": "__TODO_TRANSLATE__:Sent to the requester when a GDPR Art. 17 erasure completes with tombstone.",
-        "group": "__TODO_TRANSLATE__:security"
+        "label": "წაშლა დადასტურებულია",
+        "description": "ეგზავნება მომთხოვნს, როდესაც GDPR Art. 17-ის შესაბამისად მონაცემების წაშლა დასრულდება.",
+        "group": "უსაფრთხოება"
       },
       "phi_incident": {
-        "label": "__TODO_TRANSLATE__:PHI incident",
-        "description": "__TODO_TRANSLATE__:Mandatory alert — cannot be disabled — sent if a PHI-touching error is detected.",
-        "group": "__TODO_TRANSLATE__:security"
+        "label": "PHI ინციდენტი",
+        "description": "სავალდებულო შეტყობინება — მისი გამორთვა შეუძლებელია — იგზავნება PHI-სთან დაკავშირებული შეცდომის აღმოჩენისას.",
+        "group": "უსაფრთხოება"
       }
     },
     "phiLocked": {
-      "badge": "Обязательно",
-      "tooltip": "__TODO_TRANSLATE__:PHI-incident alerts are mandated by compliance policy and cannot be disabled."
+      "badge": "სავალდებულო",
+      "tooltip": "PHI ინციდენტის შეტყობინებები სავალდებულოა შესაბამისობის პოლიტიკით და მათი გამორთვა შეუძლებელია."
     }
   }
 }

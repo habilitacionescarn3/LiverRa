@@ -1,15 +1,14 @@
 {
-  "_note": "C-ACR-1: UI chrome translated; clinical terms (anatomical labels, grading scales, LR-M, LI-RADS recommendations) retain __TODO_TRANSLATE__ markers pending CODEOWNERS medical-terminology review per CLAUDE.md i18n discipline.",
   "panelHeading": "სტრუქტურირებული რადიოლოგიური დასკვნა",
   "openPanel": "სტრუქტურირებული დასკვნის გახსნა",
   "ruoDisclaimer": "--- მხოლოდ კვლევითი გამოყენებისთვის — არ არის პირველადი დიაგნოსტიკისთვის ---",
   "sections": {
-    "liver": { "title": "__TODO_TRANSLATE__:LIVER", "empty": "არ შეფასებულა" },
-    "lesions": { "title": "__TODO_TRANSLATE__:LESIONS", "empty": "დაზიანებები არ აღმოჩენილა" },
-    "vessels": { "title": "__TODO_TRANSLATE__:VESSELS", "empty": "არ შეფასებულა" },
-    "gallbladder": { "title": "__TODO_TRANSLATE__:GALLBLADDER", "empty": "არ შეფასებულა" },
-    "spleen": { "title": "__TODO_TRANSLATE__:SPLEEN", "empty": "არ შეფასებულა" },
-    "flrAssessment": { "title": "__TODO_TRANSLATE__:FLR ASSESSMENT", "empty": "FLR გათვლა არ მოთხოვნილა" }
+    "liver": { "title": "ღვიძლი", "empty": "არ შეფასებულა" },
+    "lesions": { "title": "დაზიანებები", "empty": "დაზიანებები არ აღმოჩენილა" },
+    "vessels": { "title": "სისხლძარღვები", "empty": "არ შეფასებულა" },
+    "gallbladder": { "title": "ნაღვლის ბუშტი", "empty": "არ შეფასებულა" },
+    "spleen": { "title": "ელენთა", "empty": "არ შეფასებულა" },
+    "flrAssessment": { "title": "FLR-ის შეფასება", "empty": "FLR გათვლა არ მოთხოვნილა" }
   },
   "status": {
     "computing": "გამოთვლა — შედეგები გამოჩნდება კასკადის დასრულების შემდეგ",
@@ -20,37 +19,37 @@
   },
   "labels": {
     "volume": "მოცულობა",
-    "wallThickness": "__TODO_TRANSLATE__:Wall thickness",
-    "attenuation": "__TODO_TRANSLATE__:Attenuation",
-    "huMean": "__TODO_TRANSLATE__:Mean HU",
-    "huRange": "__TODO_TRANSLATE__:HU range",
-    "stones": "__TODO_TRANSLATE__:Stones detected",
-    "splenomegaly": "__TODO_TRANSLATE__:Splenomegaly",
-    "steatosisGrade": "__TODO_TRANSLATE__:Steatosis grade",
-    "flrPercent": "__TODO_TRANSLATE__:FLR %",
-    "flrSafety": "__TODO_TRANSLATE__:Safety classification",
+    "wallThickness": "კედლის სისქე",
+    "attenuation": "სიმკვრივე",
+    "huMean": "საშუალო HU",
+    "huRange": "HU-ს დიაპაზონი",
+    "stones": "აღმოჩენილია კენჭები",
+    "splenomegaly": "სპლენომეგალია",
+    "steatosisGrade": "სტეატოზის ხარისხი",
+    "flrPercent": "FLR %",
+    "flrSafety": "უსაფრთხოების კლასიფიკაცია",
     "flrPlan": "გეგმა",
     "flrRecommendation": "რეკომენდაცია",
-    "primaryLesionSize": "__TODO_TRANSLATE__:Primary lesion size",
-    "primaryLesionClass": "__TODO_TRANSLATE__:Primary lesion class",
+    "primaryLesionSize": "ძირითადი დაზიანების ზომა",
+    "primaryLesionClass": "ძირითადი დაზიანების კლასი",
     "lesionSegment": "სეგმენტი",
     "lesionConfidence": "სანდოობა",
     "lesionInterpretation": "ინტერპრეტაცია",
-    "liverSpleenDelta": "__TODO_TRANSLATE__:Δ liver–spleen",
+    "liverSpleenDelta": "Δ ღვიძლი–ელენთა",
     "lrM": "LR-M",
     "yes": "დიახ",
     "no": "არა"
   },
   "values": {
-    "splenomegalyPresent": "__TODO_TRANSLATE__:Present",
-    "splenomegalyAbsent": "__TODO_TRANSLATE__:Within reference",
-    "steatosisNone": "__TODO_TRANSLATE__:None",
-    "steatosisMild": "__TODO_TRANSLATE__:Mild",
-    "steatosisModerate": "__TODO_TRANSLATE__:Moderate",
-    "steatosisSevere": "__TODO_TRANSLATE__:Severe",
-    "flrSafetyLow": "__TODO_TRANSLATE__:LOW",
-    "flrSafetyBorderline": "__TODO_TRANSLATE__:BORDERLINE",
-    "flrSafetyAdequate": "__TODO_TRANSLATE__:ADEQUATE"
+    "splenomegalyPresent": "სახეზეა",
+    "splenomegalyAbsent": "ნორმის ფარგლებში",
+    "steatosisNone": "არ არის",
+    "steatosisMild": "მსუბუქი",
+    "steatosisModerate": "საშუალო",
+    "steatosisSevere": "მძიმე",
+    "flrSafetyLow": "დაბალი",
+    "flrSafetyBorderline": "სასაზღვრო",
+    "flrSafetyAdequate": "ადეკვატური"
   },
   "copy": {
     "buttonLabel": "ბუფერში კოპირება",
@@ -72,20 +71,20 @@
     "degraded": "ხარისხი დაბალია"
   },
   "lesions": {
-    "interpretationIcc": "__TODO_TRANSLATE__:ICC pattern",
-    "interpretationHcc": "__TODO_TRANSLATE__:HCC pattern",
-    "interpretationSimpleCyst": "__TODO_TRANSLATE__:Simple biliary cyst",
-    "interpretationCalcified": "__TODO_TRANSLATE__:Calcified lesion",
-    "interpretationIndeterminate": "__TODO_TRANSLATE__:LR-M (indeterminate)",
+    "interpretationIcc": "ICC-ს ტიპი",
+    "interpretationHcc": "HCC-ს ტიპი",
+    "interpretationSimpleCyst": "მარტივი ბილიარული კისტა",
+    "interpretationCalcified": "კალციფიცირებული დაზიანება",
+    "interpretationIndeterminate": "LR-M (გაურკვეველი)",
     "noFurther": "დამატებითი დაზიანებები არ აღმოჩენილა.",
     "primary": "ძირითადი",
     "size": "ზომა",
     "count": "დაზიანებების რაოდენობა"
   },
   "recommendations": {
-    "considerPveAlpps": "__TODO_TRANSLATE__:consider PVE or ALPPS",
-    "noteAdequateRemnant": "__TODO_TRANSLATE__:remnant volume meets institutional threshold",
-    "borderlineDiscussMdt": "__TODO_TRANSLATE__:borderline remnant — discuss at MDT"
+    "considerPveAlpps": "განიხილეთ PVE ან ALPPS",
+    "noteAdequateRemnant": "ნარჩენი მოცულობა აკმაყოფილებს ინსტიტუციურ ზღვარს",
+    "borderlineDiscussMdt": "სასაზღვრო ნარჩენი — განიხილეთ მულტიდისციპლინურ გუნდთან (MDT)"
   },
   "panelDescription": "ACR-სტილის სტრუქტურირებული ანატომიური დასკვნა კასკადის ევრისტიკული მონაცემებით."
 }

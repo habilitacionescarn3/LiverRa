@@ -1,5 +1,51 @@
 {
   "__comment__": "Russian help copy — awaiting CODEOWNERS review. Missing keys fall back to English.",
+  "landing": {
+    "tagline": "ИИ-помощник в диагностике печени и планировании операций для гепатобилиарных хирургов и абдоминальных радиологов.",
+    "sections": {
+      "v1": {
+        "title": "Что умеет v1",
+        "kicker": "Каскадный конвейер без обучения · Стек моделей Apache 2.0"
+      },
+      "admin": {
+        "title": "Интерфейсы администратора и оператора",
+        "kicker": "Внутренние инструменты для ролей персонала"
+      }
+    },
+    "features": {
+      "upload": {
+        "title": "Загрузка → 3D + FLR",
+        "body": "4-фазное контрастное КТ на входе, интерактивная сегментация Куино + расчёт FLR на выходе. Целевое время: 5 минут от начала до конца."
+      },
+      "lesionDetection": {
+        "title": "Обнаружение очагов",
+        "body": "Классификатор опухолей по 6 классам (ГЦК, ХЦК, МТС, ФНГ, ГЕМ, КИСТА) с калиброванным отказом."
+      },
+      "refinement": {
+        "title": "Интерактивное уточнение",
+        "body": "Коррекция маски одним кликом VISTA3D + повторный промпт очагов MedSAM-2. Офлайн-устойчивые правки."
+      },
+      "finalize": {
+        "title": "Финализация и PACS",
+        "body": "DICOM-SEG + SR + PDF с впечатанным RUO-водяным знаком. Транзакционная отправка в PACS с повторами."
+      },
+      "compliance": {
+        "title": "Комплаенс и аудит",
+        "body": "Цепочка хешей аудит-лога на каждого арендатора, ежедневные якоря Меркла в S3 Object Lock, отслеживание MBoM."
+      },
+      "erasure": {
+        "title": "Удаление по GDPR ст. 17",
+        "body": "KMS-ключ на каждый случай с крипто-шреддингом < 60 сек. Сохранение 404-при-раскрытии."
+      }
+    },
+    "footer": {
+      "preview": "Превью-сборка для дизайн-партнёров",
+      "ce": "CE MDR класс IIb · 24–30 месяцев",
+      "gdpr": "GDPR · резидентность eu-central-1",
+      "ruo": "Только для исследовательских целей",
+      "brand": "liverra.ai"
+    }
+  },
   "hub": {
     "title": "__TODO_TRANSLATE__:Help & resources",
     "subtitle": "__TODO_TRANSLATE__:Guides, keyboard shortcuts, and references for day-to-day use.",
@@ -145,52 +191,6 @@
     "footer": {
       "version": "__TODO_TRANSLATE__:Version {{version}}",
       "support": "__TODO_TRANSLATE__:support@liverra.ai"
-    }
-  },
-  "landing": {
-    "tagline": "__TODO_TRANSLATE__:AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
-    "sections": {
-      "v1": {
-        "title": "__TODO_TRANSLATE__:What v1 does",
-        "kicker": "__TODO_TRANSLATE__:Zero-training cascaded pipeline · Apache 2.0 model stack"
-      },
-      "admin": {
-        "title": "__TODO_TRANSLATE__:Admin & operator surfaces",
-        "kicker": "__TODO_TRANSLATE__:Internal tools for staff roles"
-      }
-    },
-    "features": {
-      "upload": {
-        "title": "__TODO_TRANSLATE__:Upload → 3D + FLR",
-        "body": "__TODO_TRANSLATE__:4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
-      },
-      "lesionDetection": {
-        "title": "__TODO_TRANSLATE__:Lesion detection",
-        "body": "__TODO_TRANSLATE__:6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
-      },
-      "refinement": {
-        "title": "__TODO_TRANSLATE__:Interactive refinement",
-        "body": "__TODO_TRANSLATE__:VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
-      },
-      "finalize": {
-        "title": "__TODO_TRANSLATE__:Finalize & PACS",
-        "body": "__TODO_TRANSLATE__:DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
-      },
-      "compliance": {
-        "title": "__TODO_TRANSLATE__:Compliance & audit",
-        "body": "__TODO_TRANSLATE__:Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
-      },
-      "erasure": {
-        "title": "__TODO_TRANSLATE__:GDPR Art. 17 erasure",
-        "body": "__TODO_TRANSLATE__:Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
-      }
-    },
-    "footer": {
-      "preview": "__TODO_TRANSLATE__:Design-partner preview build",
-      "ce": "__TODO_TRANSLATE__:CE MDR Class IIb track · 24–30 months",
-      "gdpr": "__TODO_TRANSLATE__:GDPR · eu-central-1 residency",
-      "ruo": "Только для исследовательских целей",
-      "brand": "__TODO_TRANSLATE__:liverra.ai"
     }
   }
 }

@@ -1,12 +1,12 @@
 {
-  "defaultTitle": "Drop files here or click to upload",
-  "defaultDescription": "Attach files by drag and drop or by selecting them from your device.",
-  "chooseFile": "Choose file",
-  "takePhoto": "Take photo",
-  "removeFile": "Remove file",
-  "upTo": "Up to {{size}}",
+  "defaultTitle": "ჩააგდეთ ფაილები აქ ან დააჭირეთ ასატვირთად",
+  "defaultDescription": "მიამაგრეთ ფაილები გადმოთრევით ან თქვენი მოწყობილობიდან არჩევით.",
+  "chooseFile": "ფაილის არჩევა",
+  "takePhoto": "ფოტოს გადაღება",
+  "removeFile": "ფაილის წაშლა",
+  "upTo": "{{size}}-მდე",
   "error": {
-    "invalidType": "Unsupported file type.",
-    "tooLarge": "File is too large."
+    "invalidType": "ფაილის ტიპი მხარდაჭერილი არ არის.",
+    "tooLarge": "ფაილი მეტისმეტად დიდია."
   }
 }

@@ -64,6 +64,7 @@ import {
   type Types,
 } from '@cornerstonejs/core';
 import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
+import * as cornerstoneTools from '@cornerstonejs/tools';
 
 import { EMRAlert } from '../common';
 import { useTranslation } from '../../contexts/TranslationContext';
@@ -99,6 +100,12 @@ const MPR_AXIAL_ID = 'liverra-mpr-axial';
 const MPR_SAGITTAL_ID = 'liverra-mpr-sagittal';
 const MPR_CORONAL_ID = 'liverra-mpr-coronal';
 const MPR_VIEWPORT_IDS = [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID] as const;
+
+// MPR-only tool group id. Kept separate from the shared
+// `liverra-pacs-toolgroup` so CrosshairsTool (which crashes on
+// single-viewport readers — see cornerstoneInit.ts:508) is opted in only
+// when all three orthographic viewports are mounted together.
+const MPR_TOOL_GROUP_ID = 'liverra-mpr-toolgroup';
 
 // ---------------------------------------------------------------------------
 // Pass D6 — anatomy-key derivation + colour palette
@@ -362,6 +369,7 @@ export function LiverViewer3D({
   'data-testid': testId = 'liver-viewer-3d',
 }: LiverViewer3DProps): React.ReactElement {
   const { t } = useTranslation();
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const elementRef = useRef<HTMLDivElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<RenderingEngine | null>(null);
@@ -385,6 +393,28 @@ export function LiverViewer3D({
   useEffect(() => {
     if (isMobile && viewMode !== 'axial') setViewMode('axial');
   }, [isMobile, viewMode]);
+
+  // Wheel gate: plain wheel anywhere in the viewer scrolls the PAGE.
+  // Slice scrolling only fires when the user holds Shift while wheeling.
+  // Cornerstone3D's internal wheel listener calls preventDefault, which
+  // would otherwise block page scroll — we stop the event in the capture
+  // phase so Cornerstone never sees it. When Shift is held, we let the
+  // event through and Cornerstone's StackScrollTool (bound to Wheel in
+  // the MPR tool group) fires, advancing slices.
+  //
+  // Applies to both axial and MPR modes for a consistent rule.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return undefined;
+    const onWheelCapture = (e: WheelEvent) => {
+      if (e.shiftKey) return;
+      e.stopPropagation();
+    };
+    wrapper.addEventListener('wheel', onWheelCapture, { capture: true, passive: true });
+    return () => {
+      wrapper.removeEventListener('wheel', onWheelCapture, { capture: true });
+    };
+  }, []);
 
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [windowCenter, setWindowCenter] = useState<number | undefined>(undefined);
@@ -505,11 +535,58 @@ export function LiverViewer3D({
               defaultOptions: { orientation: Enums.OrientationAxis.CORONAL },
             },
           ]);
-          const tg = getOrCreateToolGroup();
-          for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
-            try { tg.addViewport(id, RENDERING_ENGINE_ID); } catch { /* already in */ }
+          // IMPORTANT: MPR viewports must belong to EXACTLY ONE tool group.
+          // Cornerstone3D's annotation pipeline (CrosshairsTool render path)
+          // calls `getToolGroupForViewport` which throws "Multiple tool
+          // groups found for renderingEngineId/viewportId" and silently
+          // suppresses annotation rendering when a viewport is in 2+ groups.
+          // The shared `liverra-pacs-toolgroup` is reserved for the
+          // single-viewport axial fallback + ComparisonView; MPR viewports
+          // are exclusive to `liverra-mpr-toolgroup`.
+          //
+          // We register the gesture tools (Zoom/Pan/WindowLevel) directly
+          // on the MPR group so MPR mode doesn't regress those interactions
+          // when the shared group's bindings stop applying. CrosshairsTool +
+          // StackScrollTool are added later in the volume-load effect
+          // because CrosshairsTool.initializeViewport reads FoR + camera
+          // state that are undefined until setVolumesForViewports runs.
+          const mprTg =
+            cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID) ??
+            cornerstoneTools.ToolGroupManager.createToolGroup(MPR_TOOL_GROUP_ID);
+          if (mprTg) {
+            for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
+              try { mprTg.addViewport(id, RENDERING_ENGINE_ID); } catch { /* already in */ }
+            }
+            // Register gesture tools so they're available; bindings come
+            // later (some active, some passive). Mirrors the shared
+            // group's gesture-tool set.
+            for (const toolName of ['Zoom', 'Pan', 'WindowLevel'] as const) {
+              try { mprTg.addTool(toolName); } catch { /* already added */ }
+            }
+            // Touch bindings — pinch = Zoom, 1-finger = Pan, 3-finger = WindowLevel.
+            // Mouse Primary is reserved for CrosshairsTool (activated post-volume).
+            try {
+              mprTg.setToolActive('Zoom', {
+                bindings: [{ numTouchPoints: 2 }],
+              });
+            } catch { /* ignore */ }
+            try {
+              mprTg.setToolActive('Pan', {
+                bindings: [
+                  { numTouchPoints: 1 },
+                  { mouseButton: cornerstoneTools.Enums.MouseBindings.Auxiliary },
+                ],
+              });
+            } catch { /* ignore */ }
+            try {
+              mprTg.setToolActive('WindowLevel', {
+                bindings: [
+                  { numTouchPoints: 3 },
+                  { mouseButton: cornerstoneTools.Enums.MouseBindings.Secondary },
+                ],
+              });
+            } catch { /* ignore */ }
           }
-          activateToolOnGroup('StackScroll');
         }
       } catch (err) {
         if (!cancelled) setLoadError((err as Error).message);
@@ -517,6 +594,14 @@ export function LiverViewer3D({
     })();
     return () => {
       cancelled = true;
+      // Tear down the MPR-only tool group before the rendering engine
+      // vanishes — tool groups hold viewport references that turn dangling
+      // otherwise.
+      try {
+        cornerstoneTools.ToolGroupManager.destroyToolGroup(MPR_TOOL_GROUP_ID);
+      } catch {
+        /* never created on this mount */
+      }
       // Free the volume cache on teardown so switching modes doesn't leak.
       if (activeVolumeIdRef.current) {
         try { cache.removeVolumeLoadObject(activeVolumeIdRef.current); } catch { /* gone */ }
@@ -775,6 +860,36 @@ export function LiverViewer3D({
                 const delta = targetSlices[key] - curIdx;
                 if (delta !== 0 && vp?.scroll) vp.scroll(delta);
               } catch { /* viewport may be torn down */ }
+            }
+
+            // Now that the volume is loaded and cameras have FrameOfReference
+            // UIDs, register + activate CrosshairsTool and StackScrollTool on
+            // the MPR-only tool group. CrosshairsTool.initializeViewport reads
+            // FoR + camera state per viewport — calling this before
+            // setVolumesForViewports() leaves the tool unable to render its
+            // lines or compute the cross-viewport focal-point sync.
+            const mprTg = cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID);
+            if (mprTg) {
+              try { mprTg.addTool(cornerstoneTools.CrosshairsTool.toolName); }
+              catch { /* already added */ }
+              try {
+                mprTg.setToolActive(cornerstoneTools.CrosshairsTool.toolName, {
+                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Primary }],
+                });
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[LiverViewer3D] CrosshairsTool activation failed:', e);
+              }
+              try { mprTg.addTool(cornerstoneTools.StackScrollTool.toolName); }
+              catch { /* already added */ }
+              try {
+                mprTg.setToolActive(cornerstoneTools.StackScrollTool.toolName, {
+                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Wheel }],
+                });
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[LiverViewer3D] StackScrollTool activation failed:', e);
+              }
             }
           } catch (volErr) {
             // MPR volume build failed — drop back to axial mode and surface
@@ -1206,6 +1321,7 @@ export function LiverViewer3D({
   // ---------------------------------------------------------------------------
   return (
     <Box
+      ref={wrapperRef}
       data-testid={testId}
       role="application"
       aria-label={t('analysis:viewer.ariaLabel')}

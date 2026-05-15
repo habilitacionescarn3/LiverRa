@@ -50,14 +50,14 @@
       "location": "სეგმენტი",
       "diameter": "დიამეტრი",
       "class": "კლასი",
-      "confidence": "ნდობა",
+      "confidence": "სარწმუნოობა",
       "source": "წყარო"
     },
     "source": {
       "ai_detected": "AI",
       "reviewer_prompted": "ექიმი"
     },
-    "rowAria": "ლეზია {{index}} / {{total}}, სეგმენტი {{segment}}, {{diameter}} მმ, შემოთავაზებული: {{className}}, ნდობა {{confidence}}%",
+    "rowAria": "ლეზია {{index}} / {{total}}, სეგმენტი {{segment}}, {{diameter}} მმ, შემოთავაზებული: {{className}}, სარწმუნოობა {{confidence}}%",
     "emptyState": {
       "title": "ლეზიები არ აღმოჩნდა",
       "body": "AI-მ ფოკალური ლეზიები ვერ გამოავლინა. გთხოვთ, შეამოწმოთ ხელით — AI-მ შეიძლება გამოტოვოს პატარა ან ატიპური ლეზიები."
@@ -65,7 +65,7 @@
     "loading": "ლეზიები იტვირთება…",
     "filters": {
       "heading": "ლეზიების ფილტრი",
-      "confidence": "მინ. ნდობა",
+      "confidence": "მინ. სარწმუნოობა",
       "confidenceValue": "{{value}}% ან მეტი",
       "class": "კლასი",
       "classAll": "ყველა კლასი",

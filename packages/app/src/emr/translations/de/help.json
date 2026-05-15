@@ -1,47 +1,47 @@
 {
   "landing": {
-    "tagline": "AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
+    "tagline": "KI-gestützte Leberdiagnostik und chirurgische Planung für hepatobiliäre Chirurgen und abdominelle Radiologen.",
     "sections": {
       "v1": {
-        "title": "What v1 does",
-        "kicker": "Zero-training cascaded pipeline · Apache 2.0 model stack"
+        "title": "Was v1 leistet",
+        "kicker": "Trainingsfreie kaskadierte Pipeline · Apache 2.0 Modell-Stack"
       },
       "admin": {
-        "title": "Admin & operator surfaces",
-        "kicker": "Internal tools for staff roles"
+        "title": "Administrations- und Betriebsoberflächen",
+        "kicker": "Interne Werkzeuge für Mitarbeiterrollen"
       }
     },
     "features": {
       "upload": {
         "title": "Upload → 3D + FLR",
-        "body": "4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+        "body": "4-Phasen-Kontrast-CT als Eingabe, interaktive Couinaud-Segmentierung + Future-Liver-Remnant-Ausgabe. Ziel: 5 Minuten Ende-zu-Ende."
       },
       "lesionDetection": {
-        "title": "Lesion detection",
-        "body": "6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+        "title": "Läsionserkennung",
+        "body": "6-Klassen-Tumorklassifikator (HCC, ICC, MET, FNH, HEM, CYST) mit kalibrierter Enthaltung."
       },
       "refinement": {
-        "title": "Interactive refinement",
-        "body": "VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+        "title": "Interaktive Verfeinerung",
+        "body": "VISTA3D Ein-Klick-Maskenkorrektur + MedSAM-2 Läsions-Reprompt. Offline-fähige Bearbeitungen."
       },
       "finalize": {
-        "title": "Finalize & PACS",
-        "body": "DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+        "title": "Finalisierung & PACS",
+        "body": "DICOM-SEG + SR + PDF mit eingebranntem RUO-Wasserzeichen. Transaktionaler PACS-Push mit Wiederholung."
       },
       "compliance": {
-        "title": "Compliance & audit",
-        "body": "Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+        "title": "Compliance & Audit",
+        "body": "Mandantenspezifisches Hash-Ketten-Audit-Log, tägliche Merkle-Verankerungen in S3 Object Lock, MBoM-Tracking."
       },
       "erasure": {
-        "title": "GDPR Art. 17 erasure",
-        "body": "Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+        "title": "DSGVO Art. 17 Löschung",
+        "body": "Pro-Fall-KMS-Schlüssel mit < 60 s Krypto-Shred. 404-bei-Offenlegung erhalten."
       }
     },
     "footer": {
-      "preview": "Design-partner preview build",
-      "ce": "CE MDR Class IIb track · 24–30 months",
-      "gdpr": "GDPR · eu-central-1 residency",
-      "ruo": "Research use only",
+      "preview": "Design-Partner-Preview-Build",
+      "ce": "CE MDR Klasse IIb · 24–30 Monate",
+      "gdpr": "DSGVO · eu-central-1 Datenresidenz",
+      "ruo": "Nur für Forschungszwecke",
       "brand": "liverra.ai"
     }
   },

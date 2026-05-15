@@ -1,11 +1,11 @@
 {
-  "watermark": "RESEARCH USE ONLY — Not for clinical use",
+  "watermark": "NUR FÜR FORSCHUNGSZWECKE — Nicht für klinische Anwendung",
   "disclaimer": {
-    "short": "Research Use Only — Not for clinical use",
-    "long": "AI-generated outputs on this page are advisory and have not been cleared for clinical decision-making.",
-    "ceShort": "Approved for surgical planning",
-    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently.",
-    "ceClassIib": "__TODO_TRANSLATE__:Approved for surgical planning. Not a substitute for clinical judgment."
+    "short": "Nur für Forschungszwecke — Nicht für klinische Anwendung",
+    "long": "Die KI-generierten Ausgaben auf dieser Seite sind beratend und nicht für klinische Entscheidungen zugelassen.",
+    "ceShort": "Für chirurgische Planung zugelassen",
+    "ceLong": "Kein Ersatz für klinische Beurteilung. Messwerte stets unabhängig verifizieren.",
+    "ceClassIib": "Für chirurgische Planung zugelassen. Kein Ersatz für klinische Beurteilung."
   },
-  "badge": "Только для исследовательских целей"
+  "badge": "Nur für Forschungszwecke"
 }

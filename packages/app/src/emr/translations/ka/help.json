@@ -1,195 +1,195 @@
 {
   "landing": {
-    "tagline": "AI-powered liver diagnostics and surgical planning for hepatobiliary surgeons and abdominal radiologists.",
+    "tagline": "ხელოვნური ინტელექტით უზრუნველყოფილი ღვიძლის დიაგნოსტიკა და ქირურგიული დაგეგმვა ჰეპატობილიარული ქირურგებისა და მუცლის რადიოლოგებისთვის.",
     "sections": {
       "v1": {
-        "title": "What v1 does",
-        "kicker": "Zero-training cascaded pipeline · Apache 2.0 model stack"
+        "title": "რას აკეთებს v1",
+        "kicker": "უწვრთნელი კასკადური მილსადენი · Apache 2.0 მოდელის სტეკი"
       },
       "admin": {
-        "title": "Admin & operator surfaces",
-        "kicker": "Internal tools for staff roles"
+        "title": "ადმინისტრატორისა და ოპერატორის ინტერფეისები",
+        "kicker": "შიდა ხელსაწყოები პერსონალის როლებისთვის"
       }
     },
     "features": {
       "upload": {
-        "title": "Upload → 3D + FLR",
-        "body": "4-phase contrast CT in, interactive Couinaud segmentation + future-liver-remnant readout out. Target 5 minutes end-to-end."
+        "title": "ატვირთვა → 3D + FLR",
+        "body": "4-ფაზიანი კონტრასტული CT შემავალი, ინტერაქტიული Couinaud-ის სეგმენტაცია + სამომავლო ღვიძლის ნაშთის გამოთვლა გამოსავალი. სამიზნე: 5 წუთი ბოლომდე."
       },
       "lesionDetection": {
-        "title": "Lesion detection",
-        "body": "6-class tumor classifier (HCC, ICC, MET, FNH, HEM, CYST) with calibrated abstention."
+        "title": "ფოკუსების ამოცნობა",
+        "body": "6-კლასიანი სიმსივნის კლასიფიკატორი (HCC, ICC, MET, FNH, HEM, CYST) კალიბრირებული თავშეკავებით."
       },
       "refinement": {
-        "title": "Interactive refinement",
-        "body": "VISTA3D one-click mask correction + MedSAM-2 lesion re-prompt. Offline-durable edits."
+        "title": "ინტერაქტიული დახვეწა",
+        "body": "VISTA3D ერთი დაჭერით ნიღბის კორექცია + MedSAM-2 ფოკუსის ხელახალი მონიშვნა. ოფლაინ-მდგრადი რედაქტირება."
       },
       "finalize": {
-        "title": "Finalize & PACS",
-        "body": "DICOM-SEG + SR + PDF with burned-in RUO watermark. Transactional PACS push with retry."
+        "title": "დასრულება და PACS",
+        "body": "DICOM-SEG + SR + PDF ჩაბეჭდილი RUO წყლის ნიშნით. ტრანზაქციული PACS-ის გადაცემა გამეორებით."
       },
       "compliance": {
-        "title": "Compliance & audit",
-        "body": "Per-tenant chain-of-hashes audit log, daily Merkle anchors to S3 Object Lock, MBoM tracking."
+        "title": "შესაბამისობა და აუდიტი",
+        "body": "თითო მოიჯარის ჰეშების ჯაჭვის აუდიტ-ჟურნალი, ყოველდღიური Merkle ღუზები S3 Object Lock-ში, MBoM თვალყური."
       },
       "erasure": {
-        "title": "GDPR Art. 17 erasure",
-        "body": "Per-case KMS key with < 60 s crypto-shred. 404-on-disclosure preserved."
+        "title": "GDPR მუხ. 17 წაშლა",
+        "body": "თითო შემთხვევაზე KMS გასაღები < 60 წმ კრიპტო-ნაცარით. 404-გამჟღავნებისას შენარჩუნებული."
       }
     },
     "footer": {
-      "preview": "Design-partner preview build",
-      "ce": "CE MDR Class IIb track · 24–30 months",
-      "gdpr": "GDPR · eu-central-1 residency",
-      "ruo": "Research use only",
+      "preview": "დიზაინ-პარტნიორის წინასწარი ნაშენი",
+      "ce": "CE MDR კლასი IIb · 24–30 თვე",
+      "gdpr": "GDPR · eu-central-1 რეზიდენტობა",
+      "ruo": "მხოლოდ კვლევითი მიზნებისთვის",
       "brand": "liverra.ai"
     }
   },
   "hub": {
     "tutorials": {
-      "comingSoon": "__TODO_TRANSLATE__:Coming soon"
+      "comingSoon": "მალე დაემატება"
     },
-    "title": "__TODO_TRANSLATE__:Help & resources",
-    "subtitle": "__TODO_TRANSLATE__:Guides, keyboard shortcuts, and references for day-to-day use.",
+    "title": "დახმარება და რესურსები",
+    "subtitle": "სახელმძღვანელოები, კლავიატურის მალსახმობები და მასალები ყოველდღიური გამოყენებისთვის.",
     "tiles": {
       "sampleCase": {
-        "title": "__TODO_TRANSLATE__:Run the sample case",
-        "body": "__TODO_TRANSLATE__:Ship-ready demo dataset that exercises upload → 3D → lesions → finalize end-to-end.",
-        "cta": "__TODO_TRANSLATE__:Open demo case"
+        "title": "სადემონსტრაციო ქეისის გაშვება",
+        "body": "მზა სადემონსტრაციო მონაცემები, რომელიც გადის სრულ ციკლს: ატვირთვა → 3D → დაზიანებები → დასრულება.",
+        "cta": "დემო ქეისის გახსნა"
       },
       "glossary": {
-        "title": "__TODO_TRANSLATE__:Clinical glossary",
-        "body": "__TODO_TRANSLATE__:Couinaud segments, vessels, lesion classes, contrast phases, abbreviations.",
-        "cta": "__TODO_TRANSLATE__:Open glossary"
+        "title": "კლინიკური ლექსიკონი",
+        "body": "Couinaud-ის სეგმენტები, სისხლძარღვები, დაზიანებების კლასები, კონტრასტული ფაზები, აბრევიატურები.",
+        "cta": "ლექსიკონის გახსნა"
       },
       "keyboard": {
-        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
-        "body": "__TODO_TRANSLATE__:Speed up refinement with V (VISTA3D add), B (subtract), L (lesion prompt), Ctrl-Z / Ctrl-Y.",
-        "cta": "__TODO_TRANSLATE__:Show shortcuts"
+        "title": "კლავიატურის მალსახმობები",
+        "body": "დააჩქარეთ რედაქტირება V (VISTA3D დამატება), B (გამოკლება), L (დაზიანების მონიშვნა), Ctrl-Z / Ctrl-Y ღილაკებით.",
+        "cta": "მალსახმობების ჩვენება"
       },
       "ruoPolicy": {
-        "title": "__TODO_TRANSLATE__:RUO policy",
-        "body": "__TODO_TRANSLATE__:What Research Use Only means for your outputs, how scope narrows when claims clear conformity.",
-        "cta": "__TODO_TRANSLATE__:Read policy"
+        "title": "RUO პოლიტიკა",
+        "body": "რას ნიშნავს \"მხოლოდ კვლევითი გამოყენება\" თქვენი შედეგებისთვის და როგორ იცვლება მასშტაბი შესაბამისობის დადასტურებისას.",
+        "cta": "პოლიტიკის წაკითხვა"
       },
       "tutorials": {
-        "title": "__TODO_TRANSLATE__:Video tutorials",
-        "body": "__TODO_TRANSLATE__:Short walkthroughs: upload a study, review a case, sign off a report.",
-        "cta": "__TODO_TRANSLATE__:Watch"
+        "title": "ვიდეო გაკვეთილები",
+        "body": "მოკლე ინსტრუქციები: კვლევის ატვირთვა, ქეისის განხილვა, ანგარიშის ხელმოწერა.",
+        "cta": "ყურება"
       },
       "support": {
-        "title": "__TODO_TRANSLATE__:Contact support",
-        "body": "__TODO_TRANSLATE__:Reach engineering + compliance via the support inbox.",
-        "cta": "__TODO_TRANSLATE__:Email support"
+        "title": "მხარდაჭერასთან დაკავშირება",
+        "body": "დაუკავშირდით ინჟინერიისა და შესაბამისობის გუნდებს მხარდაჭერის ელფოსტით.",
+        "cta": "წერილის გაგზავნა"
       }
     },
     "role": {
-      "label": "__TODO_TRANSLATE__:For your role",
+      "label": "თქვენი როლისთვის",
       "surgeon": [
-        "__TODO_TRANSLATE__:finalize",
-        "__TODO_TRANSLATE__:refinement"
+        "finalize",
+        "refinement"
       ],
       "radiologist": [
-        "__TODO_TRANSLATE__:refinement",
-        "__TODO_TRANSLATE__:lesionDetection"
+        "refinement",
+        "lesionDetection"
       ],
       "admin": [
-        "__TODO_TRANSLATE__:support",
-        "__TODO_TRANSLATE__:ruoPolicy"
+        "support",
+        "ruoPolicy"
       ],
       "operations": [
-        "__TODO_TRANSLATE__:support"
+        "support"
       ],
       "compliance": [
-        "__TODO_TRANSLATE__:ruoPolicy"
+        "ruoPolicy"
       ],
       "dpo": [
-        "__TODO_TRANSLATE__:ruoPolicy",
-        "__TODO_TRANSLATE__:support"
+        "ruoPolicy",
+        "support"
       ],
       "fellow": [
-        "__TODO_TRANSLATE__:sampleCase",
-        "Глоссарий"
+        "sampleCase",
+        "glossary"
       ]
     },
     "modals": {
       "keyboard": {
-        "title": "__TODO_TRANSLATE__:Keyboard shortcuts",
-        "close": "Закрыть",
+        "title": "კლავიატურის მალსახმობები",
+        "close": "დახურვა",
         "sections": {
-          "global": "__TODO_TRANSLATE__:Global",
-          "viewer": "__TODO_TRANSLATE__:3D viewer",
-          "refine": "__TODO_TRANSLATE__:Refinement"
+          "global": "გლობალური",
+          "viewer": "3D მნახველი",
+          "refine": "რედაქტირება"
         },
         "rows": {
           "searchCases": {
-            "keys": "__TODO_TRANSLATE__:/",
-            "label": "__TODO_TRANSLATE__:Focus case search"
+            "keys": "/",
+            "label": "ქეისების ძებნაზე ფოკუსირება"
           },
           "nextCase": {
-            "keys": "__TODO_TRANSLATE__:J",
-            "label": "__TODO_TRANSLATE__:Next case"
+            "keys": "J",
+            "label": "შემდეგი ქეისი"
           },
           "prevCase": {
-            "keys": "__TODO_TRANSLATE__:K",
-            "label": "__TODO_TRANSLATE__:Previous case"
+            "keys": "K",
+            "label": "წინა ქეისი"
           },
           "pan": {
-            "keys": "__TODO_TRANSLATE__:Space",
-            "label": "__TODO_TRANSLATE__:Pan viewer"
+            "keys": "Space",
+            "label": "მნახველის გადაადგილება"
           },
           "zoomIn": {
-            "keys": "__TODO_TRANSLATE__:+",
-            "label": "__TODO_TRANSLATE__:Zoom in"
+            "keys": "+",
+            "label": "გადიდება"
           },
           "zoomOut": {
-            "keys": "__TODO_TRANSLATE__:-",
-            "label": "__TODO_TRANSLATE__:Zoom out"
+            "keys": "-",
+            "label": "დაპატარავება"
           },
           "sliceUp": {
-            "keys": "__TODO_TRANSLATE__:↑",
-            "label": "__TODO_TRANSLATE__:Next slice"
+            "keys": "↑",
+            "label": "შემდეგი შრე"
           },
           "sliceDown": {
-            "keys": "__TODO_TRANSLATE__:↓",
-            "label": "__TODO_TRANSLATE__:Previous slice"
+            "keys": "↓",
+            "label": "წინა შრე"
           },
           "vistaAdd": {
-            "keys": "__TODO_TRANSLATE__:V",
-            "label": "__TODO_TRANSLATE__:VISTA3D add"
+            "keys": "V",
+            "label": "VISTA3D დამატება"
           },
           "vistaSubtract": {
-            "keys": "__TODO_TRANSLATE__:B",
-            "label": "__TODO_TRANSLATE__:VISTA3D subtract"
+            "keys": "B",
+            "label": "VISTA3D გამოკლება"
           },
           "lesionPrompt": {
-            "keys": "__TODO_TRANSLATE__:L",
-            "label": "__TODO_TRANSLATE__:MedSAM-2 lesion prompt"
+            "keys": "L",
+            "label": "MedSAM-2 ფოკუსის მონიშვნა"
           },
           "undo": {
-            "keys": "__TODO_TRANSLATE__:Ctrl+Z",
-            "label": "__TODO_TRANSLATE__:Undo last edit"
+            "keys": "Ctrl+Z",
+            "label": "ბოლო ცვლილების გაუქმება"
           },
           "redo": {
-            "keys": "__TODO_TRANSLATE__:Ctrl+Y",
-            "label": "__TODO_TRANSLATE__:Redo"
+            "keys": "Ctrl+Y",
+            "label": "გაუქმებულის დაბრუნება"
           }
         }
       },
       "ruo": {
-        "title": "__TODO_TRANSLATE__:Research Use Only — what it means",
-        "close": "Закрыть",
-        "intro": "__TODO_TRANSLATE__:Every output from LiverRa v1 is marked Research Use Only. That means outputs inform but do not replace clinical judgement.",
-        "whatItMeans": "__TODO_TRANSLATE__:What \"RUO\" means",
-        "whatItMeansBody": "__TODO_TRANSLATE__:Volumes, lesion classes, FLR percentages, and segmentations are shown for investigative and planning context. Treatment decisions remain the responsibility of a qualified physician.",
-        "narrowing": "__TODO_TRANSLATE__:How the scope narrows",
-        "narrowingBody": "__TODO_TRANSLATE__:As individual claims (parenchyma volumetry, FLR, segmentation, vessels, lesion detection + classification, surgical planning) clear conformity assessment, the disclaimer text automatically narrows for that claim. See the Claim registry.",
-        "close2": "__TODO_TRANSLATE__:Got it"
+        "title": "მხოლოდ კვლევითი გამოყენება — რას ნიშნავს ეს",
+        "close": "დახურვა",
+        "intro": "LiverRa v1-ის ყველა შედეგი მონიშნულია როგორც \"მხოლოდ კვლევითი გამოყენებისთვის\" (RUO). ეს ნიშნავს, რომ შედეგებს აქვს საინფორმაციო ხასიათი და არ ანაცვლებს კლინიკურ გადაწყვეტილებას.",
+        "whatItMeans": "რას ნიშნავს \"RUO\"",
+        "whatItMeansBody": "მოცულობები, დაზიანებების კლასები, FLR პროცენტული მაჩვენებლები და სეგმენტაციები ნაჩვენებია საკვლევი და საგეგმარებო კონტექსტისთვის. მკურნალობის გადაწყვეტილებებზე პასუხისმგებლობა რჩება კვალიფიციურ ექიმზე.",
+        "narrowing": "როგორ იცვლება მასშტაბი",
+        "narrowingBody": "როდესაც ინდივიდუალური განცხადებები (პარენქიმის მოცულობა, FLR, სეგმენტაცია, სისხლძარღვები, დაზიანებების ამოცნობა + კლასიფიკაცია, ქირურგიული დაგეგმვა) გაივლის შესაბამისობის შეფასებას, პასუხისმგებლობის უარყოფის (disclaimer) ტექსტი ავტომატურად შემცირდება ამ კონკრეტული განცხადებისთვის. იხილეთ განცხადებების რეესტრი.",
+        "close2": "გასაგებია"
       }
     },
     "footer": {
-      "version": "__TODO_TRANSLATE__:Version {{version}}",
-      "support": "__TODO_TRANSLATE__:support@liverra.ai"
+      "version": "ვერსია {{version}}",
+      "support": "support@liverra.ai"
     }
   }
 }

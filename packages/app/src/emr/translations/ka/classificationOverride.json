@@ -1,12 +1,12 @@
 {
-  "title": "Override classification",
-  "subtitle": "Replace the AI-predicted tumor class with a manual one.",
-  "newClassLabel": "New classification",
-  "newClassPlaceholder": "Select a tumor class",
-  "reasonLabel": "Reason for override",
-  "reasonPlaceholder": "Explain why the AI class is being overridden (required for audit)",
-  "reasonTooShort": "Please provide a more detailed reason.",
-  "missingFields": "Please fill in all required fields.",
-  "submit": "Record override",
-  "genericError": "Could not save the classification override. Please try again."
+  "title": "კლასიფიკაციის გადაფარვა",
+  "subtitle": "AI-ის მიერ ნაწინასწარმეტყველები სიმსივნის კლასის ჩანაცვლება ხელით შერჩეული კლასით.",
+  "newClassLabel": "ახალი კლასიფიკაცია",
+  "newClassPlaceholder": "აირჩიეთ სიმსივნის კლასი",
+  "reasonLabel": "გადაფარვის მიზეზი",
+  "reasonPlaceholder": "ახსენით, თუ რატომ ხდება AI კლასის გადაფარვა (აუცილებელია აუდიტისთვის)",
+  "reasonTooShort": "გთხოვთ, მიუთითოთ უფრო დეტალური მიზეზი.",
+  "missingFields": "გთხოვთ, შეავსოთ ყველა სავალდებულო ველი.",
+  "submit": "გადაფარვის დაფიქსირება",
+  "genericError": "კლასიფიკაციის გადაფარვის შენახვა ვერ მოხერხდა. გთხოვთ, სცადოთ ხელახლა."
 }

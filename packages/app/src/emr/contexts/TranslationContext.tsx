@@ -329,7 +329,12 @@ export function TranslationProvider({
   const [locale, setLocaleState] = useState<Locale>(
     () => initialLocale ?? detectPreferredLocale(),
   );
-  const [, forceRender] = useState(0);
+  // `bundleVersion` increments every time a lazy bundle resolves. It is wired
+  // into the `t` callback's dependency array so consumers re-render with the
+  // freshly-loaded translations. Without this, switching locales would paint
+  // English (the loaded fallback) and stay there forever because the context
+  // value memo never rebuilt when the target-locale bundle arrived.
+  const [bundleVersion, setBundleVersion] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const mountedRef = useRef(true);
   // L-I18N-3: collect missing-namespace loads in a Set then flush once
@@ -344,7 +349,7 @@ export function TranslationProvider({
     pendingFlushRef.current = true;
     queueMicrotask(() => {
       pendingFlushRef.current = false;
-      if (mountedRef.current) forceRender((n) => n + 1);
+      if (mountedRef.current) setBundleVersion((n) => n + 1);
     });
   }, []);
 
@@ -366,7 +371,7 @@ export function TranslationProvider({
     void Promise.all(bundles).then(() => {
       if (mountedRef.current) {
         setIsLoading(false);
-        forceRender((n) => n + 1);
+        setBundleVersion((n) => n + 1);
       }
     });
 
@@ -423,7 +428,12 @@ export function TranslationProvider({
       if (value === undefined) return key;
       return interpolate(value, params);
     },
-    [locale, scheduleFlush],
+    // `bundleVersion` is intentionally part of the dep array: when a lazy
+    // bundle finishes loading, this counter ticks, `t` gets a new identity,
+    // the context value memo rebuilds, and consumers re-render to pick up
+    // the newly-resolved translations (e.g. the German `help` bundle after
+    // the user switches from EN → DE).
+    [locale, scheduleFlush, bundleVersion],
   );
 
   // Memoize a per-locale PluralRules instance — Intl.PluralRules constructors

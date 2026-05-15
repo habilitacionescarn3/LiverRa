@@ -215,8 +215,8 @@
     {# ACR Structured Readout — 002-acr-structured-readout T069 #}
     {% if acr_sections %}
       <section class="stage-section acr-readout">
-        <h2><span class="stage-tag">ეტაპი 7b</span>__TODO_TRANSLATE__:Heuristic Findings — ACR Structured Readout</h2>
-        <p class="section-lead">__TODO_TRANSLATE__:Six-section anatomical readout. Heuristic — not a substitute for radiologist interpretation.</p>
+        <h2><span class="stage-tag">ეტაპი 7b</span>ჰევრისტიკული მიგნებები — ACR სტრუქტურირებული დასკვნა</h2>
+        <p class="section-lead">ექვს-სექციური ანატომიური დასკვნა. ჰევრისტიკული — არ ცვლის რადიოლოგის ინტერპრეტაციას.</p>
         {% set section_titles = {
           'liver': 'ღვიძლი',
           'lesions': 'დაზიანებები',
@@ -252,11 +252,11 @@
                 {% endfor %}
               </div>
             {% else %}
-              <p class="acr-empty">__TODO_TRANSLATE__:No findings to report.</p>
+              <p class="acr-empty">მონაცემები არ არის.</p>
             {% endif %}
           </div>
         {% endfor %}
-        <p class="acr-ruo-footer">--- __TODO_TRANSLATE__:RESEARCH USE ONLY — NOT FOR PRIMARY DIAGNOSTIC USE ---</p>
+        <p class="acr-ruo-footer">--- მხოლოდ კვლევითი გამოყენებისთვის — არ გამოიყენოთ პირველადი დიაგნოსტიკისთვის ---</p>
       </section>
     {% endif %}
 

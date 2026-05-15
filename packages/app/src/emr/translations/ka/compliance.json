@@ -14,12 +14,12 @@
     "emptyDescription": "მიმდინარე build-ში ჯერ არ არის MBoM ჩანაწერები.",
     "tableAriaLabel": "MBoM ცხრილი",
     "loadError": "MBoM-ის ჩატვირთვა ვერ მოხერხდა.",
-    "downloadJson": "__TODO_TRANSLATE__:Download JSON",
-    "filterLicense": "__TODO_TRANSLATE__:License",
-    "filterAll": "__TODO_TRANSLATE__:All licenses",
-    "summaryModels": "__TODO_TRANSLATE__:{{n}} models",
-    "summaryApproved": "__TODO_TRANSLATE__:{{n}} approved",
-    "summaryPending": "__TODO_TRANSLATE__:{{n}} pending"
+    "downloadJson": "JSON-ის ჩამოტვირთვა",
+    "filterLicense": "ლიცენზია",
+    "filterAll": "ყველა ლიცენზია",
+    "summaryModels": "{{n}} მოდელი",
+    "summaryApproved": "{{n}} დამტკიცებული",
+    "summaryPending": "{{n}} მოლოდინში"
   },
   "audit": {
     "title": "აუდიტის შეჯამება",
@@ -41,20 +41,20 @@
     "colSubject": "სუბიექტი",
     "colOutcome": "შედეგი",
     "tableAriaLabel": "აუდიტის მოვლენების ცხრილი",
-    "categoryLabel": "__TODO_TRANSLATE__:Category filter",
-    "categoryAll": "__TODO_TRANSLATE__:All categories",
+    "categoryLabel": "კატეგორიის ფილტრი",
+    "categoryAll": "ყველა კატეგორია",
     "summary": {
-      "title": "__TODO_TRANSLATE__:Compliance overview",
-      "subtitle": "__TODO_TRANSLATE__:Snapshot of audit, erasure, and RUO claim signals (last 30 days).",
-      "totalEvents": "__TODO_TRANSLATE__:Total events",
-      "successRate": "__TODO_TRANSLATE__:Success rate",
-      "deniedEvents": "__TODO_TRANSLATE__:Denied",
-      "erasurePending": "__TODO_TRANSLATE__:Pending erasure requests",
-      "ruoCleared": "__TODO_TRANSLATE__:Cleared claims",
-      "ruoUnderAssessment": "__TODO_TRANSLATE__:Under assessment",
-      "ruoOnly": "__TODO_TRANSLATE__:RUO only",
-      "byCategory": "__TODO_TRANSLATE__:Events by category",
-      "noData": "__TODO_TRANSLATE__:No data in this window."
+      "title": "შესაბამისობის მიმოხილვა",
+      "subtitle": "აუდიტის, წაშლისა და RUO განცხადებების სტატუსის მიმოხილვა (ბოლო 30 დღე).",
+      "totalEvents": "მოვლენების ჯამი",
+      "successRate": "წარმატების მაჩვენებელი",
+      "deniedEvents": "უარყოფილი",
+      "erasurePending": "წაშლის მოლოდინში მყოფი მოთხოვნები",
+      "ruoCleared": "დაშვებული განცხადებები",
+      "ruoUnderAssessment": "შეფასების პროცესში",
+      "ruoOnly": "მხოლოდ RUO",
+      "byCategory": "მოვლენები კატეგორიების მიხედვით",
+      "noData": "ამ პერიოდში მონაცემები არ არის."
     }
   },
   "chain": {
@@ -120,7 +120,7 @@
       "under_conformity_assessment": "შესაბამისობის შეფასებაში",
       "cleared": "დაშვებული"
     },
-    "emptyTitle": "No claims yet",
-    "emptyDescription": "No regulatory claims have been configured for this tenant."
+    "emptyTitle": "განცხადებები არ არის",
+    "emptyDescription": "ამ მოიჯარისთვის რეგულატორული განცხადებები არ არის კონფიგურირებული."
   }
 }

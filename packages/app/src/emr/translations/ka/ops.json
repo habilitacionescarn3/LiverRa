@@ -54,20 +54,20 @@
   "severity": {
     "ok": "წესრიგშია",
     "warn": "გაფრთხილება",
-    "alarm": "ტრევოგა"
+    "alarm": "განგაში"
   },
   "errors": {
     "load_title": "რიგის ჩატვირთვა ვერ მოხერხდა",
     "load_body": "Ops endpoint მიუწვდომელია. ავტომატური თავიდან ცდა."
   },
   "header": {
-    "refresh": "__TODO_TRANSLATE__:Refresh now",
-    "autoRefresh": "__TODO_TRANSLATE__:Auto-refresh",
-    "autoRefreshOn": "__TODO_TRANSLATE__:Auto-refresh on (every 5s)",
-    "autoRefreshOff": "__TODO_TRANSLATE__:Auto-refresh paused",
-    "lastUpdated": "__TODO_TRANSLATE__:Last updated {{time}}",
-    "selectCase": "__TODO_TRANSLATE__:Select a stuck case from the table to view actions.",
-    "noStuckTitle": "__TODO_TRANSLATE__:Pipeline is healthy",
-    "noStuckDescription": "__TODO_TRANSLATE__:No analyses have been stuck for more than 15 minutes."
+    "refresh": "განახლება",
+    "autoRefresh": "ავტო-განახლება",
+    "autoRefreshOn": "ავტო-განახლება ჩართულია (ყოველ 5 წმ-ში)",
+    "autoRefreshOff": "ავტო-განახლება შეჩერებულია",
+    "lastUpdated": "ბოლოს განახლდა: {{time}}",
+    "selectCase": "აირჩიეთ გაჭედილი ქეისი ცხრილიდან მოქმედებების სანახავად.",
+    "noStuckTitle": "Pipeline გამართულად მუშაობს",
+    "noStuckDescription": "ბოლო 15 წუთის განმავლობაში გაჭედილი ანალიზები არ არის."
   }
 }

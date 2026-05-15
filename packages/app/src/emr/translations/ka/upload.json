@@ -1,40 +1,40 @@
 {
   "dropzone": {
-    "ariaLabel": "DICOM upload dropzone",
-    "title": "Upload DICOM study",
-    "description": "Drop a folder of DICOM slices or a zipped archive, or browse to pick files from your device.",
-    "chooseFiles": "Choose files",
-    "chooseFolder": "Choose folder",
-    "acceptedHint": "Accepts .dcm, .dicom, and .zip (≤ 2 GB)",
-    "progressAria": "Upload progress",
-    "preparing": "Preparing…",
-    "cancel": "Cancel upload",
-    "fileOfFile": "File {{current}} of {{total}}"
+    "ariaLabel": "DICOM-ის ატვირთვის არე",
+    "title": "DICOM კვლევის ატვირთვა",
+    "description": "ჩააგდეთ DICOM შრეების საქაღალდე ან ZIP არქივი, ან აირჩიეთ ფაილები თქვენი მოწყობილობიდან.",
+    "chooseFiles": "ფაილების არჩევა",
+    "chooseFolder": "საქაღალდის არჩევა",
+    "acceptedHint": "მიიღება .dcm, .dicom და .zip (≤ 2 GB)",
+    "progressAria": "ატვირთვის პროგრესი",
+    "preparing": "მზადება…",
+    "cancel": "ატვირთვის გაუქმება",
+    "fileOfFile": "ფაილი {{current}} {{total}}-დან"
   },
   "errors": {
-    "title": "Upload failed",
-    "invalidType": "Only DICOM files and ZIP archives are accepted.",
-    "archiveTooLarge": "Archives must be smaller than {{max}}.",
-    "noFilesFound": "No valid DICOM files were found in the dropped content."
+    "title": "ატვირთვა ვერ მოხერხდა",
+    "invalidType": "მიიღება მხოლოდ DICOM ფაილები და ZIP არქივები.",
+    "archiveTooLarge": "არქივი უნდა იყოს {{max}}-ზე ნაკლები.",
+    "noFilesFound": "ჩაგდებულ მასალაში ვალიდური DICOM ფაილები ვერ მოიძებნა."
   },
   "phi": {
-    "title": "Patient-identifying data detected"
+    "title": "აღმოჩენილია პაციენტის მაიდენტიფიცირებელი მონაცემები"
   },
   "progress": {
-    "uploading": "Uploading",
-    "anonymizing": "Anonymizing",
-    "queued": "Queued",
-    "running": "Running",
-    "done": "Done",
-    "etaSeconds": "~{{seconds}} s until models ready",
-    "failedTitle": "Analysis failed",
-    "failedGeneric": "The pipeline reported an unrecoverable error. Please try again.",
+    "uploading": "იტვირთება",
+    "anonymizing": "ანონიმიზაცია",
+    "queued": "რიგშია",
+    "running": "მიმდინარეობს",
+    "done": "დასრულდა",
+    "etaSeconds": "~{{seconds}} წმ მოდელების მომზადებამდე",
+    "failedTitle": "ანალიზი ვერ მოხერხდა",
+    "failedGeneric": "დაფიქსირდა კრიტიკული შეცდომა. გთხოვთ, სცადოთ ხელახლა.",
     "hint": {
-      "uploading": "Sending DICOM chunks to the secure ingest service.",
-      "anonymizing": "Stripping PHI and generating the anonymization sidecar.",
-      "queued": "Waiting for a GPU worker. Your analysis will start automatically.",
-      "running": "ML models are segmenting, classifying, and measuring.",
-      "done": "Analysis complete. You may now review the case."
+      "uploading": "DICOM ფრაგმენტების გაგზავნა უსაფრთხო მიღების სერვისში.",
+      "anonymizing": "პაციენტის პერსონალური მონაცემების (PHI) მოცილება და ანონიმიზაციის ფაილის გენერირება.",
+      "queued": "GPU რესურსის მოლოდინი. თქვენი ანალიზი ავტომატურად დაიწყება.",
+      "running": "ML მოდელები ახორციელებენ სეგმენტაციას, კლასიფიკაციასა და გაზომვას.",
+      "done": "ანალიზი დასრულდა. ახლა შეგიძლიათ შემთხვევის გადახედვა."
     }
   }
 }

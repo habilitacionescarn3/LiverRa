@@ -1,11 +1,11 @@
 {
-  "watermark": "RESEARCH USE ONLY — Not for clinical use",
+  "watermark": "მხოლოდ კვლევითი გამოყენებისთვის — არა კლინიკური გამოყენებისთვის",
   "disclaimer": {
-    "short": "Research Use Only — Not for clinical use",
-    "long": "AI-generated outputs on this page are advisory and have not been cleared for clinical decision-making.",
-    "ceShort": "Approved for surgical planning",
-    "ceLong": "Not a substitute for clinical judgment. Always verify measurements independently.",
-    "ceClassIib": "__TODO_TRANSLATE__:Approved for surgical planning. Not a substitute for clinical judgment."
+    "short": "მხოლოდ კვლევითი გამოყენებისთვის — არა კლინიკური გამოყენებისთვის",
+    "long": "ამ გვერდზე AI-ით გენერირებული შედეგები სარეკომენდაციოა და კლინიკური გადაწყვეტილების მისაღებად არ არის დამტკიცებული.",
+    "ceShort": "დამტკიცებულია ქირურგიული დაგეგმვისთვის",
+    "ceLong": "არ ცვლის კლინიკურ მსჯელობას. გაზომვები ყოველთვის დამოუკიდებლად შეამოწმეთ.",
+    "ceClassIib": "დამტკიცებულია ქირურგიული დაგეგმვისთვის. არ ცვლის კლინიკურ მსჯელობას."
   },
-  "badge": "Только для исследовательских целей"
+  "badge": "მხოლოდ კვლევითი გამოყენებისთვის"
 }

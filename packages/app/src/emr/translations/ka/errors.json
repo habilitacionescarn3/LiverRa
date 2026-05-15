@@ -1,35 +1,35 @@
 {
-  "network": "Network error. Please try again.",
-  "unknown": "An unexpected error occurred.",
+  "network": "ქსელის შეცდომა. გთხოვთ სცადოთ თავიდან.",
+  "unknown": "მოხდა მოულოდნელი შეცდომა.",
   "validation": {
-    "required": "This field is required",
-    "invalid": "Invalid value"
+    "required": "ეს ველი სავალდებულოა",
+    "invalid": "არასწორი მნიშვნელობა"
   },
   "http": {
-    "401": "Please sign in again.",
-    "403": "You don't have permission to do that.",
-    "404": "Not found.",
-    "500": "Server error. Please try again later."
+    "401": "გთხოვთ გაიაროთ ავტორიზაცია ხელახლა.",
+    "403": "ამ ქმედების შესრულების უფლება არ გაქვთ.",
+    "404": "ვერ მოიძებნა.",
+    "500": "სერვერის შეცდომა. გთხოვთ სცადოთ მოგვიანებით."
   },
-  "requestAccess": "Request access from your administrator.",
+  "requestAccess": "მოითხოვეთ წვდომა თქვენი ადმინისტრატორისგან.",
   "finalize": {
-    "generic": "__TODO_TRANSLATE__:Unable to finalize the report. Please try again.",
-    "seat_expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
-    "seat-expired": "__TODO_TRANSLATE__:Your edit session expired. Re-acquire the review seat and try again.",
-    "seat-taken": "__TODO_TRANSLATE__:Another reviewer is currently holding the review seat.",
-    "no_review_seat": "__TODO_TRANSLATE__:No active review seat. Open the case to acquire one before finalizing.",
-    "analysis_not_complete": "__TODO_TRANSLATE__:The analysis is not yet complete. Finalize is only available for completed analyses.",
-    "finalize-failed": "__TODO_TRANSLATE__:The server rejected the finalize request. Please try again.",
-    "mfa_required": "__TODO_TRANSLATE__:Step-up multi-factor authentication is required to finalize."
+    "generic": "ანგარიშის დასრულება ვერ მოხერხდა. გთხოვთ სცადოთ თავიდან.",
+    "seat_expired": "თქვენი რედაქტირების სესიას ვადა გაუვიდა. აიღეთ განხილვის უფლება (seat) ხელახლა და სცადეთ თავიდან.",
+    "seat-expired": "თქვენი რედაქტირების სესიას ვადა გაუვიდა. აიღეთ განხილვის უფლება (seat) ხელახლა და სცადეთ თავიდან.",
+    "seat-taken": "განხილვის უფლება (seat) ამჟამად სხვა მომხმარებელს აქვს დაკავებული.",
+    "no_review_seat": "განხილვის უფლება (seat) არ გაქვთ. დასრულებამდე გახსენით ქეისი მის მისაღებად.",
+    "analysis_not_complete": "ანალიზი ჯერ არ დასრულებულა. დასრულება შესაძლებელია მხოლოდ დასრულებული ანალიზებისთვის.",
+    "finalize-failed": "სერვერმა უარყო დასრულების მოთხოვნა. გთხოვთ სცადოთ თავიდან.",
+    "mfa_required": "დასასრულებლად საჭიროა დამატებითი მრავალფაქტორიანი ავთენტიფიკაცია (MFA)."
   },
   "boundary": {
-    "title": "Что-то пошло не так",
-    "messageGeneric": "__TODO_TRANSLATE__:An unexpected error occurred. Please try again or contact support if the problem persists.",
-    "messageNamed": "__TODO_TRANSLATE__:An error occurred in the {{component}} component. Please try again or contact support if the problem persists.",
-    "retry": "Повторить",
-    "reload": "__TODO_TRANSLATE__:Please reload the page",
-    "report": "__TODO_TRANSLATE__:Report Issue",
-    "errorDetails": "__TODO_TRANSLATE__:Error Details:",
-    "componentStack": "__TODO_TRANSLATE__:Component Stack:"
+    "title": "რაღაც არასწორად წავიდა",
+    "messageGeneric": "მოხდა მოულოდნელი შეცდომა. გთხოვთ სცადოთ თავიდან ან დაუკავშირდეთ მხარდაჭერას, თუ პრობლემა კვლავ განმეორდება.",
+    "messageNamed": "შეცდომა მოხდა კომპონენტში: {{component}}. გთხოვთ სცადოთ თავიდან ან დაუკავშირდეთ მხარდაჭერას, თუ პრობლემა კვლავ განმეორდება.",
+    "retry": "თავიდან სცადეთ",
+    "reload": "გთხოვთ განაახლოთ გვერდი",
+    "report": "ხარვეზის შეტყობინება",
+    "errorDetails": "შეცდომის დეტალები:",
+    "componentStack": "კომპონენტების სტეკი:"
   }
 }
