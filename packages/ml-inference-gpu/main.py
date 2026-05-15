@@ -526,3 +526,23 @@ async def health() -> Response:
         return JSONResponse(status_code=503, content=info)
     info["ok"] = True
     return JSONResponse(status_code=200, content=info)
+
+
+# ---------------------------------------------------------------------------
+# Smoke-test entrypoint — production uses the Docker container's uvicorn
+# command (see README), but `python main.py` is convenient for "is the
+# token gate working?" curl checks on a freshly-pulled box.
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+
+    if not os.environ.get("LIVERRA_GPU_SHARED_TOKEN", "").strip():
+        raise SystemExit(
+            "LIVERRA_GPU_SHARED_TOKEN env var is required; service refuses to start"
+        )
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", "9101")),
+        log_level="info",
+    )
