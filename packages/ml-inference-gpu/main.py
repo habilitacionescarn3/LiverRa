@@ -281,7 +281,17 @@ async def _lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="LiverRa GPU inference", version="1.0.3", lifespan=_lifespan)
+app = FastAPI(
+    title="LiverRa GPU inference",
+    version="1.0.3",
+    lifespan=_lifespan,
+    # Public via Tailscale Funnel — route-level Depends(verify_token) does
+    # NOT cover FastAPI's auto-generated docs/schema endpoints, so disable
+    # them outright rather than serve an anonymous API catalogue.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 
 # ---------------------------------------------------------------------------
