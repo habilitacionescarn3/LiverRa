@@ -32,10 +32,13 @@
  */
 
 import { useMediaQuery } from '@mantine/hooks';
-import { Box, Burger, Group, Text } from '@mantine/core';
+import { Box, Burger, Group, Text, UnstyledButton } from '@mantine/core';
+import { IconHome } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import type { ReactElement } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { LIVERRA_ROUTES } from './constants/routes';
+import { EMRIconButton } from './components/common';
 
 import {
   Breadcrumbs,
@@ -110,8 +113,14 @@ export function EMRPage({
   ruoDisclaimer,
 }: EMRPageProps): ReactElement {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
   const isMobile = useMediaQuery('(max-width: 768px)') ?? false;
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const goHome = useCallback(() => {
+    navigate(LIVERRA_ROUTES.LANDING);
+  }, [navigate]);
 
   const effectiveNavItems = navItems;
 
@@ -157,11 +166,38 @@ export function EMRPage({
             size="sm"
           />
         )}
-        <Group gap={8}>
+        {/* Logo doubles as Home — industry-standard click-target. */}
+        <UnstyledButton
+          onClick={goHome}
+          aria-label={t('common.goHome') || 'Go to home page'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '4px 8px',
+            borderRadius: 'var(--emr-border-radius)',
+            transition: 'background var(--emr-transition-base)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--emr-bg-hover)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
           <Text fw={700} size="lg" c="var(--emr-primary)">
             LiverRa
           </Text>
-        </Group>
+        </UnstyledButton>
+        {/* Dedicated Home button — explicit secondary affordance. */}
+        <EMRIconButton
+          icon={IconHome}
+          onClick={goHome}
+          aria-label={t('common.goHome') || 'Go to home page'}
+          size="md"
+          variant="subtle"
+          data-testid="nav-home-button"
+        />
         <Box style={{ flex: 1 }}>
           <Breadcrumbs />
         </Box>

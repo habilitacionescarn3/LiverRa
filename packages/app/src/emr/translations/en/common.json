@@ -72,5 +72,6 @@
     "explanation": "This action requires a fresh authentication to protect sensitive data.",
     "reauthenticate": "Re-authenticate",
     "title": "Confirm it's you"
-  }
+  },
+  "goHome": "Go to home page"
 }

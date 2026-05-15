@@ -77,5 +77,6 @@
     "explanation": "__TODO_TRANSLATE__:This action requires a fresh authentication to protect sensitive data.",
     "reauthenticate": "__TODO_TRANSLATE__:Re-authenticate",
     "title": "__TODO_TRANSLATE__:Confirm it's you"
-  }
+  },
+  "goHome": "__TODO_TRANSLATE__:Go to home page"
 }
