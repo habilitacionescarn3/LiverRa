@@ -12,8 +12,10 @@
 
 [build]
   base = "packages/app"
-  # `publish` is relative to `base` per Netlify docs.
-  publish = "dist"
+  # Netlify docs say `publish` is base-relative, but the CLI actually
+  # resolves it against the repo root. Spell it out fully to avoid the
+  # "deploy directory not found" trap.
+  publish = "packages/app/dist"
   command = "npm install --prefix ../.. --workspaces=false --include-workspace-root && npm run build"
 
 [build.environment]
