@@ -16,9 +16,10 @@ primary_region = "fra"  # Frankfurt — GDPR data residency for PHI-adjacent tra
   dockerfile = "Dockerfile"
 
 [deploy]
-  # Apply alembic migrations on every deploy, before the new release goes live.
-  # release_command runs in a temporary machine with all secrets injected.
-  release_command = "alembic upgrade head"
+  # release_command intentionally omitted — migrations are run manually
+  # against Supabase via scripts/deploy-migrate.sh. Re-add later when
+  # deploys want to migrate automatically. Removing avoids the
+  # release-command machine timeout against the Supabase pooler.
 
 # ---------------------------------------------------------------------------
 # Two process groups → two machines from the same image.
