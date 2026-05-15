@@ -93,6 +93,12 @@ async def run_async_migrations() -> None:
         _database_url(),
         poolclass=pool.NullPool,
         future=True,
+        # Supabase pgbouncer in transaction mode (port 6543) doesn't support
+        # asyncpg's prepared-statement cache. statement_cache_size=0 forces
+        # every statement to be re-prepared per execute, which is the only
+        # supported mode behind transaction-pooled pgbouncer.
+        # No-op against direct connections (port 5432) so safe to keep on.
+        connect_args={"statement_cache_size": 0, "prepared_statement_cache_size": 0},
     )
 
     async with connectable.connect() as connection:
