@@ -45,6 +45,7 @@ import {
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useHasPermission } from '../../contexts/PermissionContext';
 import { getCurrentAccessToken } from '../../services/auth';
+import { LIVERRA_ROUTES } from '../../constants/routes';
 
 /** Analysis status values mirror the backend enum (T133).
  *
@@ -465,7 +466,7 @@ function CasesListViewInner({
             <EMRButton
               variant="primary"
               icon={IconUpload}
-              onClick={() => navigate('/pacs/studies')}
+              onClick={() => navigate(LIVERRA_ROUTES.UPLOAD)}
             >
               {t('analysis:cases.newUpload')}
             </EMRButton>
@@ -575,9 +576,9 @@ function CasesListViewInner({
           title={t('analysis:cases.empty.title')}
           description={t('analysis:cases.empty.description')}
           action={{
-            label: t('analysis:cases.empty.fromPacs') ?? 'Browse PACS studies',
-            onClick: () => navigate('/pacs/studies'),
-            icon: IconFolderOpen,
+            label: t('analysis:cases.empty.fromPacs') ?? 'Upload a study',
+            onClick: () => navigate(LIVERRA_ROUTES.UPLOAD),
+            icon: IconUpload,
           }}
           secondaryAction={{
             label: t('nav:try_demo'),

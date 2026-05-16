@@ -36,5 +36,10 @@
       "running": "ML models are segmenting, classifying, and measuring.",
       "done": "Analysis complete. You may now review the case."
     }
+  },
+  "page": {
+    "title": "Upload DICOM study",
+    "subtitle": "Drag and drop a folder of DICOM slices, a single file, or a ZIP archive. Upload is resumable; you can close the tab and resume on the next visit.",
+    "helper": "Supported: single .dcm files, folders of slices (drag the parent folder), or .zip archives up to 2 GB. The upload is automatically de-identified server-side before the cascade runs."
   }
 }

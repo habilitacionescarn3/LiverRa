@@ -94,27 +94,30 @@ export const UserMenuButton = memo(function UserMenuButton() {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            padding: '4px 6px',
+            padding: '4px 8px 4px 4px',
             borderRadius: 999,
-            transition: 'background 0.15s ease',
+            transition: 'background 0.18s ease',
             minHeight: 40,
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.background = 'var(--emr-bg-hover)';
+            (e.currentTarget as HTMLElement).style.background = 'var(--emr-secondary-alpha-06)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = 'transparent';
           }}
         >
           <Avatar
-            size={32}
+            size={34}
             radius="xl"
             color="liverraPrimary"
             style={{
               background: 'var(--emr-gradient-primary)',
               color: 'var(--emr-text-inverse)',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: 'var(--emr-font-sm)',
+              border: '2px solid var(--emr-bg-card)',
+              boxShadow:
+                '0 0 0 1.5px var(--emr-secondary-alpha-25), 0 2px 8px var(--emr-primary-alpha-16)',
             }}
           >
             {initials}

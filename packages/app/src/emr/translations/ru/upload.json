@@ -41,5 +41,10 @@
       "running": "__TODO_TRANSLATE__:ML models are segmenting, classifying, and measuring.",
       "done": "__TODO_TRANSLATE__:Analysis complete. You may now review the case."
     }
+  },
+  "page": {
+    "title": "__TODO_TRANSLATE__:Upload DICOM study",
+    "subtitle": "__TODO_TRANSLATE__:Drag and drop a folder of DICOM slices, a single file, or a ZIP archive. Upload is resumable; you can close the tab and resume on the next visit.",
+    "helper": "__TODO_TRANSLATE__:Supported: single .dcm files, folders of slices (drag the parent folder), or .zip archives up to 2 GB. The upload is automatically de-identified server-side before the cascade runs."
   }
 }

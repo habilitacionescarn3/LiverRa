@@ -35,6 +35,11 @@ export const LIVERRA_ROUTES = {
   CASE_REFINE: '/cases/:id/refine',
   REPORT_VIEW: '/reports/:id',
 
+  // --- cloud-native DICOM upload (tus → Fly /api/v1/ingest/uploads) -------
+  // PACS_STUDIES is hospital-on-prem (Orthanc DICOMweb); UPLOAD is the cloud
+  // path that hits Fly directly and works on Netlify staging.
+  UPLOAD: '/upload',
+
   // --- admin ---------------------------------------------------------------
   ADMIN_USERS: '/admin/users',
   ADMIN_PACS_CONFIG: '/admin/pacs-config',

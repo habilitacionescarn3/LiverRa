@@ -80,6 +80,8 @@ const GlossaryView = lazy(() => import('./emr/views/help/GlossaryView'));
 const PacsStudiesView = lazy(() => import('./emr/views/pacs/PacsStudiesView'));
 const PacsStudyViewerView = lazy(() => import('./emr/views/pacs/PacsStudyViewerView'));
 
+const UploadView = lazy(() => import('./emr/views/upload/UploadView'));
+
 // -----------------------------------------------------------------------------
 // Helpers — keep the router tree compact + readable.
 // -----------------------------------------------------------------------------
@@ -168,6 +170,20 @@ export const appRouter = createBrowserRouter([
           </Guarded>
         ),
         handle: { breadcrumb: () => 'Cases' },
+      },
+      // Cloud-native DICOM upload (tus → /api/v1/ingest/uploads on Fly).
+      // Distinct from /pacs/studies which uses STOW-RS direct to Orthanc
+      // and only works when an on-prem Orthanc is reachable.
+      {
+        path: LIVERRA_ROUTES.UPLOAD,
+        element: (
+          <Guarded requires={['study.upload']}>
+            <Lazy>
+              <UploadView />
+            </Lazy>
+          </Guarded>
+        ),
+        handle: { breadcrumb: () => 'Upload' },
       },
       // /cases/:id/* — all sub-routes share a single ReviewSeatProvider via
       // CaseShell so the seat survives navigation between Detail/Lesions/
