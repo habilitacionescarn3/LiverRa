@@ -23,6 +23,21 @@ import { Routes, Route } from 'react-router-dom';
 
 import { renderWithProviders } from '../../../../test-utils';
 
+// RefinementView dynamic-imports through a deep provider stack
+// (Mantine + QueryClient + Router + TranslationProvider) and mounts a
+// large component tree — on slower CI machines the first paint can
+// take 8–12s. The vitest default of 5s causes flaky timeouts even on
+// happy-path renders. 30s is generous but cheap (tests that succeed
+// before the deadline still return immediately).
+vi.setConfig({ testTimeout: 30_000 });
+
+// Force dev-bypass OFF for tests. The dev workflow ships `.env.local`
+// with `VITE_LIVERRA_DEV_BYPASS=true`; we override via `.env.test.local`
+// (Vite's per-mode env-file precedence) so the seat-taken / record-lock /
+// no-permission early-return branches in RefinementView are exercised
+// instead of being short-circuited by `!devBypass`. See
+// `packages/app/.env.test.local`.
+
 // ---------------------------------------------------------------------------
 // Mutable mock state (reset in beforeEach)
 // ---------------------------------------------------------------------------
@@ -86,6 +101,44 @@ vi.mock('../../../hooks/useAnalysis', () => ({
     isError: false,
     error: null,
     refetch: vi.fn(),
+  }),
+}));
+
+// Phase H9 — RefinementView now subscribes to markers at the view level
+// so it can pipe them to the viewer's MarkerOverlay. The test env has no
+// backend, so we stub useMarkers to an empty list. Without this the
+// hook fires a real fetch to 127.0.0.1:3000 and the tests time out
+// waiting on async state.
+vi.mock('../../../hooks/useMarkers', () => ({
+  useMarkers: () => ({ data: [], isLoading: false, isError: false, error: null }),
+  markersQueryKey: (analysisId: string) =>
+    ['analysis', analysisId, 'markers'] as const,
+}));
+
+// Phase H9 — same story for `/results`. The page calls useAnalysisResults
+// to derive layer-gating flags + thread props into LiverViewer3D; mock
+// it so the test doesn't hit the live backend.
+//
+// The mock provides a parenchyma segmentation so Phase F's anatomy-key
+// → UUID resolver in the mask-refine dispatcher has something to map to.
+// Without this, every test that fires `liverra:viewer-click` with
+// `segmentationId: 'parenchyma'` would silently drop the dispatch
+// (`resolveSegmentationUuid` returns null for empty segmentations).
+vi.mock('../../../hooks/useAnalysisResults', () => ({
+  useAnalysisResults: () => ({
+    data: {
+      segmentations: [
+        {
+          id: 'seg-parenchyma-1',
+          anatomy_category: 'liver',
+          anatomy_detail: null,
+        },
+      ],
+      lesions: [],
+      flr_default: null,
+    },
+    isLoading: false,
+    isError: false,
   }),
 }));
 
@@ -200,6 +253,27 @@ vi.mock('../../../components/liver/ReviewTools', () => ({
 vi.mock('../../../components/liver/CouinaudLegend', () => ({
   CouinaudLegend: () =>
     React.createElement('div', { 'data-testid': 'couinaud-legend-stub' }),
+}));
+
+// Rail components do their own `fetch` via TanStack Query — stub them so
+// the test env never hits the network. Pre-H9 these weren't mocked
+// because the test predates their mount; tests started timing out the
+// moment <SegmentsList>/<LesionsList>/<MarkersList> began trying to
+// reach 127.0.0.1:3000.
+vi.mock('../../../components/cases/SegmentsList', () => ({
+  SegmentsList: () =>
+    React.createElement('div', { 'data-testid': 'segments-list-stub' }),
+}));
+vi.mock('../../../components/cases/LesionsList', () => ({
+  LesionsList: () =>
+    React.createElement('div', { 'data-testid': 'lesions-list-stub' }),
+}));
+vi.mock('../../../components/cases/MarkersList', () => ({
+  MarkersList: () =>
+    React.createElement('div', { 'data-testid': 'markers-list-stub' }),
+}));
+vi.mock('../../../components/cases/FailedEditsAlert', () => ({
+  FailedEditsAlert: () => null,
 }));
 
 vi.mock('../../../components/liver/LayerToggle', () => ({
@@ -406,7 +480,11 @@ describe('RefinementView', () => {
       voxel: [number, number, number];
     };
     expect(payload.analysisId).toBe('case-42');
-    expect(payload.segmentationId).toBe('parenchyma');
+    // Phase F changed the dispatch payload to use the segmentation UUID
+    // resolved from the anatomy key — the viewer-click event carries
+    // the anatomy key ('parenchyma') but the dispatcher maps it to the
+    // backend row id via results.segmentations.
+    expect(payload.segmentationId).toBe('seg-parenchyma-1');
     expect(payload.clickType).toBe('add');
     expect(payload.voxel).toEqual([10, 20, 30]);
   });

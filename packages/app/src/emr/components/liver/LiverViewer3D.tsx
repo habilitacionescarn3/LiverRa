@@ -95,6 +95,8 @@ import { loadNiftiAsLabelmap, maskUrl, type NiftiMask } from '../../services/pac
 import { resolveCanvasClick, resolveSegmentationId } from '../../services/pacs/viewerClickBridge';
 import { LesionOverlay, type LesionDatum, type ViewOrientation } from './LesionOverlay';
 import { FlrPlaneOverlay, type FlrPlaneInput } from './FlrPlaneOverlay';
+import { MarkerOverlay } from './MarkerOverlay';
+import type { ReviewerMarker } from '../../hooks/useMarkers';
 
 const VIEWPORT_ID = 'liverra-cases-stack';
 const MPR_AXIAL_ID = 'liverra-mpr-axial';
@@ -203,6 +205,8 @@ export interface LiverViewer3DProps {
   lesions?: LesionDatum[];
   /** FLR default (plane_normal/offset/pose) for the cutting-plane overlay (Pass C3). */
   flrDefault?: FlrPlaneInput | null;
+  /** Reviewer-placed markers from `/markers` — drives the marker-pin overlay (Phase H9). */
+  markers?: ReviewerMarker[];
   /**
    * Currently-selected refine tool. When set, the viewer attaches DOM click
    * listeners on each viewport and emits `liverra:viewer-click` CustomEvents
@@ -374,6 +378,7 @@ export function LiverViewer3D({
   lesionCount = 0,
   lesions = [],
   flrDefault = null,
+  markers = [],
   activeTool = null,
   'data-testid': testId = 'liver-viewer-3d',
 }: LiverViewer3DProps): React.ReactElement {
@@ -435,6 +440,7 @@ export function LiverViewer3D({
     vessels: false,
     lesions: lesionCount > 0,
     flrPlane: !!(flrDefault && (flrDefault.plane_pose || flrDefault.plane_normal)),
+    markers: markers.length > 0,
   });
 
   // MPR slice indices per viewport. Each viewport scrolls independently
@@ -1055,6 +1061,57 @@ export function LiverViewer3D({
     };
   }, [activeTool, ready, analysisId, viewMode, registrationTick]);
 
+  // --- Phase H8: liverra:focus-voxel listener -------------------------------
+  // When the user hovers a row in MarkersList (or, later, LesionsList) the
+  // row dispatches `liverra:focus-voxel` with the voxel coord it wants the
+  // viewer to focus on. We translate the voxel back to world coords via the
+  // volume's `indexToWorld` and call `setCamera({ focalPoint })` on each MPR
+  // viewport. Stack viewport ignores — it's a 2D axial-only view that can't
+  // re-center on an arbitrary voxel without changing the loaded slice (out
+  // of scope for v1).
+  //
+  // Why a window listener and not a prop: MarkersList lives in a sibling
+  // rail several DOM layers away. A CustomEvent on `window` avoids prop-
+  // drilling through Refine + the rail's TanStack provider.
+  useEffect(() => {
+    if (!ready) return undefined;
+
+    const handler = (evt: Event): void => {
+      const detail = (evt as CustomEvent<{ voxel?: [number, number, number] }>)
+        .detail;
+      const voxel = detail?.voxel;
+      if (!voxel || voxel.length !== 3) return;
+      const engine = engineRef.current;
+      if (!engine) return;
+
+      for (const id of MPR_VIEWPORT_IDS) {
+        const vp = engine.getViewport(id) as
+          | (Types.IVolumeViewport & {
+              getImageData?: () => { imageData?: { indexToWorld?: (i: [number, number, number]) => [number, number, number] } } | undefined;
+              setCamera?: (opts: { focalPoint?: [number, number, number] }) => void;
+              render?: () => void;
+            })
+          | undefined;
+        if (!vp) continue;
+        try {
+          const imageData = vp.getImageData?.()?.imageData;
+          const focal = imageData?.indexToWorld?.(voxel);
+          if (!focal) continue;
+          vp.setCamera?.({ focalPoint: focal });
+          vp.render?.();
+        } catch {
+          // Cornerstone3D occasionally throws when a viewport's actor hasn't
+          // been wired yet. Swallow — the next hover will retry.
+        }
+      }
+    };
+
+    window.addEventListener('liverra:focus-voxel', handler);
+    return () => {
+      window.removeEventListener('liverra:focus-voxel', handler);
+    };
+  }, [ready]);
+
   // --- Pass D6: build a per-anatomy "desired visibility" map ----------------
   // Plain-English: every toggle in the panel maps to one anatomy key. This
   // little helper turns the LayerVisibility state into a flat map so the
@@ -1475,6 +1532,16 @@ export function LiverViewer3D({
             volumeDims={[512, 512, Math.max(imageCount, 1)]}
             visible={layerVisibility.flrPlane}
           />
+
+          {/* Phase H9 — reviewer-marker pin overlay (axial). */}
+          <MarkerOverlay
+            markers={markers}
+            sliceIndex={currentSlice}
+            totalSlices={imageCount}
+            volumeDims={[512, 512, Math.max(imageCount, 1)]}
+            orientation="axial"
+            visible={layerVisibility.markers}
+          />
         </>
       ) : (
         // ── MPR 3-up grid ──
@@ -1543,6 +1610,14 @@ export function LiverViewer3D({
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
             />
+            <MarkerOverlay
+              markers={markers}
+              sliceIndex={mprSlices.axial}
+              totalSlices={mprDims.axial || imageCount}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
+              orientation="axial"
+              visible={layerVisibility.markers}
+            />
           </Box>
 
           {/* Sagittal — top right. */}
@@ -1594,6 +1669,14 @@ export function LiverViewer3D({
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
             />
+            <MarkerOverlay
+              markers={markers}
+              sliceIndex={mprSlices.sagittal}
+              totalSlices={mprDims.sagittal || imageCount}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
+              orientation="sagittal"
+              visible={layerVisibility.markers}
+            />
           </Box>
 
           {/* Coronal — bottom right. */}
@@ -1644,6 +1727,14 @@ export function LiverViewer3D({
               totalSlices={mprDims.coronal || imageCount}
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               visible={layerVisibility.flrPlane}
+            />
+            <MarkerOverlay
+              markers={markers}
+              sliceIndex={mprSlices.coronal}
+              totalSlices={mprDims.coronal || imageCount}
+              volumeDims={[512, 512, Math.max(imageCount, 1)]}
+              orientation="coronal"
+              visible={layerVisibility.markers}
             />
           </Box>
         </Box>
@@ -1746,6 +1837,7 @@ export function LiverViewer3D({
         }
         lesionCount={lesionCount}
         hasFlrPlane={!!(flrDefault && (flrDefault.plane_pose || flrDefault.plane_normal))}
+        markerCount={markers.length}
       />
 
       {/* Bottom-right: slice counter. */}

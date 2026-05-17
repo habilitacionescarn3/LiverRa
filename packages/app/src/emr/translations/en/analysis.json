@@ -77,6 +77,11 @@
       "notesPlaceholder": "Surgeon notes attached to this case will appear here.",
       "loading": "Loading…",
       "openRefinement": "Open Refinement",
+      "segmentsCount_one": "{{count}} segment",
+      "segmentsCount_other": "{{count}} segments",
+      "segmentsCount_few": "{{count}} segments",
+      "segmentsCount_many": "{{count}} segments",
+      "segmentsTotal": "Total volume",
       "segmentsEmpty": {
         "title": "No segments yet",
         "description": "Couinaud segments and vessel masks will appear here once the cascade finishes."
@@ -220,7 +225,9 @@
       "couinaudDeferred": "Couinaud overlay rendering ships in a later release.",
       "vesselsDeferred": "Vessel overlay rendering ships in a later release.",
       "noLesions": "No lesions detected on this study.",
-      "noFlrPlane": "FLR cutting plane not available for this analysis."
+      "noFlrPlane": "FLR cutting plane not available for this analysis.",
+      "markers": "Markers",
+      "noMarkers": "No reviewer markers placed on this study yet."
     },
     "viewMode": {
       "title": "View",

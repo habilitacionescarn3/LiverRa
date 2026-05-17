@@ -50,6 +50,12 @@ export interface LayerVisibility {
   vessels: boolean;
   lesions: boolean;
   flrPlane: boolean;
+  /**
+   * Phase H9 — reviewer markers (sticky-note pins placed by Phase G's
+   * Marker tool). Defaults to on whenever any marker exists; the toggle
+   * lets the surgeon hide them when they want a clean view.
+   */
+  markers: boolean;
 }
 
 /** Roman numeral keys, in segment order. Matches COUINAUD_LABELS. */
@@ -80,6 +86,8 @@ export interface LayerTogglePanelProps {
   lesionCount?: number;
   /** Whether a FLR cutting plane exists for this analysis. */
   hasFlrPlane?: boolean;
+  /** Number of reviewer markers — gates the markers toggle (Phase H9). */
+  markerCount?: number;
   /** Optional swatch color per Couinaud segment (CSS color string). */
   couinaudSwatch?: Record<keyof CouinaudVisibility, string>;
   /** Test id passthrough. */
@@ -176,6 +184,7 @@ export function LayerTogglePanel({
   hasVessels = false,
   lesionCount = 0,
   hasFlrPlane = false,
+  markerCount = 0,
   couinaudSwatch,
   'data-testid': testId = 'liver-layer-toggle',
 }: LayerTogglePanelProps): React.ReactElement {
@@ -338,6 +347,17 @@ export function LayerTogglePanel({
           disabled={!hasFlrPlane}
           disabledReason={!hasFlrPlane ? t('analysis:viewer.layers.noFlrPlane') : undefined}
           testId="layer-toggle-flr-plane"
+        />
+        <ToggleRow
+          label={t('analysis:viewer.layers.markers')}
+          swatch="rgba(236, 72, 153, 0.92)"
+          checked={visibility.markers}
+          onChange={(v) => setField('markers', v)}
+          disabled={markerCount === 0}
+          disabledReason={
+            markerCount === 0 ? t('analysis:viewer.layers.noMarkers') : undefined
+          }
+          testId="layer-toggle-markers"
         />
       </Stack>
     </Box>
