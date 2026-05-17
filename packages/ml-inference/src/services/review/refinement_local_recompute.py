@@ -28,6 +28,7 @@ Spec refs: FR-015, FR-016, FR-017; plan.md §Review-time inference.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -149,9 +150,28 @@ class LocalRecompute:
         if not parent:
             raise ValueError(f"Segmentation {parent_segmentation_id} not found")
 
-        shape = tuple(parent["shape"] or (0, 0, 0))
-        if any(v < 0 or v >= s for v, s in zip(voxel, shape)):
-            raise ValueError("Click voxel lies outside the volume.")
+        # Volume bounds check. `shape` is NULL for pre-existing AI rows
+        # that were created before migration 0021 introduced the column
+        # — for those we skip the bounds check rather than reject every
+        # click as "outside the volume." The downstream NRRD composite
+        # is the real safety net (clicks past the array bounds are
+        # caught by numpy indexing). Phase H production-readiness fix.
+        raw_shape = parent["shape"]
+        shape: Tuple[int, int, int]
+        if raw_shape and any(int(v or 0) > 0 for v in raw_shape):
+            shape = tuple(int(v) for v in raw_shape)  # type: ignore[assignment]
+            if any(v < 0 or v >= s for v, s in zip(voxel, shape)):
+                raise ValueError("Click voxel lies outside the volume.")
+        else:
+            # Unknown shape — trust the client coord; numpy bounds check
+            # downstream is the authoritative gate. Use a conservative
+            # default so downstream allocations succeed when we have to
+            # synthesise the empty-mask path (see `_apply_crop_edit`).
+            logger.info(
+                "segmentation %s has no shape stored; skipping bounds check",
+                parent_segmentation_id,
+            )
+            shape = (512, 512, 512)
 
         # 2. Pull the full-res mask, carve the 128³ crop, call VISTA3D.
         mask_bytes = b""
@@ -174,16 +194,31 @@ class LocalRecompute:
             await self._mask_store.put(new_key, new_mask_bytes)
 
         next_version = int(parent["last_server_version"] or 0) + 1
+        # Note: the column is `created_by_user_id` (per migration 0012),
+        # NOT `created_by`. The recompute service originally hard-coded
+        # the wrong name — caught by Phase H Playwright sweep when every
+        # mask-refine 500'd with UndefinedColumnError. We also have to
+        # provide `sop_instance_uid` (NOT NULL on the segmentation
+        # table) — for reviewer-edited rows it inherits from the parent
+        # AI row.
         await session.execute(
             text(
                 """
                 INSERT INTO segmentation
                     (id, analysis_id, parent_segmentation_id,
                      generation_source, mask_object_key, shape,
-                     last_server_version, created_by, created_at)
+                     last_server_version, created_by_user_id, created_at,
+                     mask_uri, sop_instance_uid)
                 VALUES
                     (:id, :aid, :parent, 'reviewer_edited',
-                     :key, :shape, :ver, :uid, now())
+                     :key, CAST(:shape AS jsonb),
+                     :ver, :uid, now(),
+                     :mask_uri,
+                     COALESCE(
+                       (SELECT sop_instance_uid FROM segmentation
+                        WHERE id = :parent),
+                       'unknown'
+                     ))
                 """
             ),
             {
@@ -191,9 +226,10 @@ class LocalRecompute:
                 "aid": str(analysis_id),
                 "parent": str(parent_segmentation_id),
                 "key": new_key,
-                "shape": list(shape),
+                "shape": json.dumps(list(shape)),
                 "ver": next_version,
                 "uid": str(user_id),
+                "mask_uri": new_key,
             },
         )
 
@@ -239,17 +275,29 @@ class LocalRecompute:
                 """
                 INSERT INTO lesion
                     (id, analysis_id, origin, prompt_voxel,
-                     created_by, created_at)
+                     created_by, created_at, discovery_source,
+                     bbox3d)
                 VALUES
-                    (:id, :aid, 'reviewer_prompt', :voxel,
-                     :uid, now())
+                    (:id, :aid, 'reviewer_prompt',
+                     CAST(:voxel AS jsonb),
+                     :uid, now(), 'reviewer_prompted',
+                     CAST(:bbox AS jsonb))
                 """
             ),
             {
                 "id": str(lesion_id),
                 "aid": str(analysis_id),
-                "voxel": list(voxel),
+                "voxel": json.dumps(list(voxel)),
                 "uid": str(user_id),
+                # bbox3d is NOT NULL on lesion (migration 0003). Use a
+                # tight 16-voxel cube around the prompt as a placeholder
+                # — the real bbox lands when MedSAM-2 (Triton) returns
+                # the segmented region.
+                "bbox": json.dumps({
+                    "x_min": voxel[0] - 8, "x_max": voxel[0] + 8,
+                    "y_min": voxel[1] - 8, "y_max": voxel[1] + 8,
+                    "z_min": voxel[2] - 4, "z_max": voxel[2] + 4,
+                }),
             },
         )
         return {

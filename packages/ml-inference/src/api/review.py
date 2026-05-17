@@ -208,6 +208,19 @@ class ReviewerMarkerResponse(BaseModel):
     created_by: UUID
 
 
+class ReviewerMarkerPatch(BaseModel):
+    """Partial update for label/note on an existing reviewer_marker.
+
+    Phase H5 — the inline `<MarkerLabelPopover>` on the Refine page Save
+    button writes here so labels persist across page reloads. Voxel
+    coordinates are immutable (markers don't move), so this is a thin
+    label/note-only patch.
+    """
+
+    label: Optional[str] = Field(default=None, max_length=80)
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
 class TakeoverRequestBody(BaseModel):
     analysis_id: UUID
 
@@ -948,6 +961,118 @@ async def create_marker(
         note=body.note,
         created_at=created_at,
         created_by=user_id,
+    )
+
+
+@router.patch(
+    "/{review_id}/marker/{marker_id}",
+    response_model=ReviewerMarkerResponse,
+)
+@require_permission("review.refine_mask")
+async def update_marker(
+    review_id: UUID,
+    marker_id: UUID,
+    body: ReviewerMarkerPatch,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    manager: SeatManager = Depends(get_seat_manager),
+) -> ReviewerMarkerResponse:
+    """Update label/note on an existing reviewer marker.
+
+    Phase H5 — completes the marker tool flow. The frontend popover
+    drops the marker first (POST), then issues a PATCH once the
+    reviewer hits Save on the label/note inputs. Voxel coords and
+    segmentation context are immutable — markers don't move.
+
+    The seat must still be live (same gate as the POST handler). The
+    marker must belong to this review (cross-review patching is
+    explicitly rejected even within the same tenant, since the seat-
+    permission model is review-scoped).
+    """
+    user_id = _user_id(request)
+    tenant_id = _tenant_id(request)
+
+    try:
+        await manager.heartbeat(review_id, session=session)
+    except ReviewNotFound as exc:
+        raise ProblemDetailException(
+            slug=ErrorSlug.NOT_FOUND, status=404,
+            detail=str(exc), instance="/reviews",
+        ) from exc
+
+    # Load + scope-check the marker. Tenant + review match are belt-and-
+    # suspenders — seat heartbeat already enforces both, but explicit is
+    # better than implicit for an audit trail.
+    existing = (
+        await session.execute(
+            text(
+                """
+                SELECT id, analysis_id, review_id, tenant_id,
+                       voxel_x, voxel_y, voxel_z,
+                       couinaud_segment, segmentation_id,
+                       label, note, created_at, created_by
+                FROM reviewer_marker
+                WHERE id = :mid
+                """
+            ),
+            {"mid": str(marker_id)},
+        )
+    ).first()
+    if existing is None:
+        raise ProblemDetailException(
+            slug=ErrorSlug.NOT_FOUND, status=404,
+            detail="Marker not found.", instance="/reviews",
+        )
+    if (
+        UUID(str(existing[2])) != review_id
+        or UUID(str(existing[3])) != tenant_id
+    ):
+        raise ProblemDetailException(
+            slug=ErrorSlug.NOT_FOUND, status=404,
+            detail="Marker not found.", instance="/reviews",
+        )
+
+    # Only patch the fields the client actually sent. None means "leave
+    # unchanged" — we don't conflate it with "clear" because the client
+    # has no way to send `null` distinct from "omitted" in this endpoint.
+    new_label = body.label if body.label is not None else existing[9]
+    new_note = body.note if body.note is not None else existing[10]
+
+    await session.execute(
+        text(
+            """
+            UPDATE reviewer_marker
+               SET label = :label,
+                   note = :note
+             WHERE id = :mid
+            """
+        ),
+        {"label": new_label, "note": new_note, "mid": str(marker_id)},
+    )
+
+    await _emit_audit(
+        request, session, "reviewer_marker_updated",
+        tenant_id=tenant_id, user_id=user_id,
+        analysis_id=UUID(str(existing[1])),
+        extra={
+            "review_id": str(review_id),
+            "marker_id": str(marker_id),
+            "label_changed": body.label is not None,
+            "note_changed": body.note is not None,
+        },
+    )
+
+    return ReviewerMarkerResponse(
+        id=marker_id,
+        analysis_id=UUID(str(existing[1])),
+        review_id=review_id,
+        voxel=[int(existing[4]), int(existing[5]), int(existing[6])],
+        couinaud_segment=existing[7],
+        segmentation_id=existing[8],
+        label=new_label,
+        note=new_note,
+        created_at=existing[11],
+        created_by=UUID(str(existing[12])),
     )
 
 
