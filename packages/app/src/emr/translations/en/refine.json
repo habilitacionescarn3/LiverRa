@@ -71,6 +71,17 @@
     "lesionsHeading": "Lesions",
     "markersHeading": "Markers"
   },
+  "failedEdits": {
+    "title": "{{count}} edit could not be saved",
+    "title_plural": "{{count}} edits could not be saved",
+    "body": "These edits will never succeed without action. Discard to remove them, or Retry to attempt them again.",
+    "retry": "Retry",
+    "discardAll": "Discard all"
+  },
+  "readOnly": {
+    "noPermission": "Read-only view — you do not have permission to refine this case.",
+    "acquireCta": "Read-only view — click Edit to acquire the review seat and start refining."
+  },
   "marker": {
     "labelPlaceholder": "Quick label (e.g. \"recheck\")",
     "notePlaceholder": "Optional note for the team",

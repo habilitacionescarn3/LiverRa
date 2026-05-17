@@ -72,8 +72,8 @@ const NOTE_MAX = 2000;
 export function MarkerLabelPopover({
   markerId,
   analysisId,
-  reviewId: _reviewId,
-  apiBaseUrl: _apiBaseUrl,
+  reviewId,
+  apiBaseUrl,
   anchorX,
   anchorY,
   onClose,
@@ -82,6 +82,7 @@ export function MarkerLabelPopover({
   const queryClient = useQueryClient();
   const [label, setLabel] = useState<string>('');
   const [note, setNote] = useState<string>('');
+  const [saving, setSaving] = useState<boolean>(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -129,22 +130,58 @@ export function MarkerLabelPopover({
     };
   }, [onClose]);
 
-  const handleSave = (): void => {
-    // TODO(phase-G7): wire PATCH /reviews/{review_id}/marker/{marker_id}
-    // once the endpoint lands. For now, optimistically patch the local
-    // TanStack cache so the label shows up in MarkersList immediately.
+  const handleSave = async (): Promise<void> => {
+    // Phase H5 — real PATCH against the backend. We still mutate the
+    // local cache first so the rail updates instantly (perceived perf),
+    // then issue the PATCH and invalidate on success so the canonical
+    // server row wins. On failure the optimistic mutation is rolled
+    // back via invalidate, and the popover stays open so the reviewer
+    // can retry. A blank payload is a no-op — skip the network round
+    // trip entirely.
+    const trimmedLabel = label.trim() || null;
+    const trimmedNote = note.trim() || null;
+    if (trimmedLabel === null && trimmedNote === null) {
+      onClose();
+      return;
+    }
+
     queryClient.setQueryData<ReviewerMarker[] | undefined>(
       markersQueryKey(analysisId),
       (prev) => {
         if (!prev) return prev;
         return prev.map((m) =>
           m.id === markerId
-            ? { ...m, label: label.trim() || null, note: note.trim() || null }
+            ? { ...m, label: trimmedLabel, note: trimmedNote }
             : m,
         );
       },
     );
-    onClose();
+
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `${apiBaseUrl}/api/v1/reviews/${reviewId}/marker/${markerId}`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: trimmedLabel, note: trimmedNote }),
+        },
+      );
+      if (!res.ok) {
+        // Roll back optimistic mutation by re-fetching the canonical list.
+        await queryClient.invalidateQueries({
+          queryKey: markersQueryKey(analysisId),
+        });
+        return;
+      }
+      await queryClient.invalidateQueries({
+        queryKey: markersQueryKey(analysisId),
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSkip = (): void => {
@@ -208,7 +245,8 @@ export function MarkerLabelPopover({
             <EMRButton
               size="sm"
               variant="primary"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
+              loading={saving}
               data-testid="marker-popover-save"
             >
               {t('refine:marker.save')}

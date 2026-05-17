@@ -35,6 +35,14 @@ const DB_VERSION = 1;
 const STORE_EDITS = 'offline_reviewer_edits';
 const STORE_META = 'offline_metadata';
 
+/**
+ * The sync worker stops retrying an edit once `attempt_count` reaches
+ * this many tries. Shared here so the UI can detect "permanently failed"
+ * edits (attempt_count >= MAX_ATTEMPTS && last_error truthy) without
+ * importing from syncWorker.ts and causing a circular dep.
+ */
+export const MAX_ATTEMPTS = 8;
+
 /** Edit kinds recognised by the sync worker. */
 export type OfflineEditType =
   | 'mask_refine'
@@ -202,6 +210,43 @@ export async function count(): Promise<number> {
   return db.count(STORE_EDITS);
 }
 
+/**
+ * Mark an edit as permanently failed — sets `attempt_count = MAX_ATTEMPTS`
+ * so the sync worker's retry loop skips it forever, and stores `reason`
+ * in `last_error`. Used when the server returns a status that proves
+ * retrying will never succeed (e.g. 404 for a deleted analysis). The
+ * row stays in IndexedDB so the user can see it in the dead-letter UI
+ * and explicitly discard or retry it.
+ */
+export async function markFailed(id: string, reason: string): Promise<void> {
+  const db = await getDb();
+  const row = await db.get(STORE_EDITS, id);
+  if (!row) return;
+  row.attempt_count = MAX_ATTEMPTS;
+  row.last_error = reason;
+  await db.put(STORE_EDITS, row);
+}
+
+/**
+ * Reset a permanently-failed edit so the sync worker picks it up again.
+ * Clears `attempt_count` and `last_error`. The next flush will re-attempt
+ * the POST as if the edit had just been enqueued.
+ */
+export async function retryFailed(id: string): Promise<void> {
+  const db = await getDb();
+  const row = await db.get(STORE_EDITS, id);
+  if (!row) return;
+  row.attempt_count = 0;
+  row.last_error = null;
+  await db.put(STORE_EDITS, row);
+}
+
+/** List edits the sync worker has given up on (attempt_count at cap). */
+export async function listFailed(): Promise<OfflineEdit[]> {
+  const all = await listPending();
+  return all.filter((e) => e.attempt_count >= MAX_ATTEMPTS && e.last_error);
+}
+
 // ---------------------------------------------------------------------------
 // Metadata helpers
 // ---------------------------------------------------------------------------
@@ -235,6 +280,9 @@ export const offlineQueue = {
   listPendingForAnalysis,
   incrementAttempt,
   count,
+  markFailed,
+  retryFailed,
+  listFailed,
   getMetadata,
   setMetadata,
 };

@@ -54,6 +54,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import refinementStyles from './RefinementView.module.css';
 import { RecordLockBanner } from '../../components/access-control';
+import { FailedEditsAlert } from '../../components/cases/FailedEditsAlert';
 import { LesionsList } from '../../components/cases/LesionsList';
 import { MarkersList } from '../../components/cases/MarkersList';
 import { SegmentsList } from '../../components/cases/SegmentsList';
@@ -76,6 +77,7 @@ import { useTranslation } from '../../contexts/TranslationContext';
 import { useRefinementUndo } from '../../contexts/RefinementUndoContext';
 import { useAnalysis } from '../../hooks/useAnalysis';
 import { useAnalysisResults } from '../../hooks/useAnalysisResults';
+import { useMarkers } from '../../hooks/useMarkers';
 import {
   useRefinementDispatch,
   type DispatchMaskRefineInput,
@@ -187,6 +189,12 @@ function RefinementViewInner(): ReactElement {
     baseUrl,
     analysis?.status,
   );
+
+  // Phase H9 — markers feed the viewer's MarkerOverlay. Shares the
+  // TanStack cache entry `['analysis', id, 'markers']` with the rail's
+  // MarkersList, so the two stay in lock-step without a second fetch.
+  const { data: markersData } = useMarkers(analysisId, baseUrl);
+  const markers = markersData ?? [];
 
   // Layer-gating flags derived from the cascade output. `parenchymaMaskUri`
   // mirrors the Case-page pattern (LiverViewer3D accepts a direct URI for
@@ -788,6 +796,30 @@ function RefinementViewInner(): ReactElement {
         </Box>
       )}
 
+      {/* Phase H4 — surfaces edits the sync worker has given up on
+          (typically 404s on deleted analyses). Renders nothing when
+          there are none, so no chrome in the happy path. */}
+      <FailedEditsAlert analysisId={analysisId} />
+
+      {/* Phase H6 — read-only banner. The "another reviewer holds the
+          seat" case is handled by the early-return alert above; this
+          covers the residual states (no permission, or seat-not-yet-
+          acquired without a known holder) so disabled tools never look
+          unexplained. */}
+      {isReadOnly && (
+        <Box px="md" pt="xs">
+          <EMRAlert
+            variant="info"
+            data-testid="refinement-view-readonly-banner"
+          >
+            {!hasPermission
+              ? t('refine:readOnly.noPermission')
+              : t('refine:readOnly.acquireCta')}
+          </EMRAlert>
+        </Box>
+      )}
+
+
       {dispatchError && (
         <Box px="md" pt="xs">
           <EMRAlert
@@ -997,6 +1029,7 @@ function RefinementViewInner(): ReactElement {
             lesions={results?.lesions}
             lesionCount={lesionCount}
             flrDefault={results?.flr_default}
+            markers={markers}
             activeTool={isReadOnly ? null : activeTool}
           />
           {devMockMask && (

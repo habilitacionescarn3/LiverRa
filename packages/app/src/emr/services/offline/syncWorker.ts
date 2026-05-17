@@ -18,12 +18,11 @@
  * Spec refs: FR-018c, plan §Offline reviewer-edit durability.
  */
 
-import { offlineQueue, type OfflineEdit } from './offlineQueue';
+import { offlineQueue, MAX_ATTEMPTS, type OfflineEdit } from './offlineQueue';
 import { resolve as resolveConflict } from './conflictResolver';
 import { SYNC_WORKER_EVENT } from '../../contexts/SyncContext';
 
 const POLL_INTERVAL_MS = 15_000;
-const MAX_ATTEMPTS = 8;
 
 function apiBaseUrl(): string {
   const meta =
@@ -85,6 +84,21 @@ async function postOne(edit: OfflineEdit): Promise<'ok' | 'conflict' | 'retry'> 
   if (res.ok) {
     await offlineQueue.dequeue(edit.id);
     return 'ok';
+  }
+
+  // 404 means the analysis, review, or segmentation the edit targets has
+  // been deleted or doesn't exist in this tenant. Retrying will never
+  // succeed, so we mark the edit permanently failed and let the
+  // FailedEditsAlert UI prompt the user to discard or retry. Without
+  // this short-circuit the edit would 404-loop until MAX_ATTEMPTS, then
+  // sit in IndexedDB invisible to the user — exactly the case that
+  // triggered Phase H.
+  if (res.status === 404) {
+    await offlineQueue.markFailed(
+      edit.id,
+      '404 — referenced resource no longer exists',
+    );
+    return 'retry';
   }
 
   if (res.status === 409) {
