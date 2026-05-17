@@ -44,6 +44,8 @@ function endpointFor(edit: OfflineEdit): string {
       return `/reviews/${review}/classification-override`;
     case 'flr':
       return `/reviews/${review}/flr`;
+    case 'marker':
+      return `/reviews/${review}/marker`;
     default:
       return `/reviews/${review}`;
   }

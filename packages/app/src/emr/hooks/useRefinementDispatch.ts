@@ -51,8 +51,42 @@ export interface DispatchClassificationInput {
   clientVersion?: number;
 }
 
+/**
+ * Seed point for a new lesion via MedSAM-2 / equivalent prompt model.
+ * Posts to `/reviews/{review_id}/lesion-prompt` — server runs the prompt
+ * model on the supplied voxel and returns a new lesion row.
+ */
+export interface DispatchLesionPromptInput {
+  analysisId: string;
+  voxel: [number, number, number];
+  /** Optional anatomy hint when the reviewer is prompting inside a known segment. */
+  couinaudSegment?: string;
+  clientVersion?: number;
+}
+
+/**
+ * Reviewer-placed marker (sticky note in voxel space). Posts to
+ * `/reviews/{review_id}/marker`. Markers are additive — DELETE goes through
+ * a separate dispatcher once the marker-edit UI lands.
+ */
+export interface DispatchMarkerInput {
+  analysisId: string;
+  voxel: [number, number, number];
+  /** Couinaud segment roman (I-VIII) at the marker voxel, if any. */
+  couinaudSegment?: string;
+  /** Canonical segmentation key (e.g. 'parenchyma', 'couinaud-vii'). */
+  segmentationId?: string;
+  /** One-word reviewer label (max 80 chars). */
+  label?: string;
+  /** Free-text note (max 2000 chars). */
+  note?: string;
+  clientVersion?: number;
+}
+
 export interface UseRefinementDispatchResult {
   dispatchMaskRefine(input: DispatchMaskRefineInput): Promise<string>;
+  dispatchLesionPrompt(input: DispatchLesionPromptInput): Promise<string>;
+  dispatchMarker(input: DispatchMarkerInput): Promise<string>;
   dispatchClassificationOverride(
     input: DispatchClassificationInput,
   ): Promise<string>;
@@ -156,7 +190,63 @@ export function useRefinementDispatch(): UseRefinementDispatchResult {
     [seat.reviewId, undo, nudge],
   );
 
-  return { dispatchMaskRefine, dispatchClassificationOverride };
+  const dispatchLesionPrompt = useCallback(
+    async (input: DispatchLesionPromptInput): Promise<string> => {
+      if (!seat.reviewId) {
+        throw new Error('No active reviewer seat — acquire() first.');
+      }
+      const editType: OfflineEditType = 'lesion_prompt';
+      const edit = await offlineQueue.enqueue({
+        analysis_id: input.analysisId,
+        edit_type: editType,
+        payload: {
+          review_id: seat.reviewId,
+          analysis_id: input.analysisId,
+          voxel: input.voxel,
+          couinaud_segment: input.couinaudSegment ?? null,
+          client_version: input.clientVersion ?? 1,
+        },
+        endpoint: `/reviews/${seat.reviewId}/lesion-prompt`,
+      });
+      nudge();
+      return edit.id;
+    },
+    [seat.reviewId, nudge],
+  );
+
+  const dispatchMarker = useCallback(
+    async (input: DispatchMarkerInput): Promise<string> => {
+      if (!seat.reviewId) {
+        throw new Error('No active reviewer seat — acquire() first.');
+      }
+      const editType: OfflineEditType = 'marker';
+      const edit = await offlineQueue.enqueue({
+        analysis_id: input.analysisId,
+        edit_type: editType,
+        payload: {
+          review_id: seat.reviewId,
+          analysis_id: input.analysisId,
+          voxel: input.voxel,
+          couinaud_segment: input.couinaudSegment ?? null,
+          segmentation_id: input.segmentationId ?? null,
+          label: input.label ?? null,
+          note: input.note ?? null,
+          client_version: input.clientVersion ?? 1,
+        },
+        endpoint: `/reviews/${seat.reviewId}/marker`,
+      });
+      nudge();
+      return edit.id;
+    },
+    [seat.reviewId, nudge],
+  );
+
+  return {
+    dispatchMaskRefine,
+    dispatchLesionPrompt,
+    dispatchMarker,
+    dispatchClassificationOverride,
+  };
 }
 
 export default useRefinementDispatch;

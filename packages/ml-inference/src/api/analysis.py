@@ -870,6 +870,61 @@ async def get_analysis_results(
     )
 
 
+@router.get(
+    "/{analysis_id}/markers",
+    summary="List reviewer markers for the analysis (Phase G)",
+)
+@require_permission("analysis.view")
+async def list_reviewer_markers(
+    analysis_id: UUID,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Reviewer-placed voxel-anchored sticky notes.
+
+    Phase G of the Refine production-readiness work. Tenant scoping is
+    enforced via `_load_analysis_row`, mirroring every other analysis-
+    keyed read endpoint in this router. Newest-first ordering.
+    """
+    tenant_id: UUID = request.state.tenant_id
+    arow = await _load_analysis_row(session, analysis_id, tenant_id)
+    if arow is None:
+        raise _not_found(str(uuid4()))
+
+    rows = (
+        await session.execute(
+            text(
+                """
+                SELECT id, analysis_id, review_id,
+                       voxel_x, voxel_y, voxel_z,
+                       couinaud_segment, segmentation_id,
+                       label, note, created_at, created_by
+                FROM reviewer_marker
+                WHERE analysis_id = :aid
+                ORDER BY created_at DESC
+                """
+            ),
+            {"aid": str(analysis_id)},
+        )
+    ).mappings().all()
+
+    return [
+        {
+            "id": str(r["id"]),
+            "analysis_id": str(r["analysis_id"]),
+            "review_id": str(r["review_id"]),
+            "voxel": [r["voxel_x"], r["voxel_y"], r["voxel_z"]],
+            "couinaud_segment": r["couinaud_segment"],
+            "segmentation_id": r["segmentation_id"],
+            "label": r["label"],
+            "note": r["note"],
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "created_by": str(r["created_by"]),
+        }
+        for r in rows
+    ]
+
+
 @router.post(
     "/{analysis_id}/cancel",
     status_code=status.HTTP_202_ACCEPTED,

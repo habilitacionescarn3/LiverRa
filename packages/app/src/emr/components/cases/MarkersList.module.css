@@ -1,0 +1,62 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Styles for MarkersList — mirrors LesionsList.module.css so the two
+   sections in the Refine rail look like siblings. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.markerRow {
+  padding: 8px 10px;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  transition: border-color var(--emr-transition-base), background var(--emr-transition-base);
+  /* Tap target ≥ 44px high on mobile (8px+8px padding + content). */
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.markerRow:hover {
+  border-color: var(--emr-secondary-alpha-30);
+  background: var(--emr-secondary-alpha-04);
+}
+
+.markerRow:focus-visible {
+  outline: 2px solid var(--emr-secondary);
+  outline-offset: 2px;
+}
+
+.markerRowTitle {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+.markerRowMeta {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+.markersCount {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  margin: 0 0 8px;
+}
+
+.helperText {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+.helperError {
+  color: var(--emr-error);
+}

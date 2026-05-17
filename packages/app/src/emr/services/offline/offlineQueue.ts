@@ -40,7 +40,8 @@ export type OfflineEditType =
   | 'mask_refine'
   | 'lesion_prompt'
   | 'classification_override'
-  | 'flr';
+  | 'flr'
+  | 'marker';
 
 /** Canonical row shape written to IndexedDB. */
 export interface OfflineEdit {

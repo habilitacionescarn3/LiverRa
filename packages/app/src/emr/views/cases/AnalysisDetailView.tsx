@@ -16,7 +16,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   IconActivity,
   IconArrowLeft,
@@ -52,12 +52,14 @@ import { useTranslation } from '../../contexts/TranslationContext';
 import { ColdStartIndicator } from '../../components/liver/ColdStartIndicator';
 import { RUODisclaimer } from '../../components/ruo/RUODisclaimer';
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { useAnalysisResults } from '../../hooks/useAnalysisResults';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useReviewSeat } from '../../hooks/useReviewSeat';
 import { useFinalize } from '../../hooks/useFinalize';
 import { useAuth } from '../../services/auth';
 import { buildPath, LIVERRA_ROUTES } from '../../constants/routes';
 import { CascadeStageTimeline } from '../../components/cases/CascadeStageTimeline';
+import { LesionsList } from '../../components/cases/LesionsList';
 import { SegmentsList } from '../../components/cases/SegmentsList';
 import styles from './AnalysisDetailView.module.css';
 
@@ -173,168 +175,8 @@ function relativeFromIso(iso: string | null | undefined): string {
   return `${d}d ago`;
 }
 
-interface ResultsBundle {
-  flr_default?: {
-    remnant_pct_functional?: string | number | null;
-    plane_normal?: { x: number; y: number; z: number } | null;
-    plane_offset_mm?: string | number | null;
-    plane_pose?: {
-      axis?: string;
-      z_index?: number;
-      bbox_z?: [number, number];
-      heuristic?: string;
-    } | null;
-  } | null;
-  segmentations?: Array<{
-    id: string;
-    anatomy_category?: string | null;
-    anatomy_detail?: string | null;
-    volume_ml?: string | number | null;
-    mask_url?: string | null;
-  }>;
-  lesions?: Array<{
-    id: string;
-    bbox3d?: {
-      x?: number;
-      y?: number;
-      z?: number;
-      dx?: number;
-      dy?: number;
-      dz?: number;
-      x_min?: number;
-      y_min?: number;
-      z_min?: number;
-      x_max?: number;
-      y_max?: number;
-      z_max?: number;
-    } | null;
-    couinaud_location?: number | null;
-    longest_diameter_mm?: string | number | null;
-    classification?: string | null;
-  }>;
-}
-
-function useAnalysisResults(
-  analysisId: string | null | undefined,
-  apiBaseUrl: string,
-  status?: string,
-) {
-  return useQuery<ResultsBundle, Error>({
-    queryKey: ['analysis', analysisId, 'results'],
-    queryFn: async () => {
-      const r = await fetch(`${apiBaseUrl}/analyses/${encodeURIComponent(analysisId!)}/results`, {
-        credentials: 'include',
-      });
-      if (!r.ok) throw new Error(`GET /analyses/${analysisId}/results -> ${r.status}`);
-      return r.json();
-    },
-    enabled: typeof analysisId === 'string' && analysisId.length > 0,
-    staleTime: 30_000,
-    refetchInterval: status === 'running' || status === 'queued' ? 3_000 : false,
-  });
-}
-
 /** Drawer tab keys. */
 type DrawerTab = 'segments' | 'lesions' | 'measurements' | 'notes';
-
-/** Lesions tab content. Logic unchanged from the previous version. */
-function LesionsTabContent({
-  analysisId,
-  apiBaseUrl,
-}: {
-  analysisId: string;
-  apiBaseUrl: string;
-}): React.ReactElement {
-  const { data, isLoading, error } = useQuery<
-    {
-      lesions?: Array<{
-        id: string;
-        couinaud_location?: number | null;
-        longest_diameter_mm?: string | number | null;
-        classification?: string | null;
-      }>;
-    },
-    Error
-  >({
-    queryKey: ['analysis', analysisId, 'results'],
-    queryFn: async () => {
-      const r = await fetch(`${apiBaseUrl}/analyses/${encodeURIComponent(analysisId)}/results`, {
-        credentials: 'include',
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-    staleTime: 30_000,
-  });
-  const lesions = data?.lesions ?? [];
-
-  if (isLoading) return <p className={styles.helperText}>Loading lesions…</p>;
-  if (error)
-    return (
-      <p className={`${styles.helperText} ${styles.helperError}`}>
-        {error.message}
-      </p>
-    );
-  if (lesions.length === 0)
-    return (
-      <p className={styles.helperText} data-testid="lesions-empty">
-        No lesions detected.
-      </p>
-    );
-
-  return (
-    <div className={styles.stack} data-testid="lesions-list">
-      <p className={styles.lesionsCount} data-testid="lesions-count">
-        {lesions.length} lesion{lesions.length === 1 ? '' : 's'}
-      </p>
-      {lesions.map((les) => {
-        let label = '—';
-        let confidence: string | undefined;
-        try {
-          const parsed = JSON.parse((les.classification as string) ?? '{}') as {
-            label?: string;
-            confidence?: number;
-          };
-          if (parsed.label) label = parsed.label;
-          if (typeof parsed.confidence === 'number') {
-            confidence = `${Math.round(parsed.confidence * 100)}%`;
-          }
-        } catch (e) {
-          // H-CATCH variant: corrupt classification JSON is rare but
-          // important to surface — silent catch previously masked a
-          // real classifier output drift. We mark the row "parse error"
-          // and log via console.warn so dev tools + Sentry beforeSend
-          // can pick it up.
-          // eslint-disable-next-line no-console
-          console.warn(
-            '[AnalysisDetail] classification JSON parse failed',
-            { lesionId: les.id, error: e },
-          );
-          label = 'parse-error';
-        }
-        const diameter =
-          les.longest_diameter_mm !== null && les.longest_diameter_mm !== undefined
-            ? `${les.longest_diameter_mm} mm`
-            : '—';
-        return (
-          <div
-            key={les.id}
-            data-testid={`lesion-row-${les.id}`}
-            className={styles.lesionRow}
-          >
-            <span className={styles.lesionRowTitle}>
-              {label.toUpperCase()}
-              {confidence ? ` · ${confidence}` : ''}
-            </span>
-            <span className={styles.lesionRowMeta}>
-              Segment {les.couinaud_location ?? '—'} · {diameter}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 // ── Local helpers ────────────────────────────────────────────────────────
 
@@ -689,7 +531,7 @@ function AnalysisDetailViewInner({
       case 'segments':
         return <SegmentsList analysisId={analysis.id} apiBaseUrl={baseUrl} />;
       case 'lesions':
-        return <LesionsTabContent analysisId={analysis.id} apiBaseUrl={baseUrl} />;
+        return <LesionsList analysisId={analysis.id} apiBaseUrl={baseUrl} />;
       case 'measurements':
         return (
           <EMREmptyState

@@ -179,6 +179,35 @@ class FLRRequest(BaseModel):
     client_version: int = 1
 
 
+class ReviewerMarkerRequest(BaseModel):
+    """Marker drop — voxel-anchored sticky note placed by the reviewer.
+
+    Phase G of the Refine production-readiness work. See plan at
+    `/Users/toko/.claude/plans/on-this-page-i-soft-nebula.md`.
+    """
+
+    analysis_id: UUID
+    voxel: list[int] = Field(..., min_length=3, max_length=3)
+    couinaud_segment: Optional[str] = Field(default=None, max_length=8)
+    segmentation_id: Optional[str] = Field(default=None, max_length=64)
+    label: Optional[str] = Field(default=None, max_length=80)
+    note: Optional[str] = Field(default=None, max_length=2000)
+    client_version: int = 1
+
+
+class ReviewerMarkerResponse(BaseModel):
+    id: UUID
+    analysis_id: UUID
+    review_id: UUID
+    voxel: list[int]
+    couinaud_segment: Optional[str]
+    segmentation_id: Optional[str]
+    label: Optional[str]
+    note: Optional[str]
+    created_at: datetime
+    created_by: UUID
+
+
 class TakeoverRequestBody(BaseModel):
     analysis_id: UUID
 
@@ -818,6 +847,108 @@ async def flr_update(
         },
     )
     return {"status": "ok", "flr_version": int(cas[0])}
+
+
+# ---------------------------------------------------------------------------
+# Marker (Phase G — voxel-anchored sticky note)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{review_id}/marker", response_model=ReviewerMarkerResponse, status_code=201)
+@require_permission("review.refine_mask")
+async def create_marker(
+    review_id: UUID,
+    body: ReviewerMarkerRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    manager: SeatManager = Depends(get_seat_manager),
+) -> ReviewerMarkerResponse:
+    """Drop a reviewer marker at a voxel coordinate.
+
+    Markers are additive — no row mutation, no optimistic-lock check on
+    the insert path. The seat must still be live (we heartbeat it),
+    which is the gate the four refine tools share.
+    """
+    user_id = _user_id(request)
+    tenant_id = _tenant_id(request)
+
+    try:
+        await manager.heartbeat(review_id, session=session)
+    except ReviewNotFound as exc:
+        raise ProblemDetailException(
+            slug=ErrorSlug.NOT_FOUND, status=404,
+            detail=str(exc), instance="/reviews",
+        ) from exc
+
+    row = (
+        await session.execute(
+            text(
+                """
+                INSERT INTO reviewer_marker (
+                    tenant_id, analysis_id, review_id,
+                    voxel_x, voxel_y, voxel_z,
+                    couinaud_segment, segmentation_id, label, note,
+                    created_by, client_version
+                ) VALUES (
+                    :tid, :aid, :rid,
+                    :vx, :vy, :vz,
+                    :couinaud, :seg_id, :label, :note,
+                    :uid, :cv
+                )
+                RETURNING id, created_at
+                """
+            ),
+            {
+                "tid": str(tenant_id),
+                "aid": str(body.analysis_id),
+                "rid": str(review_id),
+                "vx": int(body.voxel[0]),
+                "vy": int(body.voxel[1]),
+                "vz": int(body.voxel[2]),
+                "couinaud": body.couinaud_segment,
+                "seg_id": body.segmentation_id,
+                "label": body.label,
+                "note": body.note,
+                "uid": str(user_id),
+                "cv": int(body.client_version),
+            },
+        )
+    ).first()
+    if row is None:
+        # Should never happen — INSERT … RETURNING always returns a row.
+        raise ProblemDetailException(
+            slug=ErrorSlug.VALIDATION, status=500,
+            detail="Marker insert returned no row.", instance="/reviews",
+        )
+    marker_id = UUID(str(row[0]))
+    created_at = row[1]
+
+    await _emit_audit(
+        request, session, "reviewer_marker_placed",
+        tenant_id=tenant_id, user_id=user_id, analysis_id=body.analysis_id,
+        extra={
+            "review_id": str(review_id),
+            "marker_id": str(marker_id),
+            "voxel": list(body.voxel),
+            "couinaud_segment": body.couinaud_segment,
+            "segmentation_id": body.segmentation_id,
+            "has_label": bool(body.label),
+            "has_note": bool(body.note),
+        },
+    )
+
+    return ReviewerMarkerResponse(
+        id=marker_id,
+        analysis_id=body.analysis_id,
+        review_id=review_id,
+        voxel=list(body.voxel),
+        couinaud_segment=body.couinaud_segment,
+        segmentation_id=body.segmentation_id,
+        label=body.label,
+        note=body.note,
+        created_at=created_at,
+        created_by=user_id,
+    )
 
 
 # ---------------------------------------------------------------------------

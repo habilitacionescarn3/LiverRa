@@ -66,6 +66,22 @@
     "lesions": "Lesions",
     "keyHint": "Press {{key}} to cycle layer combos"
   },
+  "rail": {
+    "segmentsHeading": "Segments",
+    "lesionsHeading": "Lesions",
+    "markersHeading": "Markers"
+  },
+  "marker": {
+    "labelPlaceholder": "Quick label (e.g. \"recheck\")",
+    "notePlaceholder": "Optional note for the team",
+    "save": "Save",
+    "skip": "Skip",
+    "unlabeled": "Unlabeled marker",
+    "emptyTitle": "No markers yet",
+    "emptyDescription": "Pick the Marker tool and click on the viewer to drop a sticky note.",
+    "count_one": "{{count}} marker",
+    "count_other": "{{count}} markers"
+  },
   "view": {
     "title": "Refine",
     "subtitle": "Case {{caseRef}}",

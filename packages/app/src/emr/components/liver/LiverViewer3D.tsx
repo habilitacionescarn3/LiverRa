@@ -92,6 +92,7 @@ import {
   type LayerVisibility,
 } from './LayerTogglePanel';
 import { loadNiftiAsLabelmap, maskUrl, type NiftiMask } from '../../services/pacs/niftiLoader';
+import { resolveCanvasClick, resolveSegmentationId } from '../../services/pacs/viewerClickBridge';
 import { LesionOverlay, type LesionDatum, type ViewOrientation } from './LesionOverlay';
 import { FlrPlaneOverlay, type FlrPlaneInput } from './FlrPlaneOverlay';
 
@@ -202,6 +203,13 @@ export interface LiverViewer3DProps {
   lesions?: LesionDatum[];
   /** FLR default (plane_normal/offset/pose) for the cutting-plane overlay (Pass C3). */
   flrDefault?: FlrPlaneInput | null;
+  /**
+   * Currently-selected refine tool. When set, the viewer attaches DOM click
+   * listeners on each viewport and emits `liverra:viewer-click` CustomEvents
+   * with resolved voxel coords. When null/undefined, no listeners attach
+   * (read-only viewing on the Case page stays click-inert).
+   */
+  activeTool?: 'add' | 'subtract' | 'prompt' | 'marker' | null;
   'data-testid'?: string;
 }
 
@@ -366,6 +374,7 @@ export function LiverViewer3D({
   lesionCount = 0,
   lesions = [],
   flrDefault = null,
+  activeTool = null,
   'data-testid': testId = 'liver-viewer-3d',
 }: LiverViewer3DProps): React.ReactElement {
   const { t } = useTranslation();
@@ -448,6 +457,11 @@ export function LiverViewer3D({
   // re-renders without triggering them; a separate "tick" state forces a
   // re-render of the visibility-apply effect when needed.
   const activeSegsRef = useRef<Record<string, string>>({});
+  // Cache of every NIfTI labelmap we've registered, keyed by AnatomyKey.
+  // Used by the viewer-click bridge (Phase F) to sample voxel values and
+  // resolve which Couinaud segment / parenchyma the reviewer clicked on.
+  // Cleared when the analysis changes.
+  const loadedMasksRef = useRef<Map<string, NiftiMask>>(new Map());
   const [registrationTick, setRegistrationTick] = useState(0);
   const [mprError, setMprError] = useState<string | null>(null);
 
@@ -641,6 +655,7 @@ export function LiverViewer3D({
       activeSegsRef.current = {};
       activeLesionSegsRef.current = {};
       activeFlrSegsRef.current = {};
+      loadedMasksRef.current.clear();
       // Reset imageCount so the new mode's setImageCount(N) registers as a
       // dependency change — otherwise the lazy-load effects (whose deps
       // include imageCount) skip re-firing when N is identical across modes,
@@ -968,6 +983,78 @@ export function LiverViewer3D({
     };
   }, [ready]);
 
+  // --- Phase F5/F6: viewer-click → dispatch ---------------------------------
+  // When a refine tool is active, every left-click on a managed viewport is
+  // translated to a voxel coordinate + segmentation ID and emitted as a
+  // `liverra:viewer-click` CustomEvent. RefinementView's window listener
+  // (`useEffect` at RefinementView.tsx:onViewerClick) is the consumer.
+  //
+  // Why DOM `click` and not a custom Cornerstone tool: we want to capture
+  // the click without claiming the active tool slot (which is owned by
+  // WindowLevel/Pan/Zoom). Right + middle buttons stay with Cornerstone.
+  useEffect(() => {
+    if (!activeTool || !ready) return undefined;
+
+    const elements = [
+      elementRef.current,
+      mprAxialRef.current,
+      mprSagittalRef.current,
+      mprCoronalRef.current,
+    ].filter((el): el is HTMLDivElement => el !== null);
+    if (elements.length === 0) return undefined;
+
+    const handler = (evt: MouseEvent): void => {
+      // Left-click only — right/middle stay with Cornerstone's Pan/WL tools.
+      if (evt.button !== 0) return;
+      if (!analysisId) return;
+
+      const engine = engineRef.current;
+      if (!engine) return;
+
+      // Find which viewport this click belongs to by matching the DOM element.
+      const target = evt.currentTarget as HTMLElement;
+      const allVps = engine.getViewports();
+      const vp = allVps.find((v) => v.element === target);
+      if (!vp) return;
+
+      const rect = target.getBoundingClientRect();
+      const click = resolveCanvasClick(vp, [
+        evt.clientX - rect.left,
+        evt.clientY - rect.top,
+      ]);
+      if (!click) return;
+
+      const { segmentationId, couinaudSegment } = resolveSegmentationId(
+        click.voxel,
+        loadedMasksRef.current,
+      );
+
+      window.dispatchEvent(
+        new CustomEvent('liverra:viewer-click', {
+          detail: {
+            voxel: click.voxel,
+            segmentationId,
+            couinaudSegment,
+            // Phase G5: include the raw screen coordinates so the
+            // MarkerLabelPopover can anchor its card next to the cursor.
+            // Wrapper-relative conversion happens in the consumer
+            // (RefinementView) — the viewer wrapper's bounding rect is
+            // what the popover ultimately positions against.
+            screenX: evt.clientX,
+            screenY: evt.clientY,
+            // NOTE: clickType is intentionally omitted — RefinementView's
+            // activeTool-based routing is the single source of truth.
+          },
+        }),
+      );
+    };
+
+    elements.forEach((el) => el.addEventListener('click', handler));
+    return () => {
+      elements.forEach((el) => el.removeEventListener('click', handler));
+    };
+  }, [activeTool, ready, analysisId, viewMode, registrationTick]);
+
   // --- Pass D6: build a per-anatomy "desired visibility" map ----------------
   // Plain-English: every toggle in the panel maps to one anatomy key. This
   // little helper turns the LayerVisibility state into a flat map so the
@@ -1028,6 +1115,9 @@ export function LiverViewer3D({
         try {
           const nii = await loadNiftiAsLabelmap(maskUrl(analysisId, key));
           if (cancelled) return;
+          // Phase F4: cache the parsed NIfTI so the viewer-click bridge can
+          // sample it for segment-ID resolution without re-fetching.
+          loadedMasksRef.current.set(key, nii);
           await createLabelmapFromNifti(volumeId, nii, segId);
           if (cancelled) return;
           await attachLabelmapToViewports(segId, [...MPR_VIEWPORT_IDS], COUINAUD_COLORS_RGBA[key]);
@@ -1191,6 +1281,7 @@ export function LiverViewer3D({
       activeSegsRef.current = {};
       activeLesionSegsRef.current = {};
       activeFlrSegsRef.current = {};
+      loadedMasksRef.current.clear();
       for (const segId of ids) {
         try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
       }
@@ -1372,7 +1463,7 @@ export function LiverViewer3D({
             totalSlices={imageCount}
             volumeDims={[512, 512, Math.max(imageCount, 1)]}
             orientation="axial"
-            visible={false}
+            visible={layerVisibility.lesions}
           />
 
           {/* Pass C3 — FLR cutting plane overlay (axial). */}
@@ -1442,7 +1533,7 @@ export function LiverViewer3D({
               totalSlices={mprDims.axial || imageCount}
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="axial"
-              visible={false}
+              visible={layerVisibility.lesions}
             />
             <FlrPlaneOverlay
               flr={flrDefault}
@@ -1493,7 +1584,7 @@ export function LiverViewer3D({
               totalSlices={mprDims.sagittal || imageCount}
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="sagittal"
-              visible={false}
+              visible={layerVisibility.lesions}
             />
             <FlrPlaneOverlay
               flr={flrDefault}
@@ -1544,7 +1635,7 @@ export function LiverViewer3D({
               totalSlices={mprDims.coronal || imageCount}
               volumeDims={[512, 512, Math.max(imageCount, 1)]}
               orientation="coronal"
-              visible={false}
+              visible={layerVisibility.lesions}
             />
             <FlrPlaneOverlay
               flr={flrDefault}

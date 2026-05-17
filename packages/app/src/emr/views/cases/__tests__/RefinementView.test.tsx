@@ -70,6 +70,8 @@ const mockState: MockState = {
 const acquireSpy = vi.fn().mockResolvedValue(undefined);
 const releaseSpy = vi.fn().mockResolvedValue(undefined);
 const dispatchMaskSpy = vi.fn();
+const dispatchLesionPromptSpy = vi.fn().mockResolvedValue('edit-lesion-prompt-1');
+const dispatchMarkerSpy = vi.fn().mockResolvedValue('edit-marker-1');
 const dispatchOverrideSpy = vi.fn().mockResolvedValue('edit-override-1');
 const undoSpy = vi.fn().mockResolvedValue(null);
 
@@ -106,6 +108,8 @@ vi.mock('../../../hooks/useReviewSeat', () => ({
 vi.mock('../../../hooks/useRefinementDispatch', () => ({
   useRefinementDispatch: () => ({
     dispatchMaskRefine: dispatchMaskSpy,
+    dispatchLesionPrompt: dispatchLesionPromptSpy,
+    dispatchMarker: dispatchMarkerSpy,
     dispatchClassificationOverride: dispatchOverrideSpy,
   }),
 }));

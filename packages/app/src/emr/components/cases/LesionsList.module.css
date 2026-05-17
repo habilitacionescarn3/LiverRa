@@ -1,0 +1,54 @@
+/* SPDX-FileCopyrightText: Copyright LiverRa */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* Styles for the LesionsList component — copied from AnalysisDetailView.module.css
+   so the component is self-contained and can mount in any view (Case page,
+   Refine page, mobile bottom-sheet). */
+
+.lesionRow {
+  padding: 8px 10px;
+  border-radius: var(--emr-border-radius);
+  background: var(--emr-bg-card);
+  border: 1px solid var(--emr-border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color var(--emr-transition-base), background var(--emr-transition-base);
+}
+
+.lesionRow:hover {
+  border-color: var(--emr-secondary-alpha-30);
+  background: var(--emr-secondary-alpha-04);
+}
+
+.lesionRowTitle {
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+}
+
+.lesionRowMeta {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+}
+
+.helperText {
+  font-size: var(--emr-font-sm);
+  color: var(--emr-text-secondary);
+}
+
+.helperError {
+  color: var(--emr-error);
+}
+
+.lesionsCount {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  margin: 0 0 8px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

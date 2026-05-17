@@ -54,6 +54,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import refinementStyles from './RefinementView.module.css';
 import { RecordLockBanner } from '../../components/access-control';
+import { LesionsList } from '../../components/cases/LesionsList';
+import { MarkersList } from '../../components/cases/MarkersList';
+import { SegmentsList } from '../../components/cases/SegmentsList';
 import {
   EMRAlert,
   EMRButton,
@@ -64,6 +67,7 @@ import {
 import { CouinaudLegend } from '../../components/liver/CouinaudLegend';
 import { LayerToggle, type LayerToggleState } from '../../components/liver/LayerToggle';
 import { LiverViewer3D } from '../../components/liver/LiverViewer3D';
+import { MarkerLabelPopover } from '../../components/liver/MarkerLabelPopover';
 import { RefineTools, type RefineToolId } from '../../components/liver/RefineTools';
 import { ReviewTools } from '../../components/liver/ReviewTools';
 import { TakeoverRequestToast } from '../../components/liver/TakeoverRequestToast';
@@ -71,13 +75,17 @@ import { ConflictResolutionModal } from '../../components/offline/ConflictResolu
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useRefinementUndo } from '../../contexts/RefinementUndoContext';
 import { useAnalysis } from '../../hooks/useAnalysis';
+import { useAnalysisResults } from '../../hooks/useAnalysisResults';
 import {
   useRefinementDispatch,
   type DispatchMaskRefineInput,
+  type DispatchLesionPromptInput,
+  type DispatchMarkerInput,
 } from '../../hooks/useRefinementDispatch';
 import { useReviewSeat } from '../../hooks/useReviewSeat';
 import { useSync } from '../../contexts/SyncContext';
 import { useAuth } from '../../services/auth';
+import { maskUrl } from '../../services/pacs/niftiLoader';
 
 /** Required permission for refining masks (outer guard usually catches missing). */
 const REQUIRED_PERMISSION = 'review.refine_mask';
@@ -100,6 +108,25 @@ const DEFAULT_LAYERS: LayerToggleState = {
   lesions: false,
 };
 
+/**
+ * Widened analysis shape — `useAnalysis()` types its return as the minimal
+ * `Analysis` from AnalysisContext (just id + status + stage), but the actual
+ * `/api/v1/analyses/{id}` payload includes `study_instance_uid`. Mirrors the
+ * `BackendAnalysis` pattern in AnalysisDetailView. Without this, the viewer
+ * receives `studyInstanceUid=undefined` and renders the "No DICOM study
+ * attached" empty state.
+ */
+interface BackendAnalysis {
+  id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'partial';
+  study_instance_uid?: string;
+}
+
+function readApiBaseUrl(fallback: string): string {
+  const meta = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {};
+  return (meta.VITE_LIVERRA_API_BASE_URL ?? fallback).replace(/\/$/, '');
+}
+
 // ---------------------------------------------------------------------------
 // Inner component — providers (RefinementUndoProvider etc.) are expected to
 // be wrapped at the route boundary in AnalysisDetailProviders. This file
@@ -117,7 +144,62 @@ function RefinementViewInner(): ReactElement {
   const sync = useSync();
   const undo = useRefinementUndo();
   const dispatch = useRefinementDispatch();
-  const { analysis } = useAnalysis(analysisId);
+  const { analysis: analysisRaw } = useAnalysis(analysisId);
+  const analysis = analysisRaw as BackendAnalysis | undefined;
+
+  // Cascade results — same query key as the Case page so the cache is shared.
+  const baseUrl = readApiBaseUrl('/api/v1');
+  const { data: results } = useAnalysisResults(
+    analysisId,
+    baseUrl,
+    analysis?.status,
+  );
+
+  // Layer-gating flags derived from the cascade output. `parenchymaMaskUri`
+  // mirrors the Case-page pattern (LiverViewer3D accepts a direct URI for
+  // backward compat with the older parenchyma-only render path).
+  const hasParenchymaMask = Boolean(
+    results?.segmentations?.some((s) => {
+      const cat = (s.anatomy_category ?? '').toLowerCase();
+      return cat === 'liver' || cat === 'parenchyma';
+    }),
+  );
+  const hasCouinaud = Boolean(
+    results?.segmentations?.some(
+      (s) => (s.anatomy_category ?? '').toLowerCase() === 'couinaud',
+    ),
+  );
+  const hasVessels = Boolean(
+    results?.segmentations?.some((s) => {
+      const cat = (s.anatomy_category ?? '').toLowerCase();
+      return (
+        cat === 'portal_vein' ||
+        cat === 'portal' ||
+        cat === 'hepatic_vein' ||
+        cat === 'hepatic'
+      );
+    }),
+  );
+  const hasFlrPlane = Boolean(
+    results?.flr_default?.plane_pose ?? results?.flr_default?.plane_normal,
+  );
+  const lesionCount = results?.lesions?.length ?? 0;
+  // Touch hasCouinaud/hasVessels so they're available for future LayerToggle
+  // gating without tripping the unused-var lint rule. (Viewer already gates
+  // rendering on actual mask presence; explicit row-disable is Phase E.)
+  void hasCouinaud;
+  void hasVessels;
+  void hasFlrPlane;
+  const parenchymaMaskUri =
+    hasParenchymaMask && analysisId ? maskUrl(analysisId, 'liver') : undefined;
+
+  // Dev-bypass mirrors the auth dev-bypass: when `VITE_LIVERRA_DEV_BYPASS=true`,
+  // skip the review-seat lock so the single dev user isn't locked out of the
+  // toolbar by heartbeat flakiness (Vite proxy buffers, slow laptop, tab refocus
+  // all trigger spurious 'lost' states). Production behaviour is unchanged.
+  const devBypass =
+    (import.meta as unknown as { env?: { VITE_LIVERRA_DEV_BYPASS?: string } })
+      .env?.VITE_LIVERRA_DEV_BYPASS === 'true';
 
   // Dev-only synthetic overlay flash (behind ?devMockMask=1). Read via
   // react-router's useLocation so MemoryRouter-backed tests can drive it.
@@ -145,8 +227,18 @@ function RefinementViewInner(): ReactElement {
   // is a thin in-memory mirror we reset whenever a new edit lands.
   const [redoStack, setRedoStack] = useState<string[]>([]);
 
+  // Phase G5: when a marker dispatch succeeds we open an inline popover
+  // anchored to the click position so the reviewer can add a label +
+  // optional note without leaving the viewer.
+  const viewerWrapRef = useRef<HTMLDivElement | null>(null);
+  const [pendingMarker, setPendingMarker] = useState<{
+    markerId: string;
+    anchorX: number;
+    anchorY: number;
+  } | null>(null);
+
   const hasPermission = auth.permissions.includes(REQUIRED_PERMISSION);
-  const isReadOnly = !seat.hasSeat || !hasPermission;
+  const isReadOnly = !devBypass && (!seat.hasSeat || !hasPermission);
 
   // ----- Seat lifecycle: acquire on mount, release on unmount ----------------
   //
@@ -260,16 +352,66 @@ function RefinementViewInner(): ReactElement {
     [dispatch, triggerOverlayFlash, t],
   );
 
+  const runLesionPromptDispatch = useCallback(
+    async (input: DispatchLesionPromptInput): Promise<void> => {
+      setDispatchError(null);
+      try {
+        await dispatch.dispatchLesionPrompt(input);
+        triggerOverlayFlash();
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : String(err ?? 'dispatch failed');
+        setDispatchError(
+          t('refine:view.dispatchError', { message }),
+        );
+      }
+    },
+    [dispatch, triggerOverlayFlash, t],
+  );
+
+  const runMarkerDispatch = useCallback(
+    async (
+      input: DispatchMarkerInput,
+      anchor?: { screenX: number; screenY: number },
+    ): Promise<void> => {
+      setDispatchError(null);
+      try {
+        const editId = await dispatch.dispatchMarker(input);
+        triggerOverlayFlash();
+        // Phase G5: open the inline popover so the reviewer can add a
+        // label + note. Anchor coords are converted from screen → viewer-
+        // wrapper-relative so absolute positioning is correct even on
+        // scrolled pages. The offline-queue editId stands in as the
+        // popover's transient marker key — once PATCH /marker lands
+        // (G7) we'll swap to the row id returned by the POST.
+        if (anchor) {
+          const wrap = viewerWrapRef.current;
+          const rect = wrap?.getBoundingClientRect();
+          const anchorX = rect ? anchor.screenX - rect.left : anchor.screenX;
+          const anchorY = rect ? anchor.screenY - rect.top : anchor.screenY;
+          setPendingMarker({ markerId: editId, anchorX, anchorY });
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : String(err ?? 'dispatch failed');
+        setDispatchError(
+          t('refine:view.dispatchError', { message }),
+        );
+      }
+    },
+    [dispatch, triggerOverlayFlash, t],
+  );
+
   // Exposed on window for the LiverViewer3D sibling to hook into without
   // refactoring its Cornerstone event plumbing. Parent owns *when* a click
   // becomes a dispatch; viewer stays presentational.
   //
-  // H-REFINE-3: every dispatch carries an ``inverse`` so the undo stack
-  // gets a poppable entry. The inverse of an ``add`` at voxel V is a
-  // ``subtract`` at the same voxel; vice versa. ``point`` clicks (used
-  // to seed lesion prompts, not directly mutate masks) are mapped to
-  // an inverse ``subtract`` placeholder — the undo will surface an
-  // empty/no-op delta the viewer can ignore.
+  // H-REFINE-3: every mask-edit dispatch carries an ``inverse`` so the
+  // undo stack gets a poppable entry. Lesion-prompt clicks go to a
+  // separate dispatch path (no inverse — prompts spawn new lesion rows,
+  // the inverse is "delete that lesion" which is a different operation).
+  // Marker tool is intentionally a no-op at the dispatch layer until the
+  // measurement/marker FHIR Observation flow lands.
   useEffect(() => {
     if (!analysisId) return undefined;
     const onViewerClick = (ev: Event): void => {
@@ -278,17 +420,47 @@ function RefinementViewInner(): ReactElement {
           voxel: [number, number, number];
           clickType?: 'add' | 'subtract' | 'point';
           segmentationId?: string;
+          couinaudSegment?: string;
+          screenX?: number;
+          screenY?: number;
         }>
       ).detail;
       if (!detail || !detail.voxel) return;
-      const clickType =
-        detail.clickType ?? (activeTool === 'subtract' ? 'subtract' : 'add');
-      const inverseClickType: 'add' | 'subtract' | 'point' =
-        clickType === 'add'
+
+      // Route by active tool — the viewer can hint via detail.clickType
+      // but the toolbar selection wins when no explicit hint is provided.
+      if (activeTool === 'prompt' || detail.clickType === 'point') {
+        void runLesionPromptDispatch({
+          analysisId,
+          voxel: detail.voxel,
+          couinaudSegment: detail.couinaudSegment,
+        });
+        return;
+      }
+      if (activeTool === 'marker') {
+        const anchor =
+          typeof detail.screenX === 'number' && typeof detail.screenY === 'number'
+            ? { screenX: detail.screenX, screenY: detail.screenY }
+            : undefined;
+        void runMarkerDispatch(
+          {
+            analysisId,
+            voxel: detail.voxel,
+            couinaudSegment: detail.couinaudSegment,
+            segmentationId: detail.segmentationId,
+            // label/note left undefined — captured by the inline popover (G5).
+          },
+          anchor,
+        );
+        return;
+      }
+
+      const clickType: 'add' | 'subtract' =
+        detail.clickType === 'subtract' || activeTool === 'subtract'
           ? 'subtract'
-          : clickType === 'subtract'
-            ? 'add'
-            : 'point';
+          : 'add';
+      const inverseClickType: 'add' | 'subtract' =
+        clickType === 'add' ? 'subtract' : 'add';
       void runMaskDispatch({
         analysisId,
         segmentationId: detail.segmentationId ?? 'parenchyma',
@@ -307,7 +479,7 @@ function RefinementViewInner(): ReactElement {
         onViewerClick as EventListener,
       );
     };
-  }, [analysisId, activeTool, runMaskDispatch]);
+  }, [analysisId, activeTool, runMaskDispatch, runLesionPromptDispatch, runMarkerDispatch]);
 
   // ----- Undo / redo handlers ------------------------------------------------
   const handleUndo = useCallback(async (): Promise<void> => {
@@ -411,6 +583,7 @@ function RefinementViewInner(): ReactElement {
   }
 
   if (
+    !devBypass &&
     seat.status === 'idle' &&
     seat.holderDisplayName &&
     !seat.hasSeat
@@ -469,7 +642,7 @@ function RefinementViewInner(): ReactElement {
         ? 'var(--emr-accent)'
         : 'var(--emr-success)';
 
-  const seatPillColor = seat.hasSeat
+  const seatPillColor = (seat.hasSeat || devBypass)
     ? 'var(--emr-success)'
     : 'var(--emr-error)';
 
@@ -504,7 +677,7 @@ function RefinementViewInner(): ReactElement {
                 }
                 data-testid="refinement-view-seat-pill"
               >
-                {seat.hasSeat
+                {seat.hasSeat || devBypass
                   ? t('refine:tools.heading')
                   : t('refine:view.seatLostTitle')}
               </Badge>
@@ -539,7 +712,7 @@ function RefinementViewInner(): ReactElement {
         />
       </Box>
 
-      {seat.status === 'lost' && (
+      {seat.status === 'lost' && !devBypass && (
         <Box px="md" pt="xs">
           <RecordLockBanner
             status={{
@@ -637,11 +810,50 @@ function RefinementViewInner(): ReactElement {
             <LayerToggle
               state={layers}
               onChange={setLayers}
-              showLesions
+              showLesions={lesionCount > 0}
             />
           </Box>
 
           <CouinaudLegend />
+
+          {analysisId && (
+            <Stack gap="xs" data-testid="refinement-view-segments-block">
+              <Text
+                fz="var(--emr-font-sm)"
+                fw={600}
+                c="var(--emr-text-primary)"
+              >
+                {t('refine:rail.segmentsHeading')}
+              </Text>
+              <SegmentsList analysisId={analysisId} apiBaseUrl={baseUrl} />
+            </Stack>
+          )}
+
+          {analysisId && (
+            <Stack gap="xs" data-testid="refinement-view-lesions-block">
+              <Text
+                fz="var(--emr-font-sm)"
+                fw={600}
+                c="var(--emr-text-primary)"
+              >
+                {t('refine:rail.lesionsHeading')}
+              </Text>
+              <LesionsList analysisId={analysisId} apiBaseUrl={baseUrl} />
+            </Stack>
+          )}
+
+          {analysisId && (
+            <Stack gap="xs" data-testid="refinement-view-markers-block">
+              <Text
+                fz="var(--emr-font-sm)"
+                fw={600}
+                c="var(--emr-text-primary)"
+              >
+                {t('refine:rail.markersHeading')}
+              </Text>
+              <MarkersList analysisId={analysisId} apiBaseUrl={baseUrl} />
+            </Stack>
+          )}
 
           {/* Undo / redo HUD. */}
           <Stack gap="xs" data-testid="refinement-view-undo-hud">
@@ -711,6 +923,7 @@ function RefinementViewInner(): ReactElement {
         {/* Viewer pane — relative-positioned so the synthetic overlay can
             cover it without disturbing layout. */}
         <Box
+          ref={viewerWrapRef}
           style={{
             position: 'relative',
             minHeight: 400,
@@ -725,6 +938,13 @@ function RefinementViewInner(): ReactElement {
           <LiverViewer3D
             analysisId={analysisId}
             ready={analysis?.status === 'completed'}
+            studyInstanceUid={analysis?.study_instance_uid}
+            parenchymaMaskUri={parenchymaMaskUri}
+            segmentations={results?.segmentations}
+            lesions={results?.lesions}
+            lesionCount={lesionCount}
+            flrDefault={results?.flr_default}
+            activeTool={isReadOnly ? null : activeTool}
           />
           {devMockMask && (
             <Box
@@ -740,6 +960,19 @@ function RefinementViewInner(): ReactElement {
                 opacity: overlayFlash ? 1 : 0,
                 transition: 'opacity 0.2s ease',
               }}
+            />
+          )}
+          {/* Phase G5: inline label/note popover anchored to the click
+              position. Closes on Save, Skip, Esc, click-outside, 8s timeout. */}
+          {pendingMarker && seat.reviewId && analysisId && (
+            <MarkerLabelPopover
+              markerId={pendingMarker.markerId}
+              analysisId={analysisId}
+              reviewId={seat.reviewId}
+              apiBaseUrl={baseUrl}
+              anchorX={pendingMarker.anchorX}
+              anchorY={pendingMarker.anchorY}
+              onClose={() => setPendingMarker(null)}
             />
           )}
         </Box>
