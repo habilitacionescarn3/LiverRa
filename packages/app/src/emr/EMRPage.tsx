@@ -34,7 +34,7 @@
 import { useMediaQuery } from '@mantine/hooks';
 import { Box, Burger, Group, Text, UnstyledButton } from '@mantine/core';
 import { IconHome } from '@tabler/icons-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LIVERRA_ROUTES } from './constants/routes';
@@ -52,6 +52,7 @@ import {
 import { StepUpAuthModal } from './components/access-control';
 import { FULL_MENU_ITEMS } from './constants/nav-registry';
 import { useTranslation } from './contexts/TranslationContext';
+import { startSyncWorker } from './services/offline/syncWorker';
 
 /**
  * Placeholder persistent RUO disclaimer — final impl lives in T178 (Phase 3).
@@ -121,6 +122,16 @@ export function EMRPage({
   const goHome = useCallback(() => {
     navigate(LIVERRA_ROUTES.LANDING);
   }, [navigate]);
+
+  // Boot the offline-edit sync worker once per app session. The worker is
+  // idempotent (its module-level `started` flag guards against duplicate
+  // starts), so re-mounting EMRPage doesn't fan out timers. Without this,
+  // every refine edit (mask, lesion-prompt, classification, marker, FLR)
+  // sits in IndexedDB and never reaches the backend.
+  useEffect(() => {
+    const stop = startSyncWorker();
+    return stop;
+  }, []);
 
   const effectiveNavItems = navItems;
 

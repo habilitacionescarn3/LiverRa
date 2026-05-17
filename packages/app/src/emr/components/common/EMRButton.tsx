@@ -16,7 +16,16 @@ interface IconProps {
 export type EMRButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 /** Visual variants for the button */
-export type EMRButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline' | 'subtle' | 'light';
+export type EMRButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'danger'
+  | 'ghost'
+  | 'outline'
+  | 'subtle'
+  | 'light'
+  /** Brand-filled state used by toggle toolbars (e.g. RefineTools active tool). */
+  | 'filled';
 
 /**
  * Props for EMRButton component
@@ -48,6 +57,11 @@ export interface EMRButtonProps {
   'data-testid'?: string;
   /** Aria label for accessibility */
   'aria-label'?: string;
+  /**
+   * Aria-pressed state for toggle buttons (e.g. an active refine tool).
+   * `boolean` renders as "true"/"false"; omit when the button isn't a toggle.
+   */
+  'aria-pressed'?: boolean;
   /** Additional CSS class name */
   className?: string;
   /** Inline styles (use sparingly, prefer className) */
@@ -93,7 +107,11 @@ const iconSizes: Record<EMRButtonSize, number> = {
  */
 const getVariantClass = (variant: EMRButtonVariant): string => {
   switch (variant) {
+    // 'filled' is an alias for the brand-primary fill used by toggle
+    // toolbars (e.g. an active refine tool). Mapping both to the same
+    // class keeps the brand-gradient ramp single-sourced via theme.css.
     case 'primary':
+    case 'filled':
       return classes.primaryButton;
     case 'secondary':
     case 'outline':
@@ -171,6 +189,7 @@ export const EMRButton = memo(function EMRButton({
   onClick,
   'data-testid': testId,
   'aria-label': ariaLabel,
+  'aria-pressed': ariaPressed,
   className,
   style,
   color,
@@ -201,6 +220,7 @@ export const EMRButton = memo(function EMRButton({
       data-testid={testId}
       data-loading={loading || undefined}
       aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       className={combinedClassName}
       style={style}
       color={color}
