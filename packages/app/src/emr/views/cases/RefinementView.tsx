@@ -127,6 +127,39 @@ function readApiBaseUrl(fallback: string): string {
   return (meta.VITE_LIVERRA_API_BASE_URL ?? fallback).replace(/\/$/, '');
 }
 
+/**
+ * Resolve a viewer-click anatomy key (e.g. 'parenchyma', 'couinaud-vii') to
+ * the actual segmentation row UUID from the cascade results. Returns null
+ * when no row matches — the caller surfaces a user-visible error instead
+ * of firing a request the backend will 422 on.
+ *
+ * The viewer-click bridge emits anatomy keys derived from labelmap samples;
+ * the mask-refine endpoint requires the UUID of the segmentation row being
+ * edited. This bridges the two namespaces.
+ */
+function resolveSegmentationUuid(
+  anatomyKey: string,
+  segmentations:
+    | ReadonlyArray<{ id?: string; anatomy_category?: string | null; anatomy_detail?: string | null }>
+    | undefined,
+): string | null {
+  if (!segmentations || segmentations.length === 0) return null;
+  const key = anatomyKey.toLowerCase();
+  for (const row of segmentations) {
+    const cat = (row.anatomy_category ?? '').toLowerCase();
+    if (key === 'parenchyma' && (cat === 'liver' || cat === 'parenchyma')) {
+      return row.id ?? null;
+    }
+    if (key.startsWith('couinaud-')) {
+      if (cat !== 'couinaud') continue;
+      const wantRoman = key.replace('couinaud-', '').toUpperCase();
+      const haveRoman = (row.anatomy_detail ?? '').toUpperCase();
+      if (haveRoman === wantRoman) return row.id ?? null;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Inner component — providers (RefinementUndoProvider etc.) are expected to
 // be wrapped at the route boundary in AnalysisDetailProviders. This file
@@ -461,9 +494,29 @@ function RefinementViewInner(): ReactElement {
           : 'add';
       const inverseClickType: 'add' | 'subtract' =
         clickType === 'add' ? 'subtract' : 'add';
+
+      // The viewer-click bridge emits anatomy keys ('parenchyma',
+      // 'couinaud-vii', ...) but the backend's mask-refine endpoint
+      // requires the UUID of the segmentation row being edited. Resolve
+      // from the cached cascade results — when no row matches, surface a
+      // user-visible error rather than firing a 422.
+      const anatomyKey = detail.segmentationId ?? 'parenchyma';
+      const segmentationUuid = resolveSegmentationUuid(
+        anatomyKey,
+        results?.segmentations,
+      );
+      if (!segmentationUuid) {
+        setDispatchError(
+          t('refine:view.dispatchError', {
+            message: `No segmentation row for "${anatomyKey}" at this voxel.`,
+          }),
+        );
+        return;
+      }
+
       void runMaskDispatch({
         analysisId,
-        segmentationId: detail.segmentationId ?? 'parenchyma',
+        segmentationId: segmentationUuid,
         clickType,
         voxel: detail.voxel,
         inverse: { clickType: inverseClickType, voxel: detail.voxel },
