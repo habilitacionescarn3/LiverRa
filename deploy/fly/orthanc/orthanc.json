@@ -1,0 +1,96 @@
+/**
+ * LiverRa cloud-staging Orthanc — deployed to Fly.io as a PRIVATE app.
+ *
+ * Plain-English:
+ *   This file configures the Orthanc DICOM PACS that runs in our cloud
+ *   staging environment. It's NOT public — the only thing that talks to
+ *   it is the DICOMweb proxy router on liverra-api.fly.dev, which
+ *   forwards requests over the Fly internal 6PN network.
+ *
+ * Differences vs the on-prem edge config (pacs/orthanc/orthanc.json):
+ *   - No DIMSE listener (no real scanners pushing in via DICOM protocol)
+ *   - No DICOM TLS (Fly 6PN is wireguard-encrypted at the network layer)
+ *   - SQLite index instead of Postgres (simpler, fast enough at staging
+ *     volumes, lives on the Fly volume so it persists across deploys)
+ *   - No Lua anonymization hook (anon sidecar is deferred for staging;
+ *     bypass is documented + frontend-gated by VITE_LIVERRA_ANON_SIDECAR_BYPASS)
+ *
+ * Environment variables resolved at container start (Fly secrets):
+ *   ORTHANC_USERNAME   - basic-auth user for the DICOMweb proxy
+ *   ORTHANC_PASSWORD   - basic-auth password (rotate via `fly secrets set`)
+ *   ORTHANC_NAME       - human label shown in Orthanc's about page
+ */
+{
+  // ---- Identity -----------------------------------------------------------
+  "Name": "${ORTHANC_NAME}",
+  "DicomAet": "LIVERRACLOUD",
+
+  // ---- Storage ------------------------------------------------------------
+  // Both raw blobs and the SQLite index live on the Fly volume mounted
+  // at /var/lib/orthanc/db. Volume is 10 GB by default (see fly.toml).
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+
+  // ---- DIMSE listener disabled --------------------------------------------
+  // No CT scanner is going to push to us over DICOM C-STORE in cloud
+  // staging. STOW-RS via the proxy is the only ingest path.
+  "DicomServerEnabled": false,
+
+  // ---- HTTP / DICOMweb ----------------------------------------------------
+  // Listens on the Fly internal port. RemoteAccessAllowed=true because
+  // requests come from a different Fly machine (liverra-api), which
+  // looks "remote" to Orthanc; AuthenticationEnabled keeps Basic auth
+  // required so only the proxy can reach it.
+  "HttpServerEnabled": true,
+  // Orthanc binds to 0.0.0.0 dual-stack so we put it on port 8043
+  // internally; socat owns the public 8042 surface and bridges IPv6
+  // (Fly 6PN) traffic to it. See deploy/fly/orthanc/start.sh.
+  "HttpPort": 8043,
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "${ORTHANC_USERNAME}": "${ORTHANC_PASSWORD}"
+  },
+  "HttpCompressionEnabled": true,
+  "HttpRequestTimeout": 300,
+
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/",
+    "EnableWado": true,
+    "WadoRoot": "/wado",
+    "Ssl": false,
+    "StudiesMetadata": "Full",
+    "SeriesMetadata": "Full"
+  },
+
+  // ---- Plugins ------------------------------------------------------------
+  // Use the upstream plugin directory; the orthancteam image ships
+  // DICOMweb 1.18 there. No Lua scripts (anon sidecar deferred).
+  "Plugins": [
+    "/usr/share/orthanc/plugins"
+  ],
+
+  // ---- Policy -------------------------------------------------------------
+  "DicomModalities": {},
+  "DicomAlwaysAllowEcho": false,
+  "DicomAlwaysAllowFind": false,
+  "DicomAlwaysAllowGet": false,
+  "DicomAlwaysAllowMove": false,
+  "DicomAlwaysAllowStore": false,
+  "UnknownSopClassAccepted": false,
+  "SynchronousCMove": false,
+
+  // ---- Logging (PHI-safe) -------------------------------------------------
+  "LogLevel": "default",
+  "LogExportedResources": false,
+  "HttpVerbose": false,
+
+  // ---- Concurrency --------------------------------------------------------
+  "ConcurrentJobs": 2,
+  "JobsHistorySize": 10,
+  "SaveJobs": true
+}

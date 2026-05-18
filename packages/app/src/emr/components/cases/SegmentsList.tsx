@@ -15,10 +15,10 @@
  * Empty / loading / error states use the EMR component library.
  */
 
-import { useMemo } from 'react';
-import { Box, Group, Stack, Text } from '@mantine/core';
+import { useMemo, useState } from 'react';
+import { Box, Group, Stack, Text, UnstyledButton } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { IconLayoutDashboard } from '@tabler/icons-react';
+import { IconChevronRight, IconLayoutDashboard } from '@tabler/icons-react';
 import { EMRBadge, EMREmptyState } from '../common';
 import { useTranslation } from '../../contexts/TranslationContext';
 import {
@@ -128,7 +128,8 @@ export function SegmentsList({
   apiBaseUrl,
   'data-testid': testId = 'segments-list',
 }: SegmentsListProps): React.ReactElement {
-  const { t, lang } = useTranslation();
+  const { t, tPlural, locale } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
 
   const { data, isLoading, error } = useQuery<ResultsBundle, Error>({
     queryKey: ['analysis', analysisId, 'results'],
@@ -204,15 +205,88 @@ export function SegmentsList({
     );
   }
 
+  const totalVolumeMl = sortedRows.reduce((sum, row) => {
+    const v = row.volume_ml;
+    const n = typeof v === 'string' ? Number.parseFloat(v) : (v as number | undefined);
+    return sum + (typeof n === 'number' && Number.isFinite(n) ? n : 0);
+  }, 0);
+  const totalVolumeText = totalVolumeMl > 0
+    ? `${totalVolumeMl.toLocaleString(locale, { maximumFractionDigits: 0 })} ml`
+    : '—';
+  const countLabel = tPlural(
+    'analysis:detail.drawer.segmentsCount',
+    sortedRows.length,
+  );
+
   return (
     <Stack gap="xs" data-testid={testId}>
+      <UnstyledButton
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={`${testId}-rows`}
+        data-testid={`${testId}-toggle`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 12px',
+          borderRadius: 'var(--emr-border-radius)',
+          background: 'var(--emr-bg-card)',
+          border: '1px solid var(--emr-border-color)',
+          transition:
+            'border-color var(--emr-transition-base), background var(--emr-transition-base)',
+          width: '100%',
+        }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget;
+          el.style.borderColor = 'var(--emr-secondary-alpha-30)';
+          el.style.background = 'var(--emr-secondary-alpha-04)';
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget;
+          el.style.borderColor = 'var(--emr-border-color)';
+          el.style.background = 'var(--emr-bg-card)';
+        }}
+      >
+        <IconChevronRight
+          size={16}
+          stroke={2}
+          aria-hidden="true"
+          style={{
+            color: 'var(--emr-text-secondary)',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+            flexShrink: 0,
+          }}
+        />
+        <Box style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+          <Text
+            fz="var(--emr-font-sm)"
+            fw={600}
+            c="var(--emr-text-primary)"
+            style={{ lineHeight: 1.2 }}
+          >
+            {countLabel}
+          </Text>
+          <Text
+            fz="var(--emr-font-xs)"
+            c="var(--emr-text-secondary)"
+            style={{ fontVariantNumeric: 'tabular-nums' }}
+          >
+            {t('analysis:detail.drawer.segmentsTotal') || 'Total volume'}: {totalVolumeText}
+          </Text>
+        </Box>
+      </UnstyledButton>
+
+      {expanded && (
+        <Stack gap="xs" id={`${testId}-rows`}>
       {sortedRows.map((row) => {
         const cat = (row.anatomy_category ?? '').toLowerCase();
         const v = row.volume_ml;
         const n = typeof v === 'string' ? Number.parseFloat(v) : (v as number | undefined);
         const volumeText =
           typeof n === 'number' && Number.isFinite(n)
-            ? `${n.toLocaleString(lang, { maximumFractionDigits: 0 })} ml`
+            ? `${n.toLocaleString(locale, { maximumFractionDigits: 0 })} ml`
             : '—';
         const label = anatomyLabel(row, t);
         const swatch = swatchFor(row);
@@ -281,6 +355,8 @@ export function SegmentsList({
           </Group>
         );
       })}
+        </Stack>
+      )}
     </Stack>
   );
 }

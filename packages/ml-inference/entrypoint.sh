@@ -3,7 +3,9 @@
 # Fly.io reads `[processes]` from fly.toml and sets PROCESS_GROUP per machine.
 set -euo pipefail
 
-ROLE="${PROCESS_GROUP:-${PROCESS:-api}}"
+# Fly.io injects FLY_PROCESS_GROUP based on the [processes] block in
+# fly.toml. Fall back to PROCESS_GROUP/PROCESS for local Docker runs.
+ROLE="${FLY_PROCESS_GROUP:-${PROCESS_GROUP:-${PROCESS:-api}}}"
 
 case "$ROLE" in
   api)

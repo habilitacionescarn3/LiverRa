@@ -1,26 +1,44 @@
-# UI Upgrade: SigninView
+# UI Upgrade: Post-login Home + Global Header / Menu Chrome
 
-## BEFORE Screenshots
-- Desktop (1440x900): `screenshots/fd-signin-BEFORE-desktop.png`
-- Tablet (768x1024): `screenshots/fd-signin-BEFORE-tablet.png`
-- Mobile (375x812): `screenshots/fd-signin-BEFORE-mobile.png`
+## Files in scope
+- `packages/app/src/emr/views/LandingView.tsx` + `LandingView.module.css`
+- `packages/app/src/emr/EMRPage.tsx`
+- `packages/app/src/emr/components/nav/EMRMainMenu.tsx` + `EMRMainMenu.module.css`
+- `packages/app/src/emr/components/nav/UserMenuButton.tsx`
 
-## Issues Found
-- Brand block floats with too much whitespace, card looks disconnected
-- Title "Sign in to LiverRa" duplicates the giant LiverRa wordmark above
-- No trust signals (HIPAA / GDPR / encrypted) — sign-in for hospital staff should radiate security
-- Card is flat, lightweight — needs layered shadow + ring + better depth
-- Inputs are too short for thumb comfort (~46px); should be ~50-52px
-- Aurora is too subtle, disconnected from card
-- "Back to home" footer is a lonely orphan link
-- Help/support link is buried at bottom
+## Issues found
 
-## Implementation Plan
-1. Add trust badge translation keys (en/ru/ka/de)
-2. Redesign brand block: tighter, with trust chip row underneath
-3. Remove redundant in-card title; replace with subtitle hierarchy
-4. Stronger card treatment: layered shadow + subtle ring + 18px radius
-5. Field height: 48-52px responsive
-6. Refined aurora: dual radial halos that frame the card
-7. Footer strip: region badge + back-to-home with arrow icon
-8. Preserve: all data-testids, all handlers, all conditional logic, all i18n keys
+### Top bar (`EMRPage.tsx`)
+- Plain solid card background with hard 1px bottom border — reads as flat / generic.
+- Wordmark is a plain bold `Text` — no gradient, no letter-spacing, no "logo" treatment.
+- No glass / saturated-blur surface; doesn't feel like an app shell.
+- Home icon button lacks visual separation from the wordmark.
+
+### Main menu (`EMRMainMenu`)
+- Active state is a thick gradient block — heavy, overpowers a thin top bar.
+- Hover background uses `--emr-hover-bg` which renders as a flat box, not a pill.
+- No focus-ring using brand color cleanly.
+
+### UserMenuButton
+- Avatar is round but no ring, no shadow halo.
+- Chevron icon is detached and tiny.
+
+### LandingView hero
+- Wordmark already has a gradient but reads as "text", not "brand mark". Too tight vertically.
+- RUO chip is OK but pill shape feels slightly cramped.
+- Mesh grid pattern is OK but contrast is low; no ambient spotlight under hero.
+
+### Feature cards
+- Icon halo flat with one alpha tint. Cards lift only slightly on hover.
+- Top accent bar appears on hover only — feels like a hidden detail.
+
+### Admin chips
+- Flat single-line treatment; icons all the same muted color.
+- No active/hover ring tint.
+
+## Plan
+1. `EMRPage.tsx` — glass top bar (backdrop blur, soft shadow), gradient wordmark wrapper, brand-tinted divider.
+2. `EMRMainMenu.module.css` — replace heavy gradient active state with brand-tinted pill + persistent underline indicator; refine hover; mobile bottom-nav active-pill polish.
+3. `UserMenuButton.tsx` — thin brand ring around avatar + soft outer shadow.
+4. `LandingView.module.css` — bigger hero wordmark, ambient radial spotlight, polished feature card icon halo (gradient bg + brand icon), persistent subtle accent bar, polished admin chips, tightened footer.
+5. `LandingView.tsx` — CSS-only changes; no structural edits.

@@ -280,11 +280,20 @@ async def _get_study(session: Any, tenant_id: uuid.UUID, study_id: uuid.UUID) ->
 def _enqueue_validation(upload_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
     """Enqueue the ``study_upload_complete`` Celery task.
 
-    Implemented lazily so unit tests of this API layer don't need Celery
-    available. The task itself (T158's cascade orchestrator) consumes the
-    upload, runs zip_safety → uid_consistency → phase_detection →
-    coverage_check, and flips ``study.ingestion_outcome``.
+    Gated by env var so local dev (default off) keeps the historical
+    "uploads land in MinIO, no AI cascade fires" behaviour and only the
+    cloud staging worker (Fly secret sets this to ``true``) triggers the
+    cascade. To turn it on locally: ``export LIVERRA_INGEST_AUTO_CASCADE=true``
+    before starting Celery.
     """
+    auto_cascade = os.environ.get(
+        "LIVERRA_INGEST_AUTO_CASCADE", "false"
+    ).lower() in {"1", "true", "yes"}
+    if not auto_cascade:
+        logger.info(
+            "ingest_auto_cascade_disabled — set LIVERRA_INGEST_AUTO_CASCADE=true to enable"
+        )
+        return
     try:
         from ..tasks.ingest_tasks import study_upload_complete  # type: ignore
     except ImportError:
@@ -338,6 +347,7 @@ async def _run_ingestion_gates(
     # ---- 2. Phase detection ----------------------------------------------
     detected_phases: set[str] = set()
     study_uid: Optional[str] = None
+    phase_detection_ran = False
     try:
         from ..services.ingestion_gates.phase_detection import detect as phase_detect  # type: ignore
         result = await phase_detect(upload_id=upload_id, tenant_id=tenant_id)
@@ -345,6 +355,7 @@ async def _run_ingestion_gates(
         study_uid = result.get("study_instance_uid")
         for phase in phase_coverage:
             phase_coverage[phase] = phase in detected_phases
+        phase_detection_ran = True
     except ImportError:
         logger.debug("gate_skipped_phase_detection (service not yet wired)")
 
@@ -367,8 +378,12 @@ async def _run_ingestion_gates(
             return False, reason or "insufficient_coverage", None, phase_coverage
     except ImportError:
         logger.debug("gate_skipped_coverage_check (service not yet wired)")
-        # Minimal inline fallback: portal_venous is mandatory per FR-003.
-        if not phase_coverage["portal_venous"]:
+        # Minimal inline fallback: only enforce portal_venous when phase
+        # detection actually ran and produced a coverage map. Otherwise
+        # we have NO signal — rejecting every upload "missing_portal_venous"
+        # blocks the dev path until phase_detection ships. FR-003 still
+        # holds at the production layer where phase_detection IS wired.
+        if phase_detection_ran and not phase_coverage["portal_venous"]:
             return False, "missing_portal_venous", None, phase_coverage
 
     # ---- 5. Promote upload_session → study row ---------------------------
@@ -383,14 +398,18 @@ async def _run_ingestion_gates(
                     (id, tenant_id, study_instance_uid, patient_ref,
                      received_at, ingestion_outcome, phase_coverage)
                 VALUES
-                    (:id, :tid, :suid, :pref, now(), 'accepted', :pc::jsonb)
+                    (:id, :tid, :suid, :pref, now(), 'accepted', CAST(:pc AS jsonb))
                 """
             ),
             {
                 "id": str(study_id),
                 "tid": str(tenant_id),
+                # study_instance_uid carries the upload pedigree; patient_ref
+                # must match `^Patient/[a-zA-Z0-9_.-]+$` per the
+                # `study_patient_ref_format` CHECK constraint added by the
+                # tenant-isolation hardening migration (RLS pass).
                 "suid": study_uid or f"liverra:upload:{upload_id}",
-                "pref": f"liverra:upload:{upload_id}",
+                "pref": f"Patient/{upload_id}",
                 "pc": _json.dumps(phase_coverage),
             },
         )
@@ -420,14 +439,15 @@ async def _reject_upload(
                  received_at, ingestion_outcome, ingestion_rejection_reason,
                  phase_coverage)
             VALUES
-                (:id, :tid, :suid, :pref, now(), 'rejected', :reason, :pc::jsonb)
+                (:id, :tid, :suid, :pref, now(), 'rejected', :reason, CAST(:pc AS jsonb))
             """
         ),
         {
             "id": str(study_id),
             "tid": str(tenant_id),
             "suid": f"liverra:upload:{upload_id}",
-            "pref": f"liverra:upload:{upload_id}",
+            # Same FHIR-Reference style enforced by `study_patient_ref_format`.
+            "pref": f"Patient/{upload_id}",
             "reason": reason,
             "pc": _json.dumps(phase_coverage),
         },
@@ -582,6 +602,11 @@ if router is not None:
 
         await _patch_upload(session, upload_id, new_offset=new_offset)
 
+        # `study_id` is bound on completion only; default keeps it
+        # defined for intermediate chunks where the resp_headers branch
+        # below would otherwise NameError.
+        study_id: Optional[uuid.UUID] = None
+
         # If upload complete → T412 gate cascade (inline) → audit + cascade.
         if new_offset == record["upload_length"]:
             accepted, reason, study_id, phase_coverage = await _run_ingestion_gates(
@@ -620,15 +645,15 @@ if router is not None:
                     ProblemDetailException,
                 )
 
+                # ProblemDetailException doesn't support an `extra` kwarg —
+                # the rejection_reason is already in `detail` and the
+                # rejected study id is the `instance`. That's enough for
+                # the client to render an error toast.
                 raise ProblemDetailException(
                     ErrorSlug.VALIDATION,
                     422,
                     f"Ingestion gate rejected the upload: {reason}.",
                     instance=str(rejected_id) if rejected_id else str(upload_id),
-                    extra={
-                        "study_id": str(rejected_id) if rejected_id else None,
-                        "ingestion_rejection_reason": reason,
-                    },
                 )
 
             await _write_audit(
@@ -657,13 +682,15 @@ if router is not None:
             if session is not None:
                 await session.commit()
 
-        return Response(
-            status_code=204,
-            headers={
-                "Upload-Offset": str(new_offset),
-                "Tus-Resumable": TUS_RESUMABLE_VERSION,
-            },
-        )
+        resp_headers = {
+            "Upload-Offset": str(new_offset),
+            "Tus-Resumable": TUS_RESUMABLE_VERSION,
+        }
+        # On completion, surface the promoted Study id so the frontend can
+        # navigate the user straight to /cases/{study_id} without polling.
+        if new_offset == record["upload_length"] and study_id is not None:
+            resp_headers["Study-Id"] = str(study_id)
+        return Response(status_code=204, headers=resp_headers)
 
     @router.head("/uploads/{upload_id}")
     @require_permission("study.upload")  # T154

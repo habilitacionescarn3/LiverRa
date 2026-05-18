@@ -289,6 +289,7 @@ if app is not None:
         "src.tasks.demo_cascade",
         "src.tasks.real_cascade_task",
         "src.tasks.ingest",
+        "src.tasks.ingest_tasks",
         "src.tasks.anonymization",
         "src.tasks.parenchyma",
         "src.tasks.lesion_detection",

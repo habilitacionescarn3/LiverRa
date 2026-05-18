@@ -64,6 +64,12 @@ cryptography>=42.0  # RSA key construction for PyJWK + JWKS validation
 httpx>=0.27
 argon2-cffi>=23.1
 psycopg[binary]>=3.2
+# Celery's SQLAlchemy broker/result-backend (sqla+postgresql:// and
+# db+postgresql:// — the URL scheme used by CELERY_BROKER_URL +
+# CELERY_RESULT_BACKEND on Fly) defaults to the psycopg2 driver. Without
+# this dep `study_upload_complete.delay()` crashes with
+# `ModuleNotFoundError: No module named 'psycopg2'` on the first enqueue.
+psycopg2-binary>=2.9
 
 # ---------------------------------------------------------------------------
 # Declared by T126-T139, T405-T411 (observability + error + rate-limit)

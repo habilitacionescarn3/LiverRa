@@ -13,40 +13,65 @@
 .root {
   position: relative;
   min-height: 100%;
-  padding: clamp(32px, 6vw, 72px) 0 clamp(40px, 6vw, 80px);
+  padding: clamp(40px, 7vw, 96px) 0 clamp(48px, 7vw, 96px);
   background:
     radial-gradient(
-      ellipse 80% 60% at 50% 0%,
-      var(--emr-primary-alpha-08) 0%,
+      ellipse 70% 50% at 50% 0%,
+      var(--emr-primary-alpha-12) 0%,
       transparent 65%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 85% 10%,
+      var(--emr-secondary-alpha-08) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 15% 5%,
+      var(--emr-accent-alpha-08) 0%,
+      transparent 60%
     ),
     var(--emr-bg-page);
   overflow: hidden;
 }
 
-/* subtle anatomical grid-mesh decoration behind the hero — purely
-   cosmetic, skipped for reduced-motion and pointer-events:none so it
-   never blocks interaction. */
+/* Page content shell — fluid max-width with breathing gutters.
+   Replaces Mantine <Container size="lg"> (was capped at 992px which
+   left huge dead margins on 1280–1440px monitors). Now the content
+   expands up to 1440px with gutters that scale via clamp(),
+   keeping line lengths readable on 4K while filling laptops gracefully. */
+.shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: clamp(20px, 4vw, 56px);
+}
+
+/* Anatomical grid-mesh decoration — purely cosmetic, pointer-events:none
+   so it never blocks interaction, low opacity so it reads as ambient
+   texture rather than a heavy pattern. */
 .meshDecoration {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 420px;
+  height: 520px;
   pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.6;
   background-image:
     linear-gradient(var(--emr-primary-alpha-04) 1px, transparent 1px),
     linear-gradient(90deg, var(--emr-primary-alpha-04) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, #000 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 30%, #000 0%, transparent 75%);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 25%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 25%, #000 0%, transparent 75%);
 }
 
 /* -------------------------------------------------- hero */
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 8px;
+  gap: 24px;
+  padding-bottom: 12px;
+  position: relative;
 }
 
 .ruoChip {
@@ -54,14 +79,14 @@
   align-items: center;
   gap: 8px;
   align-self: flex-start;
-  padding: 6px 12px 6px 10px;
+  padding: 7px 14px 7px 11px;
   border-radius: 999px;
   background: var(--emr-warning-bg);
   color: var(--emr-warning-text);
   border: 1px solid var(--emr-warning-border);
-  font-size: var(--emr-font-sm);
+  font-size: var(--emr-font-xs);
   font-weight: var(--emr-font-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   line-height: 1;
   flex-shrink: 0;
@@ -75,141 +100,40 @@
 
 .wordmark {
   margin: 0;
-  font-size: clamp(44px, 6.5vw, 72px);
-  line-height: 1.02;
-  letter-spacing: -0.03em;
+  font-size: clamp(56px, 9vw, 104px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
   font-weight: var(--emr-font-bold);
   color: var(--emr-text-primary);
   background-image: linear-gradient(
     135deg,
-    var(--emr-text-primary) 0%,
-    var(--emr-secondary) 60%,
-    var(--emr-accent) 100%
+    var(--liverra-primary-700) 0%,
+    var(--liverra-primary-500) 45%,
+    var(--liverra-primary-300) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: none;
+  padding-bottom: 4px;
 }
 
 .tagline {
   margin: 0;
-  font-size: clamp(18px, 2vw, 22px);
-  line-height: 1.45;
+  font-size: clamp(17px, 1.8vw, 21px);
+  line-height: 1.5;
   font-weight: var(--emr-font-normal);
   color: var(--emr-text-secondary);
-  max-width: 720px;
-}
-
-.ctaRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-/* Primary CTA link — visually matches EMRButton variant="primary" (gradient + shadow).
-   We use a styled <Link> instead of EMRButton because EMRButton doesn't expose the
-   Mantine `component` prop, and wrapping a <Link> inside a <button> would produce
-   invalid HTML and break router navigation. */
-.ctaPrimary,
-.ctaSecondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 20px;
-  border-radius: var(--emr-border-radius);
-  font-size: var(--emr-font-base);
-  font-weight: var(--emr-font-semibold);
-  letter-spacing: 0.01em;
-  text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-  white-space: nowrap;
-  min-width: 0;
-  cursor: pointer;
-}
-
-.ctaPrimary {
-  background: var(--emr-gradient-add-button);
-  color: var(--emr-text-white);
-  border: none;
-  box-shadow:
-    0 2px 4px var(--emr-secondary-alpha-20),
-    0 4px 12px var(--emr-secondary-alpha-15),
-    inset 0 1px 0 var(--emr-glass-white-10);
-}
-
-.ctaPrimary:hover {
-  filter: brightness(1.05);
-  box-shadow:
-    0 4px 8px var(--emr-secondary-alpha-25),
-    0 8px 16px var(--emr-secondary-alpha-20);
-}
-
-.ctaPrimary:focus-visible {
-  outline: none;
-  box-shadow:
-    0 2px 4px var(--emr-secondary-alpha-20),
-    0 4px 12px var(--emr-secondary-alpha-15),
-    0 0 0 3px var(--emr-form-accent-blue-alpha-40);
-}
-
-.ctaPrimary:active {
-  filter: brightness(0.98);
-}
-
-.ctaSecondary {
-  background: var(--emr-btn-secondary-bg);
-  border: 1px solid var(--emr-btn-secondary-border);
-  color: var(--emr-btn-secondary-text);
-  box-shadow: var(--emr-shadow-sm);
-}
-
-.ctaSecondary:hover {
-  background: var(--emr-btn-secondary-hover-bg);
-  border-color: var(--emr-btn-secondary-hover-border);
-  box-shadow: var(--emr-shadow-md);
-}
-
-.ctaSecondary:focus-visible {
-  outline: none;
-  box-shadow: var(--emr-shadow-sm), var(--emr-focus-ring);
-}
-
-.tertiaryLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-  min-height: 44px;
-  border-radius: var(--emr-border-radius);
-  color: var(--emr-text-secondary);
-  text-decoration: none;
-  font-size: var(--emr-font-md);
-  font-weight: var(--emr-font-medium);
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.tertiaryLink:hover {
-  color: var(--emr-text-primary);
-  background: var(--emr-bg-hover);
-}
-
-.tertiaryLink:focus-visible {
-  outline: 2px solid var(--emr-secondary);
-  outline-offset: 2px;
+  max-width: 680px;
+  letter-spacing: -0.005em;
 }
 
 /* -------------------------------------------------- section heading */
 .sectionHead {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
 .sectionRule {
@@ -224,9 +148,9 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: var(--emr-font-lg);
-  font-weight: var(--emr-font-semibold);
-  letter-spacing: 0.02em;
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-bold);
+  letter-spacing: 0.14em;
   color: var(--emr-text-primary);
   text-transform: uppercase;
 }
@@ -242,7 +166,7 @@
 /* -------------------------------------------------- feature grid */
 .featureGrid {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -261,10 +185,10 @@
 .featureCard {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 22px 22px 24px;
-  min-height: 168px;
-  border-radius: 12px;
+  gap: 14px;
+  padding: 26px 24px 28px;
+  min-height: 188px;
+  border-radius: 16px;
   border: 1px solid var(--emr-border-color);
   background: var(--emr-bg-card);
   color: inherit;
@@ -272,12 +196,13 @@
   position: relative;
   overflow: hidden;
   transition:
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.2s ease;
   box-shadow: var(--emr-shadow-sm);
 }
 
+/* Persistent thin gradient accent rail — full saturation on hover. */
 .featureCard::before {
   content: '';
   position: absolute;
@@ -288,13 +213,31 @@
     var(--emr-secondary) 0%,
     var(--emr-accent) 100%
   );
+  opacity: 0.4;
+  transition: opacity 0.25s ease;
+}
+
+/* Ambient radial glow that follows the icon, fades in on hover. */
+.featureCard::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(
+    circle at center,
+    var(--emr-secondary-alpha-12) 0%,
+    transparent 65%
+  );
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .featureCard:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--emr-shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--emr-shadow-lg);
   border-color: var(--emr-border-secondary);
 }
 
@@ -303,30 +246,45 @@
   opacity: 1;
 }
 
+.featureCard:hover::after,
+.featureCard:focus-visible::after {
+  opacity: 1;
+}
+
 .featureCard:focus-visible {
   outline: none;
   border-color: var(--emr-secondary);
-  box-shadow: var(--emr-shadow-md), 0 0 0 3px var(--emr-secondary-alpha-15);
+  box-shadow: var(--emr-shadow-md), 0 0 0 3px var(--emr-secondary-alpha-25);
 }
 
 .featureIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: var(--emr-bg-accent-primary);
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    var(--emr-secondary-alpha-15) 0%,
+    var(--emr-accent-alpha-10) 100%
+  );
   color: var(--emr-secondary);
   flex-shrink: 0;
+  border: 1px solid var(--emr-secondary-alpha-10);
+  box-shadow: inset 0 1px 0 var(--emr-white-alpha-30);
+  position: relative;
+  z-index: 1;
 }
 
 .featureTitle {
   margin: 0;
-  font-size: var(--emr-font-md);
+  font-size: var(--emr-font-lg);
   font-weight: var(--emr-font-semibold);
   color: var(--emr-text-primary);
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 1;
 }
 
 .featureBody {
@@ -335,6 +293,8 @@
   line-height: 1.55;
   color: var(--emr-text-secondary);
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 /* -------------------------------------------------- admin rail */
@@ -362,33 +322,47 @@
   gap: 10px;
   padding: 12px 14px;
   min-height: 48px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--emr-border-color);
   background: var(--emr-bg-card);
   color: var(--emr-text-primary);
   text-decoration: none;
   font-size: var(--emr-font-base);
   font-weight: var(--emr-font-medium);
-  transition: background-color 0.15s ease, border-color 0.15s ease,
-    transform 0.15s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease,
+    transform 0.18s ease, box-shadow 0.18s ease;
   min-width: 0;
+  box-shadow: var(--emr-shadow-sm);
 }
 
 .adminChip:hover {
   background: var(--emr-bg-hover);
   border-color: var(--emr-border-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--emr-shadow-md);
+}
+
+.adminChip:hover .adminChipIcon {
+  color: var(--emr-secondary);
 }
 
 .adminChip:focus-visible {
   outline: none;
   border-color: var(--emr-secondary);
-  box-shadow: 0 0 0 3px var(--emr-secondary-alpha-15);
+  box-shadow: 0 0 0 3px var(--emr-secondary-alpha-25);
 }
 
 .adminChipIcon {
   display: inline-flex;
-  color: var(--emr-text-tertiary);
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--emr-secondary-alpha-08);
+  color: var(--emr-secondary);
   flex-shrink: 0;
+  transition: color 0.18s ease, background 0.18s ease;
 }
 
 .adminChipLabel {
@@ -400,8 +374,8 @@
 
 /* -------------------------------------------------- footer */
 .footer {
-  margin-top: 16px;
-  padding-top: 24px;
+  margin-top: 20px;
+  padding-top: 28px;
   border-top: 1px solid var(--emr-border-color);
   display: flex;
   flex-wrap: wrap;
@@ -410,6 +384,7 @@
   gap: 12px;
   font-size: var(--emr-font-sm);
   color: var(--emr-text-tertiary);
+  letter-spacing: 0.005em;
 }
 
 .footerLeft,
@@ -432,14 +407,16 @@
 .footerRuo {
   color: var(--emr-warning-text);
   font-weight: var(--emr-font-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+  font-size: var(--emr-font-xs);
 }
 
 .footerLink {
   color: var(--emr-secondary);
   text-decoration: none;
+  font-weight: var(--emr-font-medium);
 }
 
 .footerLink:hover {
@@ -449,12 +426,12 @@
 /* -------------------------------------------------- reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .featureCard,
-  .adminChip,
-  .tertiaryLink {
+  .adminChip {
     transition: none;
   }
 
-  .featureCard:hover {
+  .featureCard:hover,
+  .adminChip:hover {
     transform: none;
   }
 }

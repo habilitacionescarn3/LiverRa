@@ -19,6 +19,7 @@
  * NFR-002 (ARIA a11y for screen readers).
  */
 
+import JSZip from 'jszip';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { Box, Group, Stack, Text } from '@mantine/core';
 import {
@@ -42,10 +43,98 @@ const DICOM_EXTENSIONS = ['.dcm', '.dicom', '.dic'] as const;
 /** Valid archive extensions. */
 const ARCHIVE_EXTENSIONS = ['.zip'] as const;
 
+/**
+ * Filenames that frequently ship alongside DICOM CDs but aren't medical
+ * data — silently skip them so a "Choose folder" pick of a CD root
+ * doesn't reject the whole upload over a `.DS_Store` or `autorun.inf`.
+ */
+const CRUFT_NAME_PATTERNS = [
+  /^\.ds_store$/i,
+  /^thumbs\.db$/i,
+  /^autorun\.inf$/i,
+  /^run\.bat$/i,
+  /^job\.backup$/i,
+  /^readme\.txt$/i,
+  /\.exe$/i,
+  /\.dll$/i,
+];
+
+/**
+ * Top-level folder names commonly created by DICOM viewer CDs (e.g.
+ * RadiAnt) that don't contain study slices. Filtered when we walk a
+ * `webkitdirectory` pick — the actual `.dcm` series lives in the
+ * sibling UID-named folder.
+ */
+const CRUFT_DIR_PATTERNS = [/^common$/i, /^ra32$/i, /^ra64$/i, /^bin$/i];
+
+/** Decide whether a file from a folder pick is medically relevant. */
+function isLikelyDicom(file: File): boolean {
+  const lower = file.name.toLowerCase();
+  if (CRUFT_NAME_PATTERNS.some((rx) => rx.test(file.name))) return false;
+
+  // webkitRelativePath = "FolderRoot/UID/slice0001.dcm" — reject if any
+  // path segment matches the cruft-dir list.
+  const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? '';
+  if (rel) {
+    const segments = rel.split('/').slice(0, -1);
+    if (segments.some((seg) => CRUFT_DIR_PATTERNS.some((rx) => rx.test(seg)))) {
+      return false;
+    }
+  }
+
+  // Permissive: explicit DICOM extension OR extensionless filename
+  // (many real-world DICOM CDs ship files named with the SOP UID and no
+  // extension at all). Reject only files with a non-DICOM extension we
+  // recognise as definitely not medical (.txt/.pdf/.html/.xml/.css/...).
+  if (DICOM_EXTENSIONS.some((ext) => lower.endsWith(ext))) return true;
+  const KNOWN_NON_DICOM = /\.(txt|pdf|html?|xml|css|js|jpg|jpeg|png|gif|svg|ini|log|md)$/i;
+  if (KNOWN_NON_DICOM.test(lower)) return false;
+  // Anything else (no extension, unknown extension) — assume DICOM and
+  // let the server-side gate make the call.
+  return true;
+}
+
+/**
+ * Bundle a list of files into a single in-memory `.zip` Blob. Used when
+ * the user picks a folder (or multi-selects files) so the upload is one
+ * tus session that lands one Study, not N sessions.
+ *
+ * The `onProgress` callback fires throughout JSZip's `generateAsync` —
+ * we use it to drive the bundling-phase progress bar so the user
+ * doesn't stare at a frozen dropzone while 2,000 DICOM slices stream
+ * into the in-memory zip.
+ */
+async function zipFiles(
+  files: File[],
+  onProgress?: (pct: number, currentFile?: string) => void,
+): Promise<File> {
+  const zip = new JSZip();
+  for (const f of files) {
+    // Preserve the relative folder structure if the user picked a
+    // directory — that helps the server-side phase-detection logic
+    // group slices into series.
+    const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath ?? f.name;
+    zip.file(rel, f);
+  }
+  const blob = await zip.generateAsync(
+    {
+      type: 'blob',
+      compression: 'STORE', // DICOM already deflate-resistant; STORE = no CPU cost
+    },
+    (meta: { percent: number; currentFile?: string | null }) => {
+      if (onProgress) {
+        onProgress(Math.round(meta.percent), meta.currentFile ?? undefined);
+      }
+    },
+  );
+  return new File([blob], 'liverra-upload.zip', { type: 'application/zip' });
+}
+
 /** Upload stages surfaced to consumers. */
 export type DicomUploadStage =
   | 'idle'
   | 'validating'
+  | 'bundling'
   | 'uploading'
   | 'phi_warning'
   | 'complete'
@@ -75,6 +164,18 @@ interface UploadState {
   stage: DicomUploadStage;
   bytesSent: number;
   bytesTotal: number;
+  /**
+   * Human-readable status label (e.g. "Bundling 2,342 files…",
+   * "Uploading liverra-upload.zip"). Replaces `currentFileName` for
+   * stages where there's no single "current file".
+   */
+  statusLabel?: string;
+  /**
+   * Explicit percent override for stages where we have a percent but no
+   * byte-counts (e.g. JSZip bundling). When set, the progress bar reads
+   * this instead of computing from bytesSent/bytesTotal.
+   */
+  percent?: number;
   currentFileName?: string;
   fileIndex: number;
   fileCount: number;
@@ -147,9 +248,14 @@ export function DicomDropzone({
   const [state, setState] = useState<UploadState>(initialState);
 
   const progressPct = useMemo(() => {
+    // Explicit percent (bundling stage) wins; otherwise compute from
+    // byte counts (uploading stage). Returns 0 when nothing's started.
+    if (typeof state.percent === 'number') {
+      return Math.min(100, Math.max(0, state.percent));
+    }
     if (state.bytesTotal === 0) return 0;
     return Math.min(100, Math.round((state.bytesSent / state.bytesTotal) * 100));
-  }, [state.bytesSent, state.bytesTotal]);
+  }, [state.percent, state.bytesSent, state.bytesTotal]);
 
   /**
    * Stream an individual file as tus-style PATCH chunks.
@@ -170,13 +276,20 @@ export function DicomDropzone({
       if (!createRes.ok) {
         throw new Error(`POST /uploads failed: ${createRes.status}`);
       }
-      const { id, studyId } = (await createRes.json()) as {
-        id: string;
-        studyId?: string;
-      };
+      // The backend returns 201 with NO body — id lives in the Location
+      // header (tus protocol convention) and the studyId is only known
+      // after the final PATCH completes. We parse the upload id out of
+      // the Location and let PATCH supply the studyId on completion.
+      const locationHeader = createRes.headers.get('Location') ?? '';
+      const id = locationHeader.split('/').pop() ?? '';
+      if (!id) {
+        throw new Error('POST /uploads returned no upload id');
+      }
 
-      // 2) PATCH chunks of CHUNK_SIZE_BYTES.
+      // 2) PATCH chunks of CHUNK_SIZE_BYTES. The final chunk's response
+      //    may carry a `Study-Id` header once ingestion gates have run.
       let offset = 0;
+      let finalStudyId = '';
       while (offset < file.size) {
         const end = Math.min(offset + CHUNK_SIZE_BYTES, file.size);
         const slice = file.slice(offset, end);
@@ -195,38 +308,63 @@ export function DicomDropzone({
         }
         offset = end;
         setState((prev) => ({ ...prev, bytesSent: prev.bytesSent + slice.size }));
+        // Last chunk: backend writes `Study-Id` header once it's promoted
+        // upload_session → study. Falls back to upload id below.
+        const sid = patchRes.headers.get('Study-Id');
+        if (sid) finalStudyId = sid;
       }
 
-      // 3) Server may PHI-warn via response headers; consumer will also
-      //    subscribe via SSE in UploadProgress.
+      // 3) Server may PHI-warn via response headers.
       const phiHeader = createRes.headers.get('X-PHI-Warning');
       if (phiHeader) {
         setState((prev) => ({ ...prev, stage: 'phi_warning', phiWarning: phiHeader }));
       }
 
-      return studyId ?? id;
+      return finalStudyId || id;
     },
     [ingestBaseUrl, authToken],
   );
 
-  /** Orchestrate validation → sequential upload → completion callback. */
+  /** Orchestrate validation → bundle-if-needed → upload → completion. */
   const startUpload = useCallback(
-    async (files: File[]): Promise<void> => {
+    async (rawFiles: File[]): Promise<void> => {
       const abortCtl = new AbortController();
       abortRef.current = abortCtl;
 
-      const total = files.reduce((acc, f) => acc + f.size, 0);
+      // Stage 1 — Filtering. Surface this even though it's near-instant
+      // so the user sees "something is happening" the moment they click
+      // Choose folder. Without this, the first ~50ms feels frozen.
       setState({
         stage: 'validating',
         bytesSent: 0,
-        bytesTotal: total,
-        fileCount: files.length,
+        bytesTotal: 0,
+        fileCount: rawFiles.length,
         fileIndex: 0,
+        statusLabel: `Scanning ${rawFiles.length.toLocaleString()} files…`,
       });
 
-      // Validate all files first — fail fast before any network I/O.
-      for (const file of files) {
-        const err = validateFile(file);
+      // Drop CD-burner cruft (.DS_Store, autorun.inf, viewer subdirs).
+      // Without this filter a "Choose folder" pick of a typical Toshiba/
+      // Siemens DICOM CD aborts the whole upload over the first .bat.
+      const files = rawFiles.filter(isLikelyDicom);
+
+      if (files.length === 0) {
+        setState({
+          ...initialState,
+          stage: 'error',
+          errorMessage: t('upload:errors.noFilesFound'),
+        });
+        return;
+      }
+
+      // Multi-file picks (folder or shift-select) → bundle into one .zip
+      // and upload as ONE tus session. This produces ONE Study on the
+      // backend instead of N orphan sessions that each fail
+      // phase-coverage on their own.
+      let uploadFile: File;
+      if (files.length === 1) {
+        uploadFile = files[0];
+        const err = validateFile(uploadFile);
         if (err) {
           setState({
             ...initialState,
@@ -235,23 +373,64 @@ export function DicomDropzone({
           });
           return;
         }
+      } else {
+        // Stage 2 — Bundling. This is the slow part for big folders
+        // (1–3 minutes for 2,000 slices). JSZip's onUpdate fires with
+        // monotonically-rising percent + currentFile, which we pipe
+        // straight to the progress bar.
+        setState({
+          stage: 'bundling',
+          bytesSent: 0,
+          bytesTotal: 0,
+          percent: 0,
+          fileCount: files.length,
+          fileIndex: 0,
+          statusLabel: `Bundling ${files.length.toLocaleString()} DICOM files…`,
+        });
+        try {
+          uploadFile = await zipFiles(files, (pct, currentFile) => {
+            setState((prev) => ({
+              ...prev,
+              percent: pct,
+              currentFileName: currentFile,
+            }));
+          });
+        } catch (zipErr) {
+          setState({
+            ...initialState,
+            stage: 'error',
+            errorMessage: (zipErr as Error).message,
+          });
+          return;
+        }
+        // Hard cap mirrors validateFile's archive ceiling.
+        if (uploadFile.size > MAX_ARCHIVE_BYTES) {
+          setState({
+            ...initialState,
+            stage: 'error',
+            errorMessage: t('upload:errors.archiveTooLarge', { max: '2 GB' }),
+          });
+          return;
+        }
       }
 
-      setState((prev) => ({ ...prev, stage: 'uploading' }));
+      // Stage 3 — Uploading. Byte-counters drive the bar from here.
+      const sizeMb = (uploadFile.size / (1024 * 1024)).toFixed(1);
+      setState({
+        stage: 'uploading',
+        bytesSent: 0,
+        bytesTotal: uploadFile.size,
+        percent: undefined, // fall back to bytes-based percent
+        fileCount: 1,
+        fileIndex: 0,
+        currentFileName: uploadFile.name,
+        statusLabel: `Uploading ${sizeMb} MB to server…`,
+      });
 
       try {
-        let finalStudyId = '';
-        for (let i = 0; i < files.length; i += 1) {
-          const file = files[i];
-          setState((prev) => ({
-            ...prev,
-            fileIndex: i,
-            currentFileName: file.name,
-          }));
-          finalStudyId = await uploadOneFile(file, abortCtl.signal);
-        }
+        const studyId = await uploadOneFile(uploadFile, abortCtl.signal);
         setState((prev) => ({ ...prev, stage: 'complete' }));
-        onComplete(finalStudyId);
+        onComplete(studyId);
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
           return;
@@ -329,7 +508,10 @@ export function DicomDropzone({
     setState(initialState);
   }, []);
 
-  const isBusy = state.stage === 'uploading' || state.stage === 'validating';
+  const isBusy =
+    state.stage === 'uploading' ||
+    state.stage === 'validating' ||
+    state.stage === 'bundling';
 
   return (
     <Box
@@ -451,16 +633,28 @@ export function DicomDropzone({
           {t('upload:dropzone.acceptedHint')}
         </Text>
 
-        {/* Inline progress (visible once upload starts) */}
-        {isBusy && state.bytesTotal > 0 && (
-          <Stack gap={6} w="100%" maw={480} aria-live="polite">
+        {/*
+         * Inline progress — visible as soon as work starts, including
+         * the bundling phase where bytesTotal is still 0. The progress
+         * bar reads `progressPct` which prefers the explicit `percent`
+         * (set by JSZip during bundling) over the bytes-based ratio.
+         */}
+        {isBusy && (
+          <Stack
+            gap={6}
+            w="100%"
+            maw={480}
+            aria-live="polite"
+            data-testid="dropzone-progress"
+          >
             <Group justify="space-between" wrap="wrap" gap={4}>
               <Text
                 fz="var(--emr-font-sm)"
-                c="var(--emr-text-secondary)"
+                fw={600}
+                c="var(--emr-text-primary)"
                 style={{ minWidth: 0, flex: 1 }}
               >
-                {state.currentFileName ?? t('upload:dropzone.preparing')}
+                {state.statusLabel ?? t('upload:dropzone.preparing')}
               </Text>
               <Text
                 fz="var(--emr-font-sm)"
@@ -494,11 +688,12 @@ export function DicomDropzone({
               />
             </Box>
             <Group justify="space-between" wrap="wrap" gap={4}>
-              <Text fz="var(--emr-font-xs)" c="var(--emr-text-tertiary)">
-                {t('upload:dropzone.fileOfFile', {
-                  current: state.fileIndex + 1,
-                  total: state.fileCount,
-                })}
+              <Text
+                fz="var(--emr-font-xs)"
+                c="var(--emr-text-tertiary)"
+                style={{ minWidth: 0, flex: 1 }}
+              >
+                {state.currentFileName ?? ''}
               </Text>
               <EMRButton variant="ghost" size="sm" onClick={handleCancel}>
                 {t('upload:dropzone.cancel')}

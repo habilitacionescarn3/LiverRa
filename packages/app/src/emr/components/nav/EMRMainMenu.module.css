@@ -10,19 +10,22 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   padding: 0;
 }
 
-/* Menu item — 44px minimum touch target per accessibility matrix */
+/* Menu item — 44px minimum touch target per accessibility matrix.
+   Active state is an understated brand-tinted pill with a 2px underline
+   indicator rather than a heavy gradient block, so it sits well under
+   a glass top bar. */
 .menuItem {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
 
-  padding: 10px 14px;
+  padding: 8px 14px;
   min-height: 44px;
   margin: 0;
 
@@ -31,14 +34,17 @@
   color: var(--emr-text-secondary);
   text-align: center;
   white-space: nowrap;
-  letter-spacing: var(--emr-letter-spacing-tight);
+  letter-spacing: -0.005em;
 
   background-color: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
 
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
 
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -51,8 +57,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0.75;
+  transition: opacity 0.18s ease, transform 0.18s ease, color 0.18s ease;
 }
 
 .menuLabel {
@@ -60,56 +66,56 @@
 }
 
 .menuItem:hover:not(.active) {
-  background-color: var(--emr-hover-bg);
-  color: var(--emr-secondary);
+  background-color: var(--emr-secondary-alpha-06);
+  color: var(--emr-text-primary);
 }
 
 .menuItem:hover:not(.active) .menuIcon {
   opacity: 1;
-  transform: scale(1.05);
+  color: var(--emr-secondary);
 }
 
 .menuItem.active {
-  background: var(--emr-gradient-primary);
-  color: var(--emr-text-white);
+  background: var(--emr-secondary-alpha-10);
+  color: var(--emr-secondary);
   font-weight: var(--emr-font-semibold);
-  box-shadow: var(--emr-shadow-button);
 }
 
 .menuItem.active .menuIcon {
   opacity: 1;
+  color: var(--emr-secondary);
 }
 
+/* Animated underline indicator anchored to the pill — picks up the
+   brand gradient so the active item reads as the spine of the nav. */
 .activeIndicator {
   position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  background: var(--emr-text-white);
-  border-radius: 50%;
-  opacity: 0.9;
+  bottom: 4px;
+  left: 18%;
+  right: 18%;
+  height: 2px;
+  background: var(--emr-gradient-primary);
+  border-radius: 2px;
+  opacity: 1;
 }
 
 .menuItem.active:hover {
-  box-shadow: var(--emr-shadow-button-hover);
-  transform: translateY(-1px);
+  background: var(--emr-secondary-alpha-15);
 }
 
 .menuItem:focus-visible {
-  outline: 2px solid var(--emr-accent);
+  outline: 2px solid var(--emr-secondary);
   outline-offset: 2px;
   z-index: 1;
 }
 
 .menuItem.active:focus-visible {
-  outline-color: var(--emr-text-white);
-  outline-offset: 3px;
+  outline-color: var(--emr-secondary);
+  outline-offset: 2px;
 }
 
 .menuItem:active:not(.active) {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 /* --------- Tablet --------- */
@@ -231,16 +237,17 @@
 }
 
 .mobileNavItem.active {
-  color: var(--emr-primary);
+  color: var(--emr-secondary);
+  background: var(--emr-secondary-alpha-08);
 }
 
 .mobileNavItem.active .mobileNavIcon {
-  color: var(--emr-primary);
-  transform: scale(1.1);
+  color: var(--emr-secondary);
+  transform: scale(1.08);
 }
 
 .mobileNavItem.active .mobileNavLabel {
-  color: var(--emr-primary);
+  color: var(--emr-secondary);
   font-weight: var(--emr-font-semibold);
 }
 

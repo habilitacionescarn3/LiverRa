@@ -39,6 +39,7 @@
     "chroma-js": "^3.1.1",
     "dicom-parser": "^1.8.21",
     "idb": "^8.0.0",
+    "jszip": "^3.10.1",
     "jwt-decode": "^4.0.0",
     "nifti-reader-js": "^0.8.0",
     "oidc-client-ts": "^3.0.1",

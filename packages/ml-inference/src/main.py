@@ -222,8 +222,30 @@ def create_app() -> FastAPI:
             "X-Request-Id",
             "X-Tenant-Id",
             "Last-Event-ID",
+            # tus resumable-upload protocol headers sent by DicomDropzone
+            # (POST /ingest/uploads, PATCH /ingest/uploads/{id}).
+            "Upload-Length",
+            "Upload-Metadata",
+            "Upload-Offset",
+            "Upload-Filename",
+            "Upload-Checksum",
+            "Tus-Resumable",
         ],
-        expose_headers=["X-Request-ID", "X-LiverRa-Tenant", "Retry-After"],
+        expose_headers=[
+            "X-Request-ID",
+            "X-LiverRa-Tenant",
+            "Retry-After",
+            # tus protocol response headers the dropzone needs to read on
+            # the browser side (Location → session URL, Upload-Offset →
+            # resume point, X-PHI-Warning → server-side PHI detection).
+            "Location",
+            "Upload-Offset",
+            "Upload-Length",
+            "Tus-Resumable",
+            "Tus-Extension",
+            "X-PHI-Warning",
+            "Study-Id",
+        ],
     )
 
     # --- Auth + RLS session (owned by sibling agents — T046–T059) ---------
@@ -318,6 +340,22 @@ def create_app() -> FastAPI:
         )
     except Exception as exc:
         _strict_boot("compliance router", exc)
+
+    # --- DICOMweb proxy router (cloud staging) ----------------------------
+    # Proxies /dicom-web/* to a private Orthanc reachable via Fly internal
+    # 6PN at $ORTHANC_URL. Local dev DOES NOT use this — Vite proxies
+    # /dicom-web/* directly to localhost:8042, never touching FastAPI on
+    # :8090. Cloud frontend (Netlify) hits liverra-api.fly.dev/dicom-web/*
+    # which lands here.
+    try:
+        from src.api.dicomweb import router as dicomweb_router
+
+        if dicomweb_router is not None:
+            app.include_router(
+                dicomweb_router, prefix="/dicom-web", tags=["dicomweb"]
+            )
+    except Exception as exc:
+        _strict_boot("dicomweb proxy router", exc)
 
     # --- Export router (T265 finalize + PACS push + retract) ------------
     try:

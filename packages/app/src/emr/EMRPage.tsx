@@ -153,20 +153,26 @@ export function EMRPage({
         background: 'var(--emr-bg-page)',
       }}
     >
-      {/* ===== Top bar ===== */}
+      {/* ===== Top bar — glass surface, gradient wordmark ===== */}
       <Box
         component="header"
         role="banner"
         style={{
-          height: 56,
+          height: 60,
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
-          gap: 16,
-          padding: '0 16px',
+          gap: 14,
+          padding: '0 20px',
           background: 'var(--emr-bg-card)',
+          backgroundImage:
+            'linear-gradient(180deg, var(--emr-bg-card) 0%, var(--emr-bg-page) 100%)',
           borderBottom: '1px solid var(--emr-border-color)',
-          boxShadow: 'var(--emr-shadow-sm)',
+          boxShadow: '0 1px 0 var(--emr-secondary-alpha-04), var(--emr-shadow-sm)',
+          backdropFilter: 'saturate(180%) blur(20px)',
+          WebkitBackdropFilter: 'saturate(180%) blur(20px)',
+          position: 'relative',
+          zIndex: 5,
         }}
       >
         {isMobile && (
@@ -185,21 +191,45 @@ export function EMRPage({
             display: 'flex',
             alignItems: 'center',
             gap: 8,
-            padding: '4px 8px',
-            borderRadius: 'var(--emr-border-radius)',
-            transition: 'background var(--emr-transition-base)',
+            padding: '6px 10px',
+            borderRadius: 10,
+            transition: 'background 0.18s ease, transform 0.18s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--emr-bg-hover)';
+            e.currentTarget.style.background = 'var(--emr-secondary-alpha-06)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'transparent';
           }}
         >
-          <Text fw={700} size="lg" c="var(--emr-primary)">
+          <Text
+            component="span"
+            fw={800}
+            size="lg"
+            style={{
+              backgroundImage:
+                'linear-gradient(135deg, var(--liverra-primary-700) 0%, var(--liverra-primary-500) 60%, var(--liverra-primary-300) 100%)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.02em',
+              fontSize: 'var(--emr-font-xl)',
+              lineHeight: 1,
+            }}
+          >
             LiverRa
           </Text>
         </UnstyledButton>
+        {/* Subtle vertical divider between wordmark and home/breadcrumbs. */}
+        <Box
+          aria-hidden
+          style={{
+            width: 1,
+            height: 22,
+            background: 'var(--emr-border-color)',
+            opacity: 0.7,
+          }}
+        />
         {/* Dedicated Home button — explicit secondary affordance. */}
         <EMRIconButton
           icon={IconHome}
@@ -209,7 +239,7 @@ export function EMRPage({
           variant="subtle"
           data-testid="nav-home-button"
         />
-        <Box style={{ flex: 1 }}>
+        <Box style={{ flex: 1, minWidth: 0 }}>
           <Breadcrumbs />
         </Box>
         <UserMenuButton />
@@ -222,11 +252,11 @@ export function EMRPage({
       {!isMobile && effectiveNavItems.length > 0 && (
         <Box
           style={{
-            height: 48,
+            height: 52,
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
-            padding: '0 16px',
+            padding: '0 20px',
             background: 'var(--emr-bg-page)',
             borderBottom: '1px solid var(--emr-border-color)',
           }}

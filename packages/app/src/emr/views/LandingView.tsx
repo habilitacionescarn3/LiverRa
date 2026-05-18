@@ -1,17 +1,14 @@
 // SPDX-FileCopyrightText: Copyright LiverRa
 // SPDX-License-Identifier: Apache-2.0
 
-import { Box, Container, Stack } from '@mantine/core';
+import { Box, Stack } from '@mantine/core';
 import {
   IconAlertTriangle,
-  IconArrowRight,
   IconBrush,
   IconClipboardCheck,
   IconClipboardList,
   IconEraser,
   IconFileCertificate,
-  IconHelpHexagon,
-  IconLogin2,
   IconServerCog,
   IconShieldCheck,
   IconTarget,
@@ -46,7 +43,7 @@ export default function LandingView(): ReactElement {
     <Box className={classes.root}>
       <Box className={classes.meshDecoration} aria-hidden="true" />
 
-      <Container size="lg">
+      <div className={classes.shell}>
         <Stack gap={56}>
           {/* -------------------------------------------------- Hero */}
           <header className={classes.hero}>
@@ -60,23 +57,6 @@ export default function LandingView(): ReactElement {
             <p className={classes.tagline}>
               {t('help:landing.tagline')}
             </p>
-
-            <div className={classes.ctaRow}>
-              <Link to={LIVERRA_ROUTES.CASES_LIST} className={classes.ctaPrimary}>
-                {t('nav:cta.openCases')}
-                <IconArrowRight size={18} stroke={2} aria-hidden="true" />
-              </Link>
-
-              <Link to={LIVERRA_ROUTES.SIGNIN} className={classes.ctaSecondary}>
-                <IconLogin2 size={18} stroke={2} aria-hidden="true" />
-                {t('nav:cta.signIn')}
-              </Link>
-
-              <Link to={LIVERRA_ROUTES.HELP} className={classes.tertiaryLink}>
-                <IconHelpHexagon size={16} stroke={2} aria-hidden="true" />
-                {t('nav:cta.help')}
-              </Link>
-            </div>
           </header>
 
           {/* ----------------------------------------- What v1 does */}
@@ -210,7 +190,7 @@ export default function LandingView(): ReactElement {
             </span>
           </footer>
         </Stack>
-      </Container>
+      </div>
     </Box>
   );
 }

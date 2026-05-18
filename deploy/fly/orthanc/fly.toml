@@ -1,0 +1,73 @@
+# LiverRa Orthanc DICOM PACS — private app on Fly.io Frankfurt.
+#
+# Deploy with:
+#   cd /Users/toko/Desktop/LiverRa
+#   fly apps create liverra-orthanc --org personal
+#   fly volumes create orthanc_data --app liverra-orthanc --region fra --size 10 --yes
+#   fly secrets set --app liverra-orthanc \
+#       ORTHANC_USERNAME=liverra-api \
+#       ORTHANC_PASSWORD=$(openssl rand -base64 32)
+#   fly deploy --app liverra-orthanc \
+#       --config deploy/fly/orthanc/fly.toml \
+#       --dockerfile deploy/fly/orthanc/Dockerfile \
+#       --remote-only
+#
+# This app has NO public IP. It's reachable only from the Fly.io internal
+# 6PN network via `http://liverra-orthanc.flycast:8042`. The DICOMweb
+# proxy router on `liverra-api` (packages/ml-inference/src/api/dicomweb.py)
+# is the only thing that talks to it, and it requires a valid Cognito JWT
+# from the browser before forwarding the request.
+#
+# Storage layout on the Fly volume at /var/lib/orthanc/db:
+#   /var/lib/orthanc/db/                <- raw DICOM blobs (sharded subdirs)
+#   /var/lib/orthanc/db/index.db        <- SQLite index (Orthanc default)
+#
+# We deliberately use Orthanc's built-in SQLite index instead of the
+# Postgres plugin. Reasoning: at staging volumes (< 100 studies) SQLite
+# is fast enough, it lives on the same Fly volume so it survives deploys,
+# and we avoid colliding with the LiverRa Alembic schema on Supabase.
+
+app = "liverra-orthanc"
+primary_region = "fra"  # Frankfurt — same as liverra-api (low latency).
+
+[build]
+  dockerfile = "Dockerfile"
+
+# ---------------------------------------------------------------------------
+# Persistent volume for DICOM storage + SQLite index.
+# ---------------------------------------------------------------------------
+[[mounts]]
+  source = "orthanc_data"
+  destination = "/var/lib/orthanc/db"
+  initial_size = "10gb"
+
+# ---------------------------------------------------------------------------
+# Internal-only HTTP — no [http_service] block, no public IP.
+# Sibling Fly apps in the same org reach this via `liverra-orthanc.flycast:8042`.
+# ---------------------------------------------------------------------------
+[[services]]
+  protocol = "tcp"
+  internal_port = 8042
+  auto_stop_machines = "off"           # PACS index expects predictable uptime
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.tcp_checks]]
+    grace_period = "30s"
+    interval = "30s"
+    timeout = "5s"
+
+# ---------------------------------------------------------------------------
+# Machine sizing — Orthanc itself is lightweight (RAM grows with index
+# cache size, which we cap below in orthanc.json).
+# ---------------------------------------------------------------------------
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+
+[env]
+  # Orthanc reads ${ORTHANC_USERNAME} and ${ORTHANC_PASSWORD} from
+  # config-file substitution. The orthancteam image supports this via
+  # the OSIMIS_VERBOSE_STARTUP=true entrypoint pattern. Set these via
+  # `fly secrets set` (NOT here in the [env] block) so they don't leak.
+  ORTHANC_NAME = "LiverRa-Staging"
