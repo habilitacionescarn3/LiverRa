@@ -19,12 +19,24 @@ Security & licensing
   ``Authorization: Bearer <LIVERRA_GPU_SHARED_TOKEN>``. The token is
   read from the env at request time so rotation works without restart.
   If the env var is unset the service refuses to start.
-* **Commercial-licensing gate** — ``LIVERRA_TS_COMMERCIAL_LICENSED``
-  (default ``false``). When ``false`` the ``liver_vessels`` and
-  ``total_and_vessels`` endpoints reply ``HTTP 451 Unavailable For
-  Legal Reasons`` because the TotalSegmentator ``liver_vessels``
-  sub-task ships under a paid commercial license. The
-  ``total`` endpoint remains usable (base task is Apache-2.0).
+* **Commercial-licensing gate** — the gated ``liver_vessels`` /
+  ``total_and_vessels`` endpoints are unlocked by EITHER:
+
+  - ``LIVERRA_TS_COMMERCIAL_LICENSED=true`` (default ``false``) — a paid
+    TotalSegmentator commercial license has been confirmed with the TS
+    authors; or
+  - ``LIVERRA_TS_NONCOMMERCIAL_DEMO=true`` (default ``false``) — the
+    operator opts into internal-demo / clinical-validation use under the
+    TS weights' CC-BY-NC-SA-4.0 *non-commercial* terms. This is NOT a
+    commercial-license attestation; responses are stamped
+    ``X-LiverRa-License-Mode: noncommercial-demo`` so the audit trail
+    never falsely implies a commercial license. MUST stay ``false`` on
+    any paying-customer deployment.
+
+  With neither set, those endpoints reply ``HTTP 451 Unavailable For
+  Legal Reasons`` (unchanged default — a fresh install still refuses
+  the gated subtask). The ``total`` endpoint remains usable
+  unconditionally (base task is Apache-2.0).
 * **Streaming upload** — request bodies are streamed to a temp path
   with an explicit byte counter; the client's ``Content-Length`` is
   ignored entirely. ``MAX_UPLOAD_BYTES`` is enforced mid-stream so
@@ -40,6 +52,11 @@ Every successful inference response carries:
 * ``X-LiverRa-Model-Weights-SHA`` — SHA-256 of the resolved weights
   archive (cached at startup; ``unknown`` until first inference
   triggers a weight download).
+* ``X-LiverRa-License-Mode`` — the licensing posture this exact response
+  ran under: ``apache-2.0-base`` (``/infer/total``),
+  ``commercial-licensed`` or ``noncommercial-demo`` (the gated
+  endpoints). Lets the regulatory trail distinguish a commercially
+  licensed run from a non-commercial demo run after the fact.
 
 The laptop client captures these headers and persists them onto the
 ``Analysis.model_versions`` JSONB column for regulatory provenance.
@@ -136,27 +153,80 @@ def verify_token(authorization: str | None = Header(default=None)) -> None:
 
 
 def _is_ts_commercial_licensed() -> bool:
-    """Whether the paid TotalSegmentator ``liver_vessels`` subtask is
-    licensed for this deployment. Defaults to ``false`` so a fresh
-    install refuses commercial-tier endpoints until ops opts in.
+    """Whether a *paid* TotalSegmentator ``liver_vessels`` commercial
+    license has been confirmed for this deployment. Defaults to ``false``
+    so a fresh install refuses commercial-tier endpoints until ops opts
+    in. Setting this ``true`` is a legal attestation that the license was
+    actually purchased from the TotalSegmentator authors — never flip it
+    as a convenience toggle.
     """
     return os.environ.get("LIVERRA_TS_COMMERCIAL_LICENSED", "false").lower() == "true"
 
 
-def require_commercial_license() -> None:
-    """FastAPI dependency — guards endpoints that depend on the paid
-    TotalSegmentator commercial license. Returns ``451 Unavailable For
-    Legal Reasons`` when licensing has not been confirmed via env var.
+def _is_noncommercial_demo() -> bool:
+    """Whether the operator opted into running the gated ``liver_vessels``
+    subtask under NON-commercial / internal-demo terms.
+
+    This is explicitly NOT a commercial-license attestation. It unlocks
+    the gated endpoints for internal demos + clinical validation (use
+    permitted by the TS weights' CC-BY-NC-SA-4.0 non-commercial terms)
+    while every response is stamped ``X-LiverRa-License-Mode:
+    noncommercial-demo`` so the regulatory provenance trail records,
+    truthfully, that no commercial license was in force. Must never be
+    ``true`` on a paying-customer deployment.
     """
-    if not _is_ts_commercial_licensed():
-        raise HTTPException(
-            451,
-            (
-                "TotalSegmentator liver_vessels subtask requires a paid commercial "
-                "license. Set LIVERRA_TS_COMMERCIAL_LICENSED=true after confirming "
-                "purchase with TotalSegmentator authors. See docs/research/13-..."
-            ),
+    return os.environ.get("LIVERRA_TS_NONCOMMERCIAL_DEMO", "false").lower() == "true"
+
+
+def _vessels_license_mode() -> str:
+    """Licensing posture under which the gated subtask is being served.
+
+    ``commercial-licensed`` wins over ``noncommercial-demo`` so that
+    confirming a real purchase upgrades the provenance stamp without any
+    other change. ``unlicensed`` is unreachable from a response path —
+    :func:`require_commercial_license` raises 451 first — but is returned
+    defensively (e.g. for ``/health``) rather than guessing.
+    """
+    if _is_ts_commercial_licensed():
+        return "commercial-licensed"
+    if _is_noncommercial_demo():
+        return "noncommercial-demo"
+    return "unlicensed"
+
+
+def require_commercial_license() -> None:
+    """FastAPI dependency guarding the gated TotalSegmentator
+    ``liver_vessels`` subtask.
+
+    Passes when EITHER a paid commercial license is attested
+    (``LIVERRA_TS_COMMERCIAL_LICENSED=true``) OR the operator opted into
+    non-commercial demo terms (``LIVERRA_TS_NONCOMMERCIAL_DEMO=true``).
+    The demo path logs a per-request WARNING and the response is stamped
+    ``X-LiverRa-License-Mode: noncommercial-demo`` so the audit trail
+    never falsely implies a commercial license. With neither set, returns
+    ``451 Unavailable For Legal Reasons`` (unchanged default).
+    """
+    if _is_ts_commercial_licensed():
+        return
+    if _is_noncommercial_demo():
+        logger.warning(
+            "liver_vessels served under NON-COMMERCIAL DEMO terms "
+            "(LIVERRA_TS_NONCOMMERCIAL_DEMO=true); response stamped "
+            "X-LiverRa-License-Mode=noncommercial-demo. MUST NOT be used "
+            "for a paying customer — see CLAUDE.md Model Licensing Discipline."
         )
+        return
+    raise HTTPException(
+        451,
+        (
+            "TotalSegmentator liver_vessels subtask requires a paid commercial "
+            "license. Set LIVERRA_TS_COMMERCIAL_LICENSED=true after confirming "
+            "purchase with the TotalSegmentator authors, OR set "
+            "LIVERRA_TS_NONCOMMERCIAL_DEMO=true for internal-demo / clinical-"
+            "validation use under the weights' CC-BY-NC-SA-4.0 non-commercial "
+            "terms. See CLAUDE.md 'Model Licensing Discipline'."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -200,10 +270,18 @@ def _compute_weights_sha() -> str:
     return f"sha256:{hasher.hexdigest()}"
 
 
-def _provenance_headers() -> dict[str, str]:
+def _provenance_headers(license_mode: str) -> dict[str, str]:
+    """Provenance headers for a successful inference response.
+
+    ``license_mode`` is the posture this exact response ran under
+    (``apache-2.0-base`` / ``commercial-licensed`` / ``noncommercial-demo``)
+    — the laptop client persists it onto ``Analysis.model_versions`` so a
+    later audit can tell a licensed run from a demo run.
+    """
     return {
         "X-LiverRa-Model-Version": _MODEL_VERSION,
         "X-LiverRa-Model-Weights-SHA": _WEIGHTS_SHA,
+        "X-LiverRa-License-Mode": license_mode,
     }
 
 
@@ -275,9 +353,18 @@ async def _lifespan(app: FastAPI):
     if _WEIGHTS_SHA == "unknown":
         _WEIGHTS_SHA = _compute_weights_sha()
     logger.info(
-        "liverra-gpu ready model_version=%s weights_sha=%s warm_cache_s=%.1f",
+        "liverra-gpu ready model_version=%s weights_sha=%s warm_cache_s=%.1f "
+        "vessels_license_mode=%s",
         _MODEL_VERSION, _WEIGHTS_SHA, _WARM_CACHE_DURATION_S,
+        _vessels_license_mode(),
     )
+    if _is_noncommercial_demo() and not _is_ts_commercial_licensed():
+        logger.warning(
+            "GATED liver_vessels UNLOCKED under NON-COMMERCIAL DEMO terms "
+            "(LIVERRA_TS_NONCOMMERCIAL_DEMO=true, no commercial license). "
+            "Responses stamped X-LiverRa-License-Mode=noncommercial-demo. "
+            "This deployment MUST NOT serve paying customers."
+        )
     yield
 
 
@@ -413,7 +500,8 @@ async def infer_total(ct_nifti: UploadFile = File(...)) -> Response:
     return Response(
         content=body,
         media_type="application/zip",
-        headers=_provenance_headers(),
+        # Base TS task — always Apache-2.0, never gated.
+        headers=_provenance_headers("apache-2.0-base"),
     )
 
 
@@ -446,7 +534,7 @@ async def infer_liver_vessels(ct_nifti: UploadFile = File(...)) -> Response:
     return Response(
         content=body,
         media_type="application/zip",
-        headers=_provenance_headers(),
+        headers=_provenance_headers(_vessels_license_mode()),
     )
 
 
@@ -503,7 +591,7 @@ async def infer_total_and_vessels(ct_nifti: UploadFile = File(...)) -> Response:
     return Response(
         content=body,
         media_type="application/zip",
-        headers=_provenance_headers(),
+        headers=_provenance_headers(_vessels_license_mode()),
     )
 
 
@@ -520,6 +608,8 @@ async def health() -> Response:
         "weights_sha": _WEIGHTS_SHA,
         "warm_cache_duration_s": _WARM_CACHE_DURATION_S,
         "commercial_licensed": _is_ts_commercial_licensed(),
+        "noncommercial_demo": _is_noncommercial_demo(),
+        "vessels_license_mode": _vessels_license_mode(),
     }
     try:
         import torch

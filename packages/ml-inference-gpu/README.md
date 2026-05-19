@@ -7,17 +7,23 @@ the entire API surface. No DB, no S3, no LiverRa knowledge.
 ## Endpoints
 
 All `/infer/*` endpoints require `Authorization: Bearer <LIVERRA_GPU_SHARED_TOKEN>`.
-Successful responses carry `X-LiverRa-Model-Version` and
-`X-LiverRa-Model-Weights-SHA` headers — the laptop client persists
-these onto `Analysis.model_versions` for regulatory provenance.
+Successful responses carry `X-LiverRa-Model-Version`,
+`X-LiverRa-Model-Weights-SHA`, and `X-LiverRa-License-Mode`
+(`apache-2.0-base` | `commercial-licensed` | `noncommercial-demo`)
+headers — the laptop client persists these onto
+`Analysis.model_versions` for regulatory provenance, so an audit can
+tell a commercially licensed run from a non-commercial demo run.
 
 - `POST /infer/total` — multipart `ct_nifti` → `application/zip` containing
   `liver.nii.gz`, `inferior_vena_cava.nii.gz`, `gallbladder.nii.gz`,
   `spleen.nii.gz`. Apache-2.0 / no commercial license required.
 - `POST /infer/liver_vessels` — multipart `ct_nifti` → `application/zip`
   containing `liver_vessels.nii.gz` and `liver_tumor.nii.gz`.
-  ⚠ Requires `LIVERRA_TS_COMMERCIAL_LICENSED=true` (paid TS commercial
-  license); otherwise returns HTTP 451.
+  ⚠ Gated. Requires EITHER `LIVERRA_TS_COMMERCIAL_LICENSED=true` (paid
+  TS commercial license, attested) OR `LIVERRA_TS_NONCOMMERCIAL_DEMO=true`
+  (internal-demo / clinical-validation under the weights'
+  CC-BY-NC-SA-4.0 non-commercial terms — response stamped
+  `X-LiverRa-License-Mode: noncommercial-demo`). Neither set → HTTP 451.
 - `POST /infer/total_and_vessels` — combined call (kept for backward
   compatibility, but the cascade no longer uses it because the two-call
   pattern is ~2 minutes faster on Tailscale links). Same commercial-
@@ -53,6 +59,15 @@ tailscale serve --bg --tcp 9101 tcp://localhost:9101
 curl http://100.124.94.29:9101/health
 # → {"ok": true, "cuda_available": true, "cuda_device_name": "NVIDIA GeForce RTX 3090"}
 ```
+
+**Internal-demo box?** Add `-e LIVERRA_TS_NONCOMMERCIAL_DEMO=true` to
+the `docker run` to unlock lesion detection / `liver_vessels` for
+demos + clinical validation under the weights' CC-BY-NC-SA-4.0
+non-commercial terms. Do NOT also set `LIVERRA_TS_COMMERCIAL_LICENSED`
+unless a paid license was genuinely purchased — the demo flag stamps
+`X-LiverRa-License-Mode=noncommercial-demo` into provenance, which is
+the honest record for a non-paying deployment. `GET /health` echoes
+`vessels_license_mode` so you can confirm the posture after restart.
 
 **Why `--network host` is required.** WSL2's tailscaled runs in
 `--tun=userspace-networking` mode (no kernel TUN driver). Tailscale's

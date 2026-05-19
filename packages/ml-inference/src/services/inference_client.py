@@ -15,9 +15,10 @@ Each call:
 2. Receives a ZIP of mask NIfTIs in the response body.
 3. Safely extracts the ZIP into ``dest_dir`` (per-member, validated
    name — never ``extractall``).
-4. Captures the ``X-LiverRa-Model-Version`` + ``X-LiverRa-Model-Weights-SHA``
-   response headers and returns them alongside the extracted paths
-   so the cascade can persist them onto ``Analysis.model_versions``.
+4. Captures the ``X-LiverRa-Model-Version``, ``X-LiverRa-Model-Weights-SHA``
+   and ``X-LiverRa-License-Mode`` response headers and returns them
+   alongside the extracted paths so the cascade can persist them onto
+   ``Analysis.model_versions``.
 
 The legacy ``infer_total`` / ``infer_liver_vessels`` callers continue
 to get a ``{stem: Path}`` dict for backward compatibility; the new
@@ -209,6 +210,14 @@ def _extract_provenance(headers: dict[str, str]) -> dict[str, str]:
         "weights_sha": (
             headers.get("x-liverra-model-weights-sha")
             or headers.get("X-LiverRa-Model-Weights-SHA")
+            or "unknown"
+        ),
+        # Licensing posture this response ran under. Persisted into
+        # Analysis.model_versions so a regulatory audit can distinguish a
+        # commercially-licensed run from a noncommercial-demo run.
+        "license_mode": (
+            headers.get("x-liverra-license-mode")
+            or headers.get("X-LiverRa-License-Mode")
             or "unknown"
         ),
     }

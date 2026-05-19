@@ -10,7 +10,11 @@ These tests do NOT exercise TotalSegmentator. They prove:
     header — missing / wrong-scheme / wrong-token all 401 (B-INFER-3).
   * The license-gated endpoints (``/infer/liver_vessels`` and
     ``/infer/total_and_vessels``) return ``451 Unavailable For Legal
-    Reasons`` when ``LIVERRA_TS_COMMERCIAL_LICENSED`` is not ``true``.
+    Reasons`` when NEITHER ``LIVERRA_TS_COMMERCIAL_LICENSED`` nor
+    ``LIVERRA_TS_NONCOMMERCIAL_DEMO`` is ``true`` — and that the
+    non-commercial demo flag unlocks them while stamping the response
+    ``X-LiverRa-License-Mode: noncommercial-demo`` so the audit trail
+    never falsely implies a commercial license.
 """
 from __future__ import annotations
 
@@ -91,9 +95,10 @@ def test_infer_endpoints_reject_wrong_token(client, endpoint: str) -> None:
 def test_liver_vessels_blocked_when_unlicensed(
     client, endpoint: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """LIVERRA_TS_COMMERCIAL_LICENSED defaults to false → 451."""
+    """Neither license flag set → 451."""
     # Explicit unset so the test is deterministic across envs.
     monkeypatch.delenv("LIVERRA_TS_COMMERCIAL_LICENSED", raising=False)
+    monkeypatch.delenv("LIVERRA_TS_NONCOMMERCIAL_DEMO", raising=False)
     response = client.post(
         endpoint,
         headers={"Authorization": "Bearer test-shared-token-do-not-use-in-prod"},
@@ -120,6 +125,70 @@ def test_liver_vessels_gate_respects_license_flag(
     # is wrong) and 401 (which would mean auth broke).
     assert response.status_code != 451
     assert response.status_code != 401
+
+
+# ---------------------------------------------------------------------------
+# Non-commercial demo flag — unlocks the gate WITHOUT a commercial
+# attestation, and the provenance stamp must say so.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ["/infer/liver_vessels", "/infer/total_and_vessels"],
+)
+def test_noncommercial_demo_flag_lifts_451(
+    client, endpoint: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """LIVERRA_TS_NONCOMMERCIAL_DEMO=true (no commercial license) lifts
+    the 451. The request still fails later (no TS on this box) but must
+    NOT be 451 (gate wrong) or 401 (auth broke).
+    """
+    monkeypatch.delenv("LIVERRA_TS_COMMERCIAL_LICENSED", raising=False)
+    monkeypatch.setenv("LIVERRA_TS_NONCOMMERCIAL_DEMO", "true")
+    response = client.post(
+        endpoint,
+        headers={"Authorization": "Bearer test-shared-token-do-not-use-in-prod"},
+        files={"ct_nifti": ("test.nii.gz", b"fake-bytes", "application/gzip")},
+    )
+    assert response.status_code != 451, response.text
+    assert response.status_code != 401, response.text
+
+
+def test_vessels_license_mode_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
+    """commercial-licensed wins over noncommercial-demo wins over
+    unlicensed — the value that gets stamped into provenance.
+    """
+    import main  # type: ignore[import-not-found]
+
+    monkeypatch.delenv("LIVERRA_TS_COMMERCIAL_LICENSED", raising=False)
+    monkeypatch.delenv("LIVERRA_TS_NONCOMMERCIAL_DEMO", raising=False)
+    assert main._vessels_license_mode() == "unlicensed"
+
+    monkeypatch.setenv("LIVERRA_TS_NONCOMMERCIAL_DEMO", "true")
+    assert main._vessels_license_mode() == "noncommercial-demo"
+
+    monkeypatch.setenv("LIVERRA_TS_COMMERCIAL_LICENSED", "true")
+    assert main._vessels_license_mode() == "commercial-licensed"
+
+    # Base task header is never gated.
+    assert main._provenance_headers("apache-2.0-base")[
+        "X-LiverRa-License-Mode"
+    ] == "apache-2.0-base"
+
+
+def test_health_exposes_license_posture(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """/health surfaces both flags + resolved mode so ops can tell at a
+    glance whether a box is in demo mode.
+    """
+    monkeypatch.delenv("LIVERRA_TS_COMMERCIAL_LICENSED", raising=False)
+    monkeypatch.setenv("LIVERRA_TS_NONCOMMERCIAL_DEMO", "true")
+    body = client.get("/health").json()
+    assert body["commercial_licensed"] is False
+    assert body["noncommercial_demo"] is True
+    assert body["vessels_license_mode"] == "noncommercial-demo"
 
 
 # ---------------------------------------------------------------------------
