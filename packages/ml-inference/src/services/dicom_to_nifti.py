@@ -211,11 +211,11 @@ def stage_orthanc_study_to_minio(
                 continue
 
             key = f"studies/{study_id}/phases/{phase}.nii.gz"
-            s3.put_object(
-                Bucket=PHASES_BUCKET,
-                Key=key,
-                Body=io.BytesIO(nifti_bytes),
-                ContentType="application/octet-stream",
+            s3.upload_fileobj(
+                io.BytesIO(nifti_bytes),
+                PHASES_BUCKET,
+                key,
+                ExtraArgs={"ContentType": "application/octet-stream"},
             )
             staged[phase] = f"s3://{PHASES_BUCKET}/{key}"
             logger.info(

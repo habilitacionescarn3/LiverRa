@@ -139,7 +139,7 @@ def upload_nii(image: sitk.Image, key: str, bucket: str = ANALYSES_BUCKET) -> st
     try:
         sitk.WriteImage(image, path)
         with open(path, "rb") as fh:
-            s3_client().put_object(Bucket=bucket, Key=key, Body=fh.read())
+            s3_client().upload_fileobj(fh, bucket, key)
     finally:
         os.unlink(path)
     return f"s3://{bucket}/{key}"
