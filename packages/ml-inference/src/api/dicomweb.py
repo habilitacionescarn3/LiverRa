@@ -147,14 +147,27 @@ async def _proxy(request: Request, subpath: str) -> Response:
         pool=10.0,
     )
 
+    # Collect the request body upfront — httpx async streaming requests
+    # with an async generator `content=` work for the *send* side, but
+    # the response must also be opened in streaming mode (`stream=True`
+    # via `client.send`). The simplest reliable pattern: read the body
+    # into memory (Orthanc responses are small JSON — the *request*
+    # bodies are big but those already streamed into httpx), then stream
+    # the response back. For STOW-RS the request body can be large, so
+    # we read it via the async iterator that FastAPI already buffers.
+    body_bytes = b""
+    async for chunk in body_iter:
+        body_bytes += chunk
+
     client = httpx.AsyncClient(timeout=timeout)
     try:
-        upstream = await client.request(
+        req = client.build_request(
             method=request.method,
             url=target_url,
             headers=fwd_headers,
-            content=body_iter,
+            content=body_bytes,
         )
+        upstream = await client.send(req, stream=True)
     except httpx.ConnectError as exc:
         await client.aclose()
         logger.error("orthanc proxy unreachable: %s", exc)
@@ -168,9 +181,6 @@ async def _proxy(request: Request, subpath: str) -> Response:
             status_code=502, detail=f"Orthanc proxy failure: {exc}"
         ) from exc
 
-    # Stream the response body back to the browser. We MUST close the
-    # httpx client after the stream is fully consumed — wrap it in a
-    # generator that closes on exit.
     async def _iter() -> object:
         try:
             async for chunk in upstream.aiter_raw():
