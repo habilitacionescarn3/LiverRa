@@ -61,7 +61,7 @@ primary_region = "fra"  # Frankfurt — GDPR data residency for PHI-adjacent tra
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "1gb"                       # Celery loads numpy + nibabel; needs more
+  memory = "2gb"                       # NIfTI conversion on 2000+ DICOM slices needs >1GB
   processes = ["worker"]
 
 # ---------------------------------------------------------------------------
