@@ -24,22 +24,22 @@ known outcome, and the evidence URL (typically an S3 artefact).
 
 | SC | Description | CI job | Status | Evidence |
 |---|---|---|---|---|
-| SC-001 | Segmentation Dice ≥ 0.85 on AMOS22 mini | `ci-ml-regression` | ⏳ pending | — |
-| SC-002 | P95 end-to-end analysis ≤ 8 min | `k6-nightly` | ⏳ pending | — |
-| SC-003 | Classification abstention rate ≤ 20% on validation | `ci-ml-regression` | ⏳ pending | — |
-| SC-004 | Audit chain verifier 100% pass over 24 h | `ci-fhir-integration` | ⏳ pending | — |
-| SC-005 | PHI scrubber fail-closed on all synthetic injections | `ci-rbac-red-team` | ⏳ pending | — |
-| SC-006 | PACS C-STORE success rate ≥ 95% (staging) | `k6-nightly` | ⏳ pending | — |
-| SC-007 | DICOM UID root configured | `ci-dicom-uid-present` | ⏳ pending | — |
-| SC-008 | RUO watermark present on all exports | `e2e-cpu` (us6-ruo-watermark) | ⏳ pending | — |
-| SC-009 | Multi-tenant isolation (no cross-tenant reads) | `ci-rbac-red-team` | ⏳ pending | — |
-| SC-010 | Erasure within 30-day SLA | `e2e-cpu` (us10-erasure-request) | ⏳ pending | — |
-| SC-011 | Crypto-shred within 60 s | `e2e-cpu` (us10-crypto-shred-within-60s) | ⏳ pending | — |
-| SC-012 | Monthly infra cost within NFR-008 envelope | `cost-budget` | ⏳ pending | — |
-| SC-013 | Viewer FPS ≥ 30 on 512³ reference volume | `ci-viewer-fps` | ⏳ pending | — |
-| SC-014 | Lighthouse web-vitals budget | `ci-lighthouse` | ⏳ pending | — |
-| SC-015 | Bundle budget (≤ 350 KB gzip initial) | `ci-bundle-check` | ⏳ pending | — |
-| SC-016 | License compliance (Apache-2.0 only) | `ci-license-check` | ⏳ pending | — |
+| SC-001 | Segmentation Dice ≥ 0.85 on AMOS22 mini | `ci-ml-regression` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-002 | P95 end-to-end analysis ≤ 8 min | `k6-nightly` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26433036268 |
+| SC-003 | Classification abstention rate ≤ 20% on validation | `ci-ml-regression` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-004 | Audit chain verifier 100% pass over 24 h | `ci-fhir-integration` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-005 | PHI scrubber fail-closed on all synthetic injections | `ci-rbac-red-team` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-006 | PACS C-STORE success rate ≥ 95% (staging) | `k6-nightly` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26433036268 |
+| SC-007 | DICOM UID root configured | `ci-dicom-uid-present` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-008 | RUO watermark present on all exports | `e2e-cpu` (us6-ruo-watermark) | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264169 |
+| SC-009 | Multi-tenant isolation (no cross-tenant reads) | `ci-rbac-red-team` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-010 | Erasure within 30-day SLA | `e2e-cpu` (us10-erasure-request) | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264169 |
+| SC-011 | Crypto-shred within 60 s | `e2e-cpu` (us10-crypto-shred-within-60s) | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264169 |
+| SC-012 | Monthly infra cost within NFR-008 envelope | `cost-budget` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/25908794373 |
+| SC-013 | Viewer FPS ≥ 30 on 512³ reference volume | `ci-viewer-fps` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-014 | Lighthouse web-vitals budget | `ci-lighthouse` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-015 | Bundle budget (≤ 350 KB gzip initial) | `ci-bundle-check` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
+| SC-016 | License compliance (Apache-2.0 only) | `ci-license-check` | :x: red | https://github.com/MediMindAI/LiverRa/actions/runs/26023264167 |
 
 ---
 
@@ -50,11 +50,11 @@ Each must be green for any `release/*` branch tag.
 
 | Gate | CI job | Purpose | Status |
 |---|---|---|---|
-| Palette CVD check | `ci-palette-cvd-check` | Deuteranopia/protanopia/tritanopia ≥ 3:1 | ⏳ pending |
-| GPU load | `e2e-gpu` (us1-end-to-end-amos22) | Real-Triton end-to-end smoke | ⏳ pending |
-| Alembic round-trip | `ci-alembic-migrations` | Every migration applies + downgrades cleanly | ⏳ pending |
-| DICOM UID present | `ci-dicom-uid-present` | `liverra/dicom-uid-root` secret exists | ⏳ pending |
-| Bundle budget | `ci-bundle-check` | Initial JS ≤ 350 KB gz, viewer chunk ≤ 2 MB gz | ⏳ pending |
+| Palette CVD check | `ci-palette-cvd-check` | Deuteranopia/protanopia/tritanopia ≥ 3:1 | :x: red |
+| GPU load | `e2e-gpu` (us1-end-to-end-amos22) | Real-Triton end-to-end smoke | :arrows_counterclockwise: pending |
+| Alembic round-trip | `ci-alembic-migrations` | Every migration applies + downgrades cleanly | :x: red |
+| DICOM UID present | `ci-dicom-uid-present` | `liverra/dicom-uid-root` secret exists | :x: red |
+| Bundle budget | `ci-bundle-check` | Initial JS ≤ 350 KB gz, viewer chunk ≤ 2 MB gz | :x: red |
 
 ---
 
