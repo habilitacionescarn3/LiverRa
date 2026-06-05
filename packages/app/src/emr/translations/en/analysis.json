@@ -234,8 +234,12 @@
       "ariaLabel": "View mode",
       "axial": "Axial",
       "mpr": "MPR (3-up)",
+      "3d": "3D",
+      "mprVr": "MPR + 3D",
       "switchToAxial": "Show axial only",
       "switchToMpr": "Show 3-up MPR (axial / sagittal / coronal)",
+      "switchTo3d": "Switch to 3D view",
+      "switchToMprVr": "Switch to MPR + 3D view",
       "panelTitle": {
         "axial": "Axial",
         "sagittal": "Sagittal",

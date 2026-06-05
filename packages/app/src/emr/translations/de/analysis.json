@@ -227,8 +227,12 @@
       "ariaLabel": "__TODO_TRANSLATE__:View mode",
       "axial": "__TODO_TRANSLATE__:Axial",
       "mpr": "__TODO_TRANSLATE__:MPR (3-up)",
+      "3d": "__TODO_TRANSLATE__:3D",
+      "mprVr": "__TODO_TRANSLATE__:MPR + 3D",
       "switchToAxial": "__TODO_TRANSLATE__:Show axial only",
       "switchToMpr": "__TODO_TRANSLATE__:Show 3-up MPR (axial / sagittal / coronal)",
+      "switchTo3d": "__TODO_TRANSLATE__:Switch to 3D view",
+      "switchToMprVr": "__TODO_TRANSLATE__:Switch to MPR + 3D view",
       "panelTitle": {
         "axial": "__TODO_TRANSLATE__:Axial",
         "sagittal": "__TODO_TRANSLATE__:Sagittal",

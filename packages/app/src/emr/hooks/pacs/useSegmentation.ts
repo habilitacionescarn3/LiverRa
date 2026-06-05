@@ -340,8 +340,11 @@ export function useSegmentation(
 
           // Calculate voxel volume from spacing (only need to do this once)
           if (voxelVolume === 0) {
-            // CRITICAL: Use actual voxel spacing, not assume isotropic
-            const spacing = cachedImage.spacing || [1, 1, 1];
+            // CRITICAL: Use actual voxel spacing, not assume isotropic.
+            // `spacing` is not on this Cornerstone build's IImage type —
+            // narrow locally (runtime property is present on cached images).
+            const spacing =
+              (cachedImage as { spacing?: number[] }).spacing || [1, 1, 1];
             voxelVolume = spacing[0] * spacing[1] * (spacing[2] ?? 1);
           }
         }

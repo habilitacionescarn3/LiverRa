@@ -319,6 +319,7 @@ const IMAGING_AUDIT_SUBTYPES = {
   ANNOTATION_SAVE: 'imaging-annotation-save',
   KEY_IMAGE_FLAG: 'imaging-key-image-flag',
   STUDY_DOWNLOAD: 'imaging-study-download',
+  STRUCTURE_ISOLATION_APPLY: 'imaging-structure-isolation-apply',
   STUDY_MODIFY: 'imaging-study-modify',
   STUDY_DELETE: 'imaging-study-delete',
   BREAK_GLASS: 'imaging-break-glass',
@@ -505,6 +506,20 @@ export function logStudyDownload(opts: AuditOptions): void {
     IMAGING_AUDIT_SUBTYPES.STUDY_DOWNLOAD,
     'Imaging Study Downloaded',
     'R',
+    opts
+  );
+}
+
+/**
+ * Log that a user isolated an anatomical structure in the 3D/VR viewport
+ * (click a vessel/structure → render only it, fade the rest). Action 'E'
+ * (Execute) — a visualization operation on the study, not a data read/write.
+ */
+export function logStructureIsolation(opts: AuditOptions): void {
+  fireAndForget(
+    IMAGING_AUDIT_SUBTYPES.STRUCTURE_ISOLATION_APPLY,
+    'Imaging Structure Isolation',
+    'E',
     opts
   );
 }

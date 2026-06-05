@@ -191,6 +191,17 @@
   /* DICOM viewer chrome (always dark regardless of theme -- radiology standard) */
   --emr-viewer-bg: #000000;
   --emr-viewer-chrome: linear-gradient(180deg, #1a1a2e 0%, #16162a 100%);
+  /* PACS reading-room chrome tokens (advanced-viewer port) — the viewer's
+     top bar / tool rail / dropdown surfaces. Neutral grays, intentionally
+     NOT auto-switching: the reading chrome stays dark in both modes, like
+     the always-black viewport canvas (radiology convention). */
+  --emr-pacs-reading-bg: #14171c;
+  --emr-pacs-reading-elevated: #1c2027;
+  --emr-pacs-reading-hover: #262b34;
+  --emr-pacs-reading-border: #2a2f3a;
+  --emr-pacs-reading-text: #e6e9ef;
+  --emr-pacs-reading-text-dim: #9aa3b2;
+  --emr-pacs-viewport-overlay-text: #e0e0e0;
   /* RUO watermark fill (always near-white for legibility over dark viewer) */
   --emr-watermark-fill: rgba(255, 255, 255, 0.9);
 

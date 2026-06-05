@@ -1,0 +1,392 @@
+/**
+ * PACSToolbar Styles
+ *
+ * Horizontal toolbar with tool selection and action buttons.
+ * Dark background to match the PACS viewer aesthetic.
+ */
+
+.pacs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--emr-bg-card);
+  flex-wrap: wrap;
+  min-height: 32px;
+}
+
+/* Group of related buttons */
+.pacs-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* (Separator removed — visual grouping now handled by sidebar section labels) */
+
+/* Individual toolbar button — PACS-H12: 44×44 minimum tap target (was 32×32). */
+.pacs-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--emr-text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.pacs-toolbar-btn:hover:not(:disabled) {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-primary);
+}
+
+/* Active tool — highlighted with accent border */
+/* PACS-M20: use the accent alpha CSS var so dark-mode auto-switching works. */
+.pacs-toolbar-btn.active {
+  background: var(--emr-accent-alpha-20);
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+}
+
+.pacs-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pacs-toolbar-btn:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* Group dropdown trigger — wider to fit icon + chevron. PACS-H12: 52px tap target. */
+.pacs-group-trigger {
+  width: 52px;
+  gap: 2px;
+}
+
+/* Chevron inside group trigger */
+.pacs-group-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.pacs-group-trigger:hover .pacs-group-chevron {
+  opacity: 1;
+}
+
+/* Protocol section — right-aligned group with indicator and menu button */
+.pacs-protocol-section {
+  gap: 6px;
+}
+
+/* Protocol indicator badge — shows active protocol name */
+.pacs-protocol-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  /* PACS-M20 */
+  background: var(--emr-accent-alpha-15);
+  color: var(--emr-accent);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Protocol menu trigger — smaller than regular toolbar buttons */
+.pacs-protocol-btn {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* Mark as Read button — highlighted with green accent to draw attention */
+.pacs-mark-read-btn {
+  background: var(--emr-success-alpha-15);
+  border-color: var(--emr-success);
+  color: var(--emr-success);
+}
+
+.pacs-mark-read-btn:hover:not(:disabled) {
+  background: var(--emr-success-alpha-30);
+  color: var(--emr-success);
+}
+
+/* View Findings button — subtle indicator style. PACS-M20: theme alpha vars. */
+.pacs-findings-btn {
+  background: var(--emr-accent-alpha-10);
+  color: var(--emr-accent);
+}
+
+.pacs-findings-btn:hover:not(:disabled) {
+  background: var(--emr-accent-alpha-20);
+  color: var(--emr-accent);
+}
+
+/* Responsive: on very narrow screens, reduce button size slightly */
+@media (max-width: 576px) {
+  .pacs-toolbar {
+    padding: 2px 4px;
+    gap: 2px;
+  }
+
+  /* (toolbar separator removed) */
+
+  /* Hide protocol name text on very narrow screens, keep just the icon */
+  .pacs-protocol-indicator {
+    padding: 4px 6px;
+  }
+
+  .pacs-protocol-indicator .pacs-protocol-text {
+    display: none;
+  }
+
+  /* Hide MIP label text on narrow screens */
+  .pacs-mip-label {
+    display: none;
+  }
+
+  /* Hide slab slider on narrow screens — not usable on touch anyway */
+  .pacs-slab-slider-wrap {
+    display: none;
+  }
+
+  /* Shrink cardiology label */
+  .pacs-cardiology-label {
+    display: none;
+  }
+
+  /* Hide SR timestamp on narrow screens */
+  .pacs-sr-timestamp {
+    display: none;
+  }
+}
+
+/* 3D Preset buttons */
+.pacs-preset-btn {
+  min-width: 36px;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+}
+
+.pacs-preset-label {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.5px;
+}
+
+/* MIP/MinIP slab rendering controls */
+.pacs-mip-label {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.pacs-slab-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.pacs-slab-slider-wrap label {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+}
+
+.pacs-slab-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--emr-border-color);
+  outline: none;
+  cursor: pointer;
+}
+
+.pacs-slab-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--emr-accent);
+  cursor: pointer;
+  border: none;
+}
+
+.pacs-slab-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--emr-accent);
+  cursor: pointer;
+  border: none;
+}
+
+.pacs-slab-value {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-accent);
+  font-weight: var(--emr-font-semibold);
+  min-width: 32px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Cardiology group label — small text before cardiology buttons */
+.pacs-cardiology-label {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Warning dot on Stenosis button when not calibrated */
+.pacs-cardiology-warning-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: var(--emr-warning);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* DICOM SR — spinner animation for save/load buttons */
+.pacs-spinner {
+  animation: pacs-spin 1s linear infinite;
+}
+
+@keyframes pacs-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* DICOM SR — last saved timestamp text */
+.pacs-sr-timestamp {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-secondary);
+  white-space: nowrap;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Critical Finding button — red/warning accent to draw attention */
+.pacs-critical-finding-btn {
+  background: var(--emr-error-alpha-15);
+  border-color: var(--emr-error);
+  color: var(--emr-error);
+}
+
+.pacs-critical-finding-btn:hover:not(:disabled) {
+  background: var(--emr-error-alpha-30);
+  color: var(--emr-error);
+}
+
+/* Badge count on critical finding button */
+.pacs-critical-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--emr-error);
+  /* White text on red badge background — same in both themes. */
+  color: #fff;
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ---- Top-bar (immersive reading-room) context ----
+   When the toolbar lives inside the dark top menu-bar, switch it from the
+   wrapping multi-row layout to a single 44px horizontal strip that scrolls
+   sideways if it overflows. Buttons are already flex-shrink:0 + nowrap, so the
+   horizontal scroll is safe and nothing gets squeezed. */
+.pacs-topbar .pacs-toolbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 0;
+  height: 44px;
+}
+
+.pacs-topbar .pacs-toolbar::-webkit-scrollbar {
+  height: 0;
+}
+
+/* ---- Shared dark dropdown panels for ALL viewer Menus ----
+   Mantine Menu.Dropdown panels render in a portal at <body>, OUTSIDE the
+   `.pacs-viewer` subtree, so a viewer-scoped rule can't reach them. These are
+   GLOBAL rules keyed on the shared classNames applied to every viewer Menu
+   (Layout / W-L Presets / Workflow AND the PACSToolbar tool dropdowns) so all
+   opened panels match the dark reading-room chrome. Neutral grays only;
+   selected items keep the theme-blue accent. */
+.pacs-menu-dropdown {
+  /* Mantine v7 paints the dropdown via `background-color: var(--mantine-color-body)`
+     from a class rule that loads AFTER this stylesheet, so a plain declaration
+     loses on source order. These portal panels render outside .pacs-viewer and
+     are third-party-styled, so scoped !important is the reliable override (same
+     pattern noted for Mantine v7 Emotion CSS elsewhere in the app).
+
+     COMPLIANCE NOTE (Wave 8G.13): these literals intentionally stay hardcoded.
+     They mirror the fixed-dark `--pacs-chrome-*` tokens (PACSViewer.css), which
+     keep the reading-room chrome dark in BOTH light and dark mode (a radiology
+     convention). They are NOT swapped to auto-switching `--emr-*` vars — that
+     would turn the panels light in light mode. The `--pacs-chrome-*` vars can't
+     be reused here either: they're scoped to the `.pacs-viewer` subtree, but
+     these Mantine dropdowns render in a portal at <body>, OUTSIDE that subtree,
+     so the custom properties don't cascade in. Hence the raw hex.
+       #1c2027 = --pacs-chrome-elevated · #2a2f3a = --pacs-chrome-border
+       #e6e9ef = --pacs-chrome-text     · #262b34 = --pacs-chrome-hover
+       #9aa3b2 = --pacs-chrome-text-dim · #5a6473 = disabled (chrome-dim, darker) */
+  background-color: #1c2027 !important;
+  border-color: #2a2f3a !important;
+}
+
+.pacs-menu-dropdown .pacs-menu-item,
+.pacs-menu-dropdown [class*="mantine-Menu-item"] {
+  color: #e6e9ef !important;
+}
+
+.pacs-menu-dropdown .pacs-menu-item:hover:not([data-disabled]),
+.pacs-menu-dropdown [class*="mantine-Menu-item"]:hover:not([data-disabled]) {
+  background-color: #262b34 !important;
+}
+
+.pacs-menu-dropdown .pacs-menu-item[data-disabled],
+.pacs-menu-dropdown [class*="mantine-Menu-item"][data-disabled] {
+  color: #5a6473 !important;
+}
+
+.pacs-menu-dropdown .pacs-menu-label,
+.pacs-menu-dropdown [class*="mantine-Menu-label"] {
+  color: #9aa3b2 !important;
+}
+
+.pacs-menu-dropdown .pacs-menu-divider,
+.pacs-menu-dropdown [class*="mantine-Menu-divider"] {
+  border-color: #2a2f3a;
+}

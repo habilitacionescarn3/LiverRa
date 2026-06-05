@@ -1,0 +1,33 @@
+/* SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/* ============================================================================
+ * QCA Overlay Styles
+ * ============================================================================
+ * SVG overlay drawn on top of the PACS viewport to show vessel contours,
+ * centerline, and measurement lines during QCA analysis.
+ * ============================================================================ */
+
+.qca-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.qca-overlay-label {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.7);
+  stroke-width: 3px;
+}
+
+.qca-overlay-analyzing {
+  font-size: var(--emr-font-sm);
+  fill: var(--emr-warning);
+  text-anchor: middle;
+}

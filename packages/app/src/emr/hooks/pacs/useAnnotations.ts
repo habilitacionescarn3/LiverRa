@@ -23,14 +23,15 @@
 //   - cornerstoneInit: Annotation state access and rendering engine
 //
 // Ported from MediMind. `useMedplum()` → `useLiverraFhir()` (stub-backed for
-// Phase 2). `profile` lookup is local today because the FHIR shim doesn't
-// expose `getProfile()` yet — Phase 4 swaps to the real session identity.
+// Phase 2). `getProfile()` is not exposed by the FHIR shim yet, so identity
+// resolves via a fixed `LOCAL_PROFILE` — Phase 4 swaps to the real session.
 // ============================================================================
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from '../../contexts/TranslationContext';
 import { useLiverraFhir } from '../useLiverraFhir';
+import type { LiverRaFhirClient } from '../../services/fhirClient';
 import type { StoredAnnotations } from '../../services/pacs/annotationService';
 import {
   saveAnnotations,
@@ -51,7 +52,7 @@ interface CS3DAnnotation {
       lineDash?: number[];
     };
     handles?: {
-      points?: Array<[number, number, number]>;
+      points?: [number, number, number][];
     };
     [key: string]: unknown;
   };
@@ -59,6 +60,11 @@ interface CS3DAnnotation {
     referencedImageId?: string;
     [key: string]: unknown;
   };
+}
+
+interface PendingAnnotationSave {
+  studyId: string;
+  data: string;
 }
 
 // ============================================================================
@@ -72,8 +78,26 @@ const AUTO_SAVE_DELAY = 2000;
 const MAX_HISTORY_SIZE = 50;
 
 // TODO(phase-4): replace with real profile from the session context. Using a
-// fixed id keeps "my annotations" stable in the stub phase.
+// fixed id keeps "my annotations" stable in the stub phase. Mirrors
+// annotationService.getCurrentProfile() so author keys line up.
 const LOCAL_PROFILE = { id: 'local-user' };
+
+function collectAnnotationUids(annotationJson: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(annotationJson);
+    const uids: string[] = [];
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) {
+        if (item && typeof item === 'object' && 'annotationUID' in item && typeof item.annotationUID === 'string') {
+          uids.push(item.annotationUID);
+        }
+      }
+    }
+    return uids;
+  } catch {
+    return [];
+  }
+}
 
 // ============================================================================
 // Types
@@ -149,18 +173,107 @@ export interface UseAnnotationsReturn {
 // Helpers
 // ============================================================================
 
-/** Generate a simple UUID v4 for tracking unique IDs */
+/**
+ * Generate a UUID v4 for tracking unique IDs.
+ *
+ * CROSS-M20 (2026-05-06 audit): replaced Math.random() fallback with
+ * crypto.getRandomValues — addresses iOS Safari low-entropy-on-first-call.
+ *
+ * @returns UUID v4 string.
+ */
 function generateUUID(): string {
-  // Use crypto.randomUUID if available, otherwise fallback
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Simple fallback — good enough for tracking IDs
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  // Cryptographically-secure fallback.
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+}
+
+/**
+ * Check whether a parsed value looks like a Cornerstone annotation snapshot.
+ *
+ * @param value - Parsed JSON value.
+ * @returns True when the value can be restored as an annotation.
+ */
+function isAnnotationSnapshot(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    ('annotationUID' in value || 'metadata' in value || 'data' in value);
+}
+
+/**
+ * Recursively collect annotation arrays from supported snapshot shapes.
+ *
+ * @param value - Parsed annotation snapshot.
+ * @param out - Mutable collection for annotation objects.
+ * @returns True when at least one annotation was found.
+ */
+function collectSnapshotAnnotations(value: unknown, out: unknown[]): boolean {
+  if (Array.isArray(value)) {
+    let found = false;
+    for (const ann of value) {
+      if (isAnnotationSnapshot(ann)) {
+        out.push(ann);
+        found = true;
+      }
+    }
+    return found;
+  }
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  let found = false;
+  for (const child of Object.values(value)) {
+    found = collectSnapshotAnnotations(child, out) || found;
+  }
+  return found;
+}
+
+/**
+ * Flatten one author's saved annotation JSON and tag each annotation with that author.
+ *
+ * @param dataJson - Saved annotation JSON.
+ * @param authorId - Stored annotation author id.
+ * @returns Restorable annotation snapshots for one author.
+ */
+function flattenStoredAnnotationData(dataJson: string, authorId: string): unknown[] {
+  if (!dataJson) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(dataJson);
+    const annotations: unknown[] = [];
+    collectSnapshotAnnotations(parsed, annotations);
+    return annotations.map((ann) => {
+      const cloned = JSON.parse(JSON.stringify(ann)) as CS3DAnnotation;
+      cloned.metadata = { ...cloned.metadata, authorId };
+      cloned.data = { ...cloned.data, authorId };
+      return cloned;
+    });
+  } catch (err) {
+    console.warn('[useAnnotations] Unable to parse PACS author annotations:', err);
+    return [];
+  }
+}
+
+/**
+ * Build a merged restore payload for the currently visible authors.
+ *
+ * @param all - All loaded annotation records for the study.
+ * @param visibleAuthorIds - Author ids currently visible in the viewer.
+ * @returns JSON array of annotations to restore into Cornerstone.
+ */
+function buildVisibleAnnotationsJson(all: StoredAnnotations[], visibleAuthorIds: Set<string>): string {
+  const merged = all
+    .filter((ann) => visibleAuthorIds.has(ann.authorId))
+    .flatMap((ann) => flattenStoredAnnotationData(ann.data, ann.authorId));
+  return JSON.stringify(merged);
 }
 
 /**
@@ -217,9 +330,22 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
 
   // Refs for debounce and cleanup
   const mountedRef = useRef(true);
-  const pendingDataRef = useRef<string | null>(null);
+  const pendingDataRef = useRef<PendingAnnotationSave | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  const loadRequestIdRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
+  const activeStudyIdRef = useRef(studyId);
+  const latestFhirRef = useRef<LiverRaFhirClient>(fhirClient);
+  const latestPreparePersistedAnnotationJsonRef = useRef<(annotationJson: string) => string>(
+    (annotationJson) => annotationJson
+  );
+
+  useEffect(() => {
+    activeStudyIdRef.current = studyId;
+    saveRequestIdRef.current += 1;
+    setIsSaving(false);
+  }, [studyId]);
 
   // --------------------------------------------------------------------------
   // T031 — Undo/Redo state
@@ -246,24 +372,143 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
   // "Untracked" ones are temporary — drawn with dashed lines so the user can
   // tell them apart. Like the difference between writing with pen vs. pencil.
 
-  const [trackingMode, setTrackingMode] = useState<'tracked' | 'untracked'>('untracked');
+  const [trackingMode, setTrackingMode] = useState<'tracked' | 'untracked'>('tracked');
   const [annotationMeta, setAnnotationMeta] = useState<Map<string, AnnotationMeta>>(new Map());
   const trackedCountRef = useRef(0); // Counter for auto-naming (e.g., "Lesion 1", "Lesion 2")
+  const lastSnapshotRef = useRef<string | null>(null);
+  const queuedTrackedAnnotationUidsRef = useRef<Set<string>>(new Set());
+
+  const preparePersistedAnnotationJson = useCallback((annotationJson: string): string => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(annotationJson);
+    } catch (err) {
+      console.warn('[useAnnotations] best-effort PACS operation failed:', err);
+      return annotationJson;
+    }
+
+    if (!Array.isArray(parsed)) {
+      return annotationJson;
+    }
+
+    const currentAuthorId = LOCAL_PROFILE.id;
+    const nextMeta = new Map(annotationMeta);
+    let metaChanged = false;
+    const persisted: unknown[] = [];
+
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') {
+        persisted.push(item);
+        continue;
+      }
+
+      const annotation = item as CS3DAnnotation;
+      const annotationAuthorId =
+        typeof annotation.metadata?.authorId === 'string'
+          ? annotation.metadata.authorId
+          : typeof annotation.data?.authorId === 'string'
+            ? annotation.data.authorId
+            : '';
+      if (currentAuthorId && annotationAuthorId && annotationAuthorId !== currentAuthorId) {
+        continue;
+      }
+      const uid = annotation.annotationUID;
+      if (!uid) {
+        persisted.push(item);
+        continue;
+      }
+
+      let meta = nextMeta.get(uid);
+      if (!meta && trackingMode === 'untracked' && queuedTrackedAnnotationUidsRef.current.has(uid)) {
+        persisted.push(annotation);
+        continue;
+      }
+      if (!meta) {
+        const embeddedTrackingId =
+          typeof annotation.metadata?.trackingId === 'string'
+            ? annotation.metadata.trackingId
+            : typeof annotation.data?.trackingId === 'string'
+              ? annotation.data.trackingId
+              : '';
+        const embeddedTrackingUniqueId =
+          typeof annotation.metadata?.trackingUniqueId === 'string'
+            ? annotation.metadata.trackingUniqueId
+            : typeof annotation.data?.trackingUniqueId === 'string'
+              ? annotation.data.trackingUniqueId
+              : '';
+        if (embeddedTrackingId && embeddedTrackingUniqueId) {
+          meta = { isTracked: true, trackingId: embeddedTrackingId, trackingUniqueId: embeddedTrackingUniqueId };
+          const lesionNumber = /^Lesion (\d+)$/.exec(embeddedTrackingId)?.[1];
+          if (lesionNumber) {
+            trackedCountRef.current = Math.max(trackedCountRef.current, Number(lesionNumber));
+          }
+        } else if (trackingMode === 'untracked') {
+          meta = { isTracked: false, trackingId: '', trackingUniqueId: '' };
+          if (annotation.data) {
+            annotation.data.style = annotation.data.style ?? {};
+            annotation.data.style.lineDash = annotation.data.style.lineDash ?? [4, 4];
+          }
+        } else {
+          trackedCountRef.current += 1;
+          meta = {
+            isTracked: true,
+            trackingId: `Lesion ${trackedCountRef.current}`,
+            trackingUniqueId: generateUUID(),
+          };
+          if (annotation.data?.style?.lineDash) {
+            delete annotation.data.style.lineDash;
+          }
+        }
+        nextMeta.set(uid, meta);
+        metaChanged = true;
+      }
+
+      if (meta.isTracked) {
+        if (annotation.data?.style?.lineDash) {
+          delete annotation.data.style.lineDash;
+        }
+        annotation.metadata = {
+          ...annotation.metadata,
+          isTracked: true,
+          trackingId: meta.trackingId,
+          trackingUniqueId: meta.trackingUniqueId,
+        };
+        annotation.data = annotation.data ?? {};
+        annotation.data.isTracked = true;
+        annotation.data.trackingId = meta.trackingId;
+        annotation.data.trackingUniqueId = meta.trackingUniqueId;
+        persisted.push(annotation);
+      }
+    }
+
+    if (metaChanged) {
+      setAnnotationMeta(nextMeta);
+    }
+
+    return JSON.stringify(persisted);
+  }, [annotationMeta, trackingMode]);
+
+  latestFhirRef.current = fhirClient;
+  latestPreparePersistedAnnotationJsonRef.current = preparePersistedAnnotationJson;
 
   // --------------------------------------------------------------------------
   // Load annotations when studyId changes
   // --------------------------------------------------------------------------
   const reload = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     if (!studyId) {
       setAnnotations([]);
       setVisibleAuthors(new Set());
+      setIsLoading(false);
+      restoreAnnotationsFromJson('[]');
+      lastSnapshotRef.current = '[]';
       return;
     }
 
     setIsLoading(true);
     try {
       const all = await loadAnnotations(fhirClient, studyId);
-      if (!mountedRef.current) {
+      if (!mountedRef.current || requestId !== loadRequestIdRef.current) {
         return;
       }
       setAnnotations(all);
@@ -271,6 +516,7 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       // Make all authors visible by default
       const authorIds = new Set(all.map((a) => a.authorId));
       setVisibleAuthors(authorIds);
+      restoreAnnotationsFromJson(buildVisibleAnnotationsJson(all, authorIds));
 
       // Set lastSaved from current user's annotations (filtered in-memory
       // instead of a redundant FHIR search — "my annotations" is a subset
@@ -280,11 +526,16 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       if (mine?.lastSaved) {
         setLastSaved(mine.lastSaved);
       }
+      lastSnapshotRef.current = mine?.data ?? '[]';
     } catch (err) {
+      console.warn('[useAnnotations] PACS fallback path failed:', err);
+      if (!mountedRef.current || requestId !== loadRequestIdRef.current) {
+        return;
+      }
       const msg = err instanceof Error ? err.message : t('pacs.annotations.loadFailed');
       notifications.show({ title: t('common.error'), message: msg, color: 'red' });
     } finally {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestId === loadRequestIdRef.current) {
         setIsLoading(false);
       }
     }
@@ -306,7 +557,8 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
     let allAnnotations: { annotationUID?: string }[] = [];
     try {
       allAnnotations = annotationState.getAllAnnotations?.() ?? [];
-    } catch {
+    } catch (err) {
+      console.warn('[useAnnotations] Unable to read PACS annotations for migration:', err);
       // CS3D may not be ready yet — skip migration
       return;
     }
@@ -324,24 +576,47 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
         continue;
       }
 
-      // Only migrate annotations that don't already have metadata
-      // (annotationMeta is reset to empty Map on study change, so all
-      // pre-existing annotations need defaults assigned)
-      trackedCountRef.current += 1;
-      newMeta.set(uid, {
-        isTracked: true,
-        trackingId: `Lesion ${trackedCountRef.current}`,
-        trackingUniqueId: generateUUID(),
-      });
-
-      // Ensure solid line style (remove any dashed style from untracked era)
+      let annData: CS3DAnnotation | undefined;
       try {
-        const annData = annotationState.getAnnotation(uid) as CS3DAnnotation | undefined;
+        annData = annotationState.getAnnotation(uid) as CS3DAnnotation | undefined;
         if (annData?.data?.style?.lineDash) {
           delete annData.data.style.lineDash;
         }
-      } catch {
+      } catch (err) {
+        console.warn('[useAnnotations] Unable to normalize PACS annotation style during migration:', err);
         // Ignore — style will be correct on next render
+      }
+
+      const embeddedTrackingId =
+        typeof annData?.metadata?.trackingId === 'string'
+          ? annData.metadata.trackingId
+          : typeof annData?.data?.trackingId === 'string'
+            ? annData.data.trackingId
+            : '';
+      const embeddedTrackingUniqueId =
+        typeof annData?.metadata?.trackingUniqueId === 'string'
+          ? annData.metadata.trackingUniqueId
+          : typeof annData?.data?.trackingUniqueId === 'string'
+            ? annData.data.trackingUniqueId
+            : '';
+
+      if (embeddedTrackingId && embeddedTrackingUniqueId) {
+        newMeta.set(uid, {
+          isTracked: true,
+          trackingId: embeddedTrackingId,
+          trackingUniqueId: embeddedTrackingUniqueId,
+        });
+        const lesionNumber = /^Lesion (\d+)$/.exec(embeddedTrackingId)?.[1];
+        if (lesionNumber) {
+          trackedCountRef.current = Math.max(trackedCountRef.current, Number(lesionNumber));
+        }
+      } else {
+        trackedCountRef.current += 1;
+        newMeta.set(uid, {
+          isTracked: true,
+          trackingId: `Lesion ${trackedCountRef.current}`,
+          trackingUniqueId: generateUUID(),
+        });
       }
 
       migratedCount++;
@@ -355,8 +630,10 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
 
   // Auto-load when studyId changes
   useEffect(() => {
+    let cancelled = false;
     const loadAndMigrate = async (): Promise<void> => {
       await reload();
+      if (cancelled) return;
       // T038: After loading, assign default metadata to any pre-existing annotations
       migrateExistingAnnotations();
     };
@@ -365,10 +642,23 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
     // Reset undo/redo stacks and tracking meta when study changes
     undoStackRef.current = [];
     redoStackRef.current = [];
+    lastSnapshotRef.current = null;
     syncUndoRedoFlags();
     setAnnotationMeta(new Map());
     trackedCountRef.current = 0;
+    queuedTrackedAnnotationUidsRef.current = new Set();
+
+    return () => {
+      cancelled = true;
+    };
   }, [reload, syncUndoRedoFlags, migrateExistingAnnotations]);
+
+  useEffect(() => {
+    if (!studyId) {
+      return;
+    }
+    restoreAnnotationsFromJson(buildVisibleAnnotationsJson(annotations, visibleAuthors));
+  }, [annotations, studyId, visibleAuthors]);
 
   // --------------------------------------------------------------------------
   // Toggle author visibility
@@ -388,22 +678,27 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
   // --------------------------------------------------------------------------
   // Internal save — performs the actual FHIR save
   // --------------------------------------------------------------------------
-  const performSave = useCallback(async (data: string) => {
-    if (!studyId) {
+  const performSave = useCallback(async (data: string, targetStudyId = studyId) => {
+    if (!targetStudyId) {
       return;
     }
     // If a save is already in progress, re-queue the data so it's not lost
     if (savingRef.current) {
-      pendingDataRef.current = data;
+      pendingDataRef.current = { studyId: targetStudyId, data };
       return;
     }
 
+    const requestId = ++saveRequestIdRef.current;
     savingRef.current = true;
     setIsSaving(true);
 
     try {
-      const result = await saveAnnotations(fhirClient, studyId, data);
-      if (!mountedRef.current) {
+      const result = await saveAnnotations(fhirClient, targetStudyId, preparePersistedAnnotationJson(data));
+      if (
+        !mountedRef.current ||
+        requestId !== saveRequestIdRef.current ||
+        activeStudyIdRef.current !== targetStudyId
+      ) {
         return;
       }
       setLastSaved(result.lastSaved);
@@ -430,14 +725,23 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
         return next;
       });
     } catch (err) {
+      console.warn('[useAnnotations] PACS annotation save failed:', err);
       const msg = err instanceof Error ? err.message : t('pacs.annotations.saveFailed');
-      if (mountedRef.current) {
+      if (
+        mountedRef.current &&
+        requestId === saveRequestIdRef.current &&
+        activeStudyIdRef.current === targetStudyId
+      ) {
         setSaveError(msg);
+        notifications.show({ title: t('common.error'), message: msg, color: 'red' });
       }
-      notifications.show({ title: t('common.error'), message: msg, color: 'red' });
     } finally {
       savingRef.current = false;
-      if (mountedRef.current) {
+      if (
+        mountedRef.current &&
+        requestId === saveRequestIdRef.current &&
+        activeStudyIdRef.current === targetStudyId
+      ) {
         setIsSaving(false);
       }
       // If new data was queued while we were saving, save it now
@@ -446,17 +750,15 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       const queued = pendingDataRef.current;
       if (queued !== null && mountedRef.current) {
         pendingDataRef.current = null;
-        performSave(queued);
+        performSave(queued.data, queued.studyId);
       }
     }
-  }, [fhirClient, studyId, t]);
+  }, [fhirClient, studyId, t, preparePersistedAnnotationJson]);
 
   // --------------------------------------------------------------------------
-  // Debounced auto-save — queue changes for saving after 2 seconds of quiet
+  // Debounced auto-save — queue tracked changes after 2 seconds of quiet
   // --------------------------------------------------------------------------
   // T031: Also pushes the previous state onto the undo stack so we can revert.
-  const lastSnapshotRef = useRef<string | null>(null);
-
   const queueSave = useCallback((annotationJson: string) => {
     // T031: Push previous snapshot onto undo stack before recording the new one
     const previousSnapshot = lastSnapshotRef.current;
@@ -471,8 +773,13 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       syncUndoRedoFlags();
     }
     lastSnapshotRef.current = annotationJson;
+    if (trackingMode === 'tracked') {
+      for (const uid of collectAnnotationUids(annotationJson)) {
+        queuedTrackedAnnotationUidsRef.current.add(uid);
+      }
+    }
 
-    pendingDataRef.current = annotationJson;
+    pendingDataRef.current = studyId ? { studyId, data: annotationJson } : null;
 
     // Clear any existing timer
     if (timerRef.current) {
@@ -484,10 +791,10 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       const data = pendingDataRef.current;
       if (data !== null) {
         pendingDataRef.current = null;
-        performSave(data);
+        performSave(data.data, data.studyId);
       }
     }, AUTO_SAVE_DELAY);
-  }, [performSave, syncUndoRedoFlags]);
+  }, [performSave, syncUndoRedoFlags, studyId, trackingMode]);
 
   // --------------------------------------------------------------------------
   // T031: Undo — pop from undo stack, push current to redo, restore previous
@@ -507,7 +814,7 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
 
     // Restore the previous snapshot
     lastSnapshotRef.current = previousState;
-    pendingDataRef.current = previousState;
+    pendingDataRef.current = studyId ? { studyId, data: previousState } : null;
 
     // Restore annotations in the Cornerstone3D viewport so they're visible
     restoreAnnotationsFromJson(previousState);
@@ -516,9 +823,9 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-    performSave(previousState);
+    performSave(previousState, studyId);
     syncUndoRedoFlags();
-  }, [performSave, syncUndoRedoFlags]);
+  }, [performSave, syncUndoRedoFlags, studyId]);
 
   // --------------------------------------------------------------------------
   // T031: Redo — pop from redo stack, push current to undo, restore next
@@ -538,7 +845,7 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
 
     // Restore the next snapshot
     lastSnapshotRef.current = nextState;
-    pendingDataRef.current = nextState;
+    pendingDataRef.current = studyId ? { studyId, data: nextState } : null;
 
     // Restore annotations in the Cornerstone3D viewport so they're visible
     restoreAnnotationsFromJson(nextState);
@@ -547,9 +854,9 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
     }
-    performSave(nextState);
+    performSave(nextState, studyId);
     syncUndoRedoFlags();
-  }, [performSave, syncUndoRedoFlags]);
+  }, [performSave, syncUndoRedoFlags, studyId]);
 
   // --------------------------------------------------------------------------
   // T032: Jump to annotation — scroll viewport to annotation's slice & pan
@@ -627,7 +934,8 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
       }
 
       viewport.render();
-    } catch {
+    } catch (err) {
+      console.warn('[useAnnotations] Unable to jump to PACS annotation viewport:', err);
       // Viewport may not support these operations (e.g., 3D viewport)
     }
   }, []);
@@ -674,7 +982,8 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      console.warn('[useAnnotations] Unable to promote PACS annotation style:', err);
       // CS3D may not be initialized — style will be applied on next render
     }
   }, []);
@@ -692,7 +1001,7 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
     const data = pendingDataRef.current;
     if (data !== null) {
       pendingDataRef.current = null;
-      await performSave(data);
+      await performSave(data.data, data.studyId);
     }
   }, [performSave]);
 
@@ -715,29 +1024,46 @@ export function useAnnotations(studyId: string): UseAnnotationsReturn {
   }, [fhirClient, studyId]);
 
   // --------------------------------------------------------------------------
-  // Cleanup: flush pending saves on unmount
+  // Cleanup: flush pending saves on study change or actual unmount
   // --------------------------------------------------------------------------
+  const flushPendingSaveForCleanup = useCallback(() => {
+    // Clear debounce timer
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Flush any pending save (fire-and-forget — route/study is changing)
+    const data = pendingDataRef.current;
+    if (data !== null && data.studyId) {
+      pendingDataRef.current = null;
+      const currentFhir = latestFhirRef.current;
+      saveAnnotations(
+        currentFhir,
+        data.studyId,
+        latestPreparePersistedAnnotationJsonRef.current(data.data)
+      ).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[useAnnotations] Save failed:', msg);
+        // TODO(phase-4): surface 401 / session-expired once the real Cognito
+        // session + refresh are wired through LiverRaFhirClient.
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      flushPendingSaveForCleanup();
+    };
+  }, [studyId, flushPendingSaveForCleanup]);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-
-      // Clear debounce timer
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-
-      // Flush any pending save (fire-and-forget — component is unmounting)
-      const data = pendingDataRef.current;
-      if (data !== null && studyId) {
-        pendingDataRef.current = null;
-        saveAnnotations(fhirClient, studyId, data).catch(() => {
-          // Best-effort save on unmount — nothing we can do if it fails
-        });
-      }
+      flushPendingSaveForCleanup();
     };
-  }, [fhirClient, studyId]);
+  }, [flushPendingSaveForCleanup]);
 
   // --------------------------------------------------------------------------
   // Return — memoized to prevent unnecessary re-renders in consumers

@@ -1,36 +1,11 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+
 // ============================================================================
-// LiverRa PACS (Picture Archiving and Communication System) Types
+// PACS (Picture Archiving and Communication System) Types
 // ============================================================================
-// Pure type definitions for the embedded Cornerstone3D PACS viewer in LiverRa.
+// Pure type definitions for the embedded Cornerstone3D PACS viewer.
 // No external dependencies — every other PACS module imports from here.
-//
-// Ported from MediMind 2026-04-20 with cardiology-only shapes removed
-// (QCAState, DSAState, CalibrationState, StenosisResult, CADRADSScore,
-// MedinaClassification). LiverRa scope is hepatobiliary CT/MRI, so only
-// the generic viewer primitives are retained.
-//
-// Type inventory (quick scan):
-//   - ImagingStudyStatus / ImagingPriority   — lifecycle + triage metadata
-//   - PACSViewerTool (a.k.a. ToolName)       — Cornerstone3D tool union
-//   - RenderingMode                          — MIP / MinIP / Average slab modes
-//   - WindowLevelPreset                      — window center/width preset value
-//   - TransferFunctionPreset                 — 3D volume rendering recipe
-//   - ViewportLayout                         — grid layout preset
-//   - StatusTimelineEntry                    — per-status audit trail row
-//   - ImagingStudyListItem                   — minimal study row for lists
-//   - ViewportState                          — per-viewport imaging state
-//   - PACSViewerState / ViewerState          — top-level viewer state
-//   - SeriesSelector                         — series-matching predicate
-//   - HangingProtocolRule                    — auto-layout recipe
-//   - ReadingWorklistItem / Filters          — radiologist worklist
-//   - Calibration                            — pixel-to-mm calibration
-//   - AnnotationHistoryEntry / TrackingState — annotation audit state
-//   - ReportMacro                            — reusable report text snippet
-//   - CriticalFindingAlert                   — urgent-finding notification
-//   - PeerReviewScore                        — RADPEER 2016 QA row
-//   - ImageFilter                            — brightness/contrast/sharpen etc.
-//   - PACSViewerProps                        — main viewer component props
 // ============================================================================
 
 // ============================================================================
@@ -60,10 +35,6 @@ export type ImagingPriority = 'stat' | 'urgent' | 'routine';
 /**
  * Available tools in the PACS viewer toolbar.
  * Maps directly to Cornerstone3D tool names.
- *
- * LiverRa scope: we keep the superset from MediMind minus cardiology-specific
- * 'Stenosis' and 'DSA'. 'Calibrate' is retained because hepatobiliary reads
- * occasionally need ruler calibration for external measurements.
  */
 export type PACSViewerTool =
   // Navigation & display
@@ -83,6 +54,7 @@ export type PACSViewerTool =
   | 'Probe'
   | 'DragProbe'
   | 'Calibrate'
+  | 'Stenosis'
   // ROI (Region of Interest) tools
   | 'EllipticalROI'
   | 'RectangleROI'
@@ -96,61 +68,108 @@ export type PACSViewerTool =
   | 'Brush'
   | 'Threshold'
   | 'Eraser'
+  // Specialized
+  | 'DSA'
   // Overlay tools (always-on, not user-selectable)
   | 'OrientationMarker'
   | 'ScaleOverlay';
 
 /**
- * Alias requested by the Phase 1 spec for components that prefer the
- * generic `ToolName` identifier. Keep as a type alias (not a separate
- * union) so every consumer sees the same exhaustive tool list.
+ * Rendering mode for slab-based volume projection.
+ * - 'default': Normal rendering (single slice, no slab projection)
+ * - 'mip': Maximum Intensity Projection — shows the brightest pixel in the slab
+ *   (great for seeing blood vessels filled with contrast)
+ * - 'minip': Minimum Intensity Projection — shows the dimmest pixel in the slab
+ *   (great for seeing air-filled structures like bronchi)
+ * - 'average': Average Intensity Projection — shows the mean pixel value across
+ *   the slab (a softer, radiograph-like look). Best-effort: not every blend
+ *   engine handler maps this, in which case it degrades to no slab change.
  */
-export type ToolName = PACSViewerTool;
+export type RenderingMode = 'default' | 'mip' | 'minip' | 'average';
 
 /**
- * Rendering mode for slab-based volume projection.
- *
- * LiverRa also accepts the legacy 'default' literal (no slab projection) from
- * the MediMind port, but the four documented values match the Phase 1 spec.
- * - 'default':  Normal rendering (single slice, no slab projection)
- * - 'MIP':      Maximum Intensity Projection — shows brightest voxel in slab
- *                (great for contrast-filled hepatic vessels)
- * - 'MinIP':    Minimum Intensity Projection — shows dimmest voxel in slab
- *                (great for air-filled bowel / biliary tree)
- * - 'Average':  Mean-intensity slab — smooths noise in thick slabs
+ * Mouse-interaction mode for the 3D VR pane.
+ * - 'rotate': LMB drags the trackball (rotate the volume). Default. Crop
+ *   handles + reference lines are still visible but passive — you can SEE
+ *   the bounding box but won't accidentally drag it while spinning.
+ * - 'crop': LMB drags the cropping handles (3D spheres + MPR reference
+ *   lines). The operator picks a region on any MPR pane and the 3D pane
+ *   shows ONLY that region. Trackball rotation moves to a different
+ *   binding (or pauses) while in this mode.
  */
-export type RenderingMode = 'default' | 'MIP' | 'MinIP' | 'Average';
+export type VrInteractionMode = 'rotate' | 'crop';
 
 /**
  * Transfer function presets for 3D volume rendering.
  * Each preset adjusts opacity and color mapping to highlight different tissue types.
  * Think of it like Instagram filters but for CT scans — each one makes different
  * body parts visible or invisible.
+ *
+ * `CtVessel` is the 3mensio-style glowing contrast-CT vessel render used by
+ * the TAVI Step-9 access-route VR (single source of truth:
+ * `vrViewportMode.ts:TAVI_VR_PRESET_NAME` → `'CT-Coronary-Arteries-2'`).
  */
-export type TransferFunctionPreset = 'Bone' | 'SoftTissue' | 'Lung' | 'Vascular';
+export type TransferFunctionPreset =
+  | 'Bone'
+  | 'SoftTissue'
+  | 'Lung'
+  | 'Vascular'
+  | 'CtVessel';
 
 /**
  * Viewport layout presets.
- * - 1x1:     single image (default)
- * - 1x2:     two side-by-side (comparison)
- * - 2x1:     two stacked vertically
- * - 2x2:     quad view
+ * - 1x1: single image (stack — non-volumetric series, default fallback)
+ * - 1x2: two side-by-side (comparison)
+ * - 2x1: two stacked vertically
+ * - 2x2: quad view
  * - 1x3-mpr: axial + sagittal + coronal for MPR (multi-planar reconstruction)
+ * - 1x1-axial: single ORTHOGRAPHIC axial pane backed by a volume — same
+ *   quality as the MPR axial pane, smooth reslice-grade scrolling. Used as
+ *   the M-key exit target for volumetric studies so you don't drop into a
+ *   slow STACK after leaving MPR.
+ * - 2x2-mpr-vr: 3 MPR (axial/sagittal/coronal) + 1 VR in a 2×2 grid, all
+ *   four panes share a single cached volume. Used when the 3D toggle is
+ *   pressed from MPR (instead of destroying MPR with a single-VR view).
  */
-export type ViewportLayout = '1x1' | '1x2' | '2x1' | '2x2' | '1x3-mpr';
+export type ViewportLayout =
+  | '1x1'
+  | '1x2'
+  | '2x1'
+  | '2x2'
+  // Mammography screening hanging protocol: a 2×2 STACK grid auto-populated
+  // with LCC (top-left) / RCC (top-right) / LMLO / RMLO, the right breast
+  // mirrored so the two sides mount chest-wall-to-chest-wall. Stack-only.
+  // See services/pacs/mammoLayout.ts for the per-pane assignment logic.
+  | 'mammo-4up'
+  | '1x3-mpr'
+  | '1x1-axial'
+  // Solo 3D volume rendering. Distinct id from '1x1' (which is a 2D stack pane)
+  // so the render-reconciliation effect's layout-change gate fires when toggling
+  // 3D on/off from a single-pane view. Reached only via the 3D toggle, never the
+  // grid-layout picker.
+  | '1x1-3d'
+  | '2x2-mpr-vr';
 
 /**
- * Window/level preset as a raw pair of numbers.
- * `center` = window center (Hounsfield units for CT, arbitrary for MR).
- * `width`  = window width (total contrast span around the center).
- *
- * For CT liver reads, typical presets are { center: 50, width: 350 } for
- * abdomen and { center: 40, width: 400 } for soft tissue. Named presets
- * (e.g., 'liver', 'bone') are stored elsewhere as maps of string → this.
+ * Per-image mammography descriptor — populated only for MG (FFDM) images.
+ * Drives the 4-up hanging protocol (services/pacs/mammoLayout.ts). Empty for
+ * every other modality, so non-MG code paths are unchanged.
  */
-export interface WindowLevelPreset {
-  center: number;
-  width: number;
+export interface MammoImageDescriptor {
+  /** Frame-1 imageId (the displayed image). */
+  imageId: string;
+  /** Breast side from ImageLaterality (0020,0062): 'L' | 'R'. */
+  laterality?: 'L' | 'R';
+  /** Normalized ViewPosition (0018,5101): 'CC' | 'MLO' | 'ML' | 'XCCL' | … */
+  view?: string;
+  /** Presentation intent (0008,0068) — prefer PRESENTATION over PROCESSING duplicates. */
+  presentationIntent?: 'PROCESSING' | 'PRESENTATION';
+  /** Patient Orientation (0020,0020), e.g. 'A\\F' — orientation hint used to
+   *  detect a study that is already stored mirrored (so we don't double-flip). */
+  patientOrientation?: string;
+  /** Field of View Horizontal Flip (0018,7034): 'YES' | 'NO' — when 'YES' the
+   *  detector already flipped the image horizontally. */
+  fieldOfViewHorizontalFlip?: string;
 }
 
 // ============================================================================
@@ -186,7 +205,7 @@ export interface ImagingStudyListItem {
   orthancStudyId: string;
   /** DICOM StudyInstanceUID — the universal study identifier */
   studyInstanceUid: string;
-  /** Accession number (format: ACC-YYYY-NNNNNN) */
+  /** Accession number (format: ACC-YYYYMMDD-XXXXXX) */
   accessionNumber?: string;
   /** FHIR Patient resource ID */
   patientId: string;
@@ -196,7 +215,7 @@ export interface ImagingStudyListItem {
   date: string;
   /** Imaging modalities in the study (e.g., ['CT', 'MR']) */
   modalities: string[];
-  /** Body part examined (e.g., 'LIVER', 'ABDOMEN') */
+  /** Body part examined (e.g., 'CHEST', 'ABDOMEN') */
   bodyPart?: string;
   /** Study description from DICOM metadata */
   description?: string;
@@ -222,6 +241,10 @@ export interface ImagingStudyListItem {
   timeline?: StatusTimelineEntry[];
   /** Data source: PACS (Orthanc), local-upload (direct DICOM), or order (pending) */
   source?: 'pacs' | 'local-upload' | 'order';
+  /** Ordering clinician's display name (resolved from basedOn → ServiceRequest → Practitioner) */
+  orderingDoctorName?: string;
+  /** True if an earlier study of the same modality/body-part exists for this patient (prior for comparison) */
+  hasPrior?: boolean;
 }
 
 // ============================================================================
@@ -242,7 +265,10 @@ export interface ViewportState {
   /** Current image index within the series (0-based) */
   imageIndex: number;
   /** Window/level settings for contrast adjustment */
-  windowLevel: WindowLevelPreset;
+  windowLevel: {
+    center: number;
+    width: number;
+  };
   /** Zoom factor (1.0 = no zoom) */
   zoom: number;
   /** Pan offset in viewport coordinates */
@@ -281,13 +307,6 @@ export interface PACSViewerState {
   imageIds?: string[];
 }
 
-/**
- * Friendlier alias for `PACSViewerState`. The plan document refers to this
- * type as `ViewerState`; keep both exports so imports under either name
- * resolve to the same shape.
- */
-export type ViewerState = PACSViewerState;
-
 // ============================================================================
 // Hanging Protocols
 // ============================================================================
@@ -309,13 +328,13 @@ export interface SeriesSelector {
 
 /**
  * A hanging protocol rule that automatically arranges viewports based on study metadata.
- * Think of it as a "recipe" — when the study matches certain criteria (e.g., CT Liver),
+ * Think of it as a "recipe" — when the study matches certain criteria (e.g., CT Chest),
  * the viewer automatically picks the right layout and assigns series to viewports.
  */
 export interface HangingProtocolRule {
   /** Unique rule identifier */
   id: string;
-  /** Human-readable name (e.g., "CT Liver Standard") */
+  /** Human-readable name (e.g., "CT Chest Standard") */
   name: string;
   /** Whether this is the default rule when no other matches */
   isDefault: boolean;
@@ -338,7 +357,7 @@ export interface HangingProtocolRule {
     seriesSelector: SeriesSelector;
     /** Tool to activate in this viewport on load */
     initialTool?: PACSViewerTool;
-    /** Window/level preset name (e.g., 'liver', 'bone', 'soft-tissue') */
+    /** Window/level preset name (e.g., 'lung', 'bone', 'brain') */
     windowPreset?: string;
   }>;
   /** Optional prior study comparison settings */
@@ -378,6 +397,10 @@ export interface ReadingWorklistItem extends ImagingStudyListItem {
   };
   /** True if the patient has other imaging studies (prior exams for comparison) */
   hasPriors?: boolean;
+  /** Patient age in years at read time (from Patient.birthDate); undefined if unknown */
+  patientAge?: number;
+  /** Patient sex ('male' | 'female' | 'other' | 'unknown'); undefined if unknown */
+  patientSex?: string;
 }
 
 /**
@@ -391,7 +414,11 @@ export interface ReadingWorklistFilters {
   modality?: string[];
   /** Filter by body parts examined */
   bodyPart?: string[];
-  /** Filter by radiology subspecialty */
+  /**
+   * Filter by radiology subspecialty. Accepts `'all'` (or omitted) to disable
+   * the filter. LiverRa keeps this as a plain string (no subspecialty-mapping
+   * constants module — MediMind's coded enum was not ported).
+   */
   subspecialty?: string;
   /** Show only studies assigned to the current user */
   assignedToMe?: boolean;
@@ -406,7 +433,7 @@ export interface ReadingWorklistFilters {
 /**
  * Stores pixel-to-physical-distance calibration data.
  * Created when a user calibrates using a known-size reference object
- * (e.g., external ruler / phantom visible in the scan).
+ * (e.g., a catheter with known French size).
  */
 export interface Calibration {
   /** Physical spacing per pixel [rowSpacing, colSpacing] in mm */
@@ -459,19 +486,88 @@ export interface TrackingState {
 }
 
 // ============================================================================
+// Cardiology
+// ============================================================================
+
+/**
+ * Details about a coronary stent found during imaging.
+ */
+export interface StentDetails {
+  /** Stent type/brand */
+  type: string;
+  /** Stent diameter in mm */
+  diameter: number;
+  /** Stent length in mm */
+  length: number;
+  /** ISO date when the stent was deployed (if known) */
+  deploymentDate?: string;
+}
+
+/**
+ * Findings for a single coronary artery segment (AHA 15-segment model).
+ * Records stenosis severity, calcification, and any stents present.
+ */
+export interface CoronarySegmentFinding {
+  /** AHA segment ID (e.g., '1' for proximal RCA) */
+  segmentId: string;
+  /** Segment name (e.g., 'pRCA', 'LM', 'mLAD') */
+  segmentName: string;
+  /** Diameter stenosis percentage (0-100) */
+  stenosisPercent: number;
+  /** Length of the lesion in mm */
+  lesionLength?: number;
+  /** Calcification severity */
+  calcification: 'none' | 'mild' | 'moderate' | 'severe';
+  /** Stent details if a stent is present in this segment */
+  stent?: StentDetails;
+}
+
+/**
+ * CAD-RADS 2.0 score — standardized way to report coronary CT angiography.
+ * Like a grading system for how blocked the arteries are.
+ */
+export interface CADRADSScore {
+  /** Stenosis severity grade */
+  score: '0' | '1' | '2' | '3' | '4A' | '4B' | '5' | 'N';
+  /** Optional modifier: S=stent, G=graft, S+G=both */
+  modifier?: 'S' | 'G' | 'S+G';
+  /** Human-readable description of the score */
+  description: string;
+}
+
+/**
+ * Stenosis measurement result from the quantitative analysis tool.
+ * Captures the narrowing of a vessel at a specific location.
+ */
+export interface StenosisResult {
+  /** AHA segment ID where stenosis was measured */
+  segmentId: string;
+  /** Minimum lumen diameter at the stenosis (mm) */
+  minDiameter: number;
+  /** Reference vessel diameter upstream of stenosis (mm) */
+  referenceDiameter: number;
+  /** Calculated percent stenosis: ((ref - min) / ref) × 100 */
+  percentStenosis: number;
+  /** Length of the stenotic lesion (mm) */
+  lesionLength: number;
+  /** Measurement points used for the calculation */
+  points: Array<{ x: number; y: number }>;
+}
+
+// ============================================================================
 // Reporting
 // ============================================================================
 
 /**
  * A reusable text template for radiology reports.
- * Like autocomplete snippets — type "normal liver" and get a full normal findings paragraph.
+ * Like autocomplete snippets — type "normal chest" and get a full normal findings paragraph.
  */
 export interface ReportMacro {
   /** Unique macro ID */
   id: string;
-  /** Short name (e.g., "Normal Liver CT") */
+  /** Short name (e.g., "Normal Chest CT") */
   name: string;
-  /** Category for grouping (e.g., "Liver", "Abdomen", "HPB") */
+  /** Category for grouping (e.g., "Chest", "Abdomen", "MSK") */
   category: string;
   /** Template text with optional {{variable}} placeholders */
   templateText: string;
@@ -483,7 +579,7 @@ export interface ReportMacro {
 
 /**
  * Alert for critical/urgent findings that need immediate communication.
- * When a radiologist spots something life-threatening (e.g., hepatic arterial rupture),
+ * When a radiologist spots something life-threatening (e.g., aortic dissection),
  * this triggers notifications to the ordering physician.
  */
 export interface CriticalFindingAlert {
@@ -548,15 +644,150 @@ export interface ImageFilter {
 }
 
 // ============================================================================
-// PACS Viewer Component Props
+// Cath Lab Reporting
 // ============================================================================
 
 /**
- * Props for the top-level `<PACSViewer>` React component.
- * Mirrors the MediMind shape one-for-one so the ported component tree can
- * be reused with no call-site changes. Cardiology-only props were never on
- * this interface (DSA/QCA/calibration state lived inside the hook), so the
- * port is clean.
+ * Findings for a single vessel in a cath lab report.
+ * Records stenosis %, TIMI flow grade, intervention performed, and stent details.
+ */
+export interface CathLabVesselFinding {
+  /** Vessel name (e.g., 'LM', 'LAD', 'LCx', 'RCA', 'PDA', 'PLV') */
+  vessel: string;
+  /** Diameter stenosis percentage (0-100) */
+  stenosisPercent: number;
+  /** TIMI flow grade (0-3) */
+  timiGrade: number;
+  /** Intervention performed */
+  intervention: 'none' | 'ptca' | 'stent' | 'des' | 'bypass';
+  /** Stent brand/name (when intervention is stent or DES) */
+  stentName?: string;
+  /** Stent diameter in mm (when intervention is stent or DES) */
+  stentDiameter?: number;
+  /** Stent length in mm (when intervention is stent or DES) */
+  stentLength?: number;
+  /** Medina bifurcation classification — [proximal MB, distal MB, side branch] */
+  medinaClassification?: [number, number, number];
+}
+
+/**
+ * Hemodynamic measurements from cardiac catheterization.
+ * All pressures in mmHg, cardiac output in L/min.
+ */
+export interface CathLabHemodynamics {
+  /** Left Ventricular End-Diastolic Pressure */
+  lvedp?: number;
+  /** Aortic systolic pressure */
+  aorticSystolic?: number;
+  /** Aortic diastolic pressure */
+  aorticDiastolic?: number;
+  /** Pulmonary artery systolic pressure */
+  paSystolic?: number;
+  /** Pulmonary artery diastolic pressure */
+  paDiastolic?: number;
+  /** Pulmonary capillary wedge pressure */
+  pcwp?: number;
+  /** Cardiac output (L/min) */
+  cardiacOutput?: number;
+}
+
+/**
+ * Full cath lab structured report data.
+ * Captures coronary dominance, per-vessel findings, hemodynamics, and summary.
+ */
+export interface CathLabData {
+  /** Coronary dominance pattern */
+  dominance: 'right' | 'left' | 'co-dominant';
+  /** Per-vessel findings (LM, LAD, LCx, RCA, PDA, PLV) */
+  vesselFindings: CathLabVesselFinding[];
+  /** Hemodynamic measurements */
+  hemodynamics: CathLabHemodynamics;
+  /** Auto-generated (but editable) summary text */
+  summary: string;
+}
+
+// ============================================================================
+// CAD-RADS 2.0 Scoring
+// ============================================================================
+
+/**
+ * CAD-RADS 2.0 structured scoring data for coronary CT angiography.
+ * Standardized reporting system: grade + plaque burden + modifiers = summary.
+ */
+export interface CADRADSData {
+  /** Stenosis severity grade: '0','1','2','3','4A','4B','5','N', or null */
+  grade: string | null;
+  /** Plaque burden classification: 'P1','P2','P3','P4', or null */
+  plaqueBurden: string | null;
+  /** Active modifiers: 'N','S','G','HRP','I+','I-','I+/-','E' */
+  modifiers: string[];
+  /** Auto-generated summary string, e.g. "CAD-RADS 3/P2 (S, HRP)" */
+  summary: string;
+  /** Recommended followup based on grade */
+  followup: string;
+}
+
+// ============================================================================
+// BI-RADS Mammography Assessment
+// ============================================================================
+
+/**
+ * BI-RADS structured assessment for mammography (ACR BI-RADS 5th edition).
+ * The overall coded category is written to DiagnosticReport.conclusionCode;
+ * density is the optional ACR breast composition. summary/management are
+ * derived display strings recomputed on load so they never go stale.
+ */
+export interface BIRADSData {
+  /** Overall BI-RADS category: '0','1','2','3','4','4A','4B','4C','5','6', or null */
+  category: string | null;
+  /** ACR breast composition: 'a','b','c','d', or null (optional) */
+  density: string | null;
+  /** Auto-generated summary, e.g. "BI-RADS 4A" (plus ", ACR c" when set) */
+  summary: string;
+  /** Management recommendation derived from the category */
+  management: string;
+}
+
+/**
+ * State for Digital Subtraction Angiography (DSA).
+ * DSA subtracts a "mask" frame (without contrast) from "live" frames
+ * (with contrast) to make blood vessels pop out from the background.
+ */
+export interface DSAState {
+  /** Whether DSA mode is currently active */
+  enabled: boolean;
+  /** Index of the mask frame (pre-contrast injection) */
+  maskFrameIndex: number;
+  /** Index of the current live frame being displayed */
+  currentFrameIndex: number;
+  /** Pre-computed subtracted pixel data (null if not yet computed) */
+  subtractedPixelData: Float32Array | null;
+  /** Blending opacity for the subtracted overlay (0-1) */
+  opacity: number;
+}
+
+// ============================================================================
+// LiverRa-only exports (preserved across the MediMind viewer re-merge).
+// These predate the advanced-viewer port and are consumed by existing
+// LiverRa code (PacsStudyViewerView, WindowPresets, hangingProtocolEngine).
+// ============================================================================
+
+/** Window/level preset shape (structurally identical to ViewportState.windowLevel). */
+export interface WindowLevelPreset {
+  center: number;
+  width: number;
+}
+
+/** @deprecated alias kept for pre-port LiverRa code; use PACSViewerTool. */
+export type ToolName = PACSViewerTool;
+
+/** @deprecated alias kept for pre-port LiverRa code; use PACSViewerState. */
+export type ViewerState = PACSViewerState;
+
+/**
+ * Props for the PACS viewer component (LiverRa shape — the ported
+ * PACSViewer.tsx defines its own internal props type and this one is kept
+ * for the route-level wrapper).
  */
 export interface PACSViewerProps {
   /** DICOM StudyInstanceUID to load */

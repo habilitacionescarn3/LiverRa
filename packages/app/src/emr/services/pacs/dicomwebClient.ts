@@ -73,6 +73,25 @@ export interface DicomJsonTag {
   Value?: Array<string | number | DicomJsonObject>;
 }
 
+// ============================================================================
+// DICOM JSON type guards (ported from MediMind for the advanced-viewer port —
+// usePACSViewer narrows unknown QIDO/WADO payloads through these).
+// ============================================================================
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDicomJsonTag(value: unknown): value is DicomJsonTag {
+  if (!isRecord(value) || typeof value.vr !== 'string') return false;
+  return value.Value === undefined || Array.isArray(value.Value);
+}
+
+/** Type guard: is this value a DICOM JSON object (tag-keyed record)? */
+export function isDicomJsonObject(value: unknown): value is DicomJsonObject {
+  return isRecord(value) && Object.values(value).every(isDicomJsonTag);
+}
+
 export interface StudySearchParams {
   /** DICOM PatientID */
   patientId?: string;
@@ -311,6 +330,21 @@ export class DicomWebClient {
 
   /** Backward-compatible alias for wadoInstance(). */
   getInstanceUrl = this.wadoInstance.bind(this);
+
+  // ==========================================================================
+  // MediMind-compat aliases (advanced-viewer port). The ported PACSViewer /
+  // usePACSViewer code calls the MediMind method names; LiverRa's qido* names
+  // stay canonical. Pure delegation — no behavior difference.
+  // ==========================================================================
+
+  /** MediMind-compat alias for {@link qidoStudies}. */
+  searchStudies = this.qidoStudies.bind(this);
+
+  /** MediMind-compat alias for {@link qidoSeries}. */
+  searchSeries = this.qidoSeries.bind(this);
+
+  /** MediMind-compat alias for {@link qidoInstances}. */
+  searchInstances = this.qidoInstances.bind(this);
 
   /**
    * Build the URL for a JPEG thumbnail of a specific instance.
@@ -724,6 +758,28 @@ export interface DicomWebClientHandle {
   getThumbnailUrl(studyUid: string, seriesUid: string, instanceUid: string): string;
   getAuthToken(): string | null;
   getBaseUrl(): string;
+  // MediMind-compat aliases (advanced-viewer port) — delegate to the qido*/
+  // wado* canonical methods above.
+  searchStudies(
+    params?: StudySearchParams,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  searchSeries(
+    studyUid: string,
+    params?: SeriesSearchParams,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  searchInstances(
+    studyUid: string,
+    seriesUid: string,
+    signal?: AbortSignal
+  ): Promise<DicomJsonObject[]>;
+  getInstanceUrl(
+    studyUid: string,
+    seriesUid: string,
+    instanceUid: string,
+    frame?: number
+  ): string;
 }
 
 /**
@@ -751,6 +807,13 @@ export function createDicomWebClient(options: DicomWebClientOptions): DicomWebCl
       client.getThumbnailUrl(studyUid, seriesUid, instanceUid),
     getAuthToken: () => client.getAuthToken(),
     getBaseUrl: () => client.getBaseUrl(),
+    // MediMind-compat aliases (advanced-viewer port)
+    searchStudies: (params, signal) => client.qidoStudies(params, signal),
+    searchSeries: (studyUid, params, signal) => client.qidoSeries(studyUid, params, signal),
+    searchInstances: (studyUid, seriesUid, signal) =>
+      client.qidoInstances(studyUid, seriesUid, signal),
+    getInstanceUrl: (studyUid, seriesUid, instanceUid, frame) =>
+      client.wadoInstance(studyUid, seriesUid, instanceUid, frame),
   };
 }
 

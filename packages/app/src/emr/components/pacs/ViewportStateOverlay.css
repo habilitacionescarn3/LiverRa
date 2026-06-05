@@ -1,0 +1,63 @@
+/* ============================================================================
+ * ViewportStateOverlay — centered lifecycle overlay inside a viewport cell.
+ *
+ * The cell background is always #000 (Cornerstone canvas) regardless of
+ * light/dark mode, so the scrim is a neutral translucent black — NOT a theme
+ * surface variable. All text/icons use theme semantic vars that read on dark.
+ *
+ * pointer-events: none on the container so canvas interaction (zoom/pan/scroll)
+ * passes through; only the Retry button opts back in.
+ * ========================================================================== */
+
+.viewport-state-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Neutral scrim — keeps the spinner/message legible over the black canvas. */
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 3; /* above ViewportOverlay HUD (z-index: 2) */
+  padding: 16px;
+  text-align: center;
+}
+
+.viewport-state-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 100%;
+}
+
+/* "Building volume…" label under the spinner. */
+.viewport-state-overlay-label {
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-md);
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Error message text. */
+.viewport-state-overlay-message {
+  color: var(--emr-text-inverse);
+  font-size: var(--emr-font-md);
+  line-height: 1.4;
+  max-width: 280px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.viewport-state-overlay-error-icon {
+  color: var(--emr-error);
+}
+
+/* The ONLY interactive element — re-enable pointer events for the button. */
+.viewport-state-overlay-action {
+  pointer-events: auto;
+  /* Guarantee a comfortable tap target on touch devices. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}

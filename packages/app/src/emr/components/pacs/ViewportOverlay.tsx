@@ -15,11 +15,18 @@
 // and over-the-shoulder readouts never expose pre-anonymized identity
 // without an explicit, audit-logged action.
 //
-// Layout:
+// Layout (variant="image", default):
 //   TL = Patient name (initials by default), study date
 //   TR = Modality, series description
 //   BL = Image index (e.g., "3 / 120"), Window/Level values
 //   BR = Zoom level, rotation (if non-zero)
+//
+// Layout (variant="vr", for 3D volume panes):
+//   TL = Patient name (initials by default), study date  (unchanged)
+//   TR = Modality, series description                     (unchanged)
+//   BL = Preset name, projection (MIP/MinIP/Default)  — W/L + image index are
+//        meaningless for a rendered volume, so they're dropped here
+//   BR = Zoom only — rotation is structurally always 0 for VR, so it's omitted
 //
 // Design decisions:
 //   - White text with dark shadow for readability on any image background
@@ -87,6 +94,22 @@ export interface ViewportOverlayProps {
    * Omit to disable the Reveal action entirely (initials remain forever).
    */
   studyId?: string;
+  /**
+   * HUD variant. 'image' (default) shows image-index + W/L + rotation.
+   * 'vr' is for 3D volume panes: shows preset + projection instead of W/L,
+   * and omits rotation (always 0 for VR). Fully backward compatible.
+   */
+  variant?: 'image' | 'vr';
+  /**
+   * Friendly transfer-function preset name (e.g. 'Bone', 'CtVessel').
+   * Only used when variant === 'vr'. Mapped via `pacs.tools.preset.<name>`.
+   */
+  presetName?: string;
+  /**
+   * Pre-formatted projection label (e.g. "MIP 8mm", "Default").
+   * Only used when variant === 'vr'.
+   */
+  projectionLabel?: string;
 }
 
 // ============================================================================
@@ -105,9 +128,13 @@ export const ViewportOverlay = memo(function ViewportOverlay({
   zoom,
   rotation,
   studyId,
+  variant = 'image',
+  presetName,
+  projectionLabel,
 }: ViewportOverlayProps) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
+  const isVr = variant === 'vr';
 
   const canReveal = Boolean(patientName) && Boolean(studyId);
   const displayedName = patientName
@@ -185,29 +212,46 @@ export const ViewportOverlay = memo(function ViewportOverlay({
         )}
       </div>
 
-      {/* ---- Bottom-Left: Image index + W/L ---- */}
-      <div className="viewport-overlay-bl" data-testid="overlay-bl">
-        {imageIndex != null && totalImages != null && (
-          <div className="viewport-overlay-mono">
-            {imageIndex} / {totalImages}
-          </div>
-        )}
-        {windowWidth != null && windowCenter != null && (
-          <div className="viewport-overlay-mono">
-            {t('pacs.overlay.window')}: {Math.round(windowWidth)}{' '}
-            {t('pacs.overlay.level')}: {Math.round(windowCenter)}
-          </div>
-        )}
-      </div>
+      {/* ---- Bottom-Left ---- */}
+      {isVr ? (
+        // VR: preset + projection (W/L and image index are meaningless here).
+        <div className="viewport-overlay-bl" data-testid="overlay-bl">
+          {presetName && (
+            <div className="viewport-overlay-text">
+              {t('pacs.overlay.preset')}: {t('pacs.tools.preset.' + presetName)}
+            </div>
+          )}
+          {projectionLabel && (
+            <div className="viewport-overlay-text">
+              {t('pacs.overlay.projection')}: {projectionLabel}
+            </div>
+          )}
+        </div>
+      ) : (
+        // Image: image index + W/L.
+        <div className="viewport-overlay-bl" data-testid="overlay-bl">
+          {imageIndex != null && totalImages != null && (
+            <div className="viewport-overlay-mono">
+              {imageIndex} / {totalImages}
+            </div>
+          )}
+          {windowWidth != null && windowCenter != null && (
+            <div className="viewport-overlay-mono">
+              {t('pacs.overlay.window')}: {Math.round(windowWidth)}{' '}
+              {t('pacs.overlay.level')}: {Math.round(windowCenter)}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* ---- Bottom-Right: Zoom + rotation ---- */}
+      {/* ---- Bottom-Right: Zoom (+ rotation only in image variant) ---- */}
       <div className="viewport-overlay-br" data-testid="overlay-br">
         {zoom != null && (
           <div className="viewport-overlay-mono">
             {t('pacs.overlay.zoom')}: {zoom.toFixed(1)}x
           </div>
         )}
-        {rotation != null && rotation !== 0 && (
+        {!isVr && rotation != null && rotation !== 0 && (
           <div className="viewport-overlay-mono">
             {t('pacs.overlay.rotation')}: {rotation}°
           </div>

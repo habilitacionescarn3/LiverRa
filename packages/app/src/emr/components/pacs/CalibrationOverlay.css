@@ -1,0 +1,38 @@
+/* ============================================================================
+ * CalibrationOverlay Styles
+ * ============================================================================
+ * Floating overlay for calibration workflow on PACS viewer.
+ * Uses PACS dark theme — positioned at bottom of viewport.
+ * ============================================================================ */
+
+.calibration-overlay {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: var(--emr-radius-md);
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--emr-text-inverse);
+  max-width: 400px;
+  pointer-events: auto;
+}
+
+/* Audit perf-M28: gate blur to tablet+ — paint cost is prohibitive on phones */
+@media (min-width: 768px) {
+  .calibration-overlay {
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Status badge — smaller, less prominent */
+.calibration-overlay-status {
+  padding: 6px 10px;
+}
+
+/* Active calibration mode — slightly more prominent */
+.calibration-overlay-active {
+  text-align: center;
+}

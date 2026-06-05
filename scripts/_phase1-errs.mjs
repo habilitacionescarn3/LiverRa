@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const BASE = 'http://localhost:5174';
+const ANALYSIS = '9d27ae93-86c1-44f6-b3b3-09228bae7118';
+const errs = [];
+const browser = await chromium.launch();
+const page = await (await browser.newContext({viewport:{width:1600,height:1000}})).newPage();
+page.on('console', m => { if (m.type()==='error') errs.push(m.text()); });
+page.on('pageerror', e => errs.push('PAGEERROR: '+e.message));
+await page.goto(`${BASE}/signin`, {waitUntil:'domcontentloaded'});
+await page.evaluate(()=>localStorage.setItem('liverra:staging-auth','ok'));
+await page.goto(`${BASE}/cases/${ANALYSIS}`, {waitUntil:'domcontentloaded'});
+await page.waitForTimeout(15000);
+console.log('TOTAL ERRORS:', errs.length);
+errs.forEach((e,i)=>console.log(`[${i}]`, e.slice(0,300)));
+await browser.close();

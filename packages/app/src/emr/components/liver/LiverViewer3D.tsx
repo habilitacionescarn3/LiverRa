@@ -471,6 +471,54 @@ export function LiverViewer3D({
   const [registrationTick, setRegistrationTick] = useState(0);
   const [mprError, setMprError] = useState<string | null>(null);
 
+  // Lesion + FLR labelmap registries (declared here, alongside activeSegsRef,
+  // so the Phase-1 re-attach helper below can reference them). Their populating
+  // effects live further down with the rest of the labelmap logic.
+  const activeLesionSegsRef = useRef<Record<string, string>>({});
+  const activeFlrSegsRef = useRef<Record<string, string>>({});
+
+  // --- Phase 1 (case-viewer uplift): decouple the CT volume from the layout --
+  // The rendering engine + (large) CT volume are created ONCE per series in
+  // Effect A and survive every layout switch; only the viewport topology
+  // rebuilds per viewMode in Effect B, which re-binds the CACHED volume (no
+  // re-download, no stale-texture risk because the engine stays alive) and
+  // re-attaches the labelmap representations the disabled panes dropped.
+  //   • ctEpoch    — bumped by Effect A when the CT volume is ready → triggers B.
+  //   • boundEpoch — bumped by Effect B after it binds + re-attaches → triggers
+  //                  the labelmap-create effects so new toggles attach only
+  //                  AFTER the panes hold the base volume (matches prior order).
+  //   • enabledViewportIdsRef — panes currently registered, so a layout switch
+  //                  disables exactly them (engine + volume left intact).
+  const [ctEpoch, setCtEpoch] = useState(0);
+  const [boundEpoch, setBoundEpoch] = useState(0);
+  const imageIdsRef = useRef<string[]>([]);
+  const enabledViewportIdsRef = useRef<string[]>([]);
+
+  // Re-attach every registered labelmap representation to the given viewport
+  // set after a layout rebuild (CS3D drops per-viewport representations when a
+  // pane is disabled). Idempotent. Bumps registrationTick so the visibility
+  // effects re-apply the right on/off state to the fresh representations.
+  const reattachLabelmaps = useCallback(async (viewportIds: string[]): Promise<void> => {
+    const entries: Array<[string, [number, number, number, number]]> = [];
+    for (const [key, segId] of Object.entries(activeSegsRef.current)) {
+      entries.push([segId, COUINAUD_COLORS_RGBA[key as AnatomyKey]]);
+    }
+    for (const segId of Object.values(activeLesionSegsRef.current)) {
+      entries.push([segId, [250, 204, 21, 140]]);
+    }
+    for (const segId of Object.values(activeFlrSegsRef.current)) {
+      entries.push([segId, [220, 38, 38, 130]]);
+    }
+    for (const [segId, color] of entries) {
+      try {
+        await attachLabelmapToViewports(segId, viewportIds, color);
+      } catch {
+        /* engine mid-teardown — the next rebuild will re-attach */
+      }
+    }
+    if (entries.length > 0) setRegistrationTick((n) => n + 1);
+  }, []);
+
   // --- Series discovery -----------------------------------------------------
   const { series, isLoading: seriesLoading, error: seriesError } = useStudySeries(
     ready ? studyInstanceUid : undefined,
@@ -498,13 +546,21 @@ export function LiverViewer3D({
   const maskEnabled = ready && (!!parenchymaMaskUri || hasLiverSegRow);
   const { mask: parenchymaMask, error: maskError } = useParenchymaMask(analysisId, maskEnabled);
 
-  // --- Cornerstone init -----------------------------------------------------
-  // The init effect re-runs when viewMode changes so the engine is rebuilt
-  // for the right viewport topology (1 stack viewport vs. 3 orthographic).
+  // --- Effect A: Cornerstone engine + CT volume (once per series) -----------
+  // Plain-English: build the rendering engine and load the (large) CT volume
+  // a SINGLE time per series. Deliberately NOT keyed on viewMode — the engine
+  // and the cached volume survive every layout switch, so toggling Axial / MPR
+  // / 3D never re-downloads the scan and never hits the stale-GL-texture trap
+  // (which only bites when a volume is kept across an engine *destroy*; here
+  // the engine stays alive). Viewport topology + volume binding live in
+  // Effect B below; this effect only owns the engine and the pixels.
   useEffect(() => {
-    if (!ready || !studyInstanceUid) return undefined;
+    if (!ready || !studyInstanceUid || !selectedSeries) return undefined;
     let cancelled = false;
+    const ctrl = new AbortController();
     (async () => {
+      setIsLoading(true);
+      setLoadError(null);
       try {
         await initCornerstone();
         configureDicomAuth(() => '');
@@ -513,216 +569,23 @@ export function LiverViewer3D({
         const engine = getOrCreateRenderingEngine();
         engineRef.current = engine;
 
-        if (viewMode === 'axial') {
-          // Use an ORTHOGRAPHIC volume viewport (same renderer as MPR) so the
-          // green parenchyma / yellow lesion / red FLR labelmaps register
-          // identically here. A STACK viewport would render the CT but
-          // doesn't support the volume-labelmap actor stack, which is what
-          // makes overlays disappear when the surgeon switches to axial.
-          if (!elementRef.current) return;
-          engine.enableElement({
-            viewportId: MPR_AXIAL_ID,
-            element: elementRef.current,
-            type: Enums.ViewportType.ORTHOGRAPHIC,
-            defaultOptions: { orientation: Enums.OrientationAxis.AXIAL },
-          });
-          const tg = getOrCreateToolGroup();
-          tg.addViewport(MPR_AXIAL_ID, RENDERING_ENGINE_ID);
-          activateToolOnGroup('StackScroll');
-        } else {
-          // MPR — three orthographic viewports.
-          const ax = mprAxialRef.current;
-          const sa = mprSagittalRef.current;
-          const co = mprCoronalRef.current;
-          if (!ax || !sa || !co) return;
-          engine.setViewports([
-            {
-              viewportId: MPR_AXIAL_ID,
-              element: ax,
-              type: Enums.ViewportType.ORTHOGRAPHIC,
-              defaultOptions: { orientation: Enums.OrientationAxis.AXIAL },
-            },
-            {
-              viewportId: MPR_SAGITTAL_ID,
-              element: sa,
-              type: Enums.ViewportType.ORTHOGRAPHIC,
-              defaultOptions: { orientation: Enums.OrientationAxis.SAGITTAL },
-            },
-            {
-              viewportId: MPR_CORONAL_ID,
-              element: co,
-              type: Enums.ViewportType.ORTHOGRAPHIC,
-              defaultOptions: { orientation: Enums.OrientationAxis.CORONAL },
-            },
-          ]);
-          // IMPORTANT: MPR viewports must belong to EXACTLY ONE tool group.
-          // Cornerstone3D's annotation pipeline (CrosshairsTool render path)
-          // calls `getToolGroupForViewport` which throws "Multiple tool
-          // groups found for renderingEngineId/viewportId" and silently
-          // suppresses annotation rendering when a viewport is in 2+ groups.
-          // The shared `liverra-pacs-toolgroup` is reserved for the
-          // single-viewport axial fallback + ComparisonView; MPR viewports
-          // are exclusive to `liverra-mpr-toolgroup`.
-          //
-          // We register the gesture tools (Zoom/Pan/WindowLevel) directly
-          // on the MPR group so MPR mode doesn't regress those interactions
-          // when the shared group's bindings stop applying. CrosshairsTool +
-          // StackScrollTool are added later in the volume-load effect
-          // because CrosshairsTool.initializeViewport reads FoR + camera
-          // state that are undefined until setVolumesForViewports runs.
-          const mprTg =
-            cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID) ??
-            cornerstoneTools.ToolGroupManager.createToolGroup(MPR_TOOL_GROUP_ID);
-          if (mprTg) {
-            for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
-              try { mprTg.addViewport(id, RENDERING_ENGINE_ID); } catch { /* already in */ }
-            }
-            // Register gesture tools so they're available; bindings come
-            // later (some active, some passive). Mirrors the shared
-            // group's gesture-tool set.
-            for (const toolName of ['Zoom', 'Pan', 'WindowLevel'] as const) {
-              try { mprTg.addTool(toolName); } catch { /* already added */ }
-            }
-            // Touch bindings — pinch = Zoom, 1-finger = Pan, 3-finger = WindowLevel.
-            // Mouse Primary is reserved for CrosshairsTool (activated post-volume).
-            try {
-              mprTg.setToolActive('Zoom', {
-                bindings: [{ numTouchPoints: 2 }],
-              });
-            } catch { /* ignore */ }
-            try {
-              mprTg.setToolActive('Pan', {
-                bindings: [
-                  { numTouchPoints: 1 },
-                  { mouseButton: cornerstoneTools.Enums.MouseBindings.Auxiliary },
-                ],
-              });
-            } catch { /* ignore */ }
-            try {
-              mprTg.setToolActive('WindowLevel', {
-                bindings: [
-                  { numTouchPoints: 3 },
-                  { mouseButton: cornerstoneTools.Enums.MouseBindings.Secondary },
-                ],
-              });
-            } catch { /* ignore */ }
-          }
-        }
-      } catch (err) {
-        if (!cancelled) setLoadError((err as Error).message);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      // Tear down the MPR-only tool group before the rendering engine
-      // vanishes — tool groups hold viewport references that turn dangling
-      // otherwise.
-      try {
-        cornerstoneTools.ToolGroupManager.destroyToolGroup(MPR_TOOL_GROUP_ID);
-      } catch {
-        /* never created on this mount */
-      }
-      // Free the volume cache on teardown so switching modes doesn't leak.
-      if (activeVolumeIdRef.current) {
-        try { cache.removeVolumeLoadObject(activeVolumeIdRef.current); } catch { /* gone */ }
-        activeVolumeIdRef.current = null;
-      }
-      try {
-        destroyCornerstone();
-      } catch {
-        /* engine already torn down */
-      }
-      engineRef.current = null;
-      // CRITICAL: clear the labelmap registration map. destroyCornerstone()
-      // destroys the rendering engine + tool group, which cascade-clears
-      // the segmentation state. If we don't also clear activeSegsRef, the
-      // next mount's lazy-load effect thinks segmentations are still
-      // registered and skips re-fetching them. This is what made overlays
-      // invisible in React StrictMode (double-invoke in dev): first run
-      // registered, cleanup destroyed engine, second run thought "already
-      // registered" and skipped. Result: empty segmentation state +
-      // dangling ref + zero overlays painted on the viewport.
-      //
-      // Also remove the CACHED labelmap volumes — they hold vtkOpenGLTexture
-      // references tied to the destroyed rendering engine's GL context. If
-      // we kept them, switching MPR ↔ axial would silently produce
-      // labelmap actors with dead GL textures (no overlay despite state
-      // looking correct). Re-fetching the mask + rebuilding the volume on
-      // the new engine is cheap (<1s) compared to debugging stale textures.
-      const allLabelmapSegIds = [
-        ...Object.values(activeSegsRef.current),
-        ...Object.values(activeLesionSegsRef.current),
-        ...Object.values(activeFlrSegsRef.current),
-      ];
-      for (const segId of allLabelmapSegIds) {
-        try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
-        try { cache.removeVolumeLoadObject(segId); } catch { /* gone */ }
-      }
-      activeSegsRef.current = {};
-      activeLesionSegsRef.current = {};
-      activeFlrSegsRef.current = {};
-      loadedMasksRef.current.clear();
-      // Reset imageCount so the new mode's setImageCount(N) registers as a
-      // dependency change — otherwise the lazy-load effects (whose deps
-      // include imageCount) skip re-firing when N is identical across modes,
-      // and the new viewport never gets its labelmaps attached.
-      setImageCount(0);
-    };
-  }, [ready, studyInstanceUid, viewMode]);
-
-  // Resize observer — fits the WebGL canvas to the container.
-  useEffect(() => {
-    const el = elementRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver(() => {
-      try {
-        engineRef.current?.resize();
-      } catch {
-        /* not yet initialized */
-      }
-    });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  // --- Series load (set stack) ----------------------------------------------
-  useEffect(() => {
-    if (!ready || !studyInstanceUid || !selectedSeries) return undefined;
-    let cancelled = false;
-    const ctrl = new AbortController();
-
-    async function waitForEngine(): Promise<RenderingEngine | null> {
-      for (let i = 0; i < 30; i++) {
-        if (cancelled) return null;
-        if (engineRef.current) return engineRef.current;
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      return null;
-    }
-
-    (async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
+        // Series metadata → ordered imageIds (sorted by InstanceNumber).
         const seriesMetadata = await client.retrieveSeriesMetadata(
           studyInstanceUid as string,
           selectedSeries as string,
           ctrl.signal,
         );
         if (cancelled) return;
-
         const sorted = [...seriesMetadata].sort((a, b) => {
           const na = Number(firstString(a['00200013'])) || 0;
           const nb = Number(firstString(b['00200013'])) || 0;
           return na - nb;
         });
-
         const metaDataManager = (
           cornerstoneDICOMImageLoader as unknown as {
             wadors: { metaDataManager: { add: (id: string, md: unknown) => void } };
           }
         ).wadors.metaDataManager;
-
         const imageIds: string[] = [];
         for (const inst of sorted) {
           const sop = sopInstanceUid(inst);
@@ -740,194 +603,32 @@ export function LiverViewer3D({
           setIsLoading(false);
           return;
         }
-        const engine = await waitForEngine();
-        if (cancelled || !engine) return;
+        imageIdsRef.current = imageIds;
+
+        // Stable, layout-INDEPENDENT volume id → reused on every layout switch
+        // (cache hit, no re-download). Reuse the cached volume if already
+        // loaded; otherwise create + load it once.
+        const volumeId = `cornerstoneStreamingImageVolume:liverra-${selectedSeries}`;
+        let volume = cache.getVolume(volumeId) as
+          | (Types.IImageVolume & { loadStatus?: { loaded?: boolean } })
+          | undefined;
+        if (!volume) {
+          volume = (await volumeLoader.createAndCacheVolume(volumeId, { imageIds })) as typeof volume;
+        }
+        activeVolumeIdRef.current = volumeId;
+        if (volume && !volume.loadStatus?.loaded) {
+          await volume.load();
+        }
+        if (cancelled) return;
 
         const liverPreset = WINDOW_LEVEL_PRESETS.liver ?? WINDOW_LEVEL_PRESETS.softTissue;
-
-        if (viewMode === 'axial') {
-          // Single-viewport AXIAL view, but using the same volume + ortho
-          // viewport infra as MPR so labelmaps (parenchyma / Couinaud /
-          // lesions / FLR) render identically here.
-          const volumeId = `cornerstoneStreamingImageVolume:liverra-${selectedSeries}-ax-${Date.now()}`;
-          try {
-            const volume = await volumeLoader.createAndCacheVolume(volumeId, { imageIds });
-            activeVolumeIdRef.current = volumeId;
-            await volume.load();
-            if (cancelled) return;
-            await setVolumesForViewports(engine, [{ volumeId }], [MPR_AXIAL_ID]);
-            if (cancelled) return;
-            const vp = engine.getViewport(MPR_AXIAL_ID) as Types.IVolumeViewport | undefined;
-            if (vp) {
-              vp.resetCamera();
-              try {
-                vp.setProperties({
-                  voiRange: {
-                    lower: liverPreset.center - liverPreset.width / 2,
-                    upper: liverPreset.center + liverPreset.width / 2,
-                  },
-                });
-              } catch { /* properties API differs across CS versions */ }
-              vp.render();
-            }
-            engine.resize();
-            const nSlices = (vp as (Types.IVolumeViewport & { getNumberOfSlices?: () => number }) | undefined)?.getNumberOfSlices?.() ?? imageIds.length;
-            setMprDims({ axial: nSlices, sagittal: 0, coronal: 0 });
-            // Jump to first lesion's z-center so the surgeon doesn't have
-            // to scroll to find it (mirrors the MPR-path behaviour).
-            const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
-            const target =
-              firstBox && firstBox.z !== undefined && firstBox.dz !== undefined
-                ? Math.round(firstBox.z + firstBox.dz / 2)
-                : Math.floor(nSlices / 2);
-            setMprSlices((prev) => ({ ...prev, axial: target }));
-            setCurrentSlice(target);
-            try {
-              const curIdx = (vp as (Types.IVolumeViewport & { getSliceIndex?: () => number; scroll?: (d: number) => void }) | undefined)?.getSliceIndex?.() ?? 0;
-              const delta = target - curIdx;
-              if (delta !== 0) (vp as unknown as { scroll?: (d: number) => void })?.scroll?.(delta);
-            } catch { /* viewport torn down */ }
-          } catch (volErr) {
-            const msg = volErr instanceof Error ? volErr.message : String(volErr);
-            setLoadError(msg);
-            setIsLoading(false);
-            return;
-          }
-        } else {
-          // ── MPR path ──
-          // Build a streaming 3-D volume from the per-slice image stack,
-          // then attach it to the three orthographic viewports.
-          const volumeId = `cornerstoneStreamingImageVolume:liverra-${selectedSeries}-${Date.now()}`;
-          try {
-            const volume = await volumeLoader.createAndCacheVolume(volumeId, { imageIds });
-            activeVolumeIdRef.current = volumeId;
-            await volume.load();
-            if (cancelled) return;
-            await setVolumesForViewports(
-              engine,
-              [{ volumeId }],
-              [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID],
-            );
-            if (cancelled) return;
-            // Reset cameras so each plane is centred, then apply the LIVER preset.
-            for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
-              const vp = engine.getViewport(id) as Types.IVolumeViewport | undefined;
-              if (vp) {
-                vp.resetCamera();
-                try {
-                  vp.setProperties({
-                    voiRange: {
-                      lower: liverPreset.center - liverPreset.width / 2,
-                      upper: liverPreset.center + liverPreset.width / 2,
-                    },
-                  });
-                } catch { /* properties API may differ across CS versions */ }
-                vp.render();
-              }
-            }
-            engine.resize();
-
-            // Capture initial slice depth per orientation for overlays.
-            // VolumeViewport exposes getNumberOfSlices() (CS3D 4.x).
-            const dims = {
-              axial: 0,
-              sagittal: 0,
-              coronal: 0,
-            };
-            for (const [id, key] of [
-              [MPR_AXIAL_ID, 'axial'] as const,
-              [MPR_SAGITTAL_ID, 'sagittal'] as const,
-              [MPR_CORONAL_ID, 'coronal'] as const,
-            ]) {
-              const vp = engine.getViewport(id) as
-                | (Types.IVolumeViewport & { getNumberOfSlices?: () => number })
-                | undefined;
-              const n = vp?.getNumberOfSlices?.() ?? imageIds.length;
-              dims[key] = n;
-            }
-            setMprDims(dims);
-            // Default each MPR plane to volume center, then nudge axial /
-            // sagittal / coronal toward the first lesion's bbox center
-            // so the yellow ROI is visible on load instead of forcing the
-            // surgeon to scroll ~150 slices to find it. (For studies with
-            // no lesions, plain volume-center is the right default.)
-            const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
-            const lesionAx = firstBox && firstBox.z !== undefined && firstBox.dz !== undefined
-              ? Math.round(firstBox.z + firstBox.dz / 2)
-              : null;
-            const lesionSa = firstBox && firstBox.x !== undefined && firstBox.dx !== undefined
-              ? Math.round(firstBox.x + firstBox.dx / 2)
-              : null;
-            const lesionCo = firstBox && firstBox.y !== undefined && firstBox.dy !== undefined
-              ? Math.round(firstBox.y + firstBox.dy / 2)
-              : null;
-            const targetSlices = {
-              axial: lesionAx ?? Math.floor(dims.axial / 2),
-              sagittal: lesionSa ?? Math.floor(dims.sagittal / 2),
-              coronal: lesionCo ?? Math.floor(dims.coronal / 2),
-            };
-            setMprSlices(targetSlices);
-            // Sync the actual viewports so what the user sees matches state.
-            for (const [vpId, key] of [
-              [MPR_AXIAL_ID, 'axial'] as const,
-              [MPR_SAGITTAL_ID, 'sagittal'] as const,
-              [MPR_CORONAL_ID, 'coronal'] as const,
-            ]) {
-              try {
-                const vp = engine.getViewport(vpId) as
-                  | (Types.IVolumeViewport & { scroll?: (d: number) => void; getSliceIndex?: () => number })
-                  | undefined;
-                const curIdx = vp?.getSliceIndex?.() ?? 0;
-                const delta = targetSlices[key] - curIdx;
-                if (delta !== 0 && vp?.scroll) vp.scroll(delta);
-              } catch { /* viewport may be torn down */ }
-            }
-
-            // Now that the volume is loaded and cameras have FrameOfReference
-            // UIDs, register + activate CrosshairsTool and StackScrollTool on
-            // the MPR-only tool group. CrosshairsTool.initializeViewport reads
-            // FoR + camera state per viewport — calling this before
-            // setVolumesForViewports() leaves the tool unable to render its
-            // lines or compute the cross-viewport focal-point sync.
-            const mprTg = cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID);
-            if (mprTg) {
-              try { mprTg.addTool(cornerstoneTools.CrosshairsTool.toolName); }
-              catch { /* already added */ }
-              try {
-                mprTg.setToolActive(cornerstoneTools.CrosshairsTool.toolName, {
-                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Primary }],
-                });
-              } catch (e) {
-                // eslint-disable-next-line no-console
-                console.warn('[LiverViewer3D] CrosshairsTool activation failed:', e);
-              }
-              try { mprTg.addTool(cornerstoneTools.StackScrollTool.toolName); }
-              catch { /* already added */ }
-              try {
-                mprTg.setToolActive(cornerstoneTools.StackScrollTool.toolName, {
-                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Wheel }],
-                });
-              } catch (e) {
-                // eslint-disable-next-line no-console
-                console.warn('[LiverViewer3D] StackScrollTool activation failed:', e);
-              }
-            }
-          } catch (volErr) {
-            // MPR volume build failed — drop back to axial mode and surface
-            // a friendly message rather than blanking the viewer.
-            const msg = volErr instanceof Error ? volErr.message : String(volErr);
-            setMprError(msg);
-            setViewMode('axial');
-            setIsLoading(false);
-            return;
-          }
-        }
-
         setImageCount(imageIds.length);
         setCurrentSlice(0);
         setWindowCenter(liverPreset.center);
         setWindowWidth(liverPreset.width);
         setActivePreset('liver');
+        // Signal "volume ready" → Effect B builds the viewports + binds it.
+        setCtEpoch((e) => e + 1);
         setIsLoading(false);
       } catch (err) {
         if (cancelled || ctrl.signal.aborted) return;
@@ -938,12 +639,267 @@ export function LiverViewer3D({
         setIsLoading(false);
       }
     })();
-
     return () => {
       cancelled = true;
       ctrl.abort();
+      // Series / analysis change (or unmount): evict THIS series' CT volume and
+      // drop the labelmaps registered against it (they are keyed to the
+      // volume). The rendering engine itself is torn down only on unmount
+      // (Effect D) so layout switches keep it — and the cached CT — alive.
+      if (activeVolumeIdRef.current) {
+        try { cache.removeVolumeLoadObject(activeVolumeIdRef.current); } catch { /* gone */ }
+        activeVolumeIdRef.current = null;
+      }
+      const allLabelmapSegIds = [
+        ...Object.values(activeSegsRef.current),
+        ...Object.values(activeLesionSegsRef.current),
+        ...Object.values(activeFlrSegsRef.current),
+      ];
+      for (const segId of allLabelmapSegIds) {
+        try { removeLabelmapSegmentation(segId); } catch { /* gone */ }
+        try { cache.removeVolumeLoadObject(segId); } catch { /* gone */ }
+      }
+      activeSegsRef.current = {};
+      activeLesionSegsRef.current = {};
+      activeFlrSegsRef.current = {};
+      loadedMasksRef.current.clear();
+      setImageCount(0);
     };
-  }, [client, ready, studyInstanceUid, selectedSeries, t, viewMode]);
+  }, [ready, studyInstanceUid, selectedSeries, client, t]);
+
+  // Resize observer — fits the WebGL canvas to the container.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(() => {
+      try {
+        engineRef.current?.resize();
+      } catch {
+        /* not yet initialized */
+      }
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // --- Effect B: viewport topology + volume bind (per layout) ---------------
+  // Plain-English: (re)build the viewports for the current layout and bind the
+  // ALREADY-LOADED CT volume to them. Runs on every viewMode change and once
+  // the volume becomes ready (ctEpoch). Because the engine is alive and the
+  // volume is cached, the bind is a cache hit — instant, no re-download. After
+  // binding we re-attach the labelmap representations that the disabled panes
+  // dropped, then bump boundEpoch so the labelmap-create effects fire only
+  // once the panes hold the base volume (preserves the old attach-after-bind
+  // ordering). Layout teardown disables ONLY the viewports + the MPR tool
+  // group; the engine, CT volume and segmentations survive.
+  useEffect(() => {
+    if (!ready || ctEpoch === 0) return undefined;
+    const engine = engineRef.current;
+    const volumeId = activeVolumeIdRef.current;
+    if (!engine || !volumeId) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const liverPreset = WINDOW_LEVEL_PRESETS.liver ?? WINDOW_LEVEL_PRESETS.softTissue;
+        const imageIds = imageIdsRef.current;
+        const applyLiverVoi = (vp: Types.IVolumeViewport | undefined): void => {
+          if (!vp) return;
+          vp.resetCamera();
+          try {
+            vp.setProperties({
+              voiRange: {
+                lower: liverPreset.center - liverPreset.width / 2,
+                upper: liverPreset.center + liverPreset.width / 2,
+              },
+            });
+          } catch { /* properties API differs across CS versions */ }
+          vp.render();
+        };
+
+        if (viewMode === 'axial') {
+          // Single ORTHOGRAPHIC volume viewport (same renderer as MPR) so the
+          // green parenchyma / yellow lesion / red FLR labelmaps register
+          // identically here.
+          if (!elementRef.current) return;
+          engine.enableElement({
+            viewportId: MPR_AXIAL_ID,
+            element: elementRef.current,
+            type: Enums.ViewportType.ORTHOGRAPHIC,
+            defaultOptions: { orientation: Enums.OrientationAxis.AXIAL },
+          });
+          enabledViewportIdsRef.current = [MPR_AXIAL_ID];
+          const tg = getOrCreateToolGroup();
+          tg.addViewport(MPR_AXIAL_ID, RENDERING_ENGINE_ID);
+          activateToolOnGroup('StackScroll');
+
+          await setVolumesForViewports(engine, [{ volumeId }], [MPR_AXIAL_ID]);
+          if (cancelled) return;
+          const vp = engine.getViewport(MPR_AXIAL_ID) as Types.IVolumeViewport | undefined;
+          applyLiverVoi(vp);
+          engine.resize();
+          const nSlices = (vp as (Types.IVolumeViewport & { getNumberOfSlices?: () => number }) | undefined)?.getNumberOfSlices?.() ?? imageIds.length;
+          setMprDims({ axial: nSlices, sagittal: 0, coronal: 0 });
+          // Jump to first lesion's z-center so the surgeon doesn't have to scroll.
+          const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
+          const target =
+            firstBox && firstBox.z !== undefined && firstBox.dz !== undefined
+              ? Math.round(firstBox.z + firstBox.dz / 2)
+              : Math.floor(nSlices / 2);
+          setMprSlices((prev) => ({ ...prev, axial: target }));
+          setCurrentSlice(target);
+          try {
+            const curIdx = (vp as (Types.IVolumeViewport & { getSliceIndex?: () => number }) | undefined)?.getSliceIndex?.() ?? 0;
+            const delta = target - curIdx;
+            if (delta !== 0) (vp as unknown as { scroll?: (d: number) => void })?.scroll?.(delta);
+          } catch { /* viewport torn down */ }
+          await reattachLabelmaps([MPR_AXIAL_ID]);
+        } else {
+          // MPR — three orthographic viewports.
+          const ax = mprAxialRef.current;
+          const sa = mprSagittalRef.current;
+          const co = mprCoronalRef.current;
+          if (!ax || !sa || !co) return;
+          engine.setViewports([
+            { viewportId: MPR_AXIAL_ID, element: ax, type: Enums.ViewportType.ORTHOGRAPHIC, defaultOptions: { orientation: Enums.OrientationAxis.AXIAL } },
+            { viewportId: MPR_SAGITTAL_ID, element: sa, type: Enums.ViewportType.ORTHOGRAPHIC, defaultOptions: { orientation: Enums.OrientationAxis.SAGITTAL } },
+            { viewportId: MPR_CORONAL_ID, element: co, type: Enums.ViewportType.ORTHOGRAPHIC, defaultOptions: { orientation: Enums.OrientationAxis.CORONAL } },
+          ]);
+          enabledViewportIdsRef.current = [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID];
+          // IMPORTANT: MPR viewports must belong to EXACTLY ONE tool group
+          // (CrosshairsTool throws "Multiple tool groups found" otherwise). The
+          // shared `liverra-pacs-toolgroup` is reserved for the axial fallback
+          // + ComparisonView; MPR viewports are exclusive to `liverra-mpr-toolgroup`.
+          const mprTg =
+            cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID) ??
+            cornerstoneTools.ToolGroupManager.createToolGroup(MPR_TOOL_GROUP_ID);
+          if (mprTg) {
+            for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
+              try { mprTg.addViewport(id, RENDERING_ENGINE_ID); } catch { /* already in */ }
+            }
+            for (const toolName of ['Zoom', 'Pan', 'WindowLevel'] as const) {
+              try { mprTg.addTool(toolName); } catch { /* already added */ }
+            }
+            try { mprTg.setToolActive('Zoom', { bindings: [{ numTouchPoints: 2 }] }); } catch { /* ignore */ }
+            try { mprTg.setToolActive('Pan', { bindings: [{ numTouchPoints: 1 }, { mouseButton: cornerstoneTools.Enums.MouseBindings.Auxiliary }] }); } catch { /* ignore */ }
+            try { mprTg.setToolActive('WindowLevel', { bindings: [{ numTouchPoints: 3 }, { mouseButton: cornerstoneTools.Enums.MouseBindings.Secondary }] }); } catch { /* ignore */ }
+          }
+
+          try {
+            await setVolumesForViewports(engine, [{ volumeId }], [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]);
+            if (cancelled) return;
+            for (const id of [MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]) {
+              applyLiverVoi(engine.getViewport(id) as Types.IVolumeViewport | undefined);
+            }
+            engine.resize();
+
+            const dims = { axial: 0, sagittal: 0, coronal: 0 };
+            for (const [id, key] of [
+              [MPR_AXIAL_ID, 'axial'] as const,
+              [MPR_SAGITTAL_ID, 'sagittal'] as const,
+              [MPR_CORONAL_ID, 'coronal'] as const,
+            ]) {
+              const vp = engine.getViewport(id) as (Types.IVolumeViewport & { getNumberOfSlices?: () => number }) | undefined;
+              dims[key] = vp?.getNumberOfSlices?.() ?? imageIds.length;
+            }
+            setMprDims(dims);
+            // Default each plane toward the first lesion's bbox center so the
+            // yellow ROI is visible on load (volume center if no lesions).
+            const firstBox = lesions.length > 0 ? lesions[0]?.bbox3d : null;
+            const lesionAx = firstBox && firstBox.z !== undefined && firstBox.dz !== undefined ? Math.round(firstBox.z + firstBox.dz / 2) : null;
+            const lesionSa = firstBox && firstBox.x !== undefined && firstBox.dx !== undefined ? Math.round(firstBox.x + firstBox.dx / 2) : null;
+            const lesionCo = firstBox && firstBox.y !== undefined && firstBox.dy !== undefined ? Math.round(firstBox.y + firstBox.dy / 2) : null;
+            const targetSlices = {
+              axial: lesionAx ?? Math.floor(dims.axial / 2),
+              sagittal: lesionSa ?? Math.floor(dims.sagittal / 2),
+              coronal: lesionCo ?? Math.floor(dims.coronal / 2),
+            };
+            setMprSlices(targetSlices);
+            for (const [vpId, key] of [
+              [MPR_AXIAL_ID, 'axial'] as const,
+              [MPR_SAGITTAL_ID, 'sagittal'] as const,
+              [MPR_CORONAL_ID, 'coronal'] as const,
+            ]) {
+              try {
+                const vp = engine.getViewport(vpId) as (Types.IVolumeViewport & { scroll?: (d: number) => void; getSliceIndex?: () => number }) | undefined;
+                const curIdx = vp?.getSliceIndex?.() ?? 0;
+                const delta = targetSlices[key] - curIdx;
+                if (delta !== 0 && vp?.scroll) vp.scroll(delta);
+              } catch { /* viewport may be torn down */ }
+            }
+
+            // CrosshairsTool + StackScrollTool only AFTER the volume binds —
+            // CrosshairsTool.initializeViewport reads FoR + camera state that
+            // are undefined until setVolumesForViewports() runs.
+            const mprTg2 = cornerstoneTools.ToolGroupManager.getToolGroup(MPR_TOOL_GROUP_ID);
+            if (mprTg2) {
+              try { mprTg2.addTool(cornerstoneTools.CrosshairsTool.toolName); } catch { /* already added */ }
+              try {
+                mprTg2.setToolActive(cornerstoneTools.CrosshairsTool.toolName, {
+                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Primary }],
+                });
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[LiverViewer3D] CrosshairsTool activation failed:', e);
+              }
+              try { mprTg2.addTool(cornerstoneTools.StackScrollTool.toolName); } catch { /* already added */ }
+              try {
+                mprTg2.setToolActive(cornerstoneTools.StackScrollTool.toolName, {
+                  bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Wheel }],
+                });
+              } catch (e) {
+                // eslint-disable-next-line no-console
+                console.warn('[LiverViewer3D] StackScrollTool activation failed:', e);
+              }
+            }
+            await reattachLabelmaps([MPR_AXIAL_ID, MPR_SAGITTAL_ID, MPR_CORONAL_ID]);
+          } catch (volErr) {
+            // MPR bind failed — drop back to axial mode with a friendly message.
+            const msg = volErr instanceof Error ? volErr.message : String(volErr);
+            setMprError(msg);
+            setViewMode('axial');
+            return;
+          }
+        }
+
+        if (cancelled) return;
+        // Panes now hold the base volume → let the labelmap-create effects run.
+        setBoundEpoch((e) => e + 1);
+      } catch (err) {
+        if (!cancelled) setLoadError((err as Error).message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      // Layout switch: tear down ONLY the viewports + the MPR-only tool group.
+      // The engine (Effect D), CT volume + labelmaps (Effect A) survive, so the
+      // next layout re-binds the cached volume with no re-download.
+      try {
+        cornerstoneTools.ToolGroupManager.destroyToolGroup(MPR_TOOL_GROUP_ID);
+      } catch {
+        /* never created on this mount */
+      }
+      const eng = engineRef.current;
+      if (eng) {
+        for (const id of enabledViewportIdsRef.current) {
+          try { eng.disableElement(id); } catch { /* gone */ }
+        }
+      }
+      enabledViewportIdsRef.current = [];
+    };
+  }, [ready, viewMode, ctEpoch, reattachLabelmaps]);
+
+  // --- Effect D: rendering-engine teardown on unmount ONLY ------------------
+  // The CT volume + labelmaps are evicted by Effect A's series-change cleanup;
+  // this tears down the engine itself, but only when the component truly
+  // unmounts — layout switches must keep the engine (and the cached CT) alive.
+  useEffect(() => {
+    return () => {
+      try { destroyCornerstone(); } catch { /* already gone */ }
+      engineRef.current = null;
+    };
+  }, []);
 
   // --- Slice change tracking (drives mask overlay redraw) -------------------
   // Cornerstone fires an IMAGE_RENDERED event after each slice paint; the
@@ -1203,14 +1159,15 @@ export function LiverViewer3D({
     return () => {
       cancelled = true;
     };
-  }, [viewMode, analysisId, imageCount, desiredVisibilityByKey, availableAnatomyKeys]);
+  }, [viewMode, analysisId, boundEpoch, desiredVisibilityByKey, availableAnatomyKeys]);
 
   // --- Lesion mask labelmaps (renders the actual tumor contour, not a bbox) -
   // Plain-English: for every lesion the analysis surfaced, fetch its NIfTI
   // mask from `/lesion-mask/{lesion_id}` and register it as a yellow
   // labelmap. This gives the surgeon the same tumor outline they see in the
   // PDF report instead of the misleading bounding-rectangle.
-  const activeLesionSegsRef = useRef<Record<string, string>>({});
+  // (activeLesionSegsRef is declared up top alongside activeSegsRef so the
+  //  Phase-1 re-attach helper can reference it.)
   useEffect(() => {
     if (viewMode !== 'mpr' && viewMode !== 'axial') return undefined;
     const volumeId = activeVolumeIdRef.current;
@@ -1245,7 +1202,7 @@ export function LiverViewer3D({
       }
     })();
     return () => { cancelled = true; };
-  }, [viewMode, analysisId, imageCount, layerVisibility.lesions, lesions]);
+  }, [viewMode, analysisId, boundEpoch, layerVisibility.lesions, lesions]);
 
   // Toggle visibility of all lesion labelmaps when the "Lesions" checkbox flips.
   useEffect(() => {
@@ -1269,7 +1226,8 @@ export function LiverViewer3D({
   // Loading each removed segment's mask as a red labelmap lets the surgeon
   // see exactly what tissue is being resected; the boundary between red
   // and non-red is the cutting surface (Cantlie line for this case).
-  const activeFlrSegsRef = useRef<Record<string, string>>({});
+  // (activeFlrSegsRef is declared up top alongside activeSegsRef so the
+  //  Phase-1 re-attach helper can reference it.)
   useEffect(() => {
     if (viewMode !== 'mpr' && viewMode !== 'axial') return undefined;
     const volumeId = activeVolumeIdRef.current;
@@ -1306,7 +1264,7 @@ export function LiverViewer3D({
       }
     })();
     return () => { cancelled = true; };
-  }, [viewMode, analysisId, imageCount, layerVisibility.flrPlane, flrDefault]);
+  }, [viewMode, analysisId, boundEpoch, layerVisibility.flrPlane, flrDefault]);
 
   // Toggle visibility of FLR red labelmaps with the FLR checkbox.
   useEffect(() => {

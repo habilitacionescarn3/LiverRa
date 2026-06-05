@@ -136,7 +136,14 @@ export function EMRPage({
   const effectiveNavItems = navItems;
 
   // Imaging viewer takes the full viewport — skip the main content scroll.
-  const isImagingRoute = location.pathname.includes('/imaging');
+  // Matches the legacy `/imaging` route AND the advanced PACS study viewer
+  // at `/pacs/studies/:uid` (the detail route, NOT the scrollable studies
+  // list `/pacs/studies`). The viewer fills exactly one screen and its
+  // Cornerstone canvas owns the scroll wheel (slice scrubbing), so the page
+  // itself must not scroll.
+  const isImagingRoute =
+    location.pathname.includes('/imaging') ||
+    /^\/pacs\/studies\/[^/]+/.test(location.pathname);
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((s) => !s);
@@ -292,10 +299,18 @@ export function EMRPage({
       >
         <Box
           style={{
-            minHeight: '100%',
+            // Normal pages: `min-height: 100%` + `flex: 1 0 auto` so short
+            // pages fill the scroll viewport and tall pages overflow+scroll.
+            // Imaging viewer route: bound the wrapper to the content area
+            // (`flex: 1; min-height: 0`) so the embedded <PACSViewer> (whose
+            // root is `flex: 1; min-height: 0`) fills exactly one screen and
+            // its internal series rail / viewport grid scroll within — instead
+            // of growing to intrinsic height (~1274px) and overflowing under a
+            // page that can't wheel-scroll (the canvas eats the wheel).
+            minHeight: isImagingRoute ? 0 : '100%',
             display: 'flex',
             flexDirection: 'column',
-            flex: '1 0 auto',
+            flex: isImagingRoute ? 1 : '1 0 auto',
           }}
         >
           <Outlet />

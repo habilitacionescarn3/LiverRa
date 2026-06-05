@@ -6,9 +6,8 @@
 // ============================================================================
 // A "hanging protocol" is a recipe that tells the PACS viewer how to
 // automatically arrange images when a study is opened. Think of it like a
-// desk layout preset — when a radiologist opens a CT Abdomen with liver
-// phase, the viewer knows to use a 1x2 layout with liver and bone windows
-// side by side.
+// desk layout preset — when a radiologist opens a CT Chest, the viewer
+// knows to use a 1x3-mpr layout with axial/sagittal/coronal panes.
 //
 // This engine handles:
 //   1. matchProtocol — find the best-matching protocol for a study
@@ -26,11 +25,12 @@
 //
 // Ported from MediMind (services/pacs/hangingProtocolEngine.ts) with:
 //   - `MedplumClient` → `LiverRaFhirClient` (kept method surface identical).
-//   - `@medplum/fhirtypes` Basic type inlined as a local minimal shape.
+//   - Medplum fhirtypes Basic type inlined as a local minimal shape.
 //   - `fhir-systems` constants inlined locally under `http://liverra.ai/fhir`
 //     namespace — Phase 4 may relocate these into the central constants module.
 //   - `requirePermission(..., 'manage-imaging')` removed (LiverRa permission
 //     model is RBAC via Cognito + Guarded, wired in Phase 4).
+//   - `deleteWithIfMatch` → LiverRa's soft-delete (CE MDR retention).
 // ============================================================================
 
 import type { LiverRaFhirClient, FhirResourceLike } from '../fhirClient';
@@ -106,6 +106,8 @@ export interface ViewerConfiguration {
   viewportAssignments: ViewportAssignment[];
   /** Name of the protocol that was applied */
   protocolName: string;
+  /** Translation key for built-in system protocols; custom user protocol names stay literal */
+  protocolNameKey?: string;
   /** Whether to load a prior study for comparison */
   loadPriorStudy: boolean;
   /** If loading a prior, which viewport to put it in */
@@ -135,17 +137,56 @@ export interface ViewportAssignment {
   windowWidth?: number;
 }
 
+type LocalizedHangingProtocolRule = HangingProtocolRule & {
+  nameKey?: string;
+};
+
+function getProtocolNameKey(protocol: HangingProtocolRule): string | undefined {
+  return (protocol as LocalizedHangingProtocolRule).nameKey;
+}
+
+/**
+ * Checks whether a body-part-specific protocol is safe to apply to a study.
+ *
+ * @param protocolBodyParts - Body parts accepted by the protocol
+ * @param study - Imaging study being scored
+ * @returns True when the tag or trusted description text confirms the anatomy
+ */
+function bodyPartMatchesProtocol(protocolBodyParts: string[], study: ImagingStudyListItem): boolean {
+  const normalizedProtocolBodyParts = protocolBodyParts.map((bp) => bp.toUpperCase());
+  if (study.bodyPart) {
+    return normalizedProtocolBodyParts.includes(study.bodyPart.toUpperCase());
+  }
+
+  const description = study.description?.toUpperCase() ?? '';
+  if (!description) {
+    return false;
+  }
+
+  const trustedDescriptionTerms: Record<string, RegExp> = {
+    CHEST: /\b(CHEST|THORAX|THORACIC|LUNG|PULMONARY)\b/,
+    ABDOMEN: /\b(ABDOMEN|ABDOMINAL|ABDO)\b/,
+    PELVIS: /\b(PELVIS|PELVIC)\b/,
+    HEAD: /\b(HEAD|BRAIN|CRANIUM|SKULL)\b/,
+    BRAIN: /\b(BRAIN|HEAD|CRANIUM|SKULL)\b/,
+    BREAST: /\b(BREAST|MAMMO|MAMMOGRAM|MAMMOGRAPHY)\b/,
+    LIVER: /\b(LIVER|HEPATIC|HEPATOBILIARY|HPB)\b/,
+  };
+
+  return normalizedProtocolBodyParts.some((bp) => trustedDescriptionTerms[bp]?.test(description) ?? false);
+}
+
 // ============================================================================
 // System Default Protocols
 // ============================================================================
 // These are the built-in protocols that ship with the viewer. They cover
-// the most common HPB (hepatobiliary) + abdominal study types used in
-// LiverRa's target clinical flow. Users can override with custom ones.
+// the most common study types. Users can override these with custom ones.
 
-export const SYSTEM_PROTOCOLS: HangingProtocolRule[] = [
+export const SYSTEM_PROTOCOLS: LocalizedHangingProtocolRule[] = [
   {
     id: 'system-ct-liver',
     name: 'CT Liver',
+    nameKey: 'pacs.protocol.system.ctLiver',
     isDefault: false,
     matchCriteria: {
       modality: ['CT'],
@@ -170,6 +211,7 @@ export const SYSTEM_PROTOCOLS: HangingProtocolRule[] = [
   {
     id: 'system-mri-liver',
     name: 'MRI Liver',
+    nameKey: 'pacs.protocol.system.mriLiver',
     isDefault: false,
     matchCriteria: {
       modality: ['MR'],
@@ -200,56 +242,81 @@ export const SYSTEM_PROTOCOLS: HangingProtocolRule[] = [
     ],
   },
   {
-    id: 'system-ct-abdomen',
-    name: 'CT Abdomen',
-    isDefault: false,
-    matchCriteria: {
-      modality: ['CT'],
-      bodyPart: ['ABDOMEN', 'PELVIS'],
-    },
-    layout: '1x2',
-    viewportAssignments: [
-      {
-        viewportIndex: 0,
-        seriesSelector: { modality: 'CT', preferFirst: true },
-        initialTool: 'WindowLevel',
-        windowPreset: 'abdomen',
-      },
-      {
-        viewportIndex: 1,
-        seriesSelector: { modality: 'CT', preferFirst: true },
-        initialTool: 'WindowLevel',
-        windowPreset: 'bone',
-      },
-    ],
-  },
-  {
     id: 'system-ct-chest',
     name: 'CT Chest',
+    nameKey: 'pacs.protocol.system.ctChest',
     isDefault: false,
     matchCriteria: {
       modality: ['CT'],
       bodyPart: ['CHEST'],
     },
-    layout: '1x2',
+    // 1x3-mpr opens three orthogonal panes (axial / sagittal / coronal) sharing
+    // one volume. vp0 (axial) carries the lung window preset; vp1/vp2 inherit the
+    // same VOI from the shared volume — per-pane windowPreset overrides currently
+    // no-op in the MPR render path (PACSViewer.tsx setVolumesForViewports binds
+    // one volume; VOI is volume-level). Putting them on every pane would be
+    // misleading.
+    layout: '1x3-mpr',
     viewportAssignments: [
       {
         viewportIndex: 0,
         seriesSelector: { modality: 'CT', preferFirst: true },
-        initialTool: 'WindowLevel',
+        initialTool: 'Crosshairs',
         windowPreset: 'lung',
       },
       {
         viewportIndex: 1,
         seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+      {
+        viewportIndex: 2,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+    ],
+  },
+  {
+    id: 'system-mri-brain',
+    name: 'MRI Brain',
+    nameKey: 'pacs.protocol.system.mriBrain',
+    isDefault: false,
+    matchCriteria: {
+      modality: ['MR'],
+      bodyPart: ['HEAD', 'BRAIN'],
+    },
+    layout: '2x2',
+    viewportAssignments: [
+      {
+        viewportIndex: 0,
+        seriesSelector: { modality: 'MR', description: /t1/i },
         initialTool: 'WindowLevel',
-        windowPreset: 'softTissue',
+        windowPreset: 'brain',
+      },
+      {
+        viewportIndex: 1,
+        seriesSelector: { modality: 'MR', description: /t2/i },
+        initialTool: 'WindowLevel',
+        windowPreset: 'brain',
+      },
+      {
+        viewportIndex: 2,
+        seriesSelector: { modality: 'MR', description: /flair/i },
+        initialTool: 'WindowLevel',
+        windowPreset: 'brain',
+      },
+      {
+        viewportIndex: 3,
+        seriesSelector: { modality: 'MR', description: /dwi|diff/i },
+        initialTool: 'WindowLevel',
+        windowPreset: 'brain',
       },
     ],
   },
   {
     id: 'system-xray',
     name: 'X-Ray',
+    nameKey: 'pacs.protocol.system.xray',
     isDefault: false,
     matchCriteria: {
       modality: ['CR', 'DX', 'XR'],
@@ -263,10 +330,93 @@ export const SYSTEM_PROTOCOLS: HangingProtocolRule[] = [
       },
     ],
   },
+  {
+    id: 'system-ct-abdomen',
+    name: 'CT Abdomen',
+    nameKey: 'pacs.protocol.system.ctAbdomen',
+    isDefault: false,
+    matchCriteria: {
+      modality: ['CT'],
+      bodyPart: ['ABDOMEN', 'PELVIS'],
+    },
+    // See system-ct-chest comment — abdomen window on vp0 only; vp1/vp2 share
+    // the volume's VOI.
+    layout: '1x3-mpr',
+    viewportAssignments: [
+      {
+        viewportIndex: 0,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+        windowPreset: 'abdomen',
+      },
+      {
+        viewportIndex: 1,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+      {
+        viewportIndex: 2,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+    ],
+  },
+  // Generic CT — catches CT studies without a body-part tag (head, neck,
+  // extremity, or unlabeled). MPR is clinically standard for any volumetric CT.
+  // Scores +10 (modality only); loses to CT Liver / CT Chest / CT Abdomen (30)
+  // when those body parts are tagged; beats system-default (1).
+  {
+    id: 'system-ct-default',
+    name: 'CT (Generic)',
+    nameKey: 'pacs.protocol.system.ctGeneric',
+    isDefault: false,
+    matchCriteria: {
+      modality: ['CT'],
+    },
+    layout: '1x3-mpr',
+    viewportAssignments: [
+      {
+        viewportIndex: 0,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+      {
+        viewportIndex: 1,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+      {
+        viewportIndex: 2,
+        seriesSelector: { modality: 'CT', preferFirst: true },
+        initialTool: 'Crosshairs',
+      },
+    ],
+  },
+  {
+    id: 'system-mammography',
+    name: 'Mammography',
+    nameKey: 'pacs.protocol.system.mammography',
+    isDefault: false,
+    matchCriteria: {
+      modality: ['MG'],
+    },
+    // Screening 4-up: LCC/RCC/LMLO/RMLO are auto-placed from per-image
+    // laterality + view-position (mammoLayout.assignMammoPanes), with the right
+    // breast mirrored. All four panes are STACK; the mammoStandard preset seeds
+    // the initial window. See services/pacs/mammoLayout.ts.
+    layout: 'mammo-4up',
+    viewportAssignments: [
+      { viewportIndex: 0, seriesSelector: { modality: 'MG', preferFirst: true }, initialTool: 'WindowLevel', windowPreset: 'mammoStandard' },
+      { viewportIndex: 1, seriesSelector: { modality: 'MG' }, initialTool: 'WindowLevel', windowPreset: 'mammoStandard' },
+      { viewportIndex: 2, seriesSelector: { modality: 'MG' }, initialTool: 'WindowLevel', windowPreset: 'mammoStandard' },
+      { viewportIndex: 3, seriesSelector: { modality: 'MG' }, initialTool: 'WindowLevel', windowPreset: 'mammoStandard' },
+    ],
+  },
   // Fallback — the "catch-all" protocol when nothing else matches
   {
     id: 'system-default',
     name: 'Default',
+    nameKey: 'pacs.protocol.system.default',
     isDefault: true,
     matchCriteria: {
       modality: [],
@@ -316,26 +466,13 @@ function scoreProtocol(protocol: HangingProtocolRule, study: ImagingStudyListIte
     score += 10;
   }
 
-  // Body part match (optional filter)
-  // Three tiers:
-  //   Both present + match → full score (+20)
-  //   Protocol requires body part but study lacks it → reduced score (+5, can't confirm)
-  //   Both present + mismatch → no match (return 0)
+  // Body part match (optional filter). Specific protocols require either a real
+  // BodyPartExamined tag or a trusted anatomy synonym in the description.
   if (matchCriteria.bodyPart && matchCriteria.bodyPart.length > 0) {
-    if (study.bodyPart) {
-      const bodyPartMatch = matchCriteria.bodyPart.some(
-        (bp) => bp.toUpperCase() === study.bodyPart?.toUpperCase()
-      );
-      if (bodyPartMatch) {
-        score += 20; // Full match — confirmed same body area
-      } else {
-        return 0; // Body parts don't match — wrong protocol
-      }
-    } else {
-      // Study has no body part tag — can't confirm, give reduced score
-      // so a proper body-part match always ranks higher
-      score += 5;
+    if (!bodyPartMatchesProtocol(matchCriteria.bodyPart, study)) {
+      return 0;
     }
+    score += 20;
   }
 
   // Description match (optional filter)
@@ -416,6 +553,7 @@ export function applyProtocol(protocol: HangingProtocolRule): ViewerConfiguratio
     layout: protocol.layout,
     viewportAssignments,
     protocolName: protocol.name,
+    protocolNameKey: getProtocolNameKey(protocol),
     loadPriorStudy: protocol.priorStudyMatch?.enabled ?? false,
     priorStudyViewportIndex: protocol.priorStudyMatch?.viewportIndex,
     priorStudyMaxAgeDays: protocol.priorStudyMatch?.maxAgeDays,
@@ -449,8 +587,9 @@ export async function loadUserProtocols(fhir: LiverRaFhirClient): Promise<Hangin
       .map((r) => r as Basic);
 
     return results.map(basicToProtocol).filter((p): p is HangingProtocolRule => p !== null);
-  } catch {
+  } catch (err) {
     // If loading fails, just return empty — system defaults will work
+    console.warn('[hangingProtocolEngine] best-effort PACS operation failed while loading user protocols:', err);
     return [];
   }
 }
@@ -529,7 +668,35 @@ function basicToProtocol(basic: Basic): HangingProtocolRule | null {
     const modalities = modalitiesStr ? modalitiesStr.split(',').filter(Boolean) : [];
     const bodyParts = bodyPartsStr ? bodyPartsStr.split(',').filter(Boolean) : undefined;
 
-    const parsedAssignments = assignmentsJson ? JSON.parse(assignmentsJson) : [];
+    // CROSS-H19: User-editable Basic.extension.valueString — validate the
+    // parsed shape before mapping. If JSON.parse yields anything other than
+    // an array of objects, return null rather than letting `.map` throw or
+    // produce garbage assignments.
+    const isObject = (v: unknown): v is Record<string, unknown> =>
+      v !== null && typeof v === 'object';
+
+    let parsedAssignments: Record<string, unknown>[] = [];
+    if (assignmentsJson) {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(assignmentsJson);
+      } catch (err) {
+        console.warn('[hangingProtocolEngine] best-effort PACS operation failed while parsing protocol assignments:', err);
+        return null;
+      }
+      if (!Array.isArray(raw)) {
+        return null;
+      }
+      // Drop any non-object entries; the .map below assumes object shape.
+      parsedAssignments = raw.filter(isObject);
+    }
+
+    const toStringOrUndef = (v: unknown): string | undefined =>
+      typeof v === 'string' ? v : undefined;
+    const toNumberOrZero = (v: unknown): number =>
+      typeof v === 'number' && Number.isFinite(v) ? v : 0;
+    const toBoolOrUndef = (v: unknown): boolean | undefined =>
+      typeof v === 'boolean' ? v : undefined;
 
     return {
       id: `user-${basic.id}`,
@@ -540,17 +707,21 @@ function basicToProtocol(basic: Basic): HangingProtocolRule | null {
         bodyPart: bodyParts,
       },
       layout: layoutStr as ViewportLayout,
-      viewportAssignments: parsedAssignments.map((a: Record<string, unknown>) => ({
-        viewportIndex: a.viewportIndex as number,
-        seriesSelector: {
-          modality: (a.seriesSelector as Record<string, unknown>)?.modality as string | undefined,
-          preferFirst: (a.seriesSelector as Record<string, unknown>)?.preferFirst as boolean | undefined,
-        },
-        initialTool: a.initialTool as PACSViewerTool | undefined,
-        windowPreset: a.windowPreset as string | undefined,
-      })),
+      viewportAssignments: parsedAssignments.map((a) => {
+        const seriesSelector = isObject(a.seriesSelector) ? a.seriesSelector : {};
+        return {
+          viewportIndex: toNumberOrZero(a.viewportIndex),
+          seriesSelector: {
+            modality: toStringOrUndef(seriesSelector.modality),
+            preferFirst: toBoolOrUndef(seriesSelector.preferFirst),
+          },
+          initialTool: toStringOrUndef(a.initialTool) as PACSViewerTool | undefined,
+          windowPreset: toStringOrUndef(a.windowPreset),
+        };
+      }),
     };
-  } catch {
+  } catch (err) {
+    console.warn('[hangingProtocolEngine] best-effort PACS operation failed:', err);
     return null;
   }
 }

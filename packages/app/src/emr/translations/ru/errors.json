@@ -6,6 +6,7 @@
   },
   "network": "__TODO_TRANSLATE__:Network error. Please try again.",
   "unknown": "__TODO_TRANSLATE__:An unexpected error occurred.",
+  "deleteFailed": "__TODO_TRANSLATE__:Failed to delete",
   "validation": {
     "required": "__TODO_TRANSLATE__:This field is required",
     "invalid": "__TODO_TRANSLATE__:Invalid value"

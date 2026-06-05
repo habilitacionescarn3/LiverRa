@@ -121,13 +121,35 @@ export default defineConfig(({ mode }) => {
       },
     },
   },
-  // TODO: when Cornerstone3D integration lands, configure
-  // `build.rollupOptions.output.manualChunks` to split the imaging bundle
-  // (@cornerstonejs/*, dcmjs, dicom-parser) from the app shell so the
-  // initial route doesn't have to download ~5 MB of viewer code up front.
+  // Advanced-viewer port (2026-06): split the heavyweight vendor bundles
+  // from the app shell so the initial route doesn't download ~5 MB of
+  // viewer code up front. Mirrors MediMind's function-form chunker.
   build: {
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          // Cornerstone3D + its DICOM loader + parsers — the imaging engine.
+          if (
+            id.includes('node_modules/@cornerstonejs/') ||
+            id.includes('node_modules/dicom-parser') ||
+            id.includes('node_modules/dcmjs')
+          ) {
+            return 'cornerstone';
+          }
+          // Mantine UI framework.
+          if (id.includes('node_modules/@mantine/')) {
+            return 'mantine';
+          }
+          // Tabler icons — large icon library.
+          if (id.includes('node_modules/@tabler/icons-react')) {
+            return 'icons';
+          }
+          return undefined;
+        },
+      },
+    },
   },
   // Cornerstone's DICOM image loader spawns web workers via
   // `new Worker(new URL('./decodeImageFrameWorker.ts', import.meta.url),

@@ -86,7 +86,7 @@ export function useImagingBreakGlass(
 ): UseImagingBreakGlassReturn {
   const [loading, setLoading] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const auditEventId = useRef<string | undefined>();
+  const auditEventId = useRef<string | undefined>(undefined);
   const serverCheckDone = useRef(false);
 
   // On mount, check server for existing active break-glass access

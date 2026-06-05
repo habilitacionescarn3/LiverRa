@@ -1,0 +1,178 @@
+/**
+ * DSAControls — DSA toolbar bar for pixel subtraction controls.
+ *
+ * Appears below the main PACSToolbar when DSA is activated.
+ * Uses the same dark semi-transparent styling as CineControls
+ * since it sits over the black PACS canvas. Direct colors
+ * (#e0e0e0, rgba) are intentional medical imaging convention.
+ */
+
+/* ---- Container with slide animation ---- */
+
+.dsa-controls-wrapper {
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.25s ease;
+}
+
+.dsa-controls-wrapper[data-visible="true"] {
+  max-height: 48px;
+  opacity: 1;
+}
+
+.dsa-controls-wrapper[data-visible="false"] {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* ---- Main bar layout ---- */
+
+.dsa-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+}
+
+/* Audit perf-M29: gate blur to tablet+ — phones can't afford the GPU paint */
+@media (min-width: 768px) {
+  .dsa-controls {
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* ---- DSA Toggle button ---- */
+
+.dsa-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dsa-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dsa-toggle-btn[data-active="true"] {
+  background: var(--emr-accent-alpha-35);
+  border-color: var(--emr-accent);
+  color: var(--emr-light-accent);
+}
+
+/* ---- Section label ---- */
+
+.dsa-section-label {
+  color: #999;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---- Mask frame slider ---- */
+
+.dsa-mask-slider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 120px;
+}
+
+.dsa-mask-value {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  white-space: nowrap;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ---- Pixel shift section ---- */
+
+.dsa-shift-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dsa-shift-arrows {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.dsa-shift-value {
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: center;
+}
+
+/* ---- Original toggle ---- */
+
+.dsa-original-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.dsa-original-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dsa-original-btn[data-active="true"] {
+  /* Was hardcoded orange — replaced with theme accent to satisfy zero-tolerance
+     forbidden-color rule. Distinct from .dsa-toggle-btn[data-active] by using
+     the secondary blue tone instead of the accent blue. */
+  background: var(--emr-secondary-alpha-15);
+  border-color: var(--emr-secondary);
+  color: var(--emr-secondary);
+}
+
+/* ---- Separator ---- */
+
+.dsa-separator {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+/* ---- Responsive: hide shift display text on narrow viewports ---- */
+
+@media (max-width: 500px) {
+  .dsa-shift-value {
+    display: none;
+  }
+
+  .dsa-mask-slider {
+    min-width: 80px;
+  }
+}

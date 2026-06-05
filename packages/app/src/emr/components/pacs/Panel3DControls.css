@@ -1,0 +1,296 @@
+/**
+ * Panel3DControls Styles
+ *
+ * Right-docked, collapsible "3D Controls" panel for the PACS VR viewer.
+ * Theme surfaces + auto-switching variables only (no hardcoded colours, no
+ * data-mantine-color-scheme overrides — dark mode is handled by theme.css).
+ */
+
+.pacs-panel3d {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  max-width: 320px;
+  height: 100%;
+  background: var(--emr-bg-card);
+  border-left: 1px solid var(--emr-border-color);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Collapsed: shrink to just the header strip */
+.pacs-panel3d.collapsed {
+  width: auto;
+  min-width: 0;
+}
+
+/* ---- Header ---- */
+.pacs-panel3d-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--emr-border-color);
+  flex-shrink: 0;
+}
+
+.pacs-panel3d-collapse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--emr-text-primary);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.pacs-panel3d-collapse:hover {
+  background: var(--emr-bg-hover);
+}
+
+.pacs-panel3d-collapse:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+.pacs-panel3d-title {
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-semibold);
+  color: var(--emr-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pacs-panel3d-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--emr-text-secondary);
+  cursor: pointer;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pacs-panel3d-close:hover {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-primary);
+}
+
+.pacs-panel3d-close:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Body (scrollable) ---- */
+.pacs-panel3d-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 14px 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.pacs-panel3d-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pacs-panel3d-heading {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--emr-text-secondary);
+}
+
+.pacs-panel3d-hint {
+  font-size: var(--emr-font-xs);
+  color: var(--emr-text-tertiary);
+  line-height: 1.4;
+}
+
+.pacs-panel3d-loading {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-medium);
+  color: var(--emr-accent);
+}
+
+/* "Cuts: N" indicator — small accent-tinted badge matching active-state accent */
+.pacs-panel3d-cut-count {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--emr-accent-alpha-15);
+  color: var(--emr-accent);
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+}
+
+/* ---- Segmented control (themed, no raw Mantine) ---- */
+/* Wraps to multiple rows when the row holds many pills (e.g. the 5-option
+   Rotate|Crop|Isolate|Remove|Scalpel interaction row) in a narrow panel. */
+.pacs-panel3d-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--emr-bg-page);
+  border: 1px solid var(--emr-border-color);
+}
+
+.pacs-panel3d-seg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  /* Grow to fill, but keep a minimum width so 5 pills wrap to a clean 2-row
+     grid (≈3 + 2) at narrow widths instead of squishing into slivers. */
+  flex: 1 1 84px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--emr-text-secondary);
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.pacs-panel3d-seg-btn:hover:not(:disabled):not(.active) {
+  background: var(--emr-bg-hover);
+  color: var(--emr-text-primary);
+}
+
+.pacs-panel3d-seg-btn.active {
+  background: var(--emr-gradient-primary);
+  color: var(--emr-text-inverse);
+  box-shadow: 0 2px 6px rgba(43, 108, 176, 0.35);
+}
+
+.pacs-panel3d-seg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pacs-panel3d-seg-btn:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Rendering preset list ---- */
+.pacs-panel3d-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.pacs-panel3d-preset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--emr-border-color);
+  border-radius: 8px;
+  background: var(--emr-bg-page);
+  color: var(--emr-text-primary);
+  font-size: var(--emr-font-sm);
+  font-weight: var(--emr-font-medium);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.pacs-panel3d-preset-btn:hover:not(:disabled):not(.active) {
+  background: var(--emr-bg-hover);
+  border-color: var(--emr-accent);
+}
+
+.pacs-panel3d-preset-btn.active {
+  background: var(--emr-accent-alpha-15);
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+  font-weight: var(--emr-font-semibold);
+}
+
+.pacs-panel3d-preset-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pacs-panel3d-preset-btn:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Orientation grid (6 axis buttons) ---- */
+.pacs-panel3d-orient-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.pacs-panel3d-orient-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 1px solid var(--emr-border-color);
+  border-radius: 8px;
+  background: var(--emr-bg-page);
+  color: var(--emr-text-primary);
+  font-size: var(--emr-font-md);
+  font-weight: var(--emr-font-bold);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pacs-panel3d-orient-btn:hover:not(:disabled) {
+  background: var(--emr-accent-alpha-15);
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+}
+
+.pacs-panel3d-orient-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pacs-panel3d-orient-btn:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Mobile: full-width panel below the viewport ---- */
+@media (max-width: 768px) {
+  .pacs-panel3d {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 50vh;
+    border-left: none;
+    border-top: 1px solid var(--emr-border-color);
+  }
+}

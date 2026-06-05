@@ -1,6 +1,7 @@
 {
   "network": "ქსელის შეცდომა. გთხოვთ სცადოთ თავიდან.",
   "unknown": "მოხდა მოულოდნელი შეცდომა.",
+  "deleteFailed": "__TODO_TRANSLATE__:Failed to delete",
   "validation": {
     "required": "ეს ველი სავალდებულოა",
     "invalid": "არასწორი მნიშვნელობა"

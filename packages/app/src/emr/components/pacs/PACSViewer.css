@@ -1,0 +1,542 @@
+/**
+ * PACS Viewer Styles
+ *
+ * Dark background (medical images need dark surroundings for proper contrast),
+ * with viewport grid that adapts to the chosen layout.
+ */
+
+.pacs-viewer {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  /* Column: thin dark top bar, optional DSA strip, then the viewport body. */
+  flex-direction: column;
+  /* Root container holds dark viewport canvas — must stay dark in both modes. */
+  background: #000;
+  position: relative;
+  overflow: hidden;
+
+  /* ---- Scoped dark "reading-room" chrome tokens (Part C) ----
+     One source of truth for the viewer chrome (top bar + rail + buttons).
+     Neutral grays only — never the forbidden Tailwind blues, never purple /
+     orange / yellow. ACTIVE / selected states keep the theme blue
+     var(--emr-accent). These intentionally do NOT use the auto-switching
+     --emr-bg-* vars: the viewer chrome stays dark in BOTH light and dark mode,
+     like the always-black viewport canvas (a radiology convention). */
+  --pacs-chrome-bg: var(--emr-pacs-reading-bg);        /* top bar / rail surface */
+  --pacs-chrome-elevated: var(--emr-pacs-reading-elevated);  /* hover / dropdown panel */
+  --pacs-chrome-hover: var(--emr-pacs-reading-hover);     /* button + menu-item hover */
+  --pacs-chrome-border: var(--emr-pacs-reading-border);
+  --pacs-chrome-text: var(--emr-pacs-reading-text);
+  --pacs-chrome-text-dim: var(--emr-pacs-reading-text-dim);
+}
+
+/* ---- Dark top menu-bar (the medspace reading-room toolbar) ---- */
+
+.pacs-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--pacs-chrome-bg);
+  border-bottom: 1px solid var(--pacs-chrome-border);
+  color: var(--pacs-chrome-text);
+}
+
+/* Hide the horizontal scrollbar on the top bar for a clean reading-room look */
+.pacs-topbar::-webkit-scrollbar {
+  height: 0;
+}
+
+.pacs-topbar-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* The moved PACSToolbar sits in a flex-shrink:0 slot so it never collapses */
+.pacs-topbar-toolbar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Top-bar icon / dropdown-trigger buttons — dark chrome, 44×44 tap target.
+   Scoped to .pacs-topbar so buttons elsewhere are untouched. */
+.pacs-topbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--pacs-chrome-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pacs-topbar-btn:hover:not(:disabled) {
+  background: var(--pacs-chrome-elevated);
+  color: var(--pacs-chrome-text);
+}
+
+.pacs-topbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pacs-topbar-btn:focus-visible {
+  outline: 2px solid var(--emr-accent);
+  outline-offset: 2px;
+}
+
+/* Dropdown trigger — a touch wider to fit icon + chevron */
+.pacs-topbar-trigger {
+  width: 56px;
+  gap: 2px;
+}
+
+/* Active / open state keeps the theme-blue accent (reads on dark chrome) */
+.pacs-topbar-btn[aria-pressed="true"],
+.pacs-topbar-btn[aria-expanded="true"] {
+  background: var(--emr-accent-alpha-20);
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+}
+
+/* The W/L Presets dropdown wraps the existing WindowPresets — give it room */
+.pacs-topbar-presets-wrap {
+  padding: 4px 6px;
+}
+
+/* TAVI entry sits as the last workflow item inside the Workflow menu panel */
+.pacs-workflow-tavi-slot {
+  display: flex;
+  padding: 4px 8px;
+}
+
+/* The moved SidebarActions row — a compact flex cluster of ActionIcons.
+   Lives in the dark top bar now, so make its icons legible on dark chrome. */
+.pacs-topbar .pacs-sidebar-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pacs-topbar .pacs-sidebar-actions .mantine-ActionIcon-root {
+  color: var(--pacs-chrome-text);
+}
+
+.pacs-topbar .pacs-sidebar-actions .mantine-ActionIcon-root:hover {
+  background: var(--pacs-chrome-elevated);
+  color: var(--pacs-chrome-text);
+}
+
+/* Active toggle (measurements / key-images / colorbar) keeps the theme accent */
+.pacs-topbar .pacs-sidebar-actions .pacs-viewer-measurements-btn[data-active="true"] {
+  color: var(--emr-accent);
+}
+
+/* ---- Top-bar chrome overrides for the moved PACSToolbar ----
+   Re-skin the inner toolbar buttons to the dark chrome ONLY when the toolbar
+   lives in the top bar (scoped, so the toolbar's own styles are intact when
+   used elsewhere — e.g. the pop-out window's own layout). */
+.pacs-topbar .pacs-toolbar {
+  background: transparent;
+  padding: 0;
+}
+
+.pacs-topbar .pacs-toolbar-btn {
+  color: var(--pacs-chrome-text);
+}
+
+.pacs-topbar .pacs-toolbar-btn:hover:not(:disabled) {
+  background: var(--pacs-chrome-elevated);
+  color: var(--pacs-chrome-text);
+}
+
+/* Active tool keeps the theme-blue accent highlight on the dark chrome */
+.pacs-topbar .pacs-toolbar-btn.active {
+  background: var(--emr-accent-alpha-20);
+  border-color: var(--emr-accent);
+  color: var(--emr-accent);
+}
+
+.pacs-topbar .pacs-cardiology-label,
+.pacs-topbar .pacs-mip-label,
+.pacs-topbar .pacs-slab-slider-wrap label {
+  color: var(--pacs-chrome-text-dim);
+}
+
+/* ---- Viewer body: collapsible series rail + the unchanged right content ---- */
+
+.pacs-viewer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ---- DSA controls strip (under the top bar when DSA is active) ---- */
+
+.pacs-dsa-strip {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  background: var(--pacs-chrome-bg);
+  border-bottom: 1px solid var(--pacs-chrome-border);
+  color: var(--pacs-chrome-text);
+}
+
+/* ---- Thin collapsible dark series rail ---- */
+
+.pacs-series-rail {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--pacs-chrome-bg);
+  border-right: 1px solid var(--pacs-chrome-border);
+  color: var(--pacs-chrome-text);
+  transition: width 0.18s ease;
+}
+
+.pacs-series-rail[data-open="false"] {
+  width: 0;
+  border-right-width: 0;
+}
+
+.pacs-series-rail-header {
+  font-size: var(--emr-font-xs);
+  font-weight: var(--emr-font-semibold);
+  color: var(--pacs-chrome-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 8px 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* SeriesBrowser sits on the always-dark rail — its theme-aware text vars would
+   be dark-on-dark in light mode, so scope legible chrome colors here. The
+   thumbnail images themselves are unaffected. */
+.pacs-series-rail .series-browser {
+  background: transparent;
+  border-top: 0;
+}
+
+.pacs-series-rail .series-thumb-desc {
+  color: var(--pacs-chrome-text);
+}
+
+.pacs-series-rail .series-thumb-count,
+.pacs-series-rail .series-browser-empty,
+.pacs-series-rail .series-thumb-image-placeholder {
+  color: var(--pacs-chrome-text-dim);
+}
+
+.pacs-series-rail .series-thumb:hover {
+  background: var(--pacs-chrome-hover);
+  border-color: var(--pacs-chrome-border);
+}
+
+.pacs-series-rail .series-thumb-image {
+  background: #000;
+}
+
+/* Active series keeps the theme-blue accent on the dark rail */
+.pacs-series-rail .series-thumb[data-active="true"] {
+  border-color: var(--emr-accent);
+  background: var(--emr-accent-alpha-15);
+}
+
+.pacs-right-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---- Viewport Grid ---- */
+
+.pacs-viewport-grid {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  background: var(--emr-bg-card);
+  min-height: 0;
+}
+
+/* Layout presets */
+.pacs-viewport-grid[data-layout="1x1"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.pacs-viewport-grid[data-layout="1x2"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+.pacs-viewport-grid[data-layout="2x1"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.pacs-viewport-grid[data-layout="2x2"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+/* Mammography screening 4-up — a 2×2 STACK grid filled row-major:
+   LCC (top-left) / RCC (top-right) / LMLO (bottom-left) / RMLO (bottom-right).
+   Right-breast panes are mirrored in code (not CSS) so the two chest walls meet
+   in the middle. See services/pacs/mammoLayout.ts. */
+.pacs-viewport-grid[data-layout="mammo-4up"] {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.pacs-viewport-grid[data-layout="1x3-mpr"] {
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* Single ORTHOGRAPHIC axial — same shape as 1x1, distinct data-layout so the
+   render branch detects "use volume-backed pane" instead of stack. */
+.pacs-viewport-grid[data-layout="1x1-axial"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* Solo 3D VR — same single-pane shape as 1x1, distinct data-layout so the 3D
+   toggle's layout change is visible to the render-reconciliation effect. */
+.pacs-viewport-grid[data-layout="1x1-3d"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+/* 3 MPR (stacked left column) + 1 VR (large right pane) — 3mensio-grade
+   planning layout. The narrow left column holds vp0/1/2 (axial/sagittal/
+   coronal MPR) stacked vertically; vp3 (VR) spans all 3 rows on the right
+   and gets ~78% of the width so the 3D model has real estate to navigate.
+   minmax(220px, 30%) floors the MPR column at a readable width on narrow
+   laptops without growing past 30% of viewport on big displays (VR keeps ~70%). */
+.pacs-viewport-grid[data-layout="2x2-mpr-vr"] {
+  grid-template-columns: minmax(220px, 30%) 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+}
+.pacs-viewport-grid[data-layout="2x2-mpr-vr"] .pacs-viewport-cell:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1;
+}
+.pacs-viewport-grid[data-layout="2x2-mpr-vr"] .pacs-viewport-cell:nth-child(2) {
+  grid-column: 1;
+  grid-row: 2;
+}
+.pacs-viewport-grid[data-layout="2x2-mpr-vr"] .pacs-viewport-cell:nth-child(3) {
+  grid-column: 1;
+  grid-row: 3;
+}
+.pacs-viewport-grid[data-layout="2x2-mpr-vr"] .pacs-viewport-cell:nth-child(4) {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+/* ---- Single Viewport Cell ---- */
+
+.pacs-viewport-cell {
+  position: relative;
+  overflow: hidden;
+  /* Direct wrapper around the Cornerstone3D canvas — must stay dark in both modes. */
+  background: #000;
+  border: 1px solid transparent;
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+}
+
+.pacs-viewport-cell[data-active="true"] {
+  border-color: var(--emr-accent);
+}
+
+/* Push bottom overlay text above the CineControls bar on multi-frame images */
+/* CineControls bar is ~52px tall (4px padding + 32px buttons + 4px padding + borders) */
+.pacs-viewport-cell[data-cine-active="true"] .viewport-overlay-bl,
+.pacs-viewport-cell[data-cine-active="true"] .viewport-overlay-br {
+  bottom: 56px;
+}
+
+/* The div where Cornerstone3D renders */
+.pacs-viewport-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Viewport Overlay (patient info, series label) ---- */
+
+.pacs-viewport-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  /* Overlay text sits on dark image pixels — must stay light in both modes. */
+  color: var(--emr-pacs-viewport-overlay-text);
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  line-height: 1.4;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+
+.pacs-viewport-overlay-br {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  /* Overlay text sits on dark image pixels — must stay light in both modes. */
+  color: var(--emr-pacs-viewport-overlay-text);
+  font-size: var(--emr-font-xs);
+  font-family: monospace;
+  line-height: 1.4;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+  text-align: right;
+}
+
+/* ---- Loading / Error States ---- */
+
+.pacs-viewer-loading,
+.pacs-viewer-error,
+.pacs-viewer-no-webgl {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+  /* Overlay fills the dark viewport area — must stay dark in both modes. */
+  background: #000;
+}
+
+.pacs-viewer-loading {
+  /* Light text on dark loading overlay — see above. */
+  color: #ccc;
+}
+
+.pacs-viewer-error {
+  color: var(--emr-error);
+}
+
+.pacs-viewer-no-webgl {
+  color: var(--emr-warning);
+}
+
+.pacs-viewer-error-text,
+.pacs-viewer-no-webgl-text {
+  font-size: var(--emr-font-sm);
+  text-align: center;
+  max-width: 400px;
+  padding: 0 16px;
+}
+
+/* ---- (Legacy combined toolbar — removed, controls now in left sidebar) ---- */
+
+/* ---- Calibration warning banner ---- */
+
+.pacs-calibration-banner {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--emr-warning-alpha-10);
+  color: var(--emr-warning);
+  flex-shrink: 0;
+}
+
+/* ---- Content wrapper (viewport grid + optional side panel) ---- */
+
+.pacs-viewer-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.pacs-viewer-content > .pacs-viewport-grid {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Measurement side panel ---- */
+
+.pacs-measurements-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: var(--emr-bg-card);
+  border-left: 1px solid var(--emr-border-color);
+  padding: 4px;
+}
+
+@media (max-width: 576px) {
+  .pacs-measurements-sidebar {
+    width: 220px;
+  }
+}
+
+/* ---- (Legacy sidebar actions — removed; actions now live in .pacs-topbar) ---- */
+
+.pacs-viewer-measurements-btn[data-active="true"] {
+  color: var(--emr-accent);
+}
+
+/* ---- Segmentation side panel (collapsible with smooth transition) ---- */
+
+.pacs-segmentation-sidebar {
+  width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--emr-bg-card);
+  border-left: 0 solid var(--emr-border-color);
+  transition: width 0.25s ease, border-left-width 0.25s ease;
+}
+
+.pacs-segmentation-sidebar.open {
+  width: 300px;
+  border-left-width: 1px;
+}
+
+@media (max-width: 768px) {
+  /* On mobile, overlay instead of side-by-side */
+  .pacs-segmentation-sidebar.open {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 15;
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Legacy close button class (kept for non-ready states) */
+.pacs-viewer-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 20;
+}

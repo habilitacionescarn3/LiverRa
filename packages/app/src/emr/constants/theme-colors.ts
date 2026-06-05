@@ -250,9 +250,36 @@ export const FORBIDDEN_TO_CORRECT: Record<string, string> = {
 };
 
 // =============================================================================
+// STENOSIS SEVERITY COLORS (PACS cardiology — ACC/AHA tiers)
+// =============================================================================
+
+/**
+ * Stenosis severity badge colors used by the StenosisTool results panel.
+ * Rendered on the dark PACS reading-room surface, so literal values are
+ * intentional (clinical severity semantics, not theme surfaces):
+ *   - color: badge text color
+ *   - bgColor: background color indicating severity
+ */
+export const STENOSIS_SEVERITY_COLORS = {
+  /** 0–24% stenosis — minimal narrowing */
+  minimal: { color: '#ffffff', bgColor: '#16a34a' },
+  /** 25–49% stenosis — mild narrowing */
+  mild: { color: '#1a1a2e', bgColor: '#eab308' },
+  /** 50–69% stenosis — moderate narrowing */
+  moderate: { color: '#1a1a2e', bgColor: '#f97316' },
+  /** 70–89% stenosis — severe narrowing */
+  severe: { color: '#ffffff', bgColor: '#dc2626' },
+  /** 90–99% stenosis — critical narrowing */
+  critical: { color: '#ffffff', bgColor: '#991b1b' },
+  /** 100% stenosis — total occlusion */
+  occlusion: { color: '#ffffff', bgColor: '#1a1a2e' },
+} as const;
+
+// =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
+export type StenosisSeverity = keyof typeof STENOSIS_SEVERITY_COLORS;
 export type ThemeColor = keyof typeof THEME_COLORS;
 export type SemanticColor = keyof typeof SEMANTIC_COLORS;
 export type SurfaceColor = keyof typeof SURFACE_COLORS;

@@ -284,6 +284,27 @@ const DEIDENTIFICATION_METHOD_TAG = 'x00120063';
 const DEIDENTIFICATION_METHOD_VALUE = 'DICOM Supplement 142 Basic Profile';
 
 /**
+ * Tag-level anonymization is intentionally disabled for production use.
+ *
+ * A browser-side overwrite can clear common DICOM header fields, but it cannot
+ * safely remove every private tag, nested sequence, burned-in pixel label, or
+ * vendor-specific PHI field. Treat this as a local development utility only
+ * until a server-side DICOM de-identification pipeline is available.
+ * (Ported from MediMind — PACS-H2 safety gate.)
+ */
+interface AnonymizedExportEnv {
+  DEV?: boolean;
+  VITE_ENABLE_UNSAFE_DICOM_ANONYMIZED_EXPORT?: string;
+}
+
+export function isTagLevelAnonymizedExportEnabled(
+  // Typed via local narrow — this tsconfig doesn't load vite/client.
+  env: AnonymizedExportEnv = (import.meta as ImportMeta & { env?: AnonymizedExportEnv }).env ?? {}
+): boolean {
+  return env.DEV === true && env.VITE_ENABLE_UNSAFE_DICOM_ANONYMIZED_EXPORT === 'true';
+}
+
+/**
  * Anonymize a DICOM file by stripping/replacing PHI tags in-place.
  * Returns a new ArrayBuffer with PHI tags cleared/replaced.
  */
@@ -333,6 +354,14 @@ export function downloadAnonymizedDicom(
   studyInstanceUID: string,
   dicomArrayBuffer: ArrayBuffer
 ): void {
+  // PACS-H2 (ported from MediMind): tag-level anonymization is dev-only —
+  // fail loud rather than ship a false sense of de-identification.
+  if (!isTagLevelAnonymizedExportEnabled()) {
+    throw new Error(
+      'Anonymized DICOM export is disabled until server-side DICOM de-identification is available.'
+    );
+  }
+
   const anonymized = anonymizeDicom(dicomArrayBuffer);
   const blob = new Blob([anonymized], { type: 'application/dicom' });
   const url = URL.createObjectURL(blob);

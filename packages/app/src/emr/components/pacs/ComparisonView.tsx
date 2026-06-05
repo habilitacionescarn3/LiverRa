@@ -48,6 +48,7 @@ import {
   getOrCreateRenderingEngine,
   getOrCreateToolGroup,
   activateToolOnGroup,
+  RENDERING_ENGINE_ID,
 } from '../../services/pacs/cornerstoneInit';
 import { useDicomWebClient } from '../../hooks/useDicomWebClient';
 import type { DicomWebClientHandle } from '../../services/pacs/dicomwebClient';
@@ -78,7 +79,8 @@ export interface ComparisonViewProps {
  * LiverRa's rendering-engine id (see `services/pacs/cornerstoneInit.ts`).
  * Must match or synchronizers won't find the viewports.
  */
-const RENDERING_ENGINE_ID = 'liverra-pacs-engine';
+// RENDERING_ENGINE_ID now imported from cornerstoneInit (R2: a local
+// literal silently desyncs if the canonical id ever changes).
 
 const SERIES_INSTANCE_UID_TAG = '0020000E';
 const SOP_INSTANCE_UID_TAG = '00080018';

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright LiverRa
+// SPDX-FileCopyrightText: Copyright LiverRa (ported from MediMind, original Orangebot/Medplum)
 // SPDX-License-Identifier: Apache-2.0
 
 // ============================================================================
@@ -14,11 +14,10 @@
 // - Refs for mutable state accessed inside the rAF callback to avoid stale closures
 // - Cancels rAF on unmount to prevent memory leaks
 // - Frame numbers are 0-based internally, displayed as 1-based in the UI
-//
-// Ported from MediMind (hooks/pacs/useCinePlayback.ts). No Medplum dependency.
 // ============================================================================
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { hasWebVideoEncoder } from '../../services/pacs/cornerstoneGlobals';
 
 // ============================================================================
 // Types
@@ -52,8 +51,8 @@ export interface UseCinePlaybackReturn {
   playbackMode: PlaybackMode;
   /** Current speed multiplier preset */
   speedMultiplier: SpeedMultiplier;
-  /** Native frame rate detected from DICOM metadata (or DEFAULT_FPS) */
-  nativeFrameRate: number;
+  /** Native frame rate detected from DICOM metadata; undefined when timing is unknown */
+  nativeFrameRate?: number;
   /** Whether video export is in progress */
   isExporting: boolean;
   /** Export progress percentage (0-100) */
@@ -81,7 +80,7 @@ export interface UseCinePlaybackReturn {
   /** Set the speed multiplier preset (0.25x to 4x) */
   setSpeedMultiplier: (multiplier: SpeedMultiplier) => void;
   /** Set the native frame rate (typically from detectNativeFps) */
-  setNativeFrameRate: (fps: number) => void;
+  setNativeFrameRate: (fps: number | undefined) => void;
   /** Export cine frames as an MP4 video using WebCodecs + mp4-muxer */
   exportVideo: (renderFrame: RenderFrameCallback) => Promise<void>;
 }
@@ -93,8 +92,51 @@ export interface UseCinePlaybackReturn {
 export const DEFAULT_FPS = 15;
 export const MIN_FPS = 1;
 export const MAX_FPS = 60;
-/** Absolute upper bound for DICOM-derived FPS — prevents absurd values */
-export const CLAMP_MAX_FPS = 120;
+
+/**
+ * Detect mobile or low-memory devices that should not run cine at 60+ fps.
+ * Triggered when the userAgent matches mobile, deviceMemory <= 4, or the user
+ * has requested reduced motion (`prefers-reduced-motion: reduce`). Used to
+ * clamp the upper FPS bound so devices don't thermal-throttle (PACS-B4).
+ */
+export function isLowPowerDevice(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
+  const lowMemory = typeof memory === 'number' && memory <= 4;
+  let reducedMotion = false;
+  try {
+    reducedMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  } catch (err) {
+    console.warn('[useCinePlayback] reduced-motion media query failed:', err);
+  }
+  return isMobile || lowMemory || reducedMotion;
+}
+
+/**
+ * Returns true when the user has explicitly requested reduced motion.
+ * Cine playback should default to paused in this case (PACS-B4).
+ */
+export function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  } catch (err) {
+    console.warn('[useCinePlayback] reduced-motion check failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Absolute upper bound for DICOM-derived FPS.
+ * - Desktop / high-power devices: 120 fps
+ * - Mobile / deviceMemory ≤ 4 GB / prefers-reduced-motion: 30 fps (PACS-B4)
+ *
+ * Capping on low-power devices prevents thermal throttling and battery drain
+ * (Snapdragon 7-series mid-range devices hit ~12 W under sustained 60 fps cine).
+ */
+export const CLAMP_MAX_FPS = isLowPowerDevice() ? 30 : 120;
 
 /**
  * Whether the browser supports WebCodecs VideoEncoder.
@@ -102,7 +144,7 @@ export const CLAMP_MAX_FPS = 120;
  * button rather than crashing or showing errors.
  */
 export const isWebCodecsSupported: boolean =
-  typeof window !== 'undefined' && typeof (window as Record<string, unknown>).VideoEncoder === 'function';
+  hasWebVideoEncoder();
 
 // ============================================================================
 // DICOM FrameTime Detection
@@ -114,31 +156,55 @@ export const isWebCodecsSupported: boolean =
  * Priority:
  * 1. FrameTime (0018,1063) — milliseconds per frame → fps = 1000 / FrameTime
  * 2. RecommendedDisplayFrameRate (0008,2144) — direct fps value
- * 3. Falls back to DEFAULT_FPS (15) when no tags are present.
+ * 3. CineRate (0018,0040) — direct fps value
+ * 4. ActualFrameDuration (0018,1242) — microseconds per frame
+ * 5. FrameTimeVector (0018,1065) — milliseconds per frame, averaged
+ * 6. Returns undefined when no timing tags are present.
  *
  * Result is clamped between MIN_FPS and CLAMP_MAX_FPS.
  *
  * @param getMetaValue - A function that reads a DICOM tag value by keyword.
  *   Typically wraps cornerstone metaData.get('dicomTag', imageId).
+ * @returns Native FPS when timing metadata exists; undefined when timing is unknown.
  */
 export function detectNativeFps(
-  getMetaValue: (keyword: string) => number | undefined
-): number {
+  getMetaValue: (keyword: string) => number | number[] | undefined
+): number | undefined {
   // Try FrameTime first (ms per frame)
   const frameTime = getMetaValue('FrameTime');
-  if (frameTime !== undefined && frameTime > 0) {
+  if (typeof frameTime === 'number' && frameTime > 0) {
     const fps = 1000 / frameTime;
     return Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, Math.round(fps * 100) / 100));
   }
 
   // Try RecommendedDisplayFrameRate (direct fps)
   const recommendedRate = getMetaValue('RecommendedDisplayFrameRate');
-  if (recommendedRate !== undefined && recommendedRate > 0) {
+  if (typeof recommendedRate === 'number' && recommendedRate > 0) {
     return Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, recommendedRate));
   }
 
-  // Default
-  return DEFAULT_FPS;
+  const cineRate = getMetaValue('CineRate');
+  if (typeof cineRate === 'number' && cineRate > 0) {
+    return Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, cineRate));
+  }
+
+  const actualFrameDuration = getMetaValue('ActualFrameDuration');
+  if (typeof actualFrameDuration === 'number' && actualFrameDuration > 0) {
+    const fps = 1_000_000 / actualFrameDuration;
+    return Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, Math.round(fps * 100) / 100));
+  }
+
+  const frameTimeVector = getMetaValue('FrameTimeVector');
+  if (Array.isArray(frameTimeVector)) {
+    const positiveTimes = frameTimeVector.filter((value) => value > 0);
+    if (positiveTimes.length > 0) {
+      const averageFrameTime = positiveTimes.reduce((sum, value) => sum + value, 0) / positiveTimes.length;
+      const fps = 1000 / averageFrameTime;
+      return Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, Math.round(fps * 100) / 100));
+    }
+  }
+
+  return undefined;
 }
 
 // ============================================================================
@@ -152,7 +218,7 @@ export function useCinePlayback(): UseCinePlaybackReturn {
   const [fps, setFpsState] = useState(DEFAULT_FPS);
   const [playbackMode, setPlaybackModeState] = useState<PlaybackMode>('forward');
   const [speedMultiplier, setSpeedMultiplierState] = useState<SpeedMultiplier>(1);
-  const [nativeFrameRate, setNativeFrameRateState] = useState(DEFAULT_FPS);
+  const [nativeFrameRate, setNativeFrameRateState] = useState<number | undefined>(undefined);
 
   // Refs to access current values inside the interval callback
   // without causing stale closures (the interval is set once and reads refs)
@@ -174,7 +240,7 @@ export function useCinePlayback(): UseCinePlaybackReturn {
   const speedMultiplierRef = useRef(speedMultiplier);
   speedMultiplierRef.current = speedMultiplier;
 
-  const nativeFrameRateRef = useRef(nativeFrameRate);
+  const nativeFrameRateRef = useRef<number | undefined>(nativeFrameRate);
   nativeFrameRateRef.current = nativeFrameRate;
 
   // rAF-based playback: stores the animation frame ID for cancellation
@@ -201,7 +267,7 @@ export function useCinePlayback(): UseCinePlaybackReturn {
 
     const tick = (now: number): void => {
       // Calculate how much time has passed since the last frame advance
-      const baseInterval = 1000 / nativeFrameRateRef.current;
+      const baseInterval = 1000 / (nativeFrameRateRef.current ?? fpsRef.current);
       const effectiveInterval = baseInterval / speedMultiplierRef.current;
       const elapsed = now - lastFrameTimeRef.current;
 
@@ -253,6 +319,12 @@ export function useCinePlayback(): UseCinePlaybackReturn {
     if (totalFramesRef.current <= 1) {
       return; // No point playing a single-frame image
     }
+    // PACS-B4: honour `prefers-reduced-motion: reduce` — never auto-start
+    // playback for users who have requested reduced motion. They can still
+    // step frame-by-frame manually.
+    if (prefersReducedMotion()) {
+      return;
+    }
     setIsPlaying(true);
     startTimer();
   }, [startTimer]);
@@ -301,9 +373,9 @@ export function useCinePlayback(): UseCinePlaybackReturn {
       const clamped = Math.max(MIN_FPS, Math.min(MAX_FPS, newFps));
       setFpsState(clamped);
       fpsRef.current = clamped;
-      // When user manually sets fps, also update native frame rate base
-      setNativeFrameRateState(clamped);
-      nativeFrameRateRef.current = clamped;
+      // Manual FPS is a playback override, not DICOM native timing.
+      setNativeFrameRateState(undefined);
+      nativeFrameRateRef.current = undefined;
 
       // If currently playing, restart the timer with the new speed
       if (rafIdRef.current !== null) {
@@ -345,7 +417,12 @@ export function useCinePlayback(): UseCinePlaybackReturn {
   );
 
   const setNativeFrameRate = useCallback(
-    (newFps: number) => {
+    (newFps: number | undefined) => {
+      if (newFps === undefined) {
+        setNativeFrameRateState(undefined);
+        nativeFrameRateRef.current = undefined;
+        return;
+      }
       const clamped = Math.max(MIN_FPS, Math.min(CLAMP_MAX_FPS, newFps));
       setNativeFrameRateState(clamped);
       nativeFrameRateRef.current = clamped;
@@ -387,6 +464,16 @@ export function useCinePlayback(): UseCinePlaybackReturn {
   // --------------------------------------------------------------------------
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  // PACS-M10: track mounted state so unmount-during-export aborts the encode
+  // loop and prevents calling `setIsExporting`/`setExportProgress` on a
+  // disposed component.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   /**
    * Export all cine frames as an MP4 video.
@@ -421,7 +508,7 @@ export function useCinePlayback(): UseCinePlaybackReturn {
         const { Muxer, ArrayBufferTarget } = await import('mp4-muxer');
 
         const total = totalFramesRef.current;
-        const exportFps = nativeFrameRateRef.current;
+        const exportFps = nativeFrameRateRef.current ?? fpsRef.current;
 
         // Render the first frame to determine canvas dimensions
         const firstCanvas = await renderFrame(0);
@@ -467,6 +554,13 @@ export function useCinePlayback(): UseCinePlaybackReturn {
 
         // Encode each frame
         for (let i = 0; i < total; i++) {
+          // PACS-M10: bail out of the encode loop if the component unmounted.
+          if (!mountedRef.current) {
+            try { encoder.close(); } catch (err) {
+              console.warn('[useCinePlayback] best-effort PACS operation failed:', err);
+            }
+            return;
+          }
           const canvas = await renderFrame(i);
 
           // Create a VideoFrame from the canvas (timestamp in microseconds)
@@ -479,7 +573,9 @@ export function useCinePlayback(): UseCinePlaybackReturn {
           frame.close();
 
           // Update progress
-          setExportProgress(Math.round(((i + 1) / total) * 100));
+          if (mountedRef.current) {
+            setExportProgress(Math.round(((i + 1) / total) * 100));
+          }
         }
 
         // Flush remaining frames and finalize
@@ -504,8 +600,11 @@ export function useCinePlayback(): UseCinePlaybackReturn {
       } catch (err) {
         console.warn('Video export failed:', err);
       } finally {
-        setIsExporting(false);
-        setExportProgress(0);
+        // PACS-M10: only update state if still mounted.
+        if (mountedRef.current) {
+          setIsExporting(false);
+          setExportProgress(0);
+        }
       }
     },
     [isExporting, pause]
